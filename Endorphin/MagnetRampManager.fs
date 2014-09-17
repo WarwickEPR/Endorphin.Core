@@ -268,9 +268,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
             
             // run the asyncRamp computation expression, and ignore exceptions due to cancellation
             try Async.RunSynchronously(asyncRamp ramp rampStatus, -1, rampCts.Token)
-            with 
-            | :? OperationCanceledException -> ()
-            | _ as ex -> printfn "%A" ex
+            with :? OperationCanceledException -> ()
 
             // return to the waiting state
             printfn "Going back to the waiting state!"
