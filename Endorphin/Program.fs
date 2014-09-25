@@ -6,12 +6,15 @@ open NationalInstruments.VisaNS
 open MagnetController
 open MagnetRampManager
 open System
+open System.Linq
 open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Threading
+open System.Collections.Generic
+open PicoScopeDriver
 
-[<EntryPoint>]
-let main argv = 
+
+(* let magnetControllerTest =
     printfn "Magnet controller example."
     // start a VISA session to the magnet controller's instrument address, obtained from App.config
     use session = 
@@ -54,6 +57,41 @@ let main argv =
     use cancelOnReturn = Observable.Amb(didFinish, didNotFinish)
                          |> Observable.subscribe (fun finished -> if finished = false then rampManager.Post(CancelRamp(true)))
 
+    Console.ReadLine() |> ignore *)
+
+type PicoScope5000 with
+    member self.runStreaming streamDataFunc streamFinishedFunc =
+        self.RunStreaming(StreamData(streamDataFunc), StreamFinished(streamFinishedFunc))
+
+let picoscopeTest =
+    // find all connected PicoScopes
+    let connectedPicos = PicoScope5000.GetConnectedUnitSerials()
+    if connectedPicos.Length = 0 then failwith "No PicoScopes found."
+
+    // connect to the first available one
+    use pico = new PicoScope5000(connectedPicos.First())
+    // print device details
+    let info = pico.GetUnitInfo()
+    for detail in info do
+        printfn "%A" detail
+
+    printfn "Press enter to start streaming..."
     Console.ReadLine() |> ignore
+
+    printfn "Press enter to stop streaming..."
+    let stream = 
+        pico.runStreaming
+        <| fun _ numberOfSamples _ _ -> // latest values
+            printfn "New lines of data: %d" numberOfSamples
+        <| fun didAutoStop -> // stream finished
+            printfn "Stopped streaming %s" (if didAutoStop then "automatically" else "manually")
+
+    Console.ReadLine() |> ignore // wait for enter key
+    stream.Stop()
     
-    0 // return an integer exit code
+    Console.ReadLine() |> ignore
+
+[<EntryPoint>]
+let main argv = 
+    picoscopeTest
+    0

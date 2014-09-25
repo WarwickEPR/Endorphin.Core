@@ -3,6 +3,7 @@
 open System
 open NationalInstruments.VisaNS
 open System.Text.RegularExpressions
+open System.Threading
 
 let readFromSession (session : MessageBasedSession) =
     Async.FromBeginEnd(
@@ -16,8 +17,8 @@ let writeToSesiion (session : MessageBasedSession) message =
 
 let querySession (session : MessageBasedSession) message =
     async {
-        do! writeToSesiion session message 
-        return! readFromSession session }
+        Async.RunSynchronously((writeToSesiion session message), -1, CancellationToken.None)
+        return Async.RunSynchronously((readFromSession session), -1, CancellationToken.None) }
 
 let (|ParseRegex|_|) regex str =
     let m = Regex(regex).Match(str)
