@@ -1,5 +1,6 @@
 ﻿module MagnetRampManager
 
+open Units
 open Microsoft.FSharp.Control
 open MagnetController
 open System
@@ -14,11 +15,11 @@ open FSharp.Control.Observable
 /// </summary>
 type Ramp = 
     { /// <summary>Signed starting current for the ramp in A.</summary>
-      startingCurrent : float // in A signed
+      startingCurrent : float<A> // in A signed
       /// <summary>Signed final current for the ramp in A.</summary>
-      finalCurrent : float // in A, signed
+      finalCurrent : float<A> // in A, signed
       /// <summary>Signed ramp rate for the ramp in A/s.</summary>
-      rampRate : float // in A/s
+      rampRate : float<A/s> // in A/s
       /// <summary>Indicates whether the ramp should return to zero once the ramp is finished.</summary>
       returnToZero : bool
       /// <summary>
@@ -62,8 +63,8 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         /// <param name="current">The signed current value.</param>
         let currentDirection current =
             match current with
-            | c when c > 0.0 -> Forward
-            | c when c < 0.0 -> Reverse
+            | c when c > 0.0<A> -> Forward
+            | c when c < 0.0<A> -> Reverse
             | _ -> failwith "Magnet controller direction for zero current is arbitrary."
         
         /// <summary>
@@ -73,7 +74,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         let startingCurrentDirection ramp = 
             match (ramp.startingCurrent, ramp.finalCurrent) with
             | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-            | (0.0, f) -> currentDirection f
+            | (0.0<A>, f) -> currentDirection f
             | (s, _) -> currentDirection s
         
         /// <summary>
@@ -83,7 +84,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         let finalCurrentDirection ramp =
             match (ramp.startingCurrent, ramp.finalCurrent) with
             | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-            | (s, 0.0) -> currentDirection s
+            | (s, 0.0<A>) -> currentDirection s
             | (_, f) -> currentDirection f
 
         /// <summary>
@@ -105,7 +106,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         /// <param name="ramp">The ramp.</param>
         let startingRampTarget ramp =
             match (abs ramp.startingCurrent, abs ramp.finalCurrent) with
-            | (0.0, _) -> Zero
+            | (0.0<A>, _) -> Zero
             | (s, f) when s <= f -> Lower
             | _ -> Upper
 
@@ -116,7 +117,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         /// <param name="ramp">The ramp.</param>
         let finalRampTarget ramp = 
             match (abs ramp.startingCurrent, abs ramp.finalCurrent) with
-            | (_, 0.0) -> Zero
+            | (_, 0.0<A>) -> Zero
             | (s, f) when f >= s -> Upper
             | _ -> Lower
         

@@ -1,5 +1,7 @@
 #pragma once
 
+using namespace System;
+
 namespace PicoScopeDriver {
 	public enum class Channel : int {
 		A,
@@ -25,6 +27,24 @@ namespace PicoScopeDriver {
 		_20V,
 		_50V,
 	};
+
+	float RangeInMillivolts(Range range) {
+		switch (range) {
+		case Range::_10mV: return 10.0;
+		case Range::_20mV: return 20.0;
+		case Range::_50mV: return 50.0;
+		case Range::_100mV: return 100.0;
+		case Range::_200mV: return 200.0;
+		case Range::_500mV: return 500.0;
+		case Range::_1V: return 1000.0;
+		case Range::_2V: return 2000.0;
+		case Range::_5V: return 5000.0;
+		case Range::_10V: return 1.0e4;
+		case Range::_20V: return 2.0e4;
+		case Range::_50V: return 5.0e4;
+		}
+		throw gcnew Exception("Unexpected range.");
+	}
 
 	public enum class Resolution : int {
 		_8bit,
@@ -98,11 +118,6 @@ namespace PicoScopeDriver {
 		None = Rising,
 	};
 
-	public enum class DownSamplingMode : int {
-		None,
-		Aggregate
-	};
-
 	public enum class PulseWidthType : int {
 		None,
 		LessThan,
@@ -116,33 +131,21 @@ namespace PicoScopeDriver {
 		AC
 	};
 
-	public enum class RatioMode : int {
+	public enum class Downsampling : int {
 		None = 0,
 		Aggregate = 1,
-		Decimate = 2,
-		Average = 4,
+		Decimated = 2,
+		Averaged = 4,
 		Distribution = 8
+	};
+
+	public ref struct ChannelView {
+		Channel channel;
+		Downsampling mode;
 	};
 
 	public enum class BandwidthLimit : int {
 		Full = 0,
 		_20MHz = 1
-	};
-
-	public ref struct ChannelSettings {
-		bool enabled = true;
-		Coupling coupling = Coupling::DC;
-		Range range = Range::_5V;
-		float analogueOffset = 0.0;
-
-		static ChannelSettings^ DefaultEnabled() {
-			return gcnew ChannelSettings();
-		}
-
-		static ChannelSettings^ DefaultDisabled() {
-			auto channelSettings = gcnew ChannelSettings();
-			channelSettings->enabled = false;
-			return channelSettings;
-		}
 	};
 }	

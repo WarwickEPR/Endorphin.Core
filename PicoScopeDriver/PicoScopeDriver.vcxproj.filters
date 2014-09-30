@@ -39,6 +39,9 @@
     <ClInclude Include="StreamingAcquisition.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="IInt16BufferHandle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PicoScopeDriver.cpp">

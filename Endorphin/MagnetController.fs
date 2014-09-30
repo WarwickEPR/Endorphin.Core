@@ -1,5 +1,6 @@
 ﻿module MagnetController
 
+open Units
 open Utils
 open Microsoft.FSharp.Control
 open NationalInstruments.VisaNS
@@ -25,9 +26,9 @@ type RampTarget =
 /// </summary>
 type OutputParameters = 
     { /// <summary>Magnet controller output current in A.</summary>
-      outputCurrent : float
+      outputCurrent : float<A>
       /// <summary>Magnet controller output voltage in V.</summary>
-      outputVoltage : float
+      outputVoltage : float<V>
       /// <summary>Magnet controller ramp target.</summary>
       rampTarget : RampTarget }
 
@@ -46,7 +47,7 @@ type CurrentParameters =
 /// are requested.</summary>
 type OperatingParameters = 
     { /// <summary>Magnet controller ramp rate in A/s.</summary>
-      rampRate : float
+      rampRate : float<A/s>
       /// <summary>Magnet controller current direction.</summary>
       currentDirection : CurrentDirection }
 
@@ -55,11 +56,11 @@ type OperatingParameters =
 /// </summary>
 type SetPointParameters = 
     { /// <summary>Magnet controller lower current limit in A.</summary>
-      lowerLimit : float
+      lowerLimit : float<A>
       /// <summary>Magnet controller upper current limit in A.</summary>
-      upperLimit : float
+      upperLimit : float<A>
       /// <summary>Magnet controller trip voltage in V.</summary>
-      tripVoltage : float }
+      tripVoltage : float<V> }
 
 /// <summary>
 /// Record type representing the complete magnet controller state at a given time.
@@ -80,11 +81,11 @@ type Command =
     | GetCurrentParameters of AsyncReplyChannel<CurrentParameters>
     | GetOperatingParameters of AsyncReplyChannel<OperatingParameters>
     | GetSetPointParameters of AsyncReplyChannel<SetPointParameters>
-    | SetRampRate of float /// in A/s
-    | SetTripVoltage of float // in V
+    | SetRampRate of float<A/s> /// in A/s
+    | SetTripVoltage of float<V> // in V
     | SetCurrentDirection of CurrentDirection
-    | SetLowerSetPoint of float // in A
-    | SetUpperSetPoint of float // in A
+    | SetLowerSetPoint of float<A> // in A
+    | SetUpperSetPoint of float<A> // in A
     | SetRampTarget of RampTarget
     | SetPause of bool
 
@@ -92,7 +93,7 @@ type Command =
 /// Sets the maximum ramp rate on the magnet controller.
 /// </summary>
 /// <param name="magnetController">The magnet controller.</param>
-let setMaximumRampRate (magnetController : MailboxProcessor<Command>) = magnetController.Post <| SetRampRate(0.1)
+let setMaximumRampRate (magnetController : MailboxProcessor<Command>) = magnetController.Post <| SetRampRate(ampsPerSecond 0.1)
 
 /// <summary>
 /// Returns an asynchronous computation which recursively checks whether the magnet controller has
@@ -112,7 +113,7 @@ let rec waitToReachTarget (magnetController : MailboxProcessor<Command>) = async
 /// <param name="magnetController">The magnet controller.</param>
 let rec prepareToFlipCurrentDirection (magnetController : MailboxProcessor<Command>) = async {
     let! outputParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetOutputParameters(replyChannel))
-    if not (outputParams.outputCurrent = 0.0) then do! prepareToFlipCurrentDirection magnetController }
+    if not (outputParams.outputCurrent = 0.0<A>) then do! prepareToFlipCurrentDirection magnetController }
 
 /// <summary>
 /// Returns an asynchronous computation which ramps the magnet controller to zero current but does not
@@ -196,8 +197,8 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             let regex = @"\GI([\+\-]\d{3}\.\d{3})V([\+\-]\d{2}.\d)R([012])[AV]\s$"
             match response with
             | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
-                { outputCurrent = i
-                  outputVoltage = v
+                { outputCurrent = amps i
+                  outputVoltage = volts v
                   rampTarget = r }
             | _ -> failwith "Invalid magnet controller output parameter string"
         
@@ -231,7 +232,7 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             let regex = @"\GA(\d{2}\.\d{5})D([01])T[01]B[01]W\d{3}\.C0\.\d{6}\s$"
             match response with
             | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
-                { rampRate = a 
+                { rampRate = ampsPerSecond a
                   currentDirection = d }
             | _ -> failwith "Invalid magnet controller operating parameter string"
         
@@ -247,9 +248,9 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             let regex = @"\GT[01]U(\d{3}\.\d{3})L(\d{3}\.\d{3})Y(\d{2}\.\d)\s$"
             match response with
             | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->
-                { lowerLimit = l 
-                  upperLimit = u
-                  tripVoltage = y }
+                { lowerLimit = amps l 
+                  upperLimit = amps u
+                  tripVoltage = volts y }
             | _ -> failwith "Invalid magnet controller set point parameter string"
         
         /// <summary>
@@ -262,14 +263,14 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             | GetCurrentParameters(_) -> "K"
             | GetOperatingParameters(_) -> "O"
             | GetSetPointParameters(_) -> "S"
-            | SetRampRate(rate) -> rate |> sprintf "A%08.5f"
-            | SetTripVoltage(voltage) -> voltage |> sprintf "Y%04.1f"
+            | SetRampRate(rate) -> (float rate) |> sprintf "A%08.5f"
+            | SetTripVoltage(voltage) -> (float voltage) |> sprintf "Y%04.1f"
             | SetCurrentDirection(direction) -> 
                 match direction with
                 | Forward -> "D0"
                 | Reverse -> "D1"
-            | SetLowerSetPoint(lower) -> lower |> sprintf "L%07.3f"
-            | SetUpperSetPoint(upper) -> upper |> sprintf "U%07.3f"
+            | SetLowerSetPoint(lower) -> (float lower) |> sprintf "L%07.3f"
+            | SetUpperSetPoint(upper) -> (float upper) |> sprintf "U%07.3f"
             | SetRampTarget(target) -> 
                 match target with
                 | Zero -> "R0"

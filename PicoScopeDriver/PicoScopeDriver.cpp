@@ -7,28 +7,7 @@
 using namespace PicoScopeDriver;
 using namespace Runtime::InteropServices;
 
-void PicoScope5000::CheckStatus(PicoStatus status) {
-	if (status != PicoStatus::Ok && status != PicoStatus::PowerSupplyNotConnected) {
-		throw gcnew PicoException(status);
-	}
-}
-
-bool PicoScope5000::CheckChannelSettingsForResolution(Resolution resolution) {
-	return GetEnabledChannelCount() <= GetMaximumChannelsForResolution(resolution);
-}
-
-void PicoScope5000::SetDefaultChannelSettings(Resolution resolution) {
-	int enabledCount = GetMaximumChannelsForResolution(resolution);
-	for (int i = (int)Channel::A; i <= (int)Channel::D; i++) {
-		auto channel = (Channel)i;
-		if (i <= enabledCount)	{ _channelSettings[channel] = ChannelSettings::DefaultEnabled(); }
-		else					{ _channelSettings[channel] = ChannelSettings::DefaultDisabled(); }
-
-		ps5000aSetChannel(_handle, (PS5000A_CHANNEL)i, _channelSettings[channel]->enabled, 
-			(PS5000A_COUPLING)_channelSettings[channel]->coupling, (PS5000A_RANGE)_channelSettings[channel]->range, 
-			_channelSettings[channel]->analogueOffset);
-	}
-}
+// Private members
 
 String^ PicoScope5000::GetUnitInfoValue(short handle, PicoInfo info) {
 	auto buffer = std::string(32, ' ');
@@ -44,12 +23,35 @@ String^ PicoScope5000::GetUnitInfoValue(short handle, PicoInfo info) {
 	return String(buffer.c_str()).TrimEnd(String(" ").ToCharArray());
 }
 
+// Internal members
+
+void PicoScope5000::CheckStatus(PicoStatus status) {
+	if (status != PicoStatus::Ok && status != PicoStatus::PowerSupplyNotConnected) {
+		throw gcnew PicoException(status);
+	}
+}
+
+// Static members
+
+array<String^>^ PicoScope5000::GetConnectedUnitSerials() {
+	short count;
+	short length = 32;
+	char buffer[32];
+	auto bufferCstr = const_cast<int8_t*> (reinterpret_cast<const int8_t*> (buffer));
+
+	auto status = (PicoStatus)ps5000aEnumerateUnits(&count, bufferCstr, &length);
+	CheckStatus(status);
+
+	auto results = gcnew String(buffer, 0, length);
+	return results->Split(String(",").ToCharArray());
+}
+
+// Constructors / destructor
+
 PicoScope5000::PicoScope5000(Resolution resolution) {
 	pin_ptr<short> pinnedHandle = &_handle;
-	auto status = (PicoStatus)ps5000aOpenUnit(pinnedHandle, (int8_t*)IntPtr::Zero.ToPointer(), (PS5000A_DEVICE_RESOLUTION)resolution);
+	auto status = (PicoStatus)ps5000aOpenUnit(pinnedHandle, NULL, (PS5000A_DEVICE_RESOLUTION)resolution);
 	CheckStatus(status);
-	
-	SetDefaultChannelSettings(resolution);
 }
 
 PicoScope5000::PicoScope5000(String^ serial, Resolution resolution) {
@@ -65,14 +67,14 @@ PicoScope5000::PicoScope5000(String^ serial, Resolution resolution) {
 		Marshal::FreeHGlobal(unmanagedSerial);
 	}
 	CheckStatus(status);
-
-	SetDefaultChannelSettings(resolution);
 }
 
 PicoScope5000::~PicoScope5000() {
 	auto status = (PicoStatus)ps5000aCloseUnit(_handle);
 	CheckStatus(status);
 }
+
+// Device information
 
 Dictionary<PicoInfo, String^>^ PicoScope5000::GetUnitInfo() {
 	auto results = gcnew Dictionary<PicoInfo, String^>();
@@ -83,20 +85,9 @@ Dictionary<PicoInfo, String^>^ PicoScope5000::GetUnitInfo() {
 	return results;
 }
 
-array<String^>^ PicoScope5000::GetConnectedUnitSerials() {
-	short count;
-	short length = 32;
-	auto buffer = std::string(' ', length);
-	auto bufferCstr = const_cast<int8_t*> (reinterpret_cast<const int8_t*> (buffer.c_str()));
-	
-	auto status = (PicoStatus) ps5000aEnumerateUnits(&count, bufferCstr, &length);
-	CheckStatus(status);
+// Device status
 
-	auto results = gcnew String(buffer.c_str(), 0, length);
-	return results->Split(String(",").ToCharArray());
-}
-
-bool PicoScope5000::GetUnitIsMainsPowered() {
+bool PicoScope5000::UnitIsMainsPowered::get() {
 	auto status = (PicoStatus)ps5000aCurrentPowerSource(_handle);
 	switch (status) {
 	case PicoStatus::PowerSupplyConnected:
@@ -108,23 +99,94 @@ bool PicoScope5000::GetUnitIsMainsPowered() {
 	}
 }
 
-void PicoScope5000::SetUnitIsMainsPowered(bool mainsPowered) {
+void PicoScope5000::UnitIsMainsPowered::set(bool mainsPowered) {
 	auto powerState = mainsPowered ? PicoStatus::PowerSupplyConnected : PicoStatus::PowerSupplyNotConnected;
 	auto status = (PicoStatus) ps5000aChangePowerSource(_handle, (PICO_STATUS)powerState);
 	CheckStatus(status);
 }
 
-Resolution PicoScope5000::GetDeviceResolution() {
+void PicoScope5000::FlashLed(short count) {
+	auto status = (PicoStatus)ps5000aFlashLed(_handle, count);
+	CheckStatus(status);
+}
+
+void PicoScope5000::Ping() {
+	auto status = (PicoStatus)ps5000aPingUnit(_handle);
+	CheckStatus(status);
+}
+
+// Timebases
+
+float PicoScope5000::GetTimebaseIntervalInNanoseconds(unsigned int timebase, unsigned int segmentIndex, [Out] int% maximumNumberOfSamples) {
+	float interval;
+	pin_ptr<int> maximumSamplesPtr = &maximumNumberOfSamples;
+	auto status = (PicoStatus)ps5000aGetTimebase2(_handle, timebase, 0, &interval, maximumSamplesPtr, segmentIndex);
+	CheckStatus(status);
+	return interval;
+}
+
+unsigned int PicoScope5000::GetFastestTimebase(Resolution resolution) {
+	switch (resolution) {
+	case Resolution::_8bit: return 0;
+	case Resolution::_12bit: return 1;
+	case Resolution::_14bit:
+	case Resolution::_15bit: return 3;
+	case Resolution::_16bit: return 4;
+	}
+	throw gcnew Exception("Unexpected device resolution.");
+}
+
+unsigned int PicoScope5000::GetFastestStreamingIntervalInNanoseconds(Resolution resolution, int channelCount) {
+	switch (resolution) {
+	case Resolution::_8bit:
+		switch (channelCount) {
+		case 4:
+		case 3: return 128;	// 7.8125 MS / s(128 ns per sample) when three or four channels are active => 18
+		case 2: return 64;	// 15.625 MS / s(64 ns per sample) when two channels are active => 10
+		case 1: return 32;	// 31.25 MS / s(32 ns per sample) when one channel is active => 6
+		}
+	case Resolution::_12bit:
+		switch (channelCount) {
+		case 4:
+		case 3: return 256;	// 3.906 MS / s(256 ns per sample) when three or four channels are active => 19
+		case 2: return 128;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 11
+		case 1: return 64;	// 15.625 MS / s(64 ns per sample) when one channel is active => 7
+		}
+	case Resolution::_14bit:
+		switch (channelCount) {
+		case 4:
+		case 3: return 256;	// 3.906 MS / s(256 ns per sample) when three or four channels are active => 34
+		case 2: return 128;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 18
+		case 1: return 64;	// 15.625 MS / s(64 ns per sample) when one channel is active => 10
+		}
+	case Resolution::_15bit:
+		switch (channelCount) {
+		case 4:
+		case 3: throw gcnew System::Exception("Unexpected number of channels for resolution.");
+		case 2: return 128;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 18
+		case 1: return 64;	// 15.625 MS / s(64 ns per sample) when one channel is active => 10
+		}
+	case Resolution::_16bit:
+		switch (channelCount) {
+		case 4:
+		case 3:
+		case 2: throw gcnew System::Exception("Unexpected number of channels for resolution.");
+		case 1: return 64;	// 15.625 MS / s(64 ns per sample) when one channel is active => 7
+		}
+	}
+	throw gcnew Exception("Unexpected resolution or enabled channel count.");
+}
+
+Resolution PicoScope5000::DeviceResolution::get() { 
 	Resolution resolution;
 	auto status = (PicoStatus)ps5000aGetDeviceResolution(_handle, (PS5000A_DEVICE_RESOLUTION*)&resolution);
 	CheckStatus(status);
 	return resolution;
 }
 
-void PicoScope5000::SetDeviceResolution(Resolution resolution) {
-	if (GetEnabledChannelCount() > GetMaximumChannelsForResolution(resolution)) {
-		throw gcnew Exception("Enabled channel count exceeds maximum allowed channels for requested resolution.");
-	}
+// Channel setup
+
+void PicoScope5000::DeviceResolution::set(Resolution resolution) {
 	auto status = (PicoStatus)ps5000aSetDeviceResolution(_handle, (PS5000A_DEVICE_RESOLUTION)resolution);
 	CheckStatus(status);
 }
@@ -148,126 +210,8 @@ array<Range>^ PicoScope5000::GetAvailableChannelRanges(Channel channel) {
 	return results;
 }
 
-unsigned int PicoScope5000::GetMaximumDownsampleRatio
-	(unsigned long numberOfUnaggregatedSegments, RatioMode ratioMode, unsigned long segmentIndex) {
-	unsigned int result;
-	auto status = (PicoStatus)ps5000aGetMaxDownSampleRatio(_handle, numberOfUnaggregatedSegments, &result, (PS5000A_RATIO_MODE)ratioMode, segmentIndex);
-	CheckStatus(status);
-	return result;
-}
-
-unsigned int PicoScope5000::GetMaximumSegments() {
-	unsigned int result;
-	auto status = (PicoStatus)ps5000aGetMaxSegments(_handle, &result);
-	CheckStatus(status);
-	return result;
-}
-
-unsigned int PicoScope5000::GetNumberOfCaptures() {
-	unsigned int result;
-	auto status = (PicoStatus)ps5000aGetNoOfCaptures(_handle, &result);
-	CheckStatus(status);
-	return result;
-}
-
-unsigned int PicoScope5000::GetNumberOfProcessedCaptures() {
-	unsigned int result;
-	auto status = (PicoStatus)ps5000aGetNoOfProcessedCaptures(_handle, &result);
-	CheckStatus(status);
-	return result;
-}
-
-void PicoScope5000::FlashLed(short count) {
-	auto status = (PicoStatus)ps5000aFlashLed(_handle, count);
-	CheckStatus(status);
-}
-
-void PicoScope5000::Ping() {
-	auto status = (PicoStatus)ps5000aPingUnit(_handle);
-	CheckStatus(status);
-}
-
-short PicoScope5000::GetMinimumAdcValue() {
-	short value;
-	auto status = (PicoStatus) ps5000aMinimumValue(_handle, &value);
-	CheckStatus(status);
-	return value;
-}
-
-short PicoScope5000::GetMaximumAdcValue() {
-	short value;
-	auto status = (PicoStatus)ps5000aMaximumValue(_handle, &value);
-	CheckStatus(status);
-	return value;
-}
-
-float PicoScope5000::GetTimebaseIntervalInNanoseconds(unsigned int timebase, unsigned int segmentIndex, [Out] int% maximumNumberOfSamples) {
-	float interval;
-	pin_ptr<int> maximumSamplesPtr = &maximumNumberOfSamples;
-	auto status = (PicoStatus) ps5000aGetTimebase2(_handle, timebase, 0, &interval, maximumSamplesPtr, segmentIndex);
-	CheckStatus(status);
-	return interval;
-}
-
-unsigned int PicoScope5000::GetMinimumSampleIntervalTimebase() {
-	switch (GetDeviceResolution()) {
-	case Resolution::_8bit: return 0;
-	case Resolution::_12bit: return 1;
-	case Resolution::_14bit:
-	case Resolution::_15bit: return 3;
-	case Resolution::_16bit: return 4;
-	}
-}
-
-unsigned int PicoScope5000::GetMinimumStreamingSampleIntervalTimeBase() {
-	auto channelCount = GetEnabledChannelCount();
-	switch (GetDeviceResolution()) {
-	case Resolution::_8bit:
-		switch (GetEnabledChannelCount()) {
-		case 4: 
-		case 3: return 18;	// 7.8125 MS / s(128 ns per sample) when three or four channels are active => 18
-		case 2: return 10;	// 15.625 MS / s(64 ns per sample) when two channels are active => 10
-		case 1: return 6;	// 31.25 MS / s(32 ns per sample) when one channel is active => 6
-		}
-	case Resolution::_12bit:
-		switch (GetEnabledChannelCount()) {
-		case 4:
-		case 3: return 19;	// 3.906 MS / s(256 ns per sample) when three or four channels are active => 19
-		case 2: return 11;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 11
-		case 1: return 7;	// 15.625 MS / s(64 ns per sample) when one channel is active => 7
-		}
-	case Resolution::_14bit:
-		switch (GetEnabledChannelCount()) {
-		case 4:
-		case 3: return 34;	// 3.906 MS / s(256 ns per sample) when three or four channels are active => 34
-		case 2: return 18;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 18
-		case 1: return 10;	// 15.625 MS / s(64 ns per sample) when one channel is active => 10
-		}
-	case Resolution::_15bit:
-		switch (GetEnabledChannelCount()) {
-		case 4:
-		case 3: throw gcnew System::Exception("Unexpected number of channels enabled for current resolution.");
-		case 2: return 18;	// 7.8125 MS / s(128 ns per sample) when two channels are active => 18
-		case 1: return 10;	// 15.625 MS / s(64 ns per sample) when one channel is active => 10
-		}
-	case Resolution::_16bit:
-		switch (GetEnabledChannelCount()) {
-		case 4:
-		case 3: 
-		case 2: throw gcnew System::Exception("Unexpected number of channels enabled for current resolution.");
-		case 1: return 7;	// 15.625 MS / s(64 ns per sample) when one channel is active => 7
-		}
-	}
-}
-
 void PicoScope5000::SetChannel(Channel channel, bool enabled, Coupling coupling, Range range, float analogueOffset) {
-	_channelSettings[channel]->enabled = enabled;
-	_channelSettings[channel]->coupling = coupling;
-	_channelSettings[channel]->range = range;
-	_channelSettings[channel]->analogueOffset = analogueOffset;
-	ps5000aSetChannel(_handle, (PS5000A_CHANNEL)channel, _channelSettings[channel]->enabled,
-		(PS5000A_COUPLING)_channelSettings[channel]->coupling, (PS5000A_RANGE)_channelSettings[channel]->range,
-		_channelSettings[channel]->analogueOffset);
+	ps5000aSetChannel(_handle, (PS5000A_CHANNEL)channel, enabled, (PS5000A_COUPLING)coupling, (PS5000A_RANGE)range, analogueOffset);
 }
 
 void PicoScope5000::SetBandwidth(Channel channel, BandwidthLimit bandwidth) {
@@ -276,10 +220,7 @@ void PicoScope5000::SetBandwidth(Channel channel, BandwidthLimit bandwidth) {
 }
 
 void PicoScope5000::DisableChannel(Channel channel) {
-	_channelSettings[channel]->enabled = false;
-	ps5000aSetChannel(_handle, (PS5000A_CHANNEL)channel, _channelSettings[channel]->enabled,
-		(PS5000A_COUPLING)_channelSettings[channel]->coupling, (PS5000A_RANGE)_channelSettings[channel]->range,
-		_channelSettings[channel]->analogueOffset);
+	ps5000aSetChannel(_handle, (PS5000A_CHANNEL)channel, 0, (PS5000A_COUPLING)Coupling::DC, (PS5000A_RANGE)Range::_5V, 0.0);
 }
 
 int PicoScope5000::GetMaximumChannelsForResolution(Resolution resolution) {
@@ -290,24 +231,16 @@ int PicoScope5000::GetMaximumChannelsForResolution(Resolution resolution) {
 	}
 }
 
-int PicoScope5000::GetEnabledChannelCount() {
-	int enabledCount = 0;
-	for each(KeyValuePair<Channel, ChannelSettings^>^ setting in _channelSettings) {
-		if (setting->Value->enabled) {
-			++enabledCount;
-		}
-	}
-	return enabledCount;
-}
+// Trigger setup 
 
 void PicoScope5000::DisableTrigger() {
-	auto status = (PicoStatus) ps5000aSetSimpleTrigger(_handle, 0, (PS5000A_CHANNEL)Channel::A, 0, 
+	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 0, (PS5000A_CHANNEL)Channel::A, 0,
 		(PS5000A_THRESHOLD_DIRECTION)ThresholdDirection::None, 0, 0);
 	CheckStatus(status);
 }
 
 void PicoScope5000::SetAutoTrigger(short delayInMilliseconds) {
-	auto status = (PicoStatus) ps5000aSetSimpleTrigger(_handle, 0, (PS5000A_CHANNEL)Channel::A, 0,
+	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 0, (PS5000A_CHANNEL)Channel::A, 0,
 		(PS5000A_THRESHOLD_DIRECTION)ThresholdDirection::None, 0, delayInMilliseconds);
 	CheckStatus(status);
 }
@@ -317,13 +250,13 @@ void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdD
 }
 
 void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned long delay, short autoDelayInMilliseconds) {
-	auto status = (PicoStatus) ps5000aSetSimpleTrigger(_handle, 1, (PS5000A_CHANNEL)source, threshold,
+	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 1, (PS5000A_CHANNEL)source, threshold,
 		(PS5000A_THRESHOLD_DIRECTION)direction, delay, autoDelayInMilliseconds);
 	CheckStatus(status);
 }
 
 void PicoScope5000::SetTriggerDelay(unsigned long delaySamples) {
-	auto status = (PicoStatus) ps5000aSetTriggerDelay(_handle, delaySamples);
+	auto status = (PicoStatus)ps5000aSetTriggerDelay(_handle, delaySamples);
 	CheckStatus(status);
 }
 
@@ -346,6 +279,94 @@ void PicoScope5000::IsTriggerOrPulseWidthQualifierEnabled([Out] bool% triggerEna
 	pulseWidthQualifierEnabled = (pwqEnabled != 0);
 }
 
-StreamingAcquisition^ PicoScope5000::RunStreaming(StreamData^ dataCallback, StreamFinished^ finishedCallback) {
-	return gcnew StreamingAcquisition(_handle, dataCallback, finishedCallback);
+// Buffer setup and reaodut
+
+unsigned int PicoScope5000::CurrentSegmentIndex::get() {
+	return _currentSegmentIndex;
+}
+
+void PicoScope5000::CurrentSegmentIndex::set(unsigned int segmentIndex) {
+	_currentSegmentIndex = segmentIndex;
+}
+
+int PicoScope5000::SetNumberOfSegmentsAndGetSamplesPerSegment(unsigned int numberOfSegments) {
+	int result;
+	auto status = (PicoStatus)ps5000aMemorySegments(_handle, numberOfSegments, &result);
+	CheckStatus(status);
+	return result;
+}
+
+unsigned int PicoScope5000::GetMaximumNumberOfSegments() {
+	unsigned int result;
+	auto status = (PicoStatus)ps5000aGetMaxSegments(_handle, &result);
+	CheckStatus(status);
+	return result;
+}
+
+short PicoScope5000::GetMinimumAdcValueForCurrentResolution() {
+	short value;
+	auto status = (PicoStatus)ps5000aMinimumValue(_handle, &value);
+	CheckStatus(status);
+	return value;
+}
+
+short PicoScope5000::GetMaximumAdcValueForCurrentResolution() {
+	short value;
+	auto status = (PicoStatus)ps5000aMaximumValue(_handle, &value);
+	CheckStatus(status);
+	return value;
+}
+
+unsigned int PicoScope5000::GetMaximumDownsamplingRatio(unsigned long numberOfUnaggregatedSamples, Downsampling ratioMode, unsigned long segmentIndex) {
+	unsigned int result;
+	auto status = (PicoStatus)ps5000aGetMaxDownSampleRatio(_handle, numberOfUnaggregatedSamples, &result, (PS5000A_RATIO_MODE)ratioMode, segmentIndex);
+	CheckStatus(status);
+	return result;
+}
+
+IInt16BufferHandle^ PicoScope5000::CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, int bufferLength, unsigned int segmentIndex) {
+	auto bufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
+	auto status = (PicoStatus)ps5000aSetDataBuffer(_handle, (PS5000A_CHANNEL)channel, bufferHandle->BufferPointer(), bufferHandle->BufferSize, segmentIndex, 
+		(PS5000A_RATIO_MODE)downsampling);
+	CheckStatus(status);
+	return bufferHandle;
+}
+
+IInt16BufferHandle^ PicoScope5000::CreatePinnedBuffer(Channel channel, Downsampling downsampling, array<Int16>^ buffer, unsigned int segmentIndex) {
+	auto bufferHandle = gcnew PinnedInt16BufferHandle(buffer);
+	auto status = (PicoStatus)ps5000aSetDataBuffer(_handle, (PS5000A_CHANNEL)channel, bufferHandle->BufferPointer(), bufferHandle->BufferSize, segmentIndex,
+		(PS5000A_RATIO_MODE)downsampling);
+	CheckStatus(status);
+	return bufferHandle;
+}
+
+Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreateUnmanagedBuffers(Channel channel, Downsampling downsampling, int bufferLength,
+	unsigned int segmentIndex) {
+
+	auto maxBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
+	auto minBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
+	auto status = (PicoStatus)ps5000aSetDataBuffers(_handle, (PS5000A_CHANNEL)channel, maxBufferHandle->BufferPointer(), minBufferHandle->BufferPointer(),
+		bufferLength, segmentIndex, (PS5000A_RATIO_MODE)downsampling);
+	CheckStatus(status);
+	return gcnew Tuple<IInt16BufferHandle^, IInt16BufferHandle^>(maxBufferHandle, minBufferHandle);
+}
+
+Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreatePinnedBuffers(Channel channel, Downsampling downsampling, array<Int16>^ bufferMax,
+	array<Int16>^ bufferMin, unsigned int segmentIndex) {
+
+	auto maxBufferHandle = gcnew PinnedInt16BufferHandle(bufferMax);
+	auto minBufferHandle = gcnew PinnedInt16BufferHandle(bufferMin);
+	auto status = (PicoStatus)ps5000aSetDataBuffers(_handle, (PS5000A_CHANNEL)channel, maxBufferHandle->BufferPointer(), minBufferHandle->BufferPointer(),
+		maxBufferHandle->BufferSize, segmentIndex, (PS5000A_RATIO_MODE)downsampling);
+	CheckStatus(status);
+	return gcnew Tuple<IInt16BufferHandle^, IInt16BufferHandle^>(maxBufferHandle, minBufferHandle);
+}
+
+// Streaming acquisition
+
+StreamingAcquisition^ PicoScope5000::RunStreaming(unsigned int% timeInterval, TimeUnit timeUnit, unsigned int maxPreTriggerSamples, 
+	unsigned int maxPostTriggerSamples, bool autoStop, Downsampling downsamplingModes, unsigned int downsamplingRatio, unsigned int bufferSize,
+	StreamDataReady^ dataCallback, StreamFinished^ finishedCallback) {
+	return gcnew StreamingAcquisition(_handle, timeInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, downsamplingModes,
+		downsamplingRatio, bufferSize, dataCallback, finishedCallback);
 }

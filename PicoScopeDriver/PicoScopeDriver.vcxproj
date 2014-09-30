@@ -73,9 +73,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Reactive.Core, Version=2.0.20823.0, Culture=neutral, PublicKeyToken=f300afd708cefcd3" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="IInt16BufferHandle.h" />
     <ClInclude Include="PicoException.h" />
     <ClInclude Include="PicoScopeDriver.h" />
     <ClInclude Include="PicoStatus.h" />

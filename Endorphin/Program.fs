@@ -59,10 +59,6 @@ open PicoScopeDriver
 
     Console.ReadLine() |> ignore *)
 
-type PicoScope5000 with
-    member self.runStreaming streamDataFunc streamFinishedFunc =
-        self.RunStreaming(StreamData(streamDataFunc), StreamFinished(streamFinishedFunc))
-
 let picoscopeTest =
     // find all connected PicoScopes
     let connectedPicos = PicoScope5000.GetConnectedUnitSerials()
@@ -75,20 +71,6 @@ let picoscopeTest =
     for detail in info do
         printfn "%A" detail
 
-    printfn "Press enter to start streaming..."
-    Console.ReadLine() |> ignore
-
-    printfn "Press enter to stop streaming..."
-    let stream = 
-        pico.runStreaming
-        <| fun _ numberOfSamples _ _ -> // latest values
-            printfn "New lines of data: %d" numberOfSamples
-        <| fun didAutoStop -> // stream finished
-            printfn "Stopped streaming %s" (if didAutoStop then "automatically" else "manually")
-
-    Console.ReadLine() |> ignore // wait for enter key
-    stream.Stop()
-    
     Console.ReadLine() |> ignore
 
 [<EntryPoint>]
