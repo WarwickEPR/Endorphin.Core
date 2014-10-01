@@ -307,7 +307,7 @@ let magnetControllerMailbox (session : MessageBasedSession) =
                 do! buildCommand command |> writeToSesiion session
                 do! Async.Sleep(1000)
 
-            do! loop()
+            return! loop()
         }
 
         // initialse the actor state

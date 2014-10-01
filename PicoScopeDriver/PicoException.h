@@ -8,17 +8,17 @@ namespace PicoScopeDriver {
 
 	public ref class PicoException : public Exception {
 	private:
-		PicoStatus m_status;
+		PicoStatus _status;
 		static String^ buildMessageForStatus(PicoStatus status);
 
 	public:
 		PicoException(PicoStatus status) 
 			: Exception(buildMessageForStatus(status)) {
-			m_status = status;
+			_status = status;
 		}
 		
 		property PicoStatus Status {
-			PicoStatus get() { return m_status; }
+			PicoStatus get() { return _status; }
 		}
 	};
 

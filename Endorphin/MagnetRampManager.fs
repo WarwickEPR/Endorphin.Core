@@ -228,7 +228,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
             | PerformRamp(ramp, replyChannel) -> 
                 let rampStatus = new BehaviorSubject<RampStatus>(Initialising)
                 replyChannel.Reply(rampStatus.AsObservable())
-                do! ramping ramp rampStatus
+                return! ramping ramp rampStatus
             | CancelRamp(_) -> failwith "Attempted to cancel a magnet controller ramp when none is in progress" }
 
         /// <summary>
@@ -242,37 +242,36 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
             let rampCompleted = rampStatus.TakeLast(1)
             let rampCancelled = Observable.filter (fun s -> s = CancelledRamp) rampStatus
 
-            let stopRamp returnToZero = 
+            let stopRamp returnToZero = async { 
                 if returnToZero
-                then Async.RunSynchronously(rampToZero magnetController)
-                else magnetController.Post <| SetPause(true)
+                then do! rampToZero magnetController
+                else magnetController.Post <| SetPause(true) }
             
             /// <summary>
             /// Handles a receive message to cancel the ramp in progress, ramping to zero current if requested.
             /// </summary>
-            let receiveCancelMessage _ = 
-                let message = Async.RunSynchronously(mailbox.Receive())
+            let receiveCancelMessage _ = async {
+                let! message = mailbox.Receive()
                 match message with 
                 | CancelRamp(returnToZero) -> 
-                    Observable.add (fun _ -> stopRamp returnToZero) rampCancelled
+                    Observable.add (fun _ -> Async.Start(stopRamp returnToZero)) rampCancelled
                     rampCts.Cancel()
-                | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress"
+                | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress" }
 
             // create a subscription which will check the agent mailbox for cancellation requests every
             // 100ms until the ramp is completed
             use _ = Observable.Interval(TimeSpan.FromMilliseconds(100.0)) // every 100ms
                               .TakeUntil(rampCompleted) // until ramp is completed
                               .Select(fun _ -> mailbox.CurrentQueueLength) // check the mailbox queue length
-                              .Where(fun queueLength -> not (queueLength = 0)) // if it is non-zero
+                              .Where(fun queueLength -> queueLength <> 0) // if it is non-zero
                               .Take(1) // then the first time this occurs
-                    |> Observable.subscribe receiveCancelMessage // call the receiveCancelMessage function
+                    |> Observable.subscribe (Async.Start << receiveCancelMessage) // call the receiveCancelMessage function
             
-            // run the asyncRamp computation expression, and ignore exceptions due to cancellation
-            try Async.RunSynchronously(asyncRamp ramp rampStatus, -1, rampCts.Token)
-            with :? OperationCanceledException -> ()
+            // run the asyncRamp computation expression
+            Async.Start(asyncRamp ramp rampStatus, rampCts.Token)
 
-            // return to the waiting state
-            printfn "Going back to the waiting state!"
-            do! waiting() }
+            // return to the waiting state once the ramp is complete
+            Observable.Wait(rampCompleted) |> ignore
+            return! waiting() }
 
         waiting ()
