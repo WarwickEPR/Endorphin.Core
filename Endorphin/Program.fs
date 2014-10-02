@@ -10,16 +10,16 @@ open System.Linq
 open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Threading
-open System.Collections.Generic
 open PicoScopeDriver
+open Units
 
-
-(* let magnetControllerTest =
+let magnetControllerTest () =
     printfn "Magnet controller example."
     // start a VISA session to the magnet controller's instrument address, obtained from App.config
     use session = 
         "GPIB0::4::INSTR"
         |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
+    Thread.Sleep(1000)
 
     // create the magnet controller actor with throttled input
     let magnetController = MailboxProcessor.Start <| magnetControllerMailbox session
@@ -33,9 +33,9 @@ open PicoScopeDriver
     
     let ready = new BehaviorSubject<bool>(false)
 
-    let ramp = { startingCurrent = 0.3
-                 finalCurrent = 1.5
-                 rampRate = 0.05 
+    let ramp = { startingCurrent = amps 0.3
+                 finalCurrent = amps 1.5
+                 rampRate = ampsPerSecond 0.05 
                  returnToZero = true
                  readyForRamp = ready.AsObservable() }
     
@@ -57,9 +57,11 @@ open PicoScopeDriver
     use cancelOnReturn = Observable.Amb(didFinish, didNotFinish)
                          |> Observable.subscribe (fun finished -> if finished = false then rampManager.Post(CancelRamp(true)))
 
-    Console.ReadLine() |> ignore *)
+    Console.ReadLine() |> ignore
+    
+    magnetController.PostAndReply(PrepareToCloseSession)
 
-let picoscopeTest =
+let picoscopeTest () =
     // find all connected PicoScopes
     let connectedPicos = PicoScope5000.GetConnectedUnitSerials()
     if connectedPicos.Length = 0 then failwith "No PicoScopes found."
@@ -76,5 +78,5 @@ let picoscopeTest =
 
 [<EntryPoint>]
 let main argv = 
-    picoscopeTest
+    Console.ReadLine() |> ignore
     0

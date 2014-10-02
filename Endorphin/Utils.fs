@@ -42,12 +42,13 @@ let writeToSesiion (session : MessageBasedSession) message =
 /// <param name="message">The message to be written.</param>
 let querySession (session : MessageBasedSession) message =
     async {
-        // This code protects the two asynchronous workflows form cancellation. If the request
-        // is started but the data is not read out from the buffer, this could cause problems
-        // with subsequent commands.
-        Async.Start((writeToSesiion session message), CancellationToken.None)
-        let readTask = Async.StartAsTask((readFromSession session), TaskCreationOptions.None, CancellationToken.None)
-        return! Async.AwaitTask(readTask) }
+        // The cancellation handler ensures that no outstanding asynchronous reads or writes
+        // are still on-going when a query is cancelled and that the device buffers are cleared.
+        use! cancellationHandler = Async.OnCancel(fun() -> 
+            session.Terminate()
+            session.Clear())
+        do! writeToSesiion session message
+        return! readFromSession session }
 
 /// <summary>
 /// Partial active pattern which returns the list of matches (excluding the complete pattern)

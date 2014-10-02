@@ -77,17 +77,30 @@ type State =
 /// the command.
 /// </summary>
 type Command = 
+    /// <summary>Gets output current, voltage and ramp target in a <see cref="MagnetController.OutputParameters" /> record.</summary>
     | GetOutputParameters of AsyncReplyChannel<OutputParameters>
+    /// <summary>Gets ramp target, target reached indicator, pause status in a <see cref="MagnetController.CurrentParameters" /> record.</summary>
     | GetCurrentParameters of AsyncReplyChannel<CurrentParameters>
+    /// <summary>Gets ramp rate and current direction in a <see cref="MagnetController.OperatingParameters" /> record.</summary>
     | GetOperatingParameters of AsyncReplyChannel<OperatingParameters>
+    /// <summary>Gets output lower and upper voltage limits and trip voltage in a <see cref="MagnetController.SetPointParameters" /> record.</summary>
     | GetSetPointParameters of AsyncReplyChannel<SetPointParameters>
+    /// <summary>Sets the magnet controller ramp rate.</summary>
     | SetRampRate of float<A/s> /// in A/s
+    /// <summary>Sets the magnet controller trip voltage.</summary>
     | SetTripVoltage of float<V> // in V
+    /// <summary>Sets the magnet controller current direction.</summary>
     | SetCurrentDirection of CurrentDirection
+    /// <summary>Sets the lower current set-point of the magnet controller.</summary>
     | SetLowerSetPoint of float<A> // in A
+    /// <summary>Sets the uppper current set-point of the magnet controller.</summary>
     | SetUpperSetPoint of float<A> // in A
+    /// <summary>Sets the magnet controller ramp target to either zero or the upper or lower current limit.</summary>
     | SetRampTarget of RampTarget
+    /// <summary>Enables or disables the ramp pause on the magnet controller.</summary>
     | SetPause of bool
+    /// <summary>Wait for a response on this channel before disposing the NI VISA session to ensure clean closure.</summary>
+    | PrepareToCloseSession of AsyncReplyChannel<unit> 
 
 /// <summary>
 /// Sets the maximum ramp rate on the magnet controller.
@@ -101,7 +114,7 @@ let setMaximumRampRate (magnetController : MailboxProcessor<Command>) = magnetCo
 /// </summary>
 /// <param name="magnetController">The magnet controller.</param>
 let rec waitToReachTarget (magnetController : MailboxProcessor<Command>) = async { 
-    let! currentParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetCurrentParameters(replyChannel))
+    let! currentParams = magnetController.PostAndAsyncReply(GetCurrentParameters)
     if not currentParams.reachedTarget then do! waitToReachTarget magnetController }
 
 /// <summary>
@@ -112,7 +125,7 @@ let rec waitToReachTarget (magnetController : MailboxProcessor<Command>) = async
 /// </summary>
 /// <param name="magnetController">The magnet controller.</param>
 let rec prepareToFlipCurrentDirection (magnetController : MailboxProcessor<Command>) = async {
-    let! outputParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetOutputParameters(replyChannel))
+    let! outputParams = magnetController.PostAndAsyncReply(GetOutputParameters)
     if not (outputParams.outputCurrent = 0.0<A>) then do! prepareToFlipCurrentDirection magnetController }
 
 /// <summary>
@@ -142,10 +155,10 @@ let rampToZeroAndSetCurrentDirection currentDirection (magnetController : Mailbo
 /// </summary>
 /// <param name="magnetController">The magnet controller.</param>
 let getState (magnetController : MailboxProcessor<Command>) = async {
-    let! setPointParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetSetPointParameters(replyChannel))
-    let! outputParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetOutputParameters(replyChannel))
-    let! operatingParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetOperatingParameters(replyChannel))
-    let! currentParams = magnetController.PostAndAsyncReply(fun replyChannel -> GetCurrentParameters(replyChannel))
+    let! setPointParams = magnetController.PostAndAsyncReply(GetSetPointParameters)
+    let! outputParams = magnetController.PostAndAsyncReply(GetOutputParameters)
+    let! operatingParams = magnetController.PostAndAsyncReply(GetOperatingParameters)
+    let! currentParams = magnetController.PostAndAsyncReply(GetCurrentParameters)
 
     return { setPointParameters = setPointParams
              outputParameters = outputParams
@@ -257,9 +270,10 @@ let magnetControllerMailbox (session : MessageBasedSession) =
         /// Builds the command string to be sent to the magnet controller hardware for a
         /// <see cref="MagnetController.Command" />.
         /// </summary> 
-        let buildCommand = 
-            function 
-            | GetOutputParameters(_) -> "G"
+        let buildCommand command = 
+            let terminationCharacters = "\r\n"
+            let instruction = match command with
+            | GetOutputParameters(_) -> "G" 
             | GetCurrentParameters(_) -> "K"
             | GetOperatingParameters(_) -> "O"
             | GetSetPointParameters(_) -> "S"
@@ -279,6 +293,7 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             | SetPause(pause) -> 
                 if pause then "P1"
                 else "P0"
+            instruction + terminationCharacters
 
         /// <summary>
         /// Partial active pattern which matches <see cref="MagnetController.Command"> objects
@@ -303,6 +318,9 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             | Request replyChannel ->
                 let! response = buildCommand command |> querySession session
                 response |> replyChannel
+            | PrepareToCloseSession(replyChannel) ->
+                do! Async.Sleep(1000)
+                replyChannel.Reply(())
             | _ ->
                 do! buildCommand command |> writeToSesiion session
                 do! Async.Sleep(1000)

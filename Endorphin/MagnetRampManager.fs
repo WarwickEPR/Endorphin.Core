@@ -44,7 +44,16 @@ type RampStatus =
 /// manager.
 /// </summary>
 type Command =
+    /// <summary>
+    /// Causes the magnet controller ramp manager to perform a ramp with the specified parameters and returns
+    /// a <see cref="System.IObservable" /> which provides ramp status notifications while the ramp is being
+    /// performed.
+    /// </summary>
     | PerformRamp of Ramp * AsyncReplyChannel<IObservable<RampStatus>>
+    /// <summary>
+    /// Cancels a ramp which is in progress with a parameter indicating whether the magnet controller should
+    /// return to zero current.
+    /// </summary>
     | CancelRamp of bool
 
 /// <summary>
@@ -272,6 +281,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
 
             // return to the waiting state once the ramp is complete
             let! _ = Async.AwaitObservable(rampCompleted) 
+            printfn "Returning to waiting state...."
             return! waiting() }
 
         waiting ()
