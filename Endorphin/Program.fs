@@ -63,9 +63,10 @@ let picoscopeTest =
     // find all connected PicoScopes
     let connectedPicos = PicoScope5000.GetConnectedUnitSerials()
     if connectedPicos.Length = 0 then failwith "No PicoScopes found."
-
+    
     // connect to the first available one
     use pico = new PicoScope5000(connectedPicos.First())
+
     // print device details
     let info = pico.GetUnitInfo()
     for detail in info do

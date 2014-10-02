@@ -3,6 +3,10 @@
 using namespace System;
 
 namespace PicoScopeDriver {
+
+	/// <summary>
+	/// An enumeration representing a PicoScope 5000 device channel.
+	/// </summary>
 	public enum class Channel : int {
 		A,
 		B,
@@ -13,6 +17,9 @@ namespace PicoScopeDriver {
 		None,
 	};
 
+	/// <summary>
+	/// An enumeration representing the input voltage range of a PicoScope 5000 device channel.
+	/// </summary>
 	public enum class Range : int {
 		_10mV,
 		_20mV,
@@ -28,24 +35,9 @@ namespace PicoScopeDriver {
 		_50V,
 	};
 
-	float RangeInMillivolts(Range range) {
-		switch (range) {
-		case Range::_10mV: return 10.0;
-		case Range::_20mV: return 20.0;
-		case Range::_50mV: return 50.0;
-		case Range::_100mV: return 100.0;
-		case Range::_200mV: return 200.0;
-		case Range::_500mV: return 500.0;
-		case Range::_1V: return 1000.0;
-		case Range::_2V: return 2000.0;
-		case Range::_5V: return 5000.0;
-		case Range::_10V: return 1.0e4;
-		case Range::_20V: return 2.0e4;
-		case Range::_50V: return 5.0e4;
-		}
-		throw gcnew Exception("Unexpected range.");
-	}
-
+	/// <summary>
+	/// An enumeration representing the vertial ADC resolution of a PicoScope 5000 device.
+	/// </summary>
 	public enum class Resolution : int {
 		_8bit,
 		_12bit,
@@ -53,7 +45,10 @@ namespace PicoScopeDriver {
 		_15bit,
 		_16bit,
 	};
-
+	
+	/// <sumary>
+	/// An enumeration representing units of time which can be used when providing a sample interval value.
+	/// </summary>
 	public enum class TimeUnit : int {
 		Femtoseconds,
 		Picoseconds,
@@ -62,7 +57,10 @@ namespace PicoScopeDriver {
 		Milliseconds,
 		Seconds,
 	};
-
+	
+	/// <summary>
+	/// An enumeration representing the signal available signal generator waveforms on a PicoScope 5000 device.
+	/// </summary>
 	public enum class SignalGeneratorWaveform : int {
 		Sine,
 		Square,
@@ -76,6 +74,9 @@ namespace PicoScopeDriver {
 		MAX_WAVE_TYPES
 	};
 
+	/// <summary>
+	/// An enumeration representing the available signal generator sweep directions on a PicoScope 5000 device.
+	/// </summary>
 	public enum class SignalGeneratorSweep : int {
 		Up,
 		Down,
@@ -98,6 +99,10 @@ namespace PicoScopeDriver {
 		SoftwareTrigger
 	};
 
+	/// <summary>
+	/// An enumeration representing the signal direction as it crosses the trigger threshold in order to cause
+	/// the device trigger to fire.
+	/// </summary>
 	public enum class ThresholdDirection : int {
 		// Values for level threshold mode
 		//
@@ -126,11 +131,20 @@ namespace PicoScopeDriver {
 		OutOfRange
 	};
 
+	/// <summary>
+	/// An enumeration representing the coupling of a PicoScope 5000 device channel. With AC mode, signals are a
+	/// capacitively coupled to filter out frequencies below approximately 1 Hz.
+	/// </summary>
 	public enum class Coupling : int {
 		DC,
 		AC
 	};
 
+	/// <summary>
+	/// An enumeration representing the hardware downsampling to be applied to data stored in PicoScope 5000 device
+	/// before it is read into data buffers. If multiple downsampling modes will be applied to the same data in a
+	/// given acquisition, then the downsampling modes need to be combined together using a logical "OR" operation.
+	/// </summary>
 	public enum class Downsampling : int {
 		None = 0,
 		Aggregate = 1,
@@ -139,11 +153,9 @@ namespace PicoScopeDriver {
 		Distribution = 8
 	};
 
-	public ref struct ChannelView {
-		Channel channel;
-		Downsampling mode;
-	};
-
+	/// <summary>
+	/// An enumeration representing the bandwidth limit of a PicoScope 5000 device channel.
+	/// </summary>
 	public enum class BandwidthLimit : int {
 		Full = 0,
 		_20MHz = 1

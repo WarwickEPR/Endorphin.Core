@@ -271,7 +271,7 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
             Async.Start(asyncRamp ramp rampStatus, rampCts.Token)
 
             // return to the waiting state once the ramp is complete
-            Observable.Wait(rampCompleted) |> ignore
+            let! _ = Async.AwaitObservable(rampCompleted) 
             return! waiting() }
 
         waiting ()

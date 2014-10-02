@@ -46,6 +46,24 @@ array<String^>^ PicoScope5000::GetConnectedUnitSerials() {
 	return results->Split(String(",").ToCharArray());
 }
 
+float PicoScope5000::RangeInMillivolts(Range range) {
+	switch (range) {
+	case Range::_10mV: return 10.0;
+	case Range::_20mV: return 20.0;
+	case Range::_50mV: return 50.0;
+	case Range::_100mV: return 100.0;
+	case Range::_200mV: return 200.0;
+	case Range::_500mV: return 500.0;
+	case Range::_1V: return 1000.0;
+	case Range::_2V: return 2000.0;
+	case Range::_5V: return 5000.0;
+	case Range::_10V: return 1.0e4;
+	case Range::_20V: return 2.0e4;
+	case Range::_50V: return 5.0e4;
+	default: throw gcnew Exception("Unexpected range.");
+	}
+}
+
 // Constructors / destructor
 
 PicoScope5000::PicoScope5000(Resolution resolution) {
@@ -223,7 +241,7 @@ void PicoScope5000::DisableChannel(Channel channel) {
 	ps5000aSetChannel(_handle, (PS5000A_CHANNEL)channel, 0, (PS5000A_COUPLING)Coupling::DC, (PS5000A_RANGE)Range::_5V, 0.0);
 }
 
-int PicoScope5000::GetMaximumChannelsForResolution(Resolution resolution) {
+int PicoScope5000::GetMaximumNumberOfChannels(Resolution resolution) {
 	switch (resolution) {
 	case Resolution::_16bit: return 1;
 	case Resolution::_15bit: return 2;
@@ -303,14 +321,14 @@ unsigned int PicoScope5000::GetMaximumNumberOfSegments() {
 	return result;
 }
 
-short PicoScope5000::GetMinimumAdcValueForCurrentResolution() {
+short PicoScope5000::GetMinimumAdcCountsForCurrentResolution() {
 	short value;
 	auto status = (PicoStatus)ps5000aMinimumValue(_handle, &value);
 	CheckStatus(status);
 	return value;
 }
 
-short PicoScope5000::GetMaximumAdcValueForCurrentResolution() {
+short PicoScope5000::GetMaximumAdcCountsForCurrentResolution() {
 	short value;
 	auto status = (PicoStatus)ps5000aMaximumValue(_handle, &value);
 	CheckStatus(status);
@@ -340,24 +358,22 @@ IInt16BufferHandle^ PicoScope5000::CreatePinnedBuffer(Channel channel, Downsampl
 	return bufferHandle;
 }
 
-Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreateUnmanagedBuffers(Channel channel, Downsampling downsampling, int bufferLength,
-	unsigned int segmentIndex) {
-
+Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreateUnmanagedBuffers(Channel channel, int bufferLength, unsigned int segmentIndex) {
 	auto maxBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
 	auto minBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
 	auto status = (PicoStatus)ps5000aSetDataBuffers(_handle, (PS5000A_CHANNEL)channel, maxBufferHandle->BufferPointer(), minBufferHandle->BufferPointer(),
-		bufferLength, segmentIndex, (PS5000A_RATIO_MODE)downsampling);
+		bufferLength, segmentIndex, (PS5000A_RATIO_MODE)Downsampling::Aggregate);
 	CheckStatus(status);
 	return gcnew Tuple<IInt16BufferHandle^, IInt16BufferHandle^>(maxBufferHandle, minBufferHandle);
 }
 
-Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreatePinnedBuffers(Channel channel, Downsampling downsampling, array<Int16>^ bufferMax,
+Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreatePinnedBuffers(Channel channel, array<Int16>^ bufferMax,
 	array<Int16>^ bufferMin, unsigned int segmentIndex) {
 
 	auto maxBufferHandle = gcnew PinnedInt16BufferHandle(bufferMax);
 	auto minBufferHandle = gcnew PinnedInt16BufferHandle(bufferMin);
 	auto status = (PicoStatus)ps5000aSetDataBuffers(_handle, (PS5000A_CHANNEL)channel, maxBufferHandle->BufferPointer(), minBufferHandle->BufferPointer(),
-		maxBufferHandle->BufferSize, segmentIndex, (PS5000A_RATIO_MODE)downsampling);
+		maxBufferHandle->BufferSize, segmentIndex, (PS5000A_RATIO_MODE)Downsampling::Aggregate);
 	CheckStatus(status);
 	return gcnew Tuple<IInt16BufferHandle^, IInt16BufferHandle^>(maxBufferHandle, minBufferHandle);
 }

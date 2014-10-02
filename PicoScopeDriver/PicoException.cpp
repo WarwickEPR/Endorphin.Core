@@ -4,7 +4,8 @@
 
 using namespace PicoScopeDriver;
 
-String^ PicoException::buildMessageForStatus(PicoStatus status) {
+String^ PicoException::BuildMessageForStatus(PicoStatus status) {
+	// status messages as defined in the PS5000A programmer manual.
 	switch (status) {
 	case PicoStatus::MaximumUnitsOpened:
 		return gcnew String("An attempt has been made to open more than PS5000A_MAX_UNITS.");

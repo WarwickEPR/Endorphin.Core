@@ -1,9 +1,34 @@
 using namespace System;
 using namespace System::Collections::Generic;
 
+/// <summary>
+/// This interface represents a 16-bit integer buffer handle which can be used to read data from the
+/// buffer and copy it into managed memory. Note that the interface also implements the <see cref=
+/// "System.IDisposable" /> interface. The Dispose method needs to be called as soon as the buffer
+/// is no longer needed to prevent memory leaks.
+/// </summary>
 public interface class IInt16BufferHandle : IDisposable {
+
+	/// <summary>
+	/// Gets the i-th buffer element where i is a zero-based index.
+	/// </summary>
 	property short default[int] { short get(int i); }
+
+	/// <summary>
+	/// Gets the size (maximum number of samples) of the data buffer.
+	/// </summary>
 	property int BufferSize { int get(); }
+
+	/// <summary>
+	/// Copies a block of data from the buffer into managed memory.
+	/// </summary>
+	/// <param name="destination">The managed array into which to copy the data.</param>
+	/// <param name="destinationStartIndex">The element index of the destination array at which to
+	/// begin copying data.</param>
+	/// <param name="sourceStartIndex">The sample index of the buffer into from which to begin copying
+	/// data.</param>
+	/// <param name="length">The number of samples to copy from the buffer to the destination array.
+	/// </param>
 	void Copy(array<short>^ destination, int destinationStartIndex, int sourceStartIndex, int length);
 };
 

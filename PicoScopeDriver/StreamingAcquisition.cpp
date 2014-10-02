@@ -36,6 +36,10 @@ void StreamingAcquisition::GetValues(Object^ state) {
 		auto status = (PicoStatus)ps5000aStop(_handle);
 		PicoScope5000::CheckStatus(status);
 
+		Monitor::Enter(_streamingLock);
+		_hasStopped = true;
+		Monitor::Exit(_streamingLock);
+
 		if (_finishedCallback != nullptr) {
 			_finishedCallback->Invoke(_didAutoStop);
 		}
@@ -101,6 +105,11 @@ void StreamingAcquisition::Stop() {
 
 void StreamingAcquisition::ViewData(unsigned int numberOfSamples, unsigned int startIndex, Downsampling downsamplingModes, 
 	unsigned int downsamplingRatio, StreamDataReady^ dataCallback) {
+	Monitor::Enter(_streamingLock);
+	if (!_hasStopped) {
+		throw gcnew Exception("Attempted to create view stream data before the stream has stopped.");
+	}
+	Monitor::Exit(_streamingLock);
 
 	auto callback = gcnew PicoScopeStreamReady(this, &StreamingAcquisition::PicoScopeViewCallback);
 	auto picoScopeCallback = Marshal::GetFunctionPointerForDelegate(callback).ToPointer();

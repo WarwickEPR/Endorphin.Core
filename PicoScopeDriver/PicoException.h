@@ -9,14 +9,18 @@ namespace PicoScopeDriver {
 	public ref class PicoException : public Exception {
 	private:
 		PicoStatus _status;
-		static String^ buildMessageForStatus(PicoStatus status);
+		static String^ BuildMessageForStatus(PicoStatus status);
 
-	public:
-		PicoException(PicoStatus status) 
-			: Exception(buildMessageForStatus(status)) {
+	internal:
+		PicoException(PicoStatus status)
+			: Exception(BuildMessageForStatus(status)) {
 			_status = status;
 		}
-		
+
+	public:
+		/// <summary>
+		/// Gets the <see cref="PicoScopeDriver.PicoStatus" /> which caused the exception.
+		/// </summary>
 		property PicoStatus Status {
 			PicoStatus get() { return _status; }
 		}
