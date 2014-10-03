@@ -293,6 +293,7 @@ let magnetControllerMailbox (session : MessageBasedSession) =
             | SetPause(pause) -> 
                 if pause then "P1"
                 else "P0"
+            | PrepareToCloseSession(_) -> failwith "PrepareToCloseSession is not a command which requires a message to be sent to the hardware"
             instruction + terminationCharacters
 
         /// <summary>
@@ -325,8 +326,7 @@ let magnetControllerMailbox (session : MessageBasedSession) =
                 do! buildCommand command |> writeToSesiion session
                 do! Async.Sleep(1000)
 
-            return! loop()
-        }
+            return! loop() }
 
         // initialse the actor state
         loop()

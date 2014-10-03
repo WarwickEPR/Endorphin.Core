@@ -46,20 +46,20 @@ array<String^>^ PicoScope5000::GetConnectedUnitSerials() {
 	return results->Split(String(",").ToCharArray());
 }
 
-float PicoScope5000::RangeInMillivolts(Range range) {
+float PicoScope5000::RangeInVolts(Range range) {
 	switch (range) {
-	case Range::_10mV: return 10.0;
-	case Range::_20mV: return 20.0;
-	case Range::_50mV: return 50.0;
-	case Range::_100mV: return 100.0;
-	case Range::_200mV: return 200.0;
-	case Range::_500mV: return 500.0;
-	case Range::_1V: return 1000.0;
-	case Range::_2V: return 2000.0;
-	case Range::_5V: return 5000.0;
-	case Range::_10V: return 1.0e4;
-	case Range::_20V: return 2.0e4;
-	case Range::_50V: return 5.0e4;
+	case Range::_10mV: return 0.0010;
+	case Range::_20mV: return 0.020;
+	case Range::_50mV: return 0.050;
+	case Range::_100mV: return 0.100;
+	case Range::_200mV: return 0.200;
+	case Range::_500mV: return 0.500;
+	case Range::_1V: return 1.0;
+	case Range::_2V: return 2.0;
+	case Range::_5V: return 5.0;
+	case Range::_10V: return 10.0;
+	case Range::_20V: return 20.0;
+	case Range::_50V: return 50.0;
 	default: throw gcnew Exception("Unexpected range.");
 	}
 }
@@ -263,17 +263,17 @@ void PicoScope5000::SetAutoTrigger(short delayInMilliseconds) {
 	CheckStatus(status);
 }
 
-void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned long delay) {
+void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned int delay) {
 	SetSimpleTrigger(source, threshold, direction, delay, 0);
 }
 
-void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned long delay, short autoDelayInMilliseconds) {
+void PicoScope5000::SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned int delay, short autoDelayInMilliseconds) {
 	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 1, (PS5000A_CHANNEL)source, threshold,
 		(PS5000A_THRESHOLD_DIRECTION)direction, delay, autoDelayInMilliseconds);
 	CheckStatus(status);
 }
 
-void PicoScope5000::SetTriggerDelay(unsigned long delaySamples) {
+void PicoScope5000::SetTriggerDelay(unsigned int delaySamples) {
 	auto status = (PicoStatus)ps5000aSetTriggerDelay(_handle, delaySamples);
 	CheckStatus(status);
 }
@@ -335,7 +335,7 @@ short PicoScope5000::GetMaximumAdcCountsForCurrentResolution() {
 	return value;
 }
 
-unsigned int PicoScope5000::GetMaximumDownsamplingRatio(unsigned long numberOfUnaggregatedSamples, Downsampling ratioMode, unsigned long segmentIndex) {
+unsigned int PicoScope5000::GetMaximumDownsamplingRatio(unsigned int numberOfUnaggregatedSamples, Downsampling ratioMode, unsigned int segmentIndex) {
 	unsigned int result;
 	auto status = (PicoStatus)ps5000aGetMaxDownSampleRatio(_handle, numberOfUnaggregatedSamples, &result, (PS5000A_RATIO_MODE)ratioMode, segmentIndex);
 	CheckStatus(status);

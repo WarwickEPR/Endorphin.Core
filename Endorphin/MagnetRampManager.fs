@@ -40,6 +40,11 @@ type RampStatus =
     | CancelledRamp    
 
 /// <summary>
+/// Type alias for CancelRamp command parameter, for clarity.
+/// </summary>
+type ReturnToZero = bool
+
+/// <summary>
 /// Discriminated union type describing the possible commands which can be sent to a magnet ramp
 /// manager.
 /// </summary>
@@ -54,7 +59,7 @@ type Command =
     /// Cancels a ramp which is in progress with a parameter indicating whether the magnet controller should
     /// return to zero current.
     /// </summary>
-    | CancelRamp of bool
+    | CancelRamp of ReturnToZero
 
 /// <summary>
 /// Actor mailbox for a magnet ramp manager which performs ramp operations on a Twickenham

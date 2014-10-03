@@ -10,7 +10,7 @@ open System.Linq
 open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Threading
-open PicoScopeDriver
+open PicoScope5000Agent
 open Units
 
 let magnetControllerTest () =
@@ -63,14 +63,15 @@ let magnetControllerTest () =
 
 let picoscopeTest () =
     // find all connected PicoScopes
-    let connectedPicos = PicoScope5000.GetConnectedUnitSerials()
+    let connectedPicos = getConnectedDeviceSerials()
     if connectedPicos.Length = 0 then failwith "No PicoScopes found."
     
     // connect to the first available one
-    use pico = new PicoScope5000(connectedPicos.First())
-
+    use pico = openBySerialNumber(connectedPicos.First())
+    let picoAgent = MailboxProcessor.Start <| picoScope5000Mailbox pico 
+    
     // print device details
-    let info = pico.GetUnitInfo()
+    let info = picoAgent.PostAndReply(GetUnitInfo)
     for detail in info do
         printfn "%A" detail
 
@@ -78,5 +79,5 @@ let picoscopeTest () =
 
 [<EntryPoint>]
 let main argv = 
-    Console.ReadLine() |> ignore
+    picoscopeTest()
     0

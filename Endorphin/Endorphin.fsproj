@@ -81,6 +81,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="MagnetController.fs" />
     <Compile Include="MagnetRampManager.fs" />
+    <Compile Include="PicoScope5000Agent.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="packages.config" />

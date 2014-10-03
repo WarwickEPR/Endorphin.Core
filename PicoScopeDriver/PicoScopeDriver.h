@@ -41,7 +41,7 @@ namespace PicoScopeDriver {
 		/// <summary>
 		/// Converts a <see cref="PicoScopeDriver.Range" /> enumeration to a floating point value in millivolts.
 		/// </summary>
-		static float RangeInMillivolts(Range range);
+		static float RangeInVolts(Range range);
 
 		// Constructors / destructor
 
@@ -300,7 +300,7 @@ namespace PicoScopeDriver {
 		/// <param name="direction">The direction in which the signal must vary to cause the trigger to fire.</param>
 		/// <param name="delay">The time between the trigger occuring and the first sample. This is given in units of
 		/// the current timebase interval.</param>
-		void SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned long delay);
+		void SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned int delay);
 
 		/// <summary>
 		/// Sets a simple threshold trigger on a particular channel.
@@ -312,14 +312,14 @@ namespace PicoScopeDriver {
 		/// the current timebase interval.</param>
 		/// <param name="autoDelayInMilliseconds">The number of milliseconds before the trigger is automatically
 		/// fired if the threshold is not crossed. The device will wait indefinitely if this is set to zero.</param>
-		void SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned long delay, short autoDelayInMilliseconds);
+		void SetSimpleTrigger(Channel source, short threshold, ThresholdDirection direction, unsigned int delay, short autoDelayInMilliseconds);
 		
 		/// <summary>
 		/// Sets the delay between a trigger event occuring and the first sample being acquired.
 		/// </summary>
 		/// <param name="delay">The time between the trigger occuring and the first sample. This is given in units of
 		/// the current timebase interval.</param>
-		void SetTriggerDelay(unsigned long delay);
+		void SetTriggerDelay(unsigned int delay);
 
 		/// <summary>
 		/// Checks if triggering is enabled.
@@ -375,14 +375,14 @@ namespace PicoScopeDriver {
 		/// <param name="numberOfUnaggregatedSamples">The number of samples to be reduced, prior to downsampling.</param>
 		/// <param name="downsampling">The type of downsampling to be used.</param>
 		/// <param name="segmentIndex">The index of the device memory segment to be downsampled.</param>
-		unsigned int GetMaximumDownsamplingRatio(unsigned long numberOfUnaggregatedSamples, Downsampling downsampling, unsigned long segmentIndex);
+		unsigned int GetMaximumDownsamplingRatio(unsigned int numberOfUnaggregatedSamples, Downsampling downsampling, unsigned int segmentIndex);
 
 		/// <summary>
 		/// Gets the maximum downsampling ratio which can be achieved in hardware for the current device memory segment.
 		/// </summary>
 		/// <param name="numberOfUnaggregatedSamples">The number of samples to be reduced, prior to downsampling.</param>
 		/// <param name="downsampling">The type of downsampling to be used.</param>
-		unsigned int GetMaximumDownsamplingRatio(unsigned long numberOfUnaggregatedSamples, Downsampling downsampling)
+		unsigned int GetMaximumDownsamplingRatio(unsigned int numberOfUnaggregatedSamples, Downsampling downsampling)
 		{ return GetMaximumDownsamplingRatio(numberOfUnaggregatedSamples, downsampling, CurrentSegmentIndex); }
 
 		/// <summary>
