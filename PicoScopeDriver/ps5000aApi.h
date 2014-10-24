@@ -767,6 +767,13 @@ PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps5000aRunStreaming)
   uint32_t       overviewBufferSize
 );
 
+PREF0 PREF1 PICO_STATUS PREF2 PREF3(ps5000aGetStreamingLatestValues)
+(
+  int16_t                  handle,
+  ps5000aStreamingReady  lpPs5000aReady,
+  void                  *pParameter
+);
+
 PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps5000aGetStreamingLatestValues)
 (
   int16_t                  handle,

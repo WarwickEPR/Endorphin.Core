@@ -1,4 +1,5 @@
 #pragma once
+#include "ps5000aApi.h"
 #include "PicoScopeDriver.h"
 
 using namespace System;
@@ -6,7 +7,6 @@ using namespace System::Collections::Concurrent;
 using namespace System::Collections::Generic;
 using namespace System::Runtime::InteropServices;
 using namespace System::Threading;
-using namespace System::Reactive;
 
 namespace PicoScopeDriver {
 
@@ -48,8 +48,8 @@ namespace PicoScopeDriver {
 		StreamFinished^ _finishedCallback;
 		Timer^ _timer;
 
-		GCHandle^ _picoScopeCallbackHandle;
-		void* _picoScopeCallback;
+		PicoScopeStreamReady^ _picoScopeManagedCallback;
+		ps5000aStreamingReady _picoScopeCallback;
 
 		bool _stopStreaming = false;
 		bool _didAutoStop = false;

@@ -3,6 +3,8 @@
 #include "ps5000aApi.h"
 #include <string>
 
+#pragma managed
+
 using namespace PicoScopeDriver;
 using namespace Runtime::InteropServices;
 
@@ -10,9 +12,9 @@ StreamingAcquisition::StreamingAcquisition(short handle, unsigned int% sampleInt
 	bool autoStop, Downsampling downsamplingModes, unsigned int downsamplingRatio, unsigned int bufferSize, StreamDataReady^ dataCallback, StreamFinished^ finishedCallback) :
 	_handle(handle), _dataCallback(dataCallback), _finishedCallback(finishedCallback) {
 	
-	auto _callback = gcnew PicoScopeStreamReady(this, &StreamingAcquisition::PicoScopeStreamCallback);
-	_picoScopeCallback = Marshal::GetFunctionPointerForDelegate(_callback).ToPointer();
-	_picoScopeCallbackHandle = GCHandle::Alloc(_callback);
+	_picoScopeManagedCallback = gcnew PicoScopeStreamReady(this, &StreamingAcquisition::PicoScopeStreamCallback);
+	auto fp = Marshal::GetFunctionPointerForDelegate(_picoScopeManagedCallback);
+	_picoScopeCallback = reinterpret_cast<ps5000aStreamingReady>(fp.ToPointer());
 
 	pin_ptr<unsigned int> sampleIntervalPtr = &sampleInterval;
 	auto status = (PicoStatus) ps5000aRunStreaming(_handle, sampleIntervalPtr, (PS5000A_TIME_UNITS)timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop ? 1 : 0,
@@ -28,7 +30,7 @@ void StreamingAcquisition::GetValues(Object^ state) {
 	Monitor::Exit(_streamingLock);
 	
 	if (!stopStreaming) {
-		auto status = (PicoStatus)ps5000aGetStreamingLatestValues(_handle, (ps5000aStreamingReady)_picoScopeCallback, (void*)IntPtr::Zero);
+		auto status = (PicoStatus)ps5000aGetStreamingLatestValues(_handle, _picoScopeCallback, (void*)IntPtr::Zero);
 		PicoScope5000::CheckStatus(status);
 		_timer->Change(TimeSpan::FromMilliseconds(100.0), Timeout::InfiniteTimeSpan);
 	}
@@ -43,13 +45,13 @@ void StreamingAcquisition::GetValues(Object^ state) {
 		if (_finishedCallback != nullptr) {
 			_finishedCallback->Invoke(_didAutoStop);
 		}
-
-		_picoScopeCallbackHandle->Free();
 	}
 }
 
+
 void StreamingAcquisition::PicoScopeStreamCallback(short handle, int numberOfSamples, unsigned int startIndex, 
 	short overflow, unsigned int triggerAt, short triggered, short autoStop, void* state) {
+	Console::WriteLine("Your mum!");
 	if (numberOfSamples > 0) {
 		if (_dataCallback != nullptr) {
 			auto overflows = gcnew List<Channel>();
@@ -60,7 +62,7 @@ void StreamingAcquisition::PicoScopeStreamCallback(short handle, int numberOfSam
 				if (overflow & overflowBit) {
 					overflows->Add((Channel)i);
 				}
-				overflowBit *= 2;
+				overflowBit = overflowBit << 1;
 			}
 
 			_dataCallback->Invoke(startIndex, numberOfSamples, overflows, triggered != 0 ? triggerAt : -1);
@@ -91,7 +93,7 @@ void StreamingAcquisition::PicoScopeViewCallback(short handle, int numberOfSampl
 		if (overflow & overflowBit) {
 			overflows->Add((Channel)i);
 		}
-		overflowBit << 1;
+		overflowBit = overflowBit << 1;
 	}
 
 	data->DataCallback->Invoke(startIndex, numberOfSamples, overflows, triggered != 0 ? triggerAt : -1);

@@ -78,29 +78,29 @@ type State =
 /// </summary>
 type Command = 
     /// <summary>Gets output current, voltage and ramp target in a <see cref="MagnetController.OutputParameters" /> record.</summary>
-    | GetOutputParameters of AsyncReplyChannel<OutputParameters>
+    | GetOutputParameters of replyChannel : AsyncReplyChannel<OutputParameters>
     /// <summary>Gets ramp target, target reached indicator, pause status in a <see cref="MagnetController.CurrentParameters" /> record.</summary>
-    | GetCurrentParameters of AsyncReplyChannel<CurrentParameters>
+    | GetCurrentParameters of replyChannel : AsyncReplyChannel<CurrentParameters>
     /// <summary>Gets ramp rate and current direction in a <see cref="MagnetController.OperatingParameters" /> record.</summary>
-    | GetOperatingParameters of AsyncReplyChannel<OperatingParameters>
+    | GetOperatingParameters of replyChannel : AsyncReplyChannel<OperatingParameters>
     /// <summary>Gets output lower and upper voltage limits and trip voltage in a <see cref="MagnetController.SetPointParameters" /> record.</summary>
-    | GetSetPointParameters of AsyncReplyChannel<SetPointParameters>
+    | GetSetPointParameters of replyChannel : AsyncReplyChannel<SetPointParameters>
     /// <summary>Sets the magnet controller ramp rate.</summary>
-    | SetRampRate of float<A/s> /// in A/s
+    | SetRampRate of rampRate : float<A/s> /// in A/s
     /// <summary>Sets the magnet controller trip voltage.</summary>
-    | SetTripVoltage of float<V> // in V
+    | SetTripVoltage of tripVoltage : float<V> // in V
     /// <summary>Sets the magnet controller current direction.</summary>
-    | SetCurrentDirection of CurrentDirection
+    | SetCurrentDirection of currentDirection : CurrentDirection
     /// <summary>Sets the lower current set-point of the magnet controller.</summary>
-    | SetLowerSetPoint of float<A> // in A
+    | SetLowerSetPoint of lowerCurrentLimit : float<A> // in A
     /// <summary>Sets the uppper current set-point of the magnet controller.</summary>
-    | SetUpperSetPoint of float<A> // in A
+    | SetUpperSetPoint of upperCurrentLimit : float<A> // in A
     /// <summary>Sets the magnet controller ramp target to either zero or the upper or lower current limit.</summary>
-    | SetRampTarget of RampTarget
+    | SetRampTarget of rampTarget : RampTarget
     /// <summary>Enables or disables the ramp pause on the magnet controller.</summary>
-    | SetPause of bool
+    | SetPause of pause : bool
     /// <summary>Wait for a response on this channel before disposing the NI VISA session to ensure clean closure.</summary>
-    | PrepareToCloseSession of AsyncReplyChannel<unit> 
+    | PrepareToCloseSession of replyChannel : AsyncReplyChannel<unit> 
 
 /// <summary>
 /// Sets the maximum ramp rate on the magnet controller.
@@ -272,28 +272,29 @@ let magnetControllerMailbox (session : MessageBasedSession) =
         /// </summary> 
         let buildCommand command = 
             let terminationCharacters = "\r\n"
-            let instruction = match command with
-            | GetOutputParameters(_) -> "G" 
-            | GetCurrentParameters(_) -> "K"
-            | GetOperatingParameters(_) -> "O"
-            | GetSetPointParameters(_) -> "S"
-            | SetRampRate(rate) -> (float rate) |> sprintf "A%08.5f"
-            | SetTripVoltage(voltage) -> (float voltage) |> sprintf "Y%04.1f"
-            | SetCurrentDirection(direction) -> 
-                match direction with
-                | Forward -> "D0"
-                | Reverse -> "D1"
-            | SetLowerSetPoint(lower) -> (float lower) |> sprintf "L%07.3f"
-            | SetUpperSetPoint(upper) -> (float upper) |> sprintf "U%07.3f"
-            | SetRampTarget(target) -> 
-                match target with
-                | Zero -> "R0"
-                | Lower -> "R1"
-                | Upper -> "R2"
-            | SetPause(pause) -> 
-                if pause then "P1"
-                else "P0"
-            | PrepareToCloseSession(_) -> failwith "PrepareToCloseSession is not a command which requires a message to be sent to the hardware"
+            let instruction = 
+                match command with
+                | GetOutputParameters(_) -> "G" 
+                | GetCurrentParameters(_) -> "K"
+                | GetOperatingParameters(_) -> "O"
+                | GetSetPointParameters(_) -> "S"
+                | SetRampRate(rate) -> (float rate) |> sprintf "A%08.5f"
+                | SetTripVoltage(voltage) -> (float voltage) |> sprintf "Y%04.1f"
+                | SetCurrentDirection(direction) -> 
+                    match direction with
+                    | Forward -> "D0"
+                    | Reverse -> "D1"
+                | SetLowerSetPoint(lower) -> (float lower) |> sprintf "L%07.3f"
+                | SetUpperSetPoint(upper) -> (float upper) |> sprintf "U%07.3f"
+                | SetRampTarget(target) -> 
+                    match target with
+                    | Zero -> "R0"
+                    | Lower -> "R1"
+                    | Upper -> "R2"
+                | SetPause(pause) -> 
+                    if pause then "P1"
+                    else "P0"
+                | PrepareToCloseSession(_) -> failwith "PrepareToCloseSession is not a command which requires a message to be sent to the hardware"
             instruction + terminationCharacters
 
         /// <summary>

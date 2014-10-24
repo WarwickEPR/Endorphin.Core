@@ -40,11 +40,6 @@ type RampStatus =
     | CancelledRamp    
 
 /// <summary>
-/// Type alias for CancelRamp command parameter, for clarity.
-/// </summary>
-type ReturnToZero = bool
-
-/// <summary>
 /// Discriminated union type describing the possible commands which can be sent to a magnet ramp
 /// manager.
 /// </summary>
@@ -54,12 +49,12 @@ type Command =
     /// a <see cref="System.IObservable" /> which provides ramp status notifications while the ramp is being
     /// performed.
     /// </summary>
-    | PerformRamp of Ramp * AsyncReplyChannel<IObservable<RampStatus>>
+    | PerformRamp of ramp : Ramp * replyChannel : AsyncReplyChannel<IObservable<RampStatus>>
     /// <summary>
     /// Cancels a ramp which is in progress with a parameter indicating whether the magnet controller should
     /// return to zero current.
     /// </summary>
-    | CancelRamp of ReturnToZero
+    | CancelRamp of returnToZero : bool
 
 /// <summary>
 /// Actor mailbox for a magnet ramp manager which performs ramp operations on a Twickenham
@@ -253,8 +248,9 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
         /// status information to the requester via an observable.</param>
         and ramping ramp rampStatus = async {
             use rampCts = new CancellationTokenSource()
-            let rampCompleted = rampStatus.TakeLast(1)
-            let rampCancelled = Observable.filter (fun s -> s = CancelledRamp) rampStatus
+            use mailboxCts = new CancellationTokenSource()
+            use _ = rampStatus.IgnoreElements()
+                    |> Observable.subscribe (fun _ -> mailboxCts.Cancel())
 
             let stopRamp returnToZero = async { 
                 if returnToZero
@@ -264,29 +260,25 @@ let magnetRampManagerMailbox (magnetController : MailboxProcessor<MagnetControll
             /// <summary>
             /// Handles a receive message to cancel the ramp in progress, ramping to zero current if requested.
             /// </summary>
-            let receiveCancelMessage _ = async {
-                let! message = mailbox.Receive()
-                match message with 
-                | CancelRamp(returnToZero) -> 
-                    Observable.add (fun _ -> Async.Start(stopRamp returnToZero)) rampCancelled
-                    rampCts.Cancel()
-                | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress" }
-
-            // create a subscription which will check the agent mailbox for cancellation requests every
-            // 100ms until the ramp is completed
-            use _ = Observable.Interval(TimeSpan.FromMilliseconds(100.0)) // every 100ms
-                              .TakeUntil(rampCompleted) // until ramp is completed
-                              .Select(fun _ -> mailbox.CurrentQueueLength) // check the mailbox queue length
-                              .Where(fun queueLength -> queueLength <> 0) // if it is non-zero
-                              .Take(1) // then the first time this occurs
-                    |> Observable.subscribe (Async.Start << receiveCancelMessage) // call the receiveCancelMessage function
+            let rec receiveCancelMessage() = async {
+                if (not mailboxCts.IsCancellationRequested)
+                then if mailbox.CurrentQueueLength <> 0
+                     then let! message = mailbox.Receive()
+                          match message with 
+                          | CancelRamp(returnToZero) -> 
+                              rampStatus
+                              |> Observable.filter(fun status -> status = CancelledRamp)
+                              |> Observable.add (fun _ -> Async.Start(stopRamp returnToZero))
+                              rampCts.Cancel()
+                          | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress"
+                     else do! Async.Sleep(100)
+                          do! receiveCancelMessage() }
             
             // run the asyncRamp computation expression
             Async.Start(asyncRamp ramp rampStatus, rampCts.Token)
 
             // return to the waiting state once the ramp is complete
-            let! _ = Async.AwaitObservable(rampCompleted) 
-            printfn "Returning to waiting state...."
+            do! receiveCancelMessage()
             return! waiting() }
 
         waiting ()

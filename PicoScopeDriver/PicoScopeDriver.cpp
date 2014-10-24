@@ -1,7 +1,6 @@
 #include "Stdafx.h"
 
 #include "PicoScopeDriver.h"
-#include "ps5000aApi.h"
 #include <string>
 
 using namespace PicoScopeDriver;
@@ -48,18 +47,18 @@ array<String^>^ PicoScope5000::GetConnectedUnitSerials() {
 
 float PicoScope5000::RangeInVolts(Range range) {
 	switch (range) {
-	case Range::_10mV: return 0.0010;
-	case Range::_20mV: return 0.020;
-	case Range::_50mV: return 0.050;
-	case Range::_100mV: return 0.100;
-	case Range::_200mV: return 0.200;
-	case Range::_500mV: return 0.500;
-	case Range::_1V: return 1.0;
-	case Range::_2V: return 2.0;
-	case Range::_5V: return 5.0;
-	case Range::_10V: return 10.0;
-	case Range::_20V: return 20.0;
-	case Range::_50V: return 50.0;
+	case Range::_10mV: return 0.0010f;
+	case Range::_20mV: return 0.020f;
+	case Range::_50mV: return 0.050f;
+	case Range::_100mV: return 0.100f;
+	case Range::_200mV: return 0.200f;
+	case Range::_500mV: return 0.500f;
+	case Range::_1V: return 1.0f;
+	case Range::_2V: return 2.0f;
+	case Range::_5V: return 5.0f;
+	case Range::_10V: return 10.0f;
+	case Range::_20V: return 20.0f;
+	case Range::_50V: return 50.0f;
 	default: throw gcnew Exception("Unexpected range.");
 	}
 }
@@ -258,7 +257,7 @@ void PicoScope5000::DisableTrigger() {
 }
 
 void PicoScope5000::SetAutoTrigger(short delayInMilliseconds) {
-	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 0, (PS5000A_CHANNEL)Channel::A, 0,
+	auto status = (PicoStatus)ps5000aSetSimpleTrigger(_handle, 1, (PS5000A_CHANNEL)Channel::A, 0,
 		(PS5000A_THRESHOLD_DIRECTION)ThresholdDirection::None, 0, delayInMilliseconds);
 	CheckStatus(status);
 }
@@ -342,8 +341,8 @@ unsigned int PicoScope5000::GetMaximumDownsamplingRatio(unsigned int numberOfUna
 	return result;
 }
 
-IInt16BufferHandle^ PicoScope5000::CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, int bufferLength, unsigned int segmentIndex) {
-	auto bufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
+IInt16BufferHandle^ PicoScope5000::CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, unsigned int bufferLength, unsigned int segmentIndex) {
+		auto bufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
 	auto status = (PicoStatus)ps5000aSetDataBuffer(_handle, (PS5000A_CHANNEL)channel, bufferHandle->BufferPointer(), bufferHandle->BufferSize, segmentIndex, 
 		(PS5000A_RATIO_MODE)downsampling);
 	CheckStatus(status);
@@ -358,7 +357,7 @@ IInt16BufferHandle^ PicoScope5000::CreatePinnedBuffer(Channel channel, Downsampl
 	return bufferHandle;
 }
 
-Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreateUnmanagedBuffers(Channel channel, int bufferLength, unsigned int segmentIndex) {
+Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ PicoScope5000::CreateUnmanagedBuffers(Channel channel, unsigned int bufferLength, unsigned int segmentIndex) {
 	auto maxBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
 	auto minBufferHandle = gcnew UnmanagedInt16BufferHandle(bufferLength);
 	auto status = (PicoStatus)ps5000aSetDataBuffers(_handle, (PS5000A_CHANNEL)channel, maxBufferHandle->BufferPointer(), minBufferHandle->BufferPointer(),

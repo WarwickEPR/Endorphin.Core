@@ -5,6 +5,7 @@
 #include "Stdafx.h"
 #include "StreamingAcquisition.h"
 #include "IInt16BufferHandle.h"
+#include "ps5000aApi.h"
 
 using namespace System;
 using namespace System::Collections::Concurrent;
@@ -398,7 +399,7 @@ namespace PicoScopeDriver {
 		/// <param name="downsampling">The type of downsampling to be used in transferring the data.</param>
 		/// <param name="bufferLength">The length of the buffer.</param>
 		/// <param name="segmentIndex">The index of the device memory segment to be transferred into the buffer.</param>
-		IInt16BufferHandle^ CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, int bufferLength, unsigned int segmentIndex);
+		IInt16BufferHandle^ CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, unsigned int bufferLength, unsigned int segmentIndex);
 
 		/// <summary>
 		/// Creates a buffer on the unmanaged heap for the specified channel and the current device memory segment with 
@@ -412,7 +413,7 @@ namespace PicoScopeDriver {
 		/// <param name="channel">The device channel which will be transferred from memory into the buffer.</param>
 		/// <param name="downsampling">The type of downsampling to be used in transferring the data.</param>
 		/// <param name="bufferLength">The length of the buffer.</param>
-		IInt16BufferHandle^ CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, int bufferLength)
+		IInt16BufferHandle^ CreateUnmanagedBuffer(Channel channel, Downsampling downsampling, unsigned int bufferLength)
 		{ return CreateUnmanagedBuffer(channel, downsampling, bufferLength, CurrentSegmentIndex); }
 
 		/// <summary>
@@ -462,7 +463,7 @@ namespace PicoScopeDriver {
 		/// <param name="downsampling">The type of downsampling to be used in transferring the data.</param>
 		/// <param name="bufferLength">The length of the buffer.</param>
 		/// <param name="segmentIndex">The index of the device memory segment to be transferred into the buffer.</param>
-		Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ CreateUnmanagedBuffers(Channel channel, int bufferLength, unsigned int segmentIndex);
+		Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ CreateUnmanagedBuffers(Channel channel, unsigned int bufferLength, unsigned int segmentIndex);
 
 		/// <summary>
 		/// Creates a pair of buffers on the unmanaged heap for the specified channel and the current device memory segment with 
@@ -477,7 +478,7 @@ namespace PicoScopeDriver {
 		/// <param name="channel">The device channel which will be transferred from memory into the buffer.</param>
 		/// <param name="downsampling">The type of downsampling to be used in transferring the data.</param>
 		/// <param name="bufferLength">The length of the buffer.</param>
-		Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ CreateUnmanagedBuffers(Channel channel, int bufferLength)
+		Tuple<IInt16BufferHandle^, IInt16BufferHandle^>^ CreateUnmanagedBuffers(Channel channel, unsigned int bufferLength)
 		{ return CreateUnmanagedBuffers(channel, bufferLength, CurrentSegmentIndex); }
 
 		/// <summary>
