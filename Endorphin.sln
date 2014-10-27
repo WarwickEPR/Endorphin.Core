@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin", "Endorphin\Endo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PicoScopeDriver", "PicoScopeDriver\PicoScopeDriver.vcxproj", "{18EC4015-6EEA-4F1C-B8D0-AEB7BD9655C9}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.PicoScope5000", "Endorphin.Instrument.PicoScope5000\Endorphin.Instrument.PicoScope5000.fsproj", "{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,16 @@ Global
 		{18EC4015-6EEA-4F1C-B8D0-AEB7BD9655C9}.Release|Mixed Platforms.Build.0 = Release|Win32
 		{18EC4015-6EEA-4F1C-B8D0-AEB7BD9655C9}.Release|Win32.ActiveCfg = Release|Win32
 		{18EC4015-6EEA-4F1C-B8D0-AEB7BD9655C9}.Release|Win32.Build.0 = Release|Win32
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}.Release|Win32.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

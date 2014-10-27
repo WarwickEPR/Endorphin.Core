@@ -6,13 +6,11 @@ open NationalInstruments.VisaNS
 open MagnetController
 open MagnetRampManager
 open System
-open System.Linq
 open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Threading
-open PicoScope5000Api
-open PicoScope5000Agent
 open Units
+open Endorphin.Instrument.PicoScope5000
 
 let magnetControllerTest () =
     printfn "Magnet controller example."
@@ -34,20 +32,21 @@ let magnetControllerTest () =
     
     let ready = new BehaviorSubject<bool>(false)
 
-    let ramp = { startingCurrent = amps 0.3
-                 finalCurrent = amps 1.5
-                 rampRate = ampsPerSecond 0.05 
-                 returnToZero = true
-                 readyForRamp = ready.AsObservable() }
+    let ramp = 
+      { startingCurrent = amps 0.3
+        finalCurrent = amps 1.5
+        rampRate = ampsPerSecond 0.05 
+        returnToZero = true
+        readyForRamp = ready.AsObservable() }
     
     let rampStatus = rampManager.PostAndReply(fun replyChannel -> PerformRamp(ramp, replyChannel))
     use printStatus = rampStatus
                       |> Observable.subscribe(fun status ->
-                          printfn "Ramp status: %A" status
-                          if status = ReadyToRamp
-                          then printfn "Acquisition getting ready..."
-                               Thread.Sleep(1000)
-                               ready.OnNext(true))
+                             printfn "Ramp status: %A" status
+                             if status = ReadyToRamp
+                             then printfn "Acquisition getting ready..."
+                                  Thread.Sleep(1000)
+                                  ready.OnNext(true))
 
     let didFinish = Observable.IgnoreElements(rampStatus)
                     |> Observable.map (fun _ -> true)
@@ -64,58 +63,63 @@ let magnetControllerTest () =
 
 let picoScopeTest() =
     // connect to the first available one
-    let pico = openFirstConnectedDevice()
-
-    // enable channel A, disable channels B, C and D
-    let channelSettings enabled =
-        { enabled = enabled
-          coupling = Coupling.DC
-          range = Range._5V
-          analogueOffset = 0.0<V> }
+    do
+        use pico = new PicoScope5000Agent()
+        // enable channel A, disable channels B, C and D
+        let inputRange = Range._10mV
     
-    SetChannelSettings(Channel.A, channelSettings true) |> pico.Post
-    SetChannelSettings(Channel.B, channelSettings false) |> pico.Post
-    SetChannelSettings(Channel.C, channelSettings false) |> pico.Post
-    SetChannelSettings(Channel.D, channelSettings false) |> pico.Post
-
-    // auto-trigger after 1ms 
-    SetAutoTrigger(1s<ms>) |> pico.Post
-
-    // create a stream agent
-    let (streamAgent, agentStatus) = CreateStreamAgent |> pico.PostAndReply
+        let channelSettings enabled =
+          { enabled = enabled
+            coupling = Coupling.DC
+            range = inputRange
+            analogueOffsetInVolts = 0.0 }
     
-    // observe channel A 
-    let x = (fun replyChannel -> Observe(Channel.A, Downsampling.None, replyChannel)) 
-            |> streamAgent.PostAndReply
+        pico.SetChannelSettings(Channel.A, channelSettings true)
+        pico.SetChannelSettings(Channel.B, channelSettings false)
+        pico.SetChannelSettings(Channel.C, channelSettings false)
+        pico.SetChannelSettings(Channel.D, channelSettings false)
+
+        // auto-trigger after 1ms 
+        pico.SetAutoTrigger(1s)
+
+        let adcToVolts = pico.GetAdcCountToVoltsConversion(inputRange, 0.0)
     
-    // every 1024 * 1024 samples, print "Got some data!"
-    x.Buffer(1024 * 1024) 
-    |> Observable.add(fun _ -> printfn "Got some data!")
+        // create a stream agent
+        do
+            use streamAgent = pico.CreateStreamAgent()
+            // observe channel A 
+            let x = streamAgent.Observe(Channel.A, Downsampling.None) 
     
-    // run the acquisition for about 10s sampling at 1ms intervals and no downsampling
-    let streamingParameters =
-        { streamingInterval = Microseconds(1u) 
-          downsamplingRatio = 1u
-          maximumPreTriggerSamples = 0u
-          maximumPostTriggerSamples = 1024u * 1024u * 10u
-          autoStop = true }
-    let streamStatus = (fun replyChannel -> RunStream(streamingParameters, replyChannel)) 
-                       |> streamAgent.PostAndReply
+            // print samples in 64 sample blocks
+            x.Buffer(64) 
+            |> Observable.add(
+                   fun block ->
+                       printfn "Sample block:"
+                       for sample in block do
+                           printf "%.2fmV " (1000.0 * adcToVolts sample)
+                       printfn "")
+    
+            // run the acquisition for about 10s sampling at 1ms intervals and no downsampling
+            let streamingParameters =
+              { streamingInterval = Milliseconds(1u) 
+                downsamplingRatio = 1u
+                maximumPreTriggerSamples = 0u
+                maximumPostTriggerSamples = uint32 (64 * 32)
+                autoStop = true }
 
-    // print stream status updates
-    streamStatus 
-    |> Observable.add(fun status -> printfn "Stream status: %A" status)
+            let streamStatus = streamAgent.RunStream(streamingParameters)
 
-    // wait for the user to press enter
-    Console.ReadLine() |> ignore
+            // print stream status updates
+            streamStatus 
+            |> Observable.add(fun status -> printfn "Stream status: %A" status)
 
-    // stop the stream if it didn't stop automatically and discard the stream agent
-    StopStream |> streamAgent.Post
-    Discard |> streamAgent.Post
+            // wait for the user to press enter
+            Console.ReadLine() |> ignore
 
-    // wait for the stream agent to finish and close the connection to the device
-    Observable.Wait(agentStatus.DefaultIfEmpty(Discarded)) |> ignore
-    CloseUnit |> pico.PostAndReply
+            // stop the stream if it didn't stop automatically
+            streamAgent.StopStream()
+        )
+    )
     
     
 [<EntryPoint>]
