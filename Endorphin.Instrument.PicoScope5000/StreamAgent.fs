@@ -2,6 +2,7 @@
 
 open System
 open Errors
+open System.Linq
 open System.Reactive
 open System.Reactive.Linq
 open System.Reactive.Subjects
@@ -9,44 +10,49 @@ open System.Runtime.InteropServices
 open System.Threading
 
 type StreamingInterval =
-    | Seconds of uint32
-    | Milliseconds of uint32
-    | Microseconds of uint32
-    | Nanoseconds of uint32
-    | Picoseconds of uint32
-    | Femtoseconds of uint32
+   | Seconds of uint32
+   | Milliseconds of uint32
+   | Microseconds of uint32
+   | Nanoseconds of uint32
+   | Picoseconds of uint32
+   | Femtoseconds of uint32
 
 type StreamingParmaeters =
-    { streamingInterval : StreamingInterval 
-      downsamplingRatio : uint32
-      maximumPreTriggerSamples : uint32
-      maximumPostTriggerSamples : uint32
-      autoStop : bool }
+   { streamingInterval : StreamingInterval 
+     downsamplingRatio : uint32
+     maximumPreTriggerSamples : uint32
+     maximumPostTriggerSamples : uint32
+     autoStop : bool }
 
 type StreamAgentStatus =
-    | Active
-    | Discarded
+   | Active
+   | Discarded
 
 type StreamStatus =
-    | Preparing
-    | Started of streamingInterval : StreamingInterval
-    | Finished of didAutoStop : bool
+   | Preparing
+   | Started of streamingInterval : StreamingInterval
+   | Finished of didAutoStop : bool
 
 type BufferDataReady =
-    { startIndex : uint32
-      numberOfSamples : int 
-      overflows : Channel seq
-      triggered : Triggered }
+   { startIndex : uint32
+     numberOfSamples : int 
+     overflows : Channel seq
+     triggered : Triggered }
+
+type ChannelData =
+   { samples : int16 array
+     overflow : bool
+     triggered : Triggered }
 
 type internal StreamCommand =
-    | Observe of Channel * Downsampling * AsyncReplyChannel<IObservable<int16>>
-    | ObserveAggregate of Channel * AsyncReplyChannel<IObservable<int16> * IObservable<int16>>
-    | ObserveAgentStatus of AsyncReplyChannel<IObservable<StreamAgentStatus>>
-    | RunStream of StreamingParmaeters * AsyncReplyChannel<IObservable<StreamStatus>>
-    | StopStream
-    | ViewData of AsyncReplyChannel<int16 seq>
-    | Discard of AsyncReplyChannel<unit>
-
+   | Observe of Channel * Downsampling * AsyncReplyChannel<IObservable<ChannelData>>
+   | ObserveAggregate of Channel * AsyncReplyChannel<IObservable<ChannelData> * IObservable<ChannelData>>
+   | ObserveAgentStatus of AsyncReplyChannel<IObservable<StreamAgentStatus>>
+   | RunStream of StreamingParmaeters * AsyncReplyChannel<IObservable<StreamStatus>>
+   | StopStream
+   | ViewData of AsyncReplyChannel<int16 seq>
+   | Discard of AsyncReplyChannel<unit>
+   
 type StreamAgent(handle) = 
     static let streamingIntervalToParameters =
         function
@@ -71,12 +77,12 @@ type StreamAgent(handle) =
         let minSampleCount = 
             streamingInterval 
             |> function
-            | Seconds(timeInterval) -> 1e2 / (float (timeInterval * downsamplingRatio))
-            | Milliseconds(timeInterval) -> 1e5 / (float (timeInterval * downsamplingRatio))
-            | Microseconds(timeInterval) -> 1e8 / (float (timeInterval * downsamplingRatio))
-            | Nanoseconds(timeInterval) -> 1e11 / (float (timeInterval * downsamplingRatio))
-            | Picoseconds(timeInterval) -> 1e14 / (float (timeInterval * downsamplingRatio))
-            | Femtoseconds(timeInterval) -> 1e17 / (float (timeInterval * downsamplingRatio))
+               | Seconds(timeInterval) -> 1e2 / (float (timeInterval * downsamplingRatio))
+               | Milliseconds(timeInterval) -> 1e5 / (float (timeInterval * downsamplingRatio))
+               | Microseconds(timeInterval) -> 1e8 / (float (timeInterval * downsamplingRatio))
+               | Nanoseconds(timeInterval) -> 1e11 / (float (timeInterval * downsamplingRatio))
+               | Picoseconds(timeInterval) -> 1e14 / (float (timeInterval * downsamplingRatio))
+               | Femtoseconds(timeInterval) -> 1e17 / (float (timeInterval * downsamplingRatio))
     
         let rec computeBufferLength length = 
             if (float) length > minSampleCount
@@ -88,14 +94,23 @@ type StreamAgent(handle) =
     let streamAgentMailbox =
         let agentStatusSubject = new BehaviorSubject<_>(Active)
 
-        let bufferAgentMailbox (buffer : int16 array) (observer : IObserver<int16>) =
+        let bufferAgentMailbox channel (buffer : int16 array) (observer : IObserver<ChannelData>) =
             fun (mailbox : MailboxProcessor<BufferDataReady>) ->
+                let offsetTrigger offset =
+                    function
+                    | NotTriggered -> NotTriggered
+                    | Triggered(index) -> Triggered(index - offset)
+                    
                 let rec loop() = async {
                     let! message = mailbox.Receive()
-                    let data = Array.zeroCreate(message.numberOfSamples)
-                    Array.Copy(buffer, int message.startIndex, data, 0, message.numberOfSamples)
-                    for sample in data do
-                        observer.OnNext(sample)
+                    let samples = Array.zeroCreate(message.numberOfSamples)
+                    Array.Copy(buffer, int message.startIndex, samples, 0, message.numberOfSamples)
+                    
+                    { samples = samples
+                      overflow = (message.overflows.Contains(channel))
+                      triggered =  offsetTrigger message.startIndex message.triggered }
+                    |> observer.OnNext
+                    
                     return! loop() }
             
                 loop()
@@ -110,7 +125,7 @@ type StreamAgent(handle) =
                         let buffer = Array.zeroCreate(bufferLength)
                         let bufferHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned)
                         Api.SetDataBuffer(handle, channel, buffer, bufferLength, 0u, downsampling) |> checkStatusIsOk
-                        let bufferProcessor = MailboxProcessor.Start(bufferAgentMailbox buffer observer)
+                        let bufferProcessor = MailboxProcessor.Start(bufferAgentMailbox channel buffer observer)
                         yield (bufferProcessor, buffer, bufferHandle) 
                     for ((maxObserver, minObserver), channel) in aggregateObservers do 
                         let maxBuffer = Array.zeroCreate(bufferLength)
@@ -118,8 +133,8 @@ type StreamAgent(handle) =
                         let maxBufferHandle = GCHandle.Alloc(maxBuffer, GCHandleType.Pinned)
                         let minBufferHandle = GCHandle.Alloc(minBuffer, GCHandleType.Pinned)
                         Api.SetDataBuffers(handle, channel, maxBuffer, minBuffer, bufferLength, 0u, Downsampling.Aggregate) |> checkStatusIsOk
-                        let maxBufferProcessor = MailboxProcessor.Start(bufferAgentMailbox maxBuffer maxObserver)
-                        let minBufferProcessor = MailboxProcessor.Start(bufferAgentMailbox minBuffer minObserver)
+                        let maxBufferProcessor = MailboxProcessor.Start(bufferAgentMailbox channel maxBuffer maxObserver)
+                        let minBufferProcessor = MailboxProcessor.Start(bufferAgentMailbox channel minBuffer minObserver)
                         yield (maxBufferProcessor, maxBuffer, maxBufferHandle)
                         yield (minBufferProcessor, minBuffer, minBufferHandle) } }
 
@@ -196,13 +211,13 @@ type StreamAgent(handle) =
                     if downsampling = Downsampling.Aggregate
                     then failwith "Attempted to create aggregate observable using Observe command. Use ObserveAggregate instead."
                 
-                    let subject = new Subject<int16>()
+                    let subject = new Subject<ChannelData>()
                     subject.AsObservable() |> replyChannel.Reply
                     return! preparing ((subject.AsObserver(), channel, downsampling) :: observers) aggregateObservers
 
                 | ObserveAggregate(channel, replyChannel) ->
-                    let maxSubject = new Subject<int16>()
-                    let minSubject = new Subject<int16>()
+                    let maxSubject = new Subject<ChannelData>()
+                    let minSubject = new Subject<ChannelData>()
                     (maxSubject.AsObservable(), minSubject.AsObservable()) |> replyChannel.Reply
                     return! preparing observers (((maxSubject.AsObserver(), minSubject.AsObserver()), channel) :: aggregateObservers)
                 
@@ -275,6 +290,10 @@ type StreamAgent(handle) =
     
     let streamMailboxProcessor = MailboxProcessor.Start(streamAgentMailbox)
 
+    member internal this.Post(message) = streamMailboxProcessor.Post(message)
+    member internal this.PostAndReply(buildMessage) = streamMailboxProcessor.PostAndReply(buildMessage)
+    member internal this.PostAndAsyncReply(buildMessage) = streamMailboxProcessor.PostAndAsyncReply(buildMessage)
+
     interface IDisposable with
         member this.Dispose() = 
             streamMailboxProcessor.PostAndReply(Discard)
@@ -284,7 +303,7 @@ type StreamAgent(handle) =
         |> streamMailboxProcessor.PostAndReply
 
     member this.ObserveAggregate(channel) =
-        fun replyChannel -> ObserveAggregate(channel)
+        fun replyChannel -> ObserveAggregate(channel, replyChannel)
         |> streamMailboxProcessor.PostAndReply
 
     member this.ObserveAgentStatus() =

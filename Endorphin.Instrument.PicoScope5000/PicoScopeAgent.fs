@@ -41,10 +41,6 @@ type internal Command =
     | Ping of replyChannel : AsyncReplyChannel<unit>
     | GetTimebaseIntervalInNanosec of timebase : uint32 * replyChannel : AsyncReplyChannel<float * int32>
     | GetTimebaseIntervalInNanosecForSegment of timebase : uint32 * memorySegment : uint32 * replyChannel : AsyncReplyChannel<float * int32>
-    | GetFastestTimebaseForCurrentResolution of replyChannel : AsyncReplyChannel<uint32>
-    | GetFastestTimebaseForResolution of resolution : Resolution * replyChannel : AsyncReplyChannel<uint32>
-    | GetFastestStreamingIntervalInNanosecForCurrentResolution of channelCount : int32 *  replyChannel : AsyncReplyChannel<float>
-    | GetFastestStreamingIntervalInNanosecForResolution of resolution : Resolution * channelCount : int32 * replyChannel : AsyncReplyChannel<float>
     | GetDeviceResolution of replyChannel : AsyncReplyChannel<Resolution>
     | SetDeviceResolution of resolution : Resolution
     | GetAnalogueOffsetLimitsInVolts of range : Range * coupling : Coupling * replyChannel : AsyncReplyChannel<float * float>
@@ -52,8 +48,6 @@ type internal Command =
     | SetChannelSettings of channel : Channel * channelSettings : ChannelSettings
     | SetChannelBandwidth of channel : Channel * bandwidthLimit : BandwidthLimit
     | DisableChannel of channel : Channel
-    | GetMaximumNumberOfChannelsForCurrentResolution of replyChannel : AsyncReplyChannel<int32>
-    | GetMaximumNumberOfChannelsForResolution of resolution : Resolution * replyChannel : AsyncReplyChannel<int32>
     | DisableTrigger
     | SetAutoTrigger of delayInMillisec : int16
     | SetSimpleTrigger of triggerSettings : SimpleTriggerSettings
@@ -70,31 +64,6 @@ type internal Command =
     | CreateStreamAgent of AsyncReplyChannel<StreamAgent>
 
 type PicoScope5000Agent(serial, initialResolution) =
-    static let fastestTimebaseForResolution =
-        function
-        | Resolution._8bit -> 0u
-        | Resolution._12bit -> 1u
-        | Resolution._14bit
-        | Resolution._15bit -> 3u
-        | Resolution._16bit -> 4u
-        | _ -> failwith "Unexpected resolution."
-
-    static let rangeInVolts =
-        function
-        | Range._10mV -> 0.010
-        | Range._20mV -> 0.020
-        | Range._50mV -> 0.050
-        | Range._100mV -> 0.100
-        | Range._200mV -> 0.200
-        | Range._500mV -> 0.500
-        | Range._1V -> 1.0
-        | Range._2V -> 2.0
-        | Range._5V -> 5.0
-        | Range._10V -> 10.0
-        | Range._20V -> 20.0
-        | Range._50V -> 50.0
-        | _ -> failwith "Unexpected range."
-
     static let getUnitInfoValue handle info =
         let resultLength = 32s
         let result = new StringBuilder(int resultLength)
@@ -108,34 +77,6 @@ type PicoScope5000Agent(serial, initialResolution) =
                 let result = (info, getUnitInfoValue handle info) 
                 yield result }
         |> Seq.toList
-
-    static let maximumNumberOfChanelsForResolution =
-        function
-        | Resolution._8bit | Resolution._12bit | Resolution._14bit -> 4
-        | Resolution._15bit -> 2
-        | Resolution._16bit -> 1
-        | _ -> failwith "Unexpected resolution."
-
-    static let getFastestStreamingIntervalInNanosec = 
-        function
-        | (Resolution._12bit, 4)
-        | (Resolution._12bit, 3)
-        | (Resolution._14bit, 4)
-        | (Resolution._14bit, 3) -> 256.0
-        | (Resolution._8bit, 4) 
-        | (Resolution._8bit, 3) 
-        | (Resolution._12bit, 2) 
-        | (Resolution._14bit, 2) 
-        | (Resolution._15bit, 2) -> 128.0
-        | (Resolution._8bit, 3)
-        | (Resolution._12bit, 1)
-        | (Resolution._14bit, 1)
-        | (Resolution._15bit, 1)
-        | (Resolution._16bit, 2) -> 64.0
-        | (Resolution._8bit, 1) -> 32.0
-        | (resolution, channelCount) when channelCount > maximumNumberOfChanelsForResolution resolution ->
-            failwith "Exceeded maximum number of channels for resolution: %A." (resolution, channelCount)
-        | parameters -> failwith "Unexpected number of channels or resolution: %A." parameters
 
     let picoScopeAgentMailbox handle (mailbox : MailboxProcessor<Command>) =
         let rec loop currentSegment currentResolution = async {
@@ -224,22 +165,6 @@ type PicoScope5000Agent(serial, initialResolution) =
                 (float interval, maxSamples) |> replyChannel.Reply
                 return! loop currentSegment currentResolution
 
-            | GetFastestTimebaseForCurrentResolution(replyChannel) -> 
-                fastestTimebaseForResolution currentResolution |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
-            | GetFastestTimebaseForResolution(resolution, replyChannel) -> 
-                fastestTimebaseForResolution resolution |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
-            | GetFastestStreamingIntervalInNanosecForCurrentResolution(channelCount, replyChannel) -> 
-                (getFastestStreamingIntervalInNanosec(currentResolution, channelCount)) |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
-            | GetFastestStreamingIntervalInNanosecForResolution(resolution, channelCount, replyChannel) ->
-                (getFastestStreamingIntervalInNanosec(resolution, channelCount)) |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
             | GetDeviceResolution(replyChannel) -> 
                 currentResolution |> replyChannel.Reply
                 return! loop currentSegment currentResolution
@@ -256,18 +181,6 @@ type PicoScope5000Agent(serial, initialResolution) =
                 let ranges = Array.zeroCreate(rangesLength)
                 Api.GetChannelInformation(handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatusIsOk
                 Array.toSeq(ranges).Take(rangesLength) |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
-            | GetMaximumNumberOfChannelsForCurrentResolution(replyChannel) ->
-                let channelCount = int ((getUnitInfoValue handle PicoInfo.VariantInfo).Chars(1))
-                let maxChannels = maximumNumberOfChanelsForResolution currentResolution
-                min channelCount maxChannels |> replyChannel.Reply
-                return! loop currentSegment currentResolution
-
-            | GetMaximumNumberOfChannelsForResolution(resolution, replyChannel) ->
-                let channelCount = int ((getUnitInfoValue handle PicoInfo.VariantInfo).Chars(1))
-                let maxChannels = maximumNumberOfChanelsForResolution resolution
-                min channelCount maxChannels |> replyChannel.Reply
                 return! loop currentSegment currentResolution
 
             | IsTriggerEnabled(replyChannel) ->
@@ -287,20 +200,20 @@ type PicoScope5000Agent(serial, initialResolution) =
                 maxSegments |> replyChannel.Reply
                 return! loop currentSegment currentResolution
 
-            | GetAdcCountToVoltsConversion(range, analogueOffset, replyChannel) ->
+            | GetAdcCountToVoltsConversion(range : Range, analogueOffset, replyChannel) ->
                 let mutable maxAdcCounts = 0s 
                 Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusIsOk
                 let maxAdcCountsValue = maxAdcCounts       
-                let range = rangeInVolts(range)
-                (fun adcCounts -> (range * float(adcCounts) / float(maxAdcCountsValue)) + analogueOffset) |> replyChannel.Reply
+                let rangeInVolts = range.ToVolts() 
+                (fun adcCounts -> (rangeInVolts * float(adcCounts) / float(maxAdcCountsValue)) + analogueOffset) |> replyChannel.Reply
                 return! loop currentSegment currentResolution
 
-            | GetVoltsToAdcCountConversion(range, analogueOffset, replyChannel) ->
+            | GetVoltsToAdcCountConversion(range : Range, analogueOffset, replyChannel) ->
                 let mutable maxAdcCounts = 0s
                 Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusIsOk    
                 let maxAdcCountsValue = maxAdcCounts            
-                let range = rangeInVolts(range)
-                (fun voltage -> int16 (((voltage - analogueOffset) / range) * float(maxAdcCountsValue))) |> replyChannel.Reply
+                let rangeInVolts = range.ToVolts() 
+                (fun voltage -> int16 (((voltage - analogueOffset) / rangeInVolts) * float(maxAdcCountsValue))) |> replyChannel.Reply
                 return! loop currentSegment currentResolution
 
             | GetMaximumDownsamplingRatio(sampleCount, downsampling, memorySegment, replyChannel) ->
@@ -418,6 +331,10 @@ type PicoScope5000Agent(serial, initialResolution) =
     new() = new PicoScope5000Agent(null, Resolution._8bit)
     new(initialResolution) = new PicoScope5000Agent(null, initialResolution)
     new(serial) = new PicoScope5000Agent(serial, Resolution._8bit)
+
+    member internal this.Post(message) = picoMailboxProcessor.Post(message)
+    member internal this.PostAndReply(buildMessage) = picoMailboxProcessor.PostAndReply(buildMessage)
+    member internal this.PostAndAsyncReply(buildMessage) = picoMailboxProcessor.PostAndAsyncReply(buildMessage)
 
     interface IDisposable with
         member this.Dispose() =
@@ -576,40 +493,6 @@ type PicoScope5000Agent(serial, initialResolution) =
         |> picoMailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
-    member this.GetTimebaseForCurrentResolution() =
-        picoMailboxProcessor.PostAndReply(GetFastestTimebaseForCurrentResolution)
-
-    member this.GetTimebaseIntervalInNanosecAsync() =
-        picoMailboxProcessor.PostAndAsyncReply(GetFastestTimebaseForCurrentResolution)
-        |> Async.StartAsTask
-
-    member this.GetTimebaseForResolution(resolution) =
-        fun replyChannel -> GetFastestTimebaseForResolution(resolution, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
-
-    member this.GetTimebaseIntervalForResolutionAsync(resolution) =
-        fun replyChannel -> GetFastestTimebaseForResolution(resolution, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-    
-    member this.GetFastestStreamingIntervalInNanosecForCurrentResolution(channelCount) =
-        fun replyChannel -> GetFastestStreamingIntervalInNanosecForCurrentResolution(channelCount, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
-
-    member this.GetFastestStreamingIntervalInNanosecForCurrentResolutionAsync(channelCount) =
-        fun replyChannel -> GetFastestStreamingIntervalInNanosecForCurrentResolution(channelCount, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
-    member this.GetFastestStreamingIntervalInNanosecForResolution(resolution, channelCount) =
-        fun replyChannel -> GetFastestStreamingIntervalInNanosecForResolution(resolution, channelCount, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
-
-    member this.GetFastestStreamingIntervalInNanosecForResolutionAsync(resolution, channelCount) =
-        fun replyChannel -> GetFastestStreamingIntervalInNanosecForResolution(resolution, channelCount, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
     member this.GetDeviceResolution() =
         GetDeviceResolution
         |> picoMailboxProcessor.PostAndReply
@@ -661,24 +544,6 @@ type PicoScope5000Agent(serial, initialResolution) =
     member this.DisableChannel(channel) =
         DisableChannel(channel)
         |> picoMailboxProcessor.Post
-
-    member this.GetMaximumNumberOfChannelsForCurrentResolution() =
-        GetMaximumNumberOfChannelsForCurrentResolution
-        |> picoMailboxProcessor.PostAndReply
-
-    member this.GetMaximumNumberOfChannelsForCurrentResolutionAsync() =
-        GetMaximumNumberOfChannelsForCurrentResolution
-        |> picoMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
-    member this.GetMaximumNumberOfChannelsForResolution(resolution) =
-        fun replyChannel -> GetMaximumNumberOfChannelsForResolution(resolution, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
-
-    member this.GetMaximumNumberOfChannelsForResolutionAsync(resolution) =
-        fun replyChannel -> GetMaximumNumberOfChannelsForResolution(resolution, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
 
     member this.DisableTrigger() = 
         DisableTrigger
@@ -742,21 +607,31 @@ type PicoScope5000Agent(serial, initialResolution) =
         |> Async.StartAsTask
 
     member this.GetAdcCountToVoltsConversion(range, analogueOffsetInVolts) =
-        fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        let conversion = 
+            fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
+            |> picoMailboxProcessor.PostAndReply
+        Func<_, _>(conversion)
 
     member this.GetAdcCountToVoltsConversionAsync(range, analogueOffsetInVolts) =
-        fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        async {
+            let! conversion =
+                fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
+                |> picoMailboxProcessor.PostAndAsyncReply
+            return Func<_, _>(conversion) }
         |> Async.StartAsTask
 
     member this.GetVoltsToAdcCountConversion(range, analogueOffsetInVolts) =
-        fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        let conversion = 
+            fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
+            |> picoMailboxProcessor.PostAndReply
+        Func<_, _>(conversion)
 
     member this.GetVoltsToAdcCountConversionAsync(range, analogueOffsetInVolts) =
-        fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        async {
+            let! conversion =
+                fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
+                |> picoMailboxProcessor.PostAndAsyncReply
+            return conversion }
         |> Async.StartAsTask
 
     member this.GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment) =

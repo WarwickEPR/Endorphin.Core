@@ -161,6 +161,8 @@ type Triggered =
 // when FieldOffset attributes are also used but not in this case
 #nowarn "9"
 
+open System.Runtime.CompilerServices
+
 [<StructLayout(LayoutKind.Sequential, Pack = 1)>]
 type TriggerChannelProperties =
     struct 
@@ -244,3 +246,68 @@ type PicoScopeStreamingReady =
 type PicoScopeDataReady =
     // handle, numberOfSamples, overflows, triggeredAt, triggered, state
     delegate of int16 * int * int16 * uint32 * int16 * nativeint -> unit
+
+[<Extension>]
+type Methods() =
+    static let maximumNumberOfChannelsForResolution =
+        function
+        | Resolution._8bit | Resolution._12bit | Resolution._14bit -> 4
+        | Resolution._15bit -> 2
+        | Resolution._16bit -> 1
+        | _ -> failwith "Unexpected resolution."
+
+    static let getFastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) = 
+        function
+        | (Resolution._12bit, 4)
+        | (Resolution._12bit, 3)
+        | (Resolution._14bit, 4)
+        | (Resolution._14bit, 3) -> 256.0
+        | (Resolution._8bit, 4) 
+        | (Resolution._8bit, 3) 
+        | (Resolution._12bit, 2) 
+        | (Resolution._14bit, 2) 
+        | (Resolution._15bit, 2) -> 128.0
+        | (Resolution._8bit, 3)
+        | (Resolution._12bit, 1)
+        | (Resolution._14bit, 1)
+        | (Resolution._15bit, 1)
+        | (Resolution._16bit, 2) -> 64.0
+        | (Resolution._8bit, 1) -> 32.0
+        | (resolution, channelCount) when channelCount > maximumNumberOfChannelsForResolution resolution ->
+            failwith "Exceeded maximum number of channels for resolution: %A." (resolution, channelCount)
+        | parameters -> failwith "Unexpected number of channels or resolution: %A." parameters
+
+    [<Extension>]
+    static member ToVolts(range : Range) =
+        match range with
+        | Range._10mV -> 0.010
+        | Range._20mV -> 0.020
+        | Range._50mV -> 0.050
+        | Range._100mV -> 0.100
+        | Range._200mV -> 0.200
+        | Range._500mV -> 0.500
+        | Range._1V -> 1.0
+        | Range._2V -> 2.0
+        | Range._5V -> 5.0
+        | Range._10V -> 10.0
+        | Range._20V -> 20.0
+        | Range._50V -> 50.0
+        | _ -> failwith "Unexpected range."
+
+    [<Extension>]
+    static member FastestTimebase(resolution : Resolution) =
+        match resolution with
+        | Resolution._8bit -> 0u
+        | Resolution._12bit -> 1u
+        | Resolution._14bit
+        | Resolution._15bit -> 3u
+        | Resolution._16bit -> 4u
+        | _ -> failwith "Unexpected resolution."
+
+    [<Extension>]
+    static member MaximumNumberOfChannels(resolution : Resolution) =
+        maximumNumberOfChannelsForResolution resolution
+
+    [<Extension>]
+    static member FastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) =
+        getFastestStreamingIntervalInNanosec(resolution, channelCount)

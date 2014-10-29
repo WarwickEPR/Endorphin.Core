@@ -63,7 +63,7 @@
     <Compile Include="ApiImport.fs" />
     <Compile Include="StreamAgent.fs" />
     <Compile Include="PicoScopeAgent.fs" />
-    <None Include="Script.fsx" />
+    <Compile Include="FSharp.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <PropertyGroup>
