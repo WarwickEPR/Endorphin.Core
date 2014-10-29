@@ -301,26 +301,28 @@ type PicoScope5000Agent(serial, initialResolution) =
                 let streamAgent = new StreamAgent(handle)
                 streamAgent |> replyChannel.Reply
 
-                use mailboxCts = new CancellationTokenSource()
-                use _ = streamAgent.ObserveAgentStatus()
+                do!
+                    use mailboxCts = new CancellationTokenSource()
+                    use cancelMailboxToken = 
+                        streamAgent.ObserveAgentStatus()
                         |> Observable.filter (fun status -> status = Discarded)
                         |> Observable.subscribe (fun _ -> mailboxCts.Cancel())
                 
-                let rec checkForMessages() = async {
-                    if (not mailboxCts.Token.IsCancellationRequested) && mailbox.CurrentQueueLength <> 0
-                    then failwith "PicoScope agent received message while a stream agent is active. Discard this agent first."
+                    let rec checkForMessages() = async {
+                        if (not mailboxCts.Token.IsCancellationRequested) && mailbox.CurrentQueueLength <> 0
+                        then failwith "PicoScope agent received message while a stream agent is active. Discard this agent first."
                     
-                    if (not mailboxCts.Token.IsCancellationRequested)
-                    then do! Async.Sleep(100)
-                         do! checkForMessages() }
+                        if (not mailboxCts.Token.IsCancellationRequested)
+                        then do! Async.Sleep(100)
+                             do! checkForMessages() }
 
-                do! checkForMessages()
-                mailboxCts.Dispose()
+                    checkForMessages()
+
                 return! loop currentSegment currentResolution }
             
         loop 0u initialResolution
 
-    let picoMailboxProcessor =
+    let mailboxProcessor =
         let mutable handle = 0s
         let status = Api.OpenUnit(&handle, serial, initialResolution)
         match status with
@@ -332,201 +334,201 @@ type PicoScope5000Agent(serial, initialResolution) =
     new(initialResolution) = new PicoScope5000Agent(null, initialResolution)
     new(serial) = new PicoScope5000Agent(serial, Resolution._8bit)
 
-    member internal this.Post(message) = picoMailboxProcessor.Post(message)
-    member internal this.PostAndReply(buildMessage) = picoMailboxProcessor.PostAndReply(buildMessage)
-    member internal this.PostAndAsyncReply(buildMessage) = picoMailboxProcessor.PostAndAsyncReply(buildMessage)
+    member internal this.Post(message) = mailboxProcessor.Post(message)
+    member internal this.PostAndReply(buildMessage) = mailboxProcessor.PostAndReply(buildMessage)
+    member internal this.PostAndAsyncReply(buildMessage) = mailboxProcessor.PostAndAsyncReply(buildMessage)
 
     interface IDisposable with
         member this.Dispose() =
             CloseUnit
-            |> picoMailboxProcessor.PostAndReply
+            |> mailboxProcessor.PostAndReply
 
     member this.GetUnitDriverVersion() =
         GetUnitDriverVersion
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitDriverVersionAsync() =
         GetUnitDriverVersion
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitUsbVersion() =
         GetUnitUsbVersion
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitUsbVersionAsync() =
         GetUnitUsbVersion
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitHardwareVersion() =
         GetUnitHardwareVersion
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitHardwareVersionAsync() =
         GetUnitHardwareVersion
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitVariantInfo() =
         GetUnitVariantInfo
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitVariantInfoAsync() =
         GetUnitVariantInfo
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitSerial() =
         GetUnitSerial
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitSerialAsync() =
         GetUnitSerial
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitCalibrationDate() =
         GetUnitCalibrationDate
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitCalibrationDateAsync() =
         GetUnitCalibrationDate
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitKernelVersion() =
         GetUnitKernelVersion
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitKernelVersionAsync() =
         GetUnitKernelVersion
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitDigitalHardwareVersion() =
         GetUnitDigitalHardwareVersion
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitDigitalHardwareVersionAsync() =
         GetUnitDigitalHardwareVersion
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitFirmwareVersion1() =
         GetUnitFirmwareVersion1
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitFirmwareVersion1Async() =
         GetUnitFirmwareVersion1
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitFirmwareVersion2() =
         GetUnitFirmwareVersion2
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitFirmwareVersion2Async() =
         GetUnitFirmwareVersion2
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetUnitInfo() =
-        picoMailboxProcessor.PostAndReply(GetUnitInfo)
+        mailboxProcessor.PostAndReply(GetUnitInfo)
         |> List.toSeq
 
     member this.GetUnitInfoAsync() =
         async {
-            let! info = GetUnitInfo |> picoMailboxProcessor.PostAndAsyncReply
+            let! info = GetUnitInfo |> mailboxProcessor.PostAndAsyncReply
             return info |> List.toSeq }
         |> Async.StartAsTask
 
     member this.GetUnitIsMainsPowered() =
         IsUnitMainsPowered
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetUnitIsMainsPoweredAsync() =
         IsUnitMainsPowered
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.SetUnitIsMainsPowered(mainsPowered) =
         SetUnitIsMainsPowered(mainsPowered)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.FlashLedIndefinitely() =
         FlashLedIndefinitely
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.FlashLed(flashCount) =
         FlashLed(flashCount)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.StopFlashingLed() =
         StopFlashingLed
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.Ping() =
         Ping
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.PingAsync() =
         Ping
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetTimebaseIntervalInNanosec(timebase) =
         fun replyChannel -> GetTimebaseIntervalInNanosec(timebase, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetTimebaseIntervalInNanosecAsync(timebase) =
         fun replyChannel -> GetTimebaseIntervalInNanosec(timebase, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetTimebaseIntervalInNanosecForSegment(timebase, memorySegment) =
         fun replyChannel -> GetTimebaseIntervalInNanosecForSegment(timebase, memorySegment, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetTimebaseIntervalInNanosecForSegmentAsync(timebase, memorySegment) =
         fun replyChannel -> GetTimebaseIntervalInNanosecForSegment(timebase, memorySegment, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetDeviceResolution() =
         GetDeviceResolution
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetDeviceResolutionAsync() =
         GetDeviceResolution
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.SetDeviceResolution(resolution) =
         SetDeviceResolution(resolution)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.GetAnalogueOffsetLimitsInVolts(range, coupling) =
         fun replyChannel -> GetAnalogueOffsetLimitsInVolts(range, coupling, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetAnalogueOffsetLimitsInVoltsAsync(range, coupling) =
         fun replyChannel -> GetAnalogueOffsetLimitsInVolts(range, coupling, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetAvailableChannelRanges(channel) =
         fun replyChannel -> GetAvailableChannelRanges(channel, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetAvailableChannelRangesAsync(channel) =
         fun replyChannel -> GetAvailableChannelRanges(channel, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.SetChannelSettings(channel, channelSettings) =
         SetChannelSettings(channel, channelSettings)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetChannelSettings(channel, enabled, range, coupling, analogueOffsetInVolts) =
         let channelSettings =
@@ -535,27 +537,27 @@ type PicoScope5000Agent(serial, initialResolution) =
               coupling = coupling 
               analogueOffsetInVolts = analogueOffsetInVolts }
         SetChannelSettings(channel, channelSettings)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetChannelBandwidth(channel, bandwidthLimit) =
         SetChannelBandwidth(channel, bandwidthLimit)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.DisableChannel(channel) =
         DisableChannel(channel)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.DisableTrigger() = 
         DisableTrigger
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetAutoTrigger(delayInMillisec) =
         SetAutoTrigger(delayInMillisec)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetSimpleTrigger(triggerSettings) =
         SetSimpleTrigger(triggerSettings)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetSimpleTrigger(channel, adcThreshold, thresholdDirection, delaySampleCount, autoTriggerDelayInMillisec) =
         let triggerSettings =
@@ -565,100 +567,100 @@ type PicoScope5000Agent(serial, initialResolution) =
               delaySampleCount = delaySampleCount
               autoTriggerDelayInMillisec = autoTriggerDelayInMillisec }
         SetSimpleTrigger(triggerSettings)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetTriggerDelay(sampleCount) =
         SetTriggerDelay(sampleCount)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.IsTriggerEnabled() =
         IsTriggerEnabled
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.IsTriggerEnabledAsync() =
         IsTriggerEnabled
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetCurrentMemorySegment() =
         GetCurrentMemorySegment
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetCurrentMemorySegmentAsync() =
         GetCurrentMemorySegment
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.SetCurrentMemorySegment(memorySegment) =
         SetCurrentMemorySegment(memorySegment)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.SetNumberOfMemorySegments(memorySegments) =
         SetNumberOfMemorySegments(memorySegments)
-        |> picoMailboxProcessor.Post
+        |> mailboxProcessor.Post
 
     member this.GetMaximumNumberOfSegments() =
         GetMaximumNumberOfSegments
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetMaximumNumberOfSegmentsAsync() =
         GetMaximumNumberOfSegments
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetAdcCountToVoltsConversion(range, analogueOffsetInVolts) =
         let conversion = 
             fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
-            |> picoMailboxProcessor.PostAndReply
+            |> mailboxProcessor.PostAndReply
         Func<_, _>(conversion)
 
     member this.GetAdcCountToVoltsConversionAsync(range, analogueOffsetInVolts) =
         async {
             let! conversion =
                 fun replyChannel -> GetAdcCountToVoltsConversion(range, analogueOffsetInVolts, replyChannel)
-                |> picoMailboxProcessor.PostAndAsyncReply
+                |> mailboxProcessor.PostAndAsyncReply
             return Func<_, _>(conversion) }
         |> Async.StartAsTask
 
     member this.GetVoltsToAdcCountConversion(range, analogueOffsetInVolts) =
         let conversion = 
             fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
-            |> picoMailboxProcessor.PostAndReply
+            |> mailboxProcessor.PostAndReply
         Func<_, _>(conversion)
 
     member this.GetVoltsToAdcCountConversionAsync(range, analogueOffsetInVolts) =
         async {
             let! conversion =
                 fun replyChannel -> GetVoltsToAdcCountConversion(range, analogueOffsetInVolts, replyChannel)
-                |> picoMailboxProcessor.PostAndAsyncReply
+                |> mailboxProcessor.PostAndAsyncReply
             return conversion }
         |> Async.StartAsTask
 
     member this.GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment) =
         fun replyChannel -> GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetMaximumDownsamplingRatioAsync(unprocessedSampleCount, downsampling, memorySegment) =
         fun replyChannel -> GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.GetMaximumDownsamplingRatioForCurrentMemorySegment(unprocessedSampleCount, downsampling) =
         fun replyChannel -> GetMaximumDownsamplingRatioForCurrentMemorySegment(unprocessedSampleCount, downsampling, replyChannel)
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.GetMaximumDownsamplingRatioForCurrentMemorySegmentAsync(unprocessedSampleCount, downsampling) =
         fun replyChannel -> GetMaximumDownsamplingRatioForCurrentMemorySegment(unprocessedSampleCount, downsampling, replyChannel)
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     member this.CreateStreamAgent() =
         CreateStreamAgent
-        |> picoMailboxProcessor.PostAndReply
+        |> mailboxProcessor.PostAndReply
 
     member this.CreateStreamAgentAsync() =
         CreateStreamAgent
-        |> picoMailboxProcessor.PostAndAsyncReply
+        |> mailboxProcessor.PostAndAsyncReply
         |> Async.StartAsTask
 
     static member GetConnectedDeviceSerials() =
