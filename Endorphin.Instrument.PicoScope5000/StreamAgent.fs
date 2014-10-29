@@ -50,7 +50,6 @@ type internal StreamCommand =
    | ObserveAgentStatus of AsyncReplyChannel<IObservable<StreamAgentStatus>>
    | RunStream of StreamingParmaeters * AsyncReplyChannel<IObservable<StreamStatus>>
    | StopStream
-   | ViewData of AsyncReplyChannel<int16 seq>
    | Discard of AsyncReplyChannel<unit>
    
 type StreamAgent(handle) = 
@@ -231,7 +230,6 @@ type StreamAgent(handle) =
                     return! running observers aggregateObservers streamingParameters statusSubject
             
                 | StopStream -> failwith "Cannot stop a stream before it has been started."
-                | ViewData(_) -> failwith "Cannot request a stream data view before the stream has finished."
                 | Discard(replyChannel) -> 
                     agentStatusSubject.OnNext(Discarded)
                     agentStatusSubject.OnCompleted()
@@ -260,7 +258,6 @@ type StreamAgent(handle) =
                                      failwith "Cannot create new observables while the stream is running." 
                                  | RunStream(_, _) -> failwith "Cannot start a stream when it is already runnning."
                                  | StopStream -> acquisitionCts.Cancel()
-                                 | ViewData(_) -> failwith "Cannot request a stream data view before the stream has finished."
                                  | Discard(_) -> failwith "Cannot discard a stream agent while a stream is running."
                             else do! Async.Sleep(100)
                                  do! checkForStopMessage() }
@@ -280,7 +277,6 @@ type StreamAgent(handle) =
                 | RunStream(_, _ ) ->
                     failwith "Cannot run a new data stream on a finished stream agent. Discard this stream agent and create a new one."
                 | StopStream -> return! finishedStream() // possible that the stop stream message arrives after the stream has auto-stopped
-                | ViewData(_) -> failwith "Not yet implemented"
                 | Discard(replyChannel) -> 
                     agentStatusSubject.OnNext(Discarded)
                     agentStatusSubject.OnCompleted()
@@ -326,12 +322,3 @@ type StreamAgent(handle) =
 
     member this.StopStream() =
         streamMailboxProcessor.Post(StopStream)
-
-    member this.ViewData() =
-        ViewData
-        |> streamMailboxProcessor.PostAndReply
-
-    member this.ViewDataAsync() =
-        ViewData
-        |> streamMailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask

@@ -21,14 +21,6 @@ let runStream streamingParameters (streamAgent : StreamAgent) =
 let stopStream (streamAgent : StreamAgent) =
     streamAgent.Post(StopStream)
 
-let viewData (streamAgent : StreamAgent) =
-    ViewData
-    |> streamAgent.PostAndReply
-
-let viewDataAsync (streamAgent : StreamAgent) =
-    ViewData
-    |> streamAgent.PostAndAsyncReply
-
 let unitDriverVersion (picoScopeAgent : PicoScope5000Agent) =
     GetUnitDriverVersion
     |> picoScopeAgent.PostAndReply
@@ -292,5 +284,5 @@ let createStreamAgentAsync (picoScopeAgent : PicoScope5000Agent) =
     CreateStreamAgent
     |> picoScopeAgent.PostAndAsyncReply
     
-let connectedDeviceSerials =
+let connectedPicoScope5000Serials =
     PicoScope5000Agent.GetConnectedDeviceSerials()
