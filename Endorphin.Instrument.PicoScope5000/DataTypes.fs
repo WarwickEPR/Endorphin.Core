@@ -249,15 +249,15 @@ type PicoScopeDataReady =
 
 [<Extension>]
 type Methods() =
-    static let maximumNumberOfChannelsForResolution =
+    static let MaximumNumberOfChannelsForResolution =
         function
         | Resolution._8bit | Resolution._12bit | Resolution._14bit -> 4
         | Resolution._15bit -> 2
         | Resolution._16bit -> 1
         | _ -> failwith "Unexpected resolution."
 
-    static let getFastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) = 
-        function
+    static let GetFastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) = 
+        match (resolution, channelCount) with
         | (Resolution._12bit, 4)
         | (Resolution._12bit, 3)
         | (Resolution._14bit, 4)
@@ -273,7 +273,7 @@ type Methods() =
         | (Resolution._15bit, 1)
         | (Resolution._16bit, 2) -> 64.0
         | (Resolution._8bit, 1) -> 32.0
-        | (resolution, channelCount) when channelCount > maximumNumberOfChannelsForResolution resolution ->
+        | (resolution, channelCount) when channelCount > MaximumNumberOfChannelsForResolution resolution ->
             failwith "Exceeded maximum number of channels for resolution: %A." (resolution, channelCount)
         | parameters -> failwith "Unexpected number of channels or resolution: %A." parameters
 
@@ -306,8 +306,8 @@ type Methods() =
 
     [<Extension>]
     static member MaximumNumberOfChannels(resolution : Resolution) =
-        maximumNumberOfChannelsForResolution resolution
+        MaximumNumberOfChannelsForResolution resolution
 
     [<Extension>]
     static member FastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) =
-        getFastestStreamingIntervalInNanosec(resolution, channelCount)
+        GetFastestStreamingIntervalInNanosec(resolution, channelCount)

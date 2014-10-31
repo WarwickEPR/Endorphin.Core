@@ -50,6 +50,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="MagnetRamp.fs" />
+    <Compile Include="CwEpr.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

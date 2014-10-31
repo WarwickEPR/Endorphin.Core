@@ -8,49 +8,77 @@ open System.Reactive.Linq
 open System.Reactive.Subjects
 open System.Runtime.InteropServices
 open System.Threading
+open System.Runtime.CompilerServices
 
-type StreamingInterval =
-   | Seconds of uint32
-   | Milliseconds of uint32
-   | Microseconds of uint32
-   | Nanoseconds of uint32
-   | Picoseconds of uint32
-   | Femtoseconds of uint32
+[<DefaultAugmentation(false)>]
+type SampleInterval =
+    | Seconds of uint32
+    | Milliseconds of uint32
+    | Microseconds of uint32
+    | Nanoseconds of uint32
+    | Picoseconds of uint32
+    | Femtoseconds of uint32
+    
+    static member FromSeconds(value) = 
+        Seconds(value)
+    
+    static member FromMilliseconds(value) = 
+        Milliseconds(value)
+
+    static member FromMicroseconds(value) = 
+        Microseconds(value)
+
+    static member FromNanoseconds(value) = 
+        Nanoseconds(value)
+
+    static member FromPicoseconds(value) = 
+        Picoseconds(value)
+
+    static member FromFemtoseconds(value) =
+        Femtoseconds(value)
 
 type StreamingParmaeters =
-   { streamingInterval : StreamingInterval 
-     downsamplingRatio : uint32
-     maximumPreTriggerSamples : uint32
-     maximumPostTriggerSamples : uint32
-     autoStop : bool }
+    { sampleInterval : SampleInterval 
+      downsamplingRatio : uint32
+      maximumPreTriggerSamples : uint32
+      maximumPostTriggerSamples : uint32
+      autoStop : bool }
 
 type StreamAgentStatus =
-   | Active
-   | Discarded
+    | Active
+    | Discarded
 
 type StreamStatus =
-   | Preparing
-   | Started of streamingInterval : StreamingInterval
-   | Finished of didAutoStop : bool
+    | Preparing
+    | Started of streamingInterval : SampleInterval
+    | Finished of didAutoStop : bool
 
 type BufferDataReady =
-   { startIndex : uint32
-     numberOfSamples : int 
-     overflows : Channel seq
-     triggered : Triggered }
+    { startIndex : uint32
+      numberOfSamples : int 
+      overflows : Channel seq
+      triggered : Triggered }
 
 type ChannelData =
-   { samples : int16 array
-     overflow : bool
-     triggered : Triggered }
-
+    { samples : int16 array
+      overflow : bool
+      triggered : Triggered }
+        
+[<Extension>]
+type ChannelDataExtensions =
+    [<Extension>]
+    static member ObserveSamples(obs : IObservable<ChannelData>) =
+        obs 
+        |> Observable.map (fun channelData -> channelData.samples)
+        |> fun samples -> Observable.SelectMany(samples, Enumerable.AsEnumerable)
+                                   
 type internal StreamCommand =
-   | Observe of Channel * Downsampling * AsyncReplyChannel<IObservable<ChannelData>>
-   | ObserveAggregate of Channel * AsyncReplyChannel<IObservable<ChannelData> * IObservable<ChannelData>>
-   | ObserveAgentStatus of AsyncReplyChannel<IObservable<StreamAgentStatus>>
-   | RunStream of StreamingParmaeters * AsyncReplyChannel<IObservable<StreamStatus>>
-   | StopStream
-   | Discard of AsyncReplyChannel<unit>
+    | Observe of Channel * Downsampling * AsyncReplyChannel<IObservable<ChannelData>>
+    | ObserveAggregate of Channel * AsyncReplyChannel<IObservable<ChannelData> * IObservable<ChannelData>>
+    | ObserveAgentStatus of AsyncReplyChannel<IObservable<StreamAgentStatus>>
+    | RunStream of StreamingParmaeters * AsyncReplyChannel<IObservable<StreamStatus>>
+    | StopStream
+    | Discard of AsyncReplyChannel<unit>
    
 type StreamAgent(handle) = 
     static let streamingIntervalToParameters =
@@ -115,7 +143,7 @@ type StreamAgent(handle) =
                 loop()
 
         let acquisition observers aggregateObservers streamingParameters (statusSubject : ISubject<StreamStatus>) cancellationToken =    
-            let bufferLength = streamingBufferLength streamingParameters.streamingInterval streamingParameters.downsamplingRatio
+            let bufferLength = streamingBufferLength streamingParameters.sampleInterval streamingParameters.downsamplingRatio
         
             let createBuffers = async {
                 GC.Collect()
@@ -146,7 +174,7 @@ type StreamAgent(handle) =
                          then Downsampling.None
                          else Downsampling.Aggregate) 
 
-                let (interval, timeUnit) = streamingIntervalToParameters streamingParameters.streamingInterval
+                let (interval, timeUnit) = streamingIntervalToParameters streamingParameters.sampleInterval
                 let mutable hardwareInterval = interval
                 let autoStop = if streamingParameters.autoStop then 1s else 0s
                 Api.RunStreaming(handle, &hardwareInterval, timeUnit, streamingParameters.maximumPreTriggerSamples, 
@@ -310,9 +338,9 @@ type StreamAgent(handle) =
         fun replyChannel -> RunStream(streamingParameters, replyChannel)
         |> streamMailboxProcessor.PostAndReply
 
-    member this.RunStream(streamingInterval, downsamplingRatio, maxPreTriggerSamples, maxPostTriggerSamples, autoStop) =
+    member this.RunStream(sampleInterval, downsamplingRatio, maxPreTriggerSamples, maxPostTriggerSamples, autoStop) =
         let streamingParameters =
-            { streamingInterval = streamingInterval
+            { sampleInterval = sampleInterval
               downsamplingRatio = downsamplingRatio
               maximumPreTriggerSamples = maxPreTriggerSamples
               maximumPostTriggerSamples = maxPostTriggerSamples

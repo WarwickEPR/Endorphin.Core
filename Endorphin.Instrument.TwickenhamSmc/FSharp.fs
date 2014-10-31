@@ -2,10 +2,10 @@
 
 module TwickenhamSmcFSharp = 
     let maximumRampRateInAmpsPerSec (magnetController : MagnetController) =
-        magnetController.MaximumRampRateInAmpsPerSec
+        magnetController.RampRateLimitInAmpsPerSec
 
     let maximumTripVoltageInVolts (magnetController : MagnetController) =
-        magnetController.MaximumTripVoltageInVolts
+        magnetController.TripVoltageLimitInVolts
     
     let outputParameters (magnetController : MagnetController) =
         GetOutputParameters
@@ -74,3 +74,60 @@ module TwickenhamSmcFSharp =
 
     let magnetControllerState (magnetController : MagnetController) =
         magnetController.getStateAsync()
+
+    let availableRampRatesInAmpsPerSec (magnetController : MagnetController) =
+        magnetController.AvailableRampRatesInAmpsPerSec
+
+    let rampRateForIndexInAmpsPerSec (index) (magnetController : MagnetController) =
+        magnetController.RampRateForIndexInAmpsPerSec(index)
+
+    let availableRampRatesInMilliteslaPerSec (magnetController : MagnetController) =
+        magnetController.AvailableRampRatesInMilliteslaPerSec
+
+    let rampRateForIndexInMilliteslaPerSec (index) (magnetController : MagnetController) =
+        magnetController.RampRateForIndexInMilliteslaPerSec(index)
+
+    let numberOfCurrentSteps (magnetController : MagnetController) =
+        magnetController.NumberOfCurrentSteps
+
+    let currentStepInAmps (magnetController : MagnetController) =
+        magnetController.CurrentStepInAmps
+
+    let currentForIndexInAmps (index) (magnetController : MagnetController) =
+        magnetController.CurrentForIndexInAmps(index)
+
+    let fieldStepInMillitesla (magnetController : MagnetController) =
+        magnetController.FieldStepInMillitesla
+
+    let fieldForIndexInMillitesla (index) (magnetController : MagnetController) =
+        magnetController.FieldForIndexInMillitesla(index)
+
+    let maximumFieldInMillitesla (magnetController : MagnetController) =
+        magnetController.MaximumFieldInMillitesla
+
+    let minimumFieldInMillitesla (magnetController : MagnetController) =
+        magnetController.MinimumFieldInMillitesla
+
+    let nearestDigitisedCurrentInAmps (currentInAmps) (magnetController : MagnetController) =
+        magnetController.NearestDigitisedCurrentInAmps(currentInAmps)
+    
+    let nearestDigitisedFieldInMillitesla (fieldInMillitesla) (magnetController : MagnetController) =
+        magnetController.NearestDigitisedFieldInMillitesla(fieldInMillitesla)
+
+    let nearestDigitisedRampRateInAmpsPerSec (rampRateInAmpsPerSec) (magnetController : MagnetController) =
+        magnetController.NearestDigitisedRampRateInAmpsPerSec(rampRateInAmpsPerSec)
+
+    let nearestDigitisedRampRateInMilliteslaPerSec (rampRateInMilliteslaPerSec) (magnetController : MagnetController) =
+        magnetController.NearestDigitisedRampRateInMilliteslaPerSec(rampRateInMilliteslaPerSec)
+
+    let shuntStepInvVolts (magnetController : MagnetController) =
+        magnetController.ShuntStepInvVolts
+
+    let nearestDigitisedOutputIndexForShuntVoltage voltageInVolts (magnetController : MagnetController) =
+        magnetController.NearestDigitisedOutputIndexForShuntVoltage(voltageInVolts)
+    
+    let nearestDigitisedCurrentInAmpsForShuntVoltage voltageInVolts (magnetController : MagnetController) =
+        magnetController.NearestDigitisedCurrentInAmpsForShuntVoltage(voltageInVolts)
+
+    let nearestDigitisedFieldInMilliteslaForShuntVoltage(voltageInVolts) (magnetController : MagnetController) =
+        magnetController.NearestDigitisedFieldInMilliteslaForShuntVoltage(voltageInVolts)

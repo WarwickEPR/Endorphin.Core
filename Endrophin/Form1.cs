@@ -20,7 +20,7 @@ namespace Endrophin.UI
         PicoScope5000Agent scope;
         StreamAgent streamAgent;
         Func<short, double> adcToVols;
-        int chartIndex = 0;
+        DataPointCollection dataPoints;
 
         public Form1()
         {
@@ -30,6 +30,7 @@ namespace Endrophin.UI
         private void Form1_Load(object sender, EventArgs e)
         {
             scope = new PicoScope5000Agent(Resolution._12bit);
+            dataPoints = chart.Series[0].Points;
             var inputRange = Range._1V;
 
             var enabledChannelSettings = new ChannelSettings(true, Coupling.DC, inputRange, 0.0);
@@ -42,46 +43,46 @@ namespace Endrophin.UI
 
             adcToVols = scope.GetAdcCountToVoltsConversion(inputRange, 0.0);
 
-            chart.ChartAreas[0].AxisX.Minimum = -1.2 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisX.Maximum = +1.2 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisY.Minimum = -1.2 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisY.Maximum = +1.2 * inputRange.ToVolts();
+            chart.ChartAreas[0].AxisX.Minimum = -1.1 * inputRange.ToVolts();
+            chart.ChartAreas[0].AxisX.Maximum = +1.1 * inputRange.ToVolts();
+            chart.ChartAreas[0].AxisY.Minimum = -1.1 * inputRange.ToVolts();
+            chart.ChartAreas[0].AxisY.Maximum = +1.1 * inputRange.ToVolts();
         }
 
         private void startStopButton_Click(object sender, EventArgs e)
         {
             if (streamAgent == null)
             {
-                chart.Series[0].Points.Clear();
+                dataPoints.Clear();
 
                 streamAgent = scope.CreateStreamAgent();
 
-                var x = from channelData in streamAgent.Observe(Channel.A, Downsampling.None)
-                        select Array.ConvertAll(channelData.samples, value => adcToVols(value));
+                var x = 
+                    from channelData in streamAgent.Observe(Channel.A, Downsampling.None)
+                    from sample in channelData.samples
+                    select adcToVols(sample);
 
-                var y = from channelData in streamAgent.Observe(Channel.B, Downsampling.None)
-                        select Array.ConvertAll(channelData.samples, value => adcToVols(value));
+                var y = 
+                    from channelData in streamAgent.Observe(Channel.B, Downsampling.None)
+                    from sample in channelData.samples
+                    select adcToVols(sample);
 
                 var xy = Observable.Zip(x, y);
 
                 xy.ObserveOn(SynchronizationContext.Current)
                   .Subscribe(
-                    values => {
-                        var length = values[0].Length;
-                        chart.Series[0].Points.SuspendUpdates();
-                        chartIndex += length;
-
-                        for (var i = 0; i < length; i++)
-                            chart.Series[0].Points.AddXY(values[0][i], values[1][i]);
-                        while (chart.Series[0].Points.Count > 10000)
-                            chart.Series[0].Points.RemoveAt(0);
-
-                        chart.Series[0].Points.ResumeUpdates();
-                        chart.Series[0].Points.Invalidate();
+                    xysamples => {
+                        dataPoints.AddXY(xysamples[0], xysamples[1]);
+                        if (dataPoints.Count > 10000)
+                            dataPoints.RemoveAt(0);
                     });
-
+                
                 var streamingParameters = new StreamingParmaeters(
-                    StreamingInterval.NewMicroseconds(100), 1, 0, 10000, false);
+                    sampleInterval: SampleInterval.FromMicroseconds(100),
+                    downsamplingRatio: 1, 
+                    maximumPreTriggerSamples: 0, 
+                    maximumPostTriggerSamples: 10000, 
+                    autoStop: false);
 
                 var streamStatus = streamAgent.RunStream(streamingParameters);
                 streamStatus.ObserveOn(SynchronizationContext.Current)

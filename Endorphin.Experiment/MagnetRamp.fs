@@ -14,11 +14,11 @@ open TwickenhamSmcFSharp
 /// </summary>
 type Ramp = 
     { /// <summary>Signed starting current for the ramp in A.</summary>
-      startingCurrentInAmps : float
+      startingFieldIndex : int
       /// <summary>Signed final current for the ramp in A.</summary>
-      finalCurrentInAmps : float
+      numberOfSteps : int
       /// <summary>Signed ramp rate for the ramp in A/s.</summary>
-      rampRateInAmpsPerSec : float
+      rampRateIndex : int
       /// <summary>Indicates whether the ramp should return to zero once the ramp is finished.</summary>
       returnToZero : bool
       /// <summary>
@@ -72,10 +72,10 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// an exception.
             /// </summary>
             /// <param name="current">The signed current value.</param>
-            let currentDirection current =
-                match current with
-                | c when c > 0.0 -> Forward
-                | c when c < 0.0 -> Reverse
+            let currentDirection currentIndex =
+                match currentIndex with
+                | c when c > 0 -> Forward
+                | c when c < 0 -> Reverse
                 | _ -> failwith "Magnet controller direction for zero current is arbitrary."
         
             /// <summary>
@@ -83,9 +83,9 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// </summary>
             /// <param name="ramp">The ramp.</param>
             let startingCurrentDirection ramp = 
-                match (ramp.startingCurrentInAmps, ramp.finalCurrentInAmps) with
+                match (ramp.startingFieldIndex, ramp.startingFieldIndex + ramp.numberOfSteps) with
                 | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-                | (0.0, f) -> currentDirection f
+                | (0, f) -> currentDirection f
                 | (s, _) -> currentDirection s
         
             /// <summary>
@@ -93,22 +93,28 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// </summary>
             /// <param name="ramp">The ramp.</param>
             let finalCurrentDirection ramp =
-                match (ramp.startingCurrentInAmps, ramp.finalCurrentInAmps) with
+                match (ramp.startingFieldIndex, ramp.startingFieldIndex + ramp.numberOfSteps) with
                 | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-                | (s, 0.0) -> currentDirection s
+                | (s, 0) -> currentDirection s
                 | (_, f) -> currentDirection f
 
             /// <summary>
             /// Determines the (unsigned) upper current limit for a <see cref="MagnetRampManager.Ramp" />.
             /// </summary>
             /// <param name="ramp">The ramp.</param>
-            let upperCurrentLimitInAmps ramp = max (abs ramp.startingCurrentInAmps) (abs ramp.finalCurrentInAmps)
+            let upperCurrentLimitInAmps ramp = 
+                max 
+                <| (abs (currentForIndexInAmps ramp.startingFieldIndex magnetController)) 
+                <| (abs (currentForIndexInAmps (ramp.startingFieldIndex + ramp.numberOfSteps) magnetController))
 
             /// <summary>
             /// Determines the (unsigned) lower current limit for a <see cref="MagnetRampManager.Ramp" />.
             /// </summary>
             /// <param name="ramp">The ramp.</param>
-            let lowerCurrentLimitInAmps ramp = min (abs ramp.startingCurrentInAmps) (abs ramp.finalCurrentInAmps)
+            let lowerCurrentLimitInAmps ramp = 
+                min 
+                <| (abs (currentForIndexInAmps ramp.startingFieldIndex magnetController)) 
+                <| (abs (currentForIndexInAmps (ramp.startingFieldIndex + ramp.numberOfSteps) magnetController))
 
             /// <summary>
             /// Determines the starting <see cref="MagnetController.RampTarget" /> for a
@@ -116,8 +122,8 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// </summary>
             /// <param name="ramp">The ramp.</param>
             let startingRampTarget ramp =
-                match (abs ramp.startingCurrentInAmps, abs ramp.finalCurrentInAmps) with
-                | (0.0, _) -> Zero
+                match (abs ramp.startingFieldIndex, abs (ramp.startingFieldIndex + ramp.numberOfSteps)) with
+                | (0, _) -> Zero
                 | (s, f) when s <= f -> Lower
                 | _ -> Upper
 
@@ -127,8 +133,8 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// </summary>
             /// <param name="ramp">The ramp.</param>
             let finalRampTarget ramp = 
-                match (abs ramp.startingCurrentInAmps, abs ramp.finalCurrentInAmps) with
-                | (_, 0.0) -> Zero
+                match (abs ramp.startingFieldIndex, abs (ramp.startingFieldIndex + ramp.numberOfSteps)) with
+                | (_, 0) -> Zero
                 | (s, f) when f >= s -> Upper
                 | _ -> Lower
         
@@ -138,7 +144,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
             /// </summary>
             /// <param name="ramp">The ramp.</param>
             /// <param name="statusObserver">The <see cref="MagnetRampManager.RampStatus" /> observer.</param>
-            let asyncRamp ramp (statusObserver : IObserver<RampStatus>) = 
+            let asyncRamp ramp (rampStatus : IObserver<RampStatus>) = 
             
                 /// <summary>
                 /// An asynchronous workflow which sets the starting current direction, ramping the magnet
@@ -176,7 +182,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
                 /// </summary>
                 let rampToInitialCurrent = async {
                     setRampTarget (startingRampTarget ramp) magnetController
-                    setRampRateInAmpsPerSec magnetController.MaximumRampRateInAmpsPerSec magnetController
+                    setRampRateInAmpsPerSec magnetController.RampRateLimitInAmpsPerSec magnetController
                     setPause false magnetController
                     do! waitToReachTarget magnetController } 
             
@@ -184,7 +190,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
                 /// An asynchronous workflow which prepares the magnet controller for the ramp.
                 /// </summary>        
                 let prepareForRamp = async { 
-                    statusObserver.OnNext(PreparingForRamp)
+                    rampStatus.OnNext(PreparingForRamp)
                     let! initialState = magnetControllerState magnetController
                     do! setStartingCurrentDirection initialState
                     do! setCurrentLimits initialState 
@@ -195,7 +201,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
                 /// the <see cref="MagnetRampManager.Ramp" /> to become true.  
                 /// </summary> 
                 let awaitReadyForRamp = async {
-                    statusObserver.OnNext(ReadyToRamp)
+                    rampStatus.OnNext(ReadyToRamp)
                     let! ready = ramp.readyForRamp
                                  |> Observable.filter (fun ready -> ready)
                                  |> Async.AwaitObservable
@@ -206,8 +212,8 @@ type MagnetRampAgent(magnetController : MagnetController) =
                 /// zero if needed
                 /// </summary> 
                 let performRamp = async { 
-                    statusObserver.OnNext(PerformingRamp)
-                    setRampRateInAmpsPerSec ramp.rampRateInAmpsPerSec magnetController
+                    rampStatus.OnNext(PerformingRamp)
+                    setRampRateInAmpsPerSec (rampRateForIndexInAmpsPerSec ramp.rampRateIndex magnetController) magnetController
                     if not (startingCurrentDirection ramp = finalCurrentDirection ramp)
                     then setRampTarget Zero magnetController
                          do! rampToZeroAndSetCurrentDirection (finalCurrentDirection ramp)  magnetController
@@ -217,7 +223,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
 
                 async {
                     // if the ramp is cancelled, relay this via the status observer.
-                    use! cancelHandler = Async.OnCancel(fun () -> statusObserver.OnNext(CancelledRamp)) 
+                    use! cancelHandler = Async.OnCancel(fun () -> rampStatus.OnNext(CancelledRamp)) 
 
                     try do! prepareForRamp
                         do! awaitReadyForRamp
@@ -225,8 +231,8 @@ type MagnetRampAgent(magnetController : MagnetController) =
 
                         if ramp.returnToZero
                         then do! rampToZero magnetController
-                        statusObserver.OnNext(FinishedRamp)
-                    finally statusObserver.OnCompleted() }
+                        rampStatus.OnNext(FinishedRamp)
+                    finally rampStatus.OnCompleted() }
 
             /// <summary>
             /// Returns an asynchronous workflow for the the mailbox behaviour in the waiting state.
@@ -264,7 +270,7 @@ type MagnetRampAgent(magnetController : MagnetController) =
                     /// <summary>
                     /// Handles a receive message to cancel the ramp in progress, ramping to zero current if requested.
                     /// </summary>
-                    let rec receiveCancelMessage() = async {
+                    let rec waitForCancelMessage() = async {
                         if (not mailboxCts.IsCancellationRequested)
                         then if mailbox.CurrentQueueLength <> 0
                              then let! message = mailbox.Receive()
@@ -274,15 +280,15 @@ type MagnetRampAgent(magnetController : MagnetController) =
                                       |> Observable.filter(fun status -> status = CancelledRamp)
                                       |> Observable.add (fun _ -> Async.Start(stopRamp returnToZero))
                                       rampCts.Cancel()
-                                  | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress"
+                                  | _ -> failwith "Attempted to start a magnet controller ramp when one is already in progress."
                              else do! Async.Sleep(100)
-                                  do! receiveCancelMessage() }
+                                  do! waitForCancelMessage() }
             
                     // run the asyncRamp computation expression
                     Async.Start(asyncRamp ramp rampStatus, rampCts.Token)
 
                     // return to the waiting state once the ramp is complete
-                    receiveCancelMessage()
+                    waitForCancelMessage()
                 return! waiting() }
 
             waiting ())
