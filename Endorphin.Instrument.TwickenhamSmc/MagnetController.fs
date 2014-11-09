@@ -2,6 +2,7 @@
 
 open Endorphin.Core.Utils
 open Microsoft.FSharp.Control
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NationalInstruments.VisaNS
 open System
 
@@ -26,9 +27,9 @@ type RampTarget =
 /// </summary>
 type OutputParameters = 
     { /// <summary>Magnet controller output current in A.</summary>
-      outputCurrentInAmps : float
+      outputCurrent : float<A>
       /// <summary>Magnet controller output voltage in V.</summary>
-      outputVoltageInVolts : float
+      outputVoltage : float<V>
       /// <summary>Magnet controller ramp target.</summary>
       rampTarget : RampTarget }
 
@@ -47,30 +48,32 @@ type CurrentParameters =
 /// are requested.</summary>
 type OperatingParameters = 
     { /// <summary>Magnet controller ramp rate in A/s.</summary>
-      rampRateInAmpsPerSec : float
+      rampRate : float<A/s>
       /// <summary>Magnet controller current direction.</summary>
       currentDirection : CurrentDirection }
-
-type DeviceParameters = 
-    { zeroCurrentFieldInMillitesla : float 
-      fieldCalibrationInMilliteslaPerAmp : float
-      rampRateLimitInAmpsPerSec : float
-      tripVoltageLimitInVolts : float
-      maximumCurrentInAmps : float
-      currentLimitInAmps : float
-      shuntCalibrationInVoltsPerAmp : float 
-      outputResolutionInBits : int }
 
 /// <summary>
 /// Record containing the data returned by the magnet controller when set point parameters are requested.
 /// </summary>
 type SetPointParameters = 
     { /// <summary>Magnet controller lower current limit in A.</summary>
-      lowerLimitInAmps : float
+      lowerLimit : float<A>
       /// <summary>Magnet controller upper current limit in A.</summary>
-      upperLimitInAmps : float
+      upperLimit : float<A>
       /// <summary>Magnet controller trip voltage in V.</summary>
-      tripVoltageInVolts : float }
+      tripVoltage : float<V> }
+
+type MagnetControllerParameters = 
+    { staticField : float<T>
+      fieldCalibration : float<T/A>
+      rampRateLimit : float<A/s>
+      tripVoltageLimit : float<V>
+      maximumCurrent : float<A>
+      currentLimit : float<A>
+      shuntCalibration : float<V/A>
+      outputResolutionInBits : int
+      setPointDecimalPlaces : int
+      calibratedRampRates : float<A/s> seq }
 
 /// <summary>
 /// Record type representing the complete magnet controller state at a given time.
@@ -86,7 +89,7 @@ type State =
 /// require a response. If a response is required, a strongly-typed reply channel is contained in
 /// the command.
 /// </summary>
-type Command = 
+type internal Command = 
     /// <summary>Gets output current, voltage and ramp target in a <see cref="MagnetController.OutputParameters" /> record.</summary>
     | GetOutputParameters of replyChannel : AsyncReplyChannel<OutputParameters>
     /// <summary>Gets ramp target, target reached indicator, pause status in a <see cref="MagnetController.CurrentParameters" /> record.</summary>
@@ -96,15 +99,15 @@ type Command =
     /// <summary>Gets output lower and upper voltage limits and trip voltage in a <see cref="MagnetController.SetPointParameters" /> record.</summary>
     | GetSetPointParameters of replyChannel : AsyncReplyChannel<SetPointParameters>
     /// <summary>Sets the magnet controller ramp rate in A/s.</summary>
-    | SetRampRate of rampRateInAmpsPerSec: float
+    | SetRampRate of rampRate: float<A/s>
     /// <summary>Sets the magnet controller trip voltage in V.</summary>
-    | SetTripVoltage of tripVoltageInVolts : float
+    | SetTripVoltage of tripVoltage : float<V>
     /// <summary>Sets the magnet controller current direction.</summary>
     | SetCurrentDirection of currentDirection : CurrentDirection
     /// <summary>Sets the lower current set-point of the magnet controller in A.</summary>
-    | SetLowerSetPoint of lowerCurrentLimitInAmps : float
+    | SetLowerSetPoint of lowerSetPoint : float<A>
     /// <summary>Sets the uppper current set-point of the magnet controller in A.</summary>
-    | SetUpperSetPoint of upperCurrentLimitInAmps : float
+    | SetUpperSetPoint of upperSetPoint : float<A>
     /// <summary>Sets the magnet controller ramp target to either zero or the upper or lower current limit.</summary>
     | SetRampTarget of rampTarget : RampTarget
     /// <summary>Enables or disables the ramp pause on the magnet controller.</summary>
@@ -113,7 +116,7 @@ type Command =
     | PrepareToCloseSession of replyChannel : AsyncReplyChannel<unit> 
 
 
-type MagnetController(visaAddress, deviceParameters) =
+type MagnetController(visaAddress, parameters) =
     let session = 
         visaAddress
         |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
@@ -125,11 +128,8 @@ type MagnetController(visaAddress, deviceParameters) =
     /// </summary>
     /// <param name="session">A <see cref="NationalInstruments.VisaNS.MessageBasedSession" /> object with
     /// an established connection to the magnet controller hardware.</param>
-    let mailboxProcessor = 
-        (fun (mailbox : MailboxProcessor<Command>) -> 
-            // Note: the following functions are defined within the mailbox function definition for
-            // encapsulation. They do not need to be visible to users of the MagnetController actor.
-
+    let agent = 
+        Agent.Start(fun mailbox -> 
             /// <summary>
             /// Parses a single character string as returned by the magnet controller hardware to give the 
             /// <see cref="MagnetController.CurrentDirection" />.
@@ -163,8 +163,8 @@ type MagnetController(visaAddress, deviceParameters) =
                 let regex = @"\GI([\+\-]\d{3}\.\d{3})V([\+\-]\d{2}.\d)R([012])[AV]\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
-                    { outputCurrentInAmps = i
-                      outputVoltageInVolts = v
+                    { outputCurrent = i * 1.0<A>
+                      outputVoltage = v * 1.0<V>
                       rampTarget = r }
                 | _ -> failwith "Invalid magnet controller output parameter string"
         
@@ -198,7 +198,7 @@ type MagnetController(visaAddress, deviceParameters) =
                 let regex = @"\GA(\d{2}\.\d{5})D([01])T[01]B[01]W\d{3}\.C0\.\d{6}\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
-                    { rampRateInAmpsPerSec = a
+                    { rampRate = a * 1.0<A/s>
                       currentDirection = d }
                 | _ -> failwith "Invalid magnet controller operating parameter string"
         
@@ -214,16 +214,16 @@ type MagnetController(visaAddress, deviceParameters) =
                 let regex = @"\GT[01]U(\d{3}\.\d{3})L(\d{3}\.\d{3})Y(\d{2}\.\d)\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->
-                    { lowerLimitInAmps = l 
-                      upperLimitInAmps = u
-                      tripVoltageInVolts = y }
+                    { lowerLimit = l * 1.0<A>
+                      upperLimit = u * 1.0<A>
+                      tripVoltage = y * 1.0<V> }
                 | _ -> failwith "Invalid magnet controller set point parameter string"
         
             /// <summary>
             /// Builds the command string to be sent to the magnet controller hardware for a
             /// <see cref="MagnetController.Command" />.
             /// </summary> 
-            let buildCommand command = 
+            let commandString command = 
                 let terminationCharacters = "\r\n"
                 let instruction = 
                     match command with
@@ -251,283 +251,270 @@ type MagnetController(visaAddress, deviceParameters) =
                 instruction + terminationCharacters
 
             /// <summary>
-            /// Partial active pattern which matches <see cref="MagnetController.Command"> objects
-            /// which represent a request and builds a reply channel function which parses the instrument
-            /// response string for the command and sends it via the strongly-typed reply channel.
-            /// </summary>
-            let (|Request|_|) command =
-                match command with
-                | GetOutputParameters(channel) -> Some(parseOutputParameters >> channel.Reply)
-                | GetCurrentParameters(channel) -> Some(parseCurrentParameters >> channel.Reply)
-                | GetOperatingParameters(channel) -> Some(parseOperatingParameters >> channel.Reply)
-                | GetSetPointParameters(channel) -> Some(parseSetPointParameters >> channel.Reply)
-                | _ -> None
-
-            /// <summary>
             /// Returns an async computation expression defining the magnet controller's message handling
             /// behaviour.
             /// </summary>
             let rec loop() = async {
                 let! command = mailbox.Receive()
                 match command with
-                | Request replyChannel ->
-                    let! response = buildCommand command |> querySession session
-                    response |> replyChannel
+                
                 | PrepareToCloseSession(replyChannel) ->
-                    do! Async.Sleep(1000)
                     replyChannel.Reply()
+
+                | GetOutputParameters replyChannel ->
+                    let! response = commandString command |> querySession session
+                    response 
+                    |> parseOutputParameters
+                    |> replyChannel.Reply
+
+                | GetCurrentParameters replyChannel ->
+                    let! response = commandString command |> querySession session
+                    response 
+                    |> parseCurrentParameters
+                    |> replyChannel.Reply
+
+                | GetOperatingParameters replyChannel ->
+                    let! response = commandString command |> querySession session
+                    response 
+                    |> parseOperatingParameters
+                    |> replyChannel.Reply
+
+                | GetSetPointParameters replyChannel ->
+                    let! response = commandString command |> querySession session
+                    response 
+                    |> parseSetPointParameters
+                    |> replyChannel.Reply
+
                 | _ ->
-                    do! buildCommand command |> writeToSesiion session
+                    do! commandString command |> writeToSesiion session
                     do! Async.Sleep(1000)
 
                 return! loop() }
 
             and start() = async {
                 // sleep for 1s before sending any commands because communications can otherwise crash
+                // (seems to be an issue with the magnet controller hardware)
                 do! Async.Sleep(1000)
                 return! loop() }
 
             // initialse the actor state
             start())
-        |> MailboxProcessor.Start
-
-    member internal this.getStateAsync() = 
+    
+    member this.GetAllParametersAsync() = 
         async {
-            let! setPointParams = GetSetPointParameters |> mailboxProcessor.PostAndAsyncReply
-            let! outputParams = GetOutputParameters |> mailboxProcessor.PostAndAsyncReply
-            let! operatingParams = GetOperatingParameters |> mailboxProcessor.PostAndAsyncReply
-            let! currentParams = GetCurrentParameters |> mailboxProcessor.PostAndAsyncReply
+            let! setPointParams = GetSetPointParameters |> agent.PostAndAsyncReply
+            let! outputParams = GetOutputParameters |> agent.PostAndAsyncReply
+            let! operatingParams = GetOperatingParameters |> agent.PostAndAsyncReply
+            let! currentParams = GetCurrentParameters |> agent.PostAndAsyncReply
 
             return { setPointParameters = setPointParams
                      outputParameters = outputParams
                      operatingParameters = operatingParams 
                      currentParameters = currentParams } } 
 
-    member internal this.rampToZeroAsync() = 
-        async { 
-            SetRampTarget(Zero) |> mailboxProcessor.Post
-            SetRampRate(this.RampRateLimitInAmpsPerSec) |> mailboxProcessor.Post
-            SetPause(false) |> mailboxProcessor.Post }
+    member this.InitiateRampToZero() =
+        SetRampTarget(Zero) |> agent.Post
+        SetRampRate(this.RampRateLimit) |> agent.Post
+        SetPause(false) |> agent.Post
 
-    member internal this.waitToReachTargetAsync() =
+    member this.RampToZeroAsync() = 
+        async { 
+            this.InitiateRampToZero()
+            do! this.WaitToReachTargetAsync() }
+
+    member this.WaitToReachTargetAsync() =
         let rec loop() = async {
-            let! currentParams = mailboxProcessor.PostAndAsyncReply(GetCurrentParameters)
+            let! currentParams = agent.PostAndAsyncReply(GetCurrentParameters)
             if not currentParams.reachedTarget 
             then do! loop() }
         loop()
 
-    member internal this.prepareToChangeCurrentDirectionAsync() =
+    member this.WaitToReachZeroAndSetCurrentDirectionAsync currentDirection =
         let rec loop() = async {
-            let! outputParams = mailboxProcessor.PostAndAsyncReply(GetOutputParameters)
-            if not (outputParams.outputCurrentInAmps = 0.0)
+            let! outputParams = agent.PostAndAsyncReply(GetOutputParameters)
+            if not (outputParams.outputCurrent = 0.0<A>)
             then do! loop() }
-        loop()
-
-    member internal this.rampToZeroAndSetCurrentDirectionAsync currentDirection = 
+        
         async {
-            do! this.rampToZeroAsync()
-            do! this.prepareToChangeCurrentDirectionAsync()
-            SetCurrentDirection(currentDirection) |> mailboxProcessor.Post }
+            do! loop()
+            SetCurrentDirection(currentDirection) |> agent.Post }
 
-    member this.Post(message) = mailboxProcessor.Post(message)
-    member this.PostAndReply(buildMessage) = mailboxProcessor.PostAndReply(buildMessage)
-    member this.PostAndAsyncReply(buildMessage) = mailboxProcessor.PostAndAsyncReply(buildMessage)
+    member this.RampToZeroAndSetCurrentDirectionAsync currentDirection = 
+        async {
+            do! this.RampToZeroAsync()
+            do! this.WaitToReachZeroAndSetCurrentDirectionAsync currentDirection }
 
     interface IDisposable with
         member this.Dispose() =
-            PrepareToCloseSession
-            |> mailboxProcessor.PostAndReply
+            PrepareToCloseSession |> agent.PostAndReply
             session.Dispose()
 
-    member this.RampRateLimitInAmpsPerSec = deviceParameters.rampRateLimitInAmpsPerSec
-    member this.TripVoltageLimitInVolts = deviceParameters.tripVoltageLimitInVolts
-    member this.MaximumCurrentInAmps = deviceParameters.maximumCurrentInAmps
-    member this.CurrentLimitInAmps = deviceParameters.currentLimitInAmps
-    member this.ZeroFieldCurrentInMillitesla = deviceParameters.zeroCurrentFieldInMillitesla
-    member this.FieldCalibrationInMilliteslaPerAmp = deviceParameters.fieldCalibrationInMilliteslaPerAmp
-    member this.OutputResolutionInBits = deviceParameters.outputResolutionInBits
-    member this.ShuntCalibrationInVoltsPerAmp = deviceParameters.shuntCalibrationInVoltsPerAmp
-
-    member this.GetOutputParameters() =
-        GetOutputParameters
-        |> mailboxProcessor.PostAndReply
+    member this.RampRateLimit = parameters.rampRateLimit
+    member this.TripVoltageLimit = parameters.tripVoltageLimit
+    member this.MaximumCurrent = parameters.maximumCurrent
+    member this.CurrentLimit = parameters.currentLimit
+    member this.StaticField = parameters.staticField
+    member this.FieldCalibration = parameters.fieldCalibration
+    member this.OutputResolutionInBits = parameters.outputResolutionInBits
+    member this.SetPointDecimalPlaces = parameters.setPointDecimalPlaces
+    member this.ShuntCalibration = parameters.shuntCalibration
 
     member this.GetOutputParametersAsync() =
         GetOutputParameters
-        |> mailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
-    member this.GetCurrentParameters() =
-        GetCurrentParameters
-        |> mailboxProcessor.PostAndReply
+        |> agent.PostAndAsyncReply
 
     member this.GetCurrentParametersAsync() =
         GetCurrentParameters
-        |> mailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
-    member this.GetOperatingParameters() =
-        GetOperatingParameters
-        |> mailboxProcessor.PostAndReply
+        |> agent.PostAndAsyncReply
 
     member this.GetOperatingParametersAsync() =
         GetOperatingParameters
-        |> mailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
-
-    member this.GetSetPointParameters() =
-        GetSetPointParameters
-        |> mailboxProcessor.PostAndReply
+        |> agent.PostAndAsyncReply
 
     member this.GetSetPointParametersAsync() =
         GetSetPointParameters
-        |> mailboxProcessor.PostAndAsyncReply
-        |> Async.StartAsTask
+        |> agent.PostAndAsyncReply
 
-    member this.SetRampRate(rampRateInAmpsPerSec) =
-        if rampRateInAmpsPerSec > this.RampRateLimitInAmpsPerSec then 
-            failwith (String.Format("Cannot set magnet controller ramp rate greater than {0} A/s.", this.RampRateLimitInAmpsPerSec))
-        if rampRateInAmpsPerSec < 0.0 then
+    member this.SetRampRate(rampRate) =
+        if rampRate > this.RampRateLimit then 
+            failwith (String.Format("Cannot set magnet controller ramp rate greater than {0} A/s.", this.RampRateLimit))
+        if rampRate < 0.0<A/s> then
             failwith "Cannot set magnet controller ramp rate to a negative value."
 
-        SetRampRate(rampRateInAmpsPerSec)
-        |> mailboxProcessor.Post
+        SetRampRate(rampRate)
+        |> agent.Post
 
-    member this.SetTripVoltage(tripVoltageInVolts) =
-        if tripVoltageInVolts > this.TripVoltageLimitInVolts then 
-            failwith (String.Format("Cannot set magnet controller trip voltage greater than {0} V.", this.TripVoltageLimitInVolts))
-        if tripVoltageInVolts < 0.0 then
+    member this.SetRampRateByIndex(index) =
+        this.CurrentRampRateForIndex(index)
+        |> this.SetRampRate
+
+    member this.SetTripVoltage(tripVoltage) =
+        if tripVoltage > this.TripVoltageLimit then 
+            failwith (String.Format("Cannot set magnet controller trip voltage greater than {0} V.", this.TripVoltageLimit))
+        if tripVoltage < 0.0<V> then
             failwith "Cannot set magnet controller trip voltage to a negative value."
 
-        SetTripVoltage(tripVoltageInVolts)
-        |> mailboxProcessor.Post
+        SetTripVoltage(tripVoltage)
+        |> agent.Post
 
     member this.SetCurrentDirection(currentDirection) =
         SetCurrentDirection(currentDirection)
-        |> mailboxProcessor.Post
+        |> agent.Post
 
-    member this.SetLowerSetPoint(lowerCurrentLimitInAmps) =
-        if lowerCurrentLimitInAmps > this.CurrentLimitInAmps then
-            failwith (String.Format("Cannot set magnet controller current limit to a value greater than {0} A.", this.CurrentLimitInAmps))
-        if lowerCurrentLimitInAmps < 0.0 then
+    member this.SetLowerSetPoint(lowerCurrentLimit) =
+        if lowerCurrentLimit > this.CurrentLimit then
+            failwith (String.Format("Cannot set magnet controller current limit to a value greater than {0} A.", this.CurrentLimit))
+        if lowerCurrentLimit < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
 
-        SetLowerSetPoint(lowerCurrentLimitInAmps)
-        |> mailboxProcessor.Post
-
-    member this.SetUpperSetPoint(upperCurrentLimitInAmps) =
-        if upperCurrentLimitInAmps > this.CurrentLimitInAmps then
-            failwith (String.Format("Cannot set magnet controller current limit to a value greater than {0} A.", this.CurrentLimitInAmps))
-        if upperCurrentLimitInAmps < 0.0 then
+        SetLowerSetPoint(lowerCurrentLimit)
+        |> agent.Post
+        
+    member this.SetUpperSetPoint(upperCurrentLimit) =
+        if upperCurrentLimit > this.CurrentLimit then
+            failwith (String.Format("Cannot set magnet controller current limit to a value greater than {0} A.", this.CurrentLimit))
+        if upperCurrentLimit < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
         
-        SetUpperSetPoint(upperCurrentLimitInAmps)
-        |> mailboxProcessor.Post
+        SetUpperSetPoint(upperCurrentLimit)
+        |> agent.Post
 
     member this.SetRampTarget(rampRateInAmpsPerSec) =
         SetRampTarget(rampRateInAmpsPerSec)
-        |> mailboxProcessor.Post
+        |> agent.Post
 
     member this.SetPause(pause) =
         SetPause(pause)
-        |> mailboxProcessor.Post
+        |> agent.Post
 
-    member this.WaitToReachTarget() =
-        this.waitToReachTargetAsync()
-        |> Async.StartAsTask
+    member this.AvailableCurrentRampRates =
+        parameters.calibratedRampRates
+        |> Seq.filter (fun rampRate -> rampRate <= this.RampRateLimit)
+        |> Seq.sort
 
-    member this.PrepareToChangeCurrentDirection() =
-        this.prepareToChangeCurrentDirectionAsync()
-        |> Async.StartAsTask
-
-    member this.RampToZero() =
-        this.rampToZeroAsync()
-        |> Async.StartAsTask
-
-    member this.RampToZeroAndSetCurrentDirection(currentDirection) =
-        this.rampToZeroAndSetCurrentDirectionAsync(currentDirection)
-        |> Async.StartAsTask
-
-    member this.GetState() =
-        this.getStateAsync()
-        |> Async.StartAsTask
-
-    member this.AvailableRampRatesInAmpsPerSec =
-        seq { 
-            for index in 0 .. 64 do
-                yield (10.0 ** ((float index) / 16.0)) * (this.MaximumCurrentInAmps / 1e5) }
-        |> Seq.takeWhile (fun rampRate -> rampRate <= this.RampRateLimitInAmpsPerSec)
-
-    member this.RampRateForIndexInAmpsPerSec (index) =
-        if index >= (Seq.length this.AvailableRampRatesInAmpsPerSec) || index < 0
+    member this.CurrentRampRateForIndex (index) =
+        if index >= (Seq.length this.AvailableCurrentRampRates) || index < 0
             then failwith "Ramp rate index out of range."
             
-        this.AvailableRampRatesInAmpsPerSec
+        this.AvailableCurrentRampRates
         |> Seq.nth (index)
 
-    member this.AvailableRampRatesInMilliteslaPerSec =
-        this.AvailableRampRatesInAmpsPerSec
-        |> Seq.map (fun rampRate -> rampRate * this.FieldCalibrationInMilliteslaPerAmp)
+    member this.AvailableFieldRampRates =
+        this.AvailableCurrentRampRates
+        |> Seq.map (fun rampRate -> rampRate * abs(this.FieldCalibration))
     
-    member this.RampRateForIndexInMilliteslaPerSec (index) =
-        this.RampRateForIndexInAmpsPerSec(index) * this.FieldCalibrationInMilliteslaPerAmp
+    member this.FieldRampRateForIndex (index) =
+        if index >= (Seq.length this.AvailableFieldRampRates) || index < 0
+            then failwith "Ramp rate index out of range."
+            
+        this.AvailableFieldRampRates
+        |> Seq.nth (index)
 
     member this.NumberOfCurrentSteps =
         int (2.0 ** (float this.OutputResolutionInBits))
 
-    member this.CurrentStepInAmps =
-        this.MaximumCurrentInAmps / (float (this.NumberOfCurrentSteps - 1))
+    member this.CurrentStep =
+        this.MaximumCurrent / (float (this.NumberOfCurrentSteps - 1))
 
-    member this.CurrentForIndexInAmps (index) =
+    member this.CurrentForIndex (index) =
         if abs(index) >= this.NumberOfCurrentSteps
             then failwith "Current index out of range."
         
-        this.CurrentStepInAmps * (float index)
+        this.CurrentStep * (float index)
 
-    member this.FieldStepInMillitesla =
-        this.CurrentStepInAmps * this.FieldCalibrationInMilliteslaPerAmp
+    member this.FieldStep =
+        this.CurrentStep * abs(this.FieldCalibration)
 
-    member this.FieldForIndexInMillitesla (index) =
-        this.CurrentForIndexInAmps(index) * this.FieldCalibrationInMilliteslaPerAmp
+    member this.FieldForIndex (index) =
+        this.CurrentForIndex(index) * this.FieldCalibration
 
-    member this.MaximumFieldInMillitesla =
-        this.ZeroFieldCurrentInMillitesla + abs(this.FieldCalibrationInMilliteslaPerAmp) * this.CurrentLimitInAmps
+    member this.MaximumField =
+        this.StaticField + abs(this.FieldCalibration * this.CurrentLimit)
 
-    member this.MinimumFieldInMillitesla =
-        this.ZeroFieldCurrentInMillitesla - abs(this.FieldCalibrationInMilliteslaPerAmp) * this.CurrentLimitInAmps
+    member this.MinimumField =
+        this.StaticField - abs(this.FieldCalibration *  this.CurrentLimit)
 
-    member this.NearestDigitisedCurrentInAmps(currentInAmps) =
-        round(currentInAmps / this.CurrentStepInAmps) * this.CurrentStepInAmps
-        |> max this.CurrentLimitInAmps
-        |> min -this.CurrentLimitInAmps
+    member this.NearestDigitisedCurrent(current) =
+        current
+        |> max this.CurrentLimit
+        |> min -this.CurrentLimit
+        |> fun current -> round(current / this.CurrentStep) * this.CurrentStep
+
+    member this.NearestDigitisedField(field) =
+        (field - this.StaticField) / this.FieldCalibration
+        |> this.NearestDigitisedCurrent
+        |> (fun nearestCurrent -> nearestCurrent * this.FieldCalibration)
     
-    member this.NearestDigitisedFieldInMillitesla(fieldInMillitesla) =
-        (fieldInMillitesla - this.ZeroFieldCurrentInMillitesla) / this.FieldCalibrationInMilliteslaPerAmp
-        |> this.NearestDigitisedCurrentInAmps
-        |> (fun nearestCurrent -> nearestCurrent * this.FieldCalibrationInMilliteslaPerAmp)
+    member this.NearestDigitisedCurrentRampRate(rampRate) =
+        this.AvailableCurrentRampRates
+        |> Seq.minBy (fun digitisedRampRate -> abs(digitisedRampRate - rampRate))
+
+    member this.NearestDigitisedFieldRampRate(rampRate) =
+        rampRate / abs(this.FieldCalibration)
+        |> this.NearestDigitisedCurrentRampRate
+        |> (fun nearestRampRate -> nearestRampRate * abs(this.FieldCalibration))
+
+    member this.NearestDigitisedCurrentRampRateIndex(rampRate) =
+        let digitisedRampRate = this.NearestDigitisedCurrentRampRate(rampRate)
+        Seq.findIndex (fun value -> value = digitisedRampRate) this.AvailableCurrentRampRates
+   
+    member this.NearestDigitisedFieldRampRateIndex(rampRate) =
+        let digitisedRampRate = this.NearestDigitisedCurrentRampRate(rampRate / abs(this.FieldCalibration))
+        Seq.findIndex (fun value -> value = digitisedRampRate) this.AvailableCurrentRampRates
     
-    member this.NearestDigitisedRampRateInAmpsPerSec(rampRateInAmpsPerSec) =
-        this.AvailableRampRatesInAmpsPerSec
-        |> Seq.minBy (fun digitisedRampRate -> abs(digitisedRampRate - rampRateInAmpsPerSec))
+    member this.MaximumShuntVoltage =
+        this.MaximumCurrent * this.ShuntCalibration
 
-    member this.NearestDigitisedRampRateInMilliteslaPerSec(rampRateInMilliteslaPerSec) =
-        rampRateInMilliteslaPerSec / this.FieldCalibrationInMilliteslaPerAmp
-        |> this.NearestDigitisedRampRateInAmpsPerSec
-        |> (fun nearestRampRate -> nearestRampRate * this.FieldCalibrationInMilliteslaPerAmp)
+    member this.ShuntStep =
+        this.CurrentStep * this.ShuntCalibration
 
-    member this.MaximumShuntVoltageInVolts =
-        this.MaximumCurrentInAmps * this.ShuntCalibrationInVoltsPerAmp
-
-    member this.ShuntStepInvVolts =
-        this.CurrentStepInAmps * this.ShuntCalibrationInVoltsPerAmp
-
-    member this.NearestDigitisedOutputIndexForShuntVoltage(voltageInVolts) =
-        int (round(voltageInVolts / this.ShuntStepInvVolts) * this.ShuntStepInvVolts)
+    member this.NearestDigitisedOutputIndexForShuntVoltage(voltage) =
+        int (round(voltage / this.ShuntStep))
     
-    member this.NearestDigitisedCurrentInAmpsForShuntVoltage(voltageInVolts) =
-        this.NearestDigitisedOutputIndexForShuntVoltage(voltageInVolts)
-        |> this.CurrentForIndexInAmps
+    member this.NearestDigitisedCurrentForShuntVoltage(voltage) =
+        this.NearestDigitisedOutputIndexForShuntVoltage(voltage)
+        |> this.CurrentForIndex
 
-    member this.NearestDigitisedFieldInMilliteslaForShuntVoltage(voltageInVolts) =
-        this.NearestDigitisedOutputIndexForShuntVoltage(voltageInVolts)
-        |> this.FieldForIndexInMillitesla
+    member this.NearestDigitisedFieldForShuntVoltage(voltage) =
+        this.NearestDigitisedOutputIndexForShuntVoltage(voltage)
+        |> this.FieldForIndex

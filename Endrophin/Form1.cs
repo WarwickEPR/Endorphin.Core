@@ -1,4 +1,6 @@
 ﻿using Endorphin.Instrument.PicoScope5000;
+using Endorphin.Instrument.TwickenhamSmc;
+using Endorphin.Experiment.MagnetRampAcquisition;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -18,9 +20,11 @@ namespace Endrophin.UI
     public partial class Form1 : Form
     {
         PicoScope5000Agent scope;
-        StreamAgent streamAgent;
-        Func<short, double> adcToVols;
-        DataPointCollection dataPoints;
+        MagnetController magnetController;
+        MagnetRampAgent rampAgent;
+        MagnetRampAcquisitionAgent rampAcquisitionAgent;
+        DataPointCollection fieldTimePoints;
+        DataPointCollection magneticFieldBins;
 
         public Form1()
         {
@@ -30,69 +34,41 @@ namespace Endrophin.UI
         private void Form1_Load(object sender, EventArgs e)
         {
             scope = new PicoScope5000Agent(Resolution._12bit);
-            dataPoints = chart.Series[0].Points;
-            var inputRange = Range._1V;
 
-            var enabledChannelSettings = new ChannelSettings(true, Coupling.DC, inputRange, 0.0);
-            var disabledChannelSettings = new ChannelSettings(false, Coupling.DC, inputRange, 0.0);
-            scope.SetChannelSettings(Channel.A, enabledChannelSettings);
-            scope.SetChannelSettings(Channel.B, enabledChannelSettings);
-            scope.SetChannelSettings(Channel.C, disabledChannelSettings);
-            scope.SetChannelSettings(Channel.D, disabledChannelSettings);
-            scope.SetAutoTrigger(1);
+            var magnetControllerParameters = new DeviceParameters(
+                zeroCurrentFieldInMillitesla: 144160.0,
+                fieldCalibrationInMilliteslaPerAmp: -2.845,
+                rampRateLimitInAmpsPerSec: 0.1,
+                tripVoltageLimitInVolts: 2.5,
+                maximumCurrentInAmps: 20.0,
+                currentLimitInAmps: 5.0,
+                shuntCalibrationInVoltsPerAmp: 19.949,
+                outputResolutionInBits: 16);
 
-            adcToVols = scope.GetAdcCountToVoltsConversion(inputRange, 0.0);
+            magnetController = new MagnetController("GPIB0::4", magnetControllerParameters);
 
-            chart.ChartAreas[0].AxisX.Minimum = -1.1 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisX.Maximum = +1.1 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisY.Minimum = -1.1 * inputRange.ToVolts();
-            chart.ChartAreas[0].AxisY.Maximum = +1.1 * inputRange.ToVolts();
+            rampAgent = new MagnetRampAgent(magnetController);
+            rampAcquisitionAgent = new MagnetRampAcquisitionAgent(scope, magnetController, rampAgent);
+
+            fieldTimePoints = chart.Series[0].Points;
+            magneticFieldBins = chart.Series[1].Points;
         }
 
         private void startStopButton_Click(object sender, EventArgs e)
         {
-            if (streamAgent == null)
+            fieldTimePoints.Clear();
+            magneticFieldBins.Clear();
+
+            var test = new Test(0, 256, 16, 02);
+
+            var observables = rampAcquisitionAgent.Start(test);
+
+            observables.fieldInMillitelsa.Subscribe(b => fieldTimePoints.Add(b));
+
+            for (int i = 0; i < 256; i++)
             {
-                dataPoints.Clear();
-
-                streamAgent = scope.CreateStreamAgent();
-
-                var x = 
-                    from channelData in streamAgent.Observe(Channel.A, Downsampling.None)
-                    from sample in channelData.samples
-                    select adcToVols(sample);
-
-                var y = 
-                    from channelData in streamAgent.Observe(Channel.B, Downsampling.None)
-                    from sample in channelData.samples
-                    select adcToVols(sample);
-
-                var xy = Observable.Zip(x, y);
-
-                xy.ObserveOn(SynchronizationContext.Current)
-                  .Subscribe(
-                    xysamples => {
-                        dataPoints.AddXY(xysamples[0], xysamples[1]);
-                        if (dataPoints.Count > 10000)
-                            dataPoints.RemoveAt(0);
-                    });
-                
-                var streamingParameters = new StreamingParmaeters(
-                    sampleInterval: SampleInterval.FromMicroseconds(100),
-                    downsamplingRatio: 1, 
-                    maximumPreTriggerSamples: 0, 
-                    maximumPostTriggerSamples: 10000, 
-                    autoStop: false);
-
-                var streamStatus = streamAgent.RunStream(streamingParameters);
-                streamStatus.ObserveOn(SynchronizationContext.Current)
-                            .Subscribe(status => statusLabel.Text = String.Format("Stream status: {0}", status));
-            }
-            else
-            {
-                streamAgent.StopStream();
-                (streamAgent as IDisposable).Dispose();
-                streamAgent = null;
+                magneticFieldBins.AddXY(i, 0);
+                observables.pointCounts[i].Subscribe(c => magneticFieldBins[i].SetValueY(c));
             }
         }
     }

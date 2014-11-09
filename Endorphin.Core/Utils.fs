@@ -1,10 +1,16 @@
 ﻿namespace Endorphin.Core
 
-open System
 open NationalInstruments.VisaNS
+open System
+open System.Threading
 open System.Text.RegularExpressions
+open System.Reactive.Linq
+open Microsoft.FSharp.Collections
+
 
 module Utils =
+
+    type Agent<'T> = MailboxProcessor<'T>
 
     /// <summary>
     /// Returns an asynchronous computation which reads the next string from an NI VISA
@@ -91,3 +97,42 @@ module Utils =
         | "0" -> Some(false)
         | "1" -> Some(true)
         | _ -> None
+
+    /// <summary>
+    /// Extensions methods for System.Threading.Synchronization context as described in the following
+    /// blog post: http://blogs.msdn.com/b/dsyme/archive/2010/01/10/async-and-parallel-design-patterns-in-f-reporting-progress-with-events-plus-twitter-sample.aspx
+    /// </summary>
+    type SynchronizationContext with
+        
+        /// <summary>
+        /// A standard helper extension method to raise an event on the GUI thread
+        /// </summary>
+        member syncContext.RaiseEvent (event: Event<_>) args =
+            syncContext.Post((fun _ -> event.Trigger args), state=null)
+        
+        /// <summary>
+        /// A standard helper extension method to capture the current synchronization context.
+        /// If none is present, use a context that executes work in the thread pool.
+        /// </summary>
+        static member CaptureCurrent () =
+            match SynchronizationContext.Current with
+            | null -> new SynchronizationContext()
+            | ctxt -> ctxt
+
+    type Observable with
+        static member waitHandleForNext (obs : IObservable<'a>) = 
+            let waitHandle = new ManualResetEvent(false) // create the wait handle
+            obs.Take(1) |> Observable.add (fun _ -> waitHandle.Set() |> ignore) // set the wait handle on the next observable value
+            waitHandle // return the wait handle
+
+    type Async with
+        static member StartAndAwaitObservableEffect(comp, obs, ?cancellationToken, ?millisecondsTimeout) =
+            let waitHandle = Observable.waitHandleForNext obs
+
+            match cancellationToken with
+            | Some(token) -> Async.Start(comp, token)
+            | None -> Async.Start(comp)
+
+            match millisecondsTimeout with
+            | Some(timeout) -> Async.AwaitWaitHandle(waitHandle, timeout)
+            | None -> Async.AwaitWaitHandle(waitHandle)

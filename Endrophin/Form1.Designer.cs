@@ -29,8 +29,10 @@
         private void InitializeComponent()
         {
             System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea2 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
             System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
             System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.Series series2 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.startStopButton = new System.Windows.Forms.Button();
             this.statusLabel = new System.Windows.Forms.Label();
@@ -40,7 +42,9 @@
             // chart
             // 
             chartArea1.Name = "ChartArea1";
+            chartArea2.Name = "ChartArea2";
             this.chart.ChartAreas.Add(chartArea1);
+            this.chart.ChartAreas.Add(chartArea2);
             legend1.Enabled = false;
             legend1.Name = "Legend1";
             this.chart.Legends.Add(legend1);
@@ -51,7 +55,11 @@
             series1.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
             series1.Legend = "Legend1";
             series1.Name = "Channel A";
+            series2.ChartArea = "ChartArea2";
+            series2.Legend = "Legend1";
+            series2.Name = "Series2";
             this.chart.Series.Add(series1);
+            this.chart.Series.Add(series2);
             this.chart.Size = new System.Drawing.Size(776, 652);
             this.chart.TabIndex = 0;
             this.chart.Text = "chart1";

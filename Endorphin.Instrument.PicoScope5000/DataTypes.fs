@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Runtime.InteropServices
 
 type PicoInfo = 
@@ -116,10 +117,6 @@ type ThresholdDirection =
     // None
     | None = 2
 
-type DownSamplingMode =
-    | None = 0 
-    | Aggregate = 1
-
 type PulseWidthType =
     | None = 0
     | LessThan = 1
@@ -153,15 +150,24 @@ type BandwidthLimit =
     | Full = 0
     | _20MHz = 1
 
-type Triggered =
+type TriggerPosition =
     | NotTriggered
     | Triggered of uint32
+
+    static member FromTriggeredAndPosition(triggered, position) =
+        if triggered <> 0s then Triggered(position)
+        else NotTriggered
+
+type StreamStop =
+    | ManualStop
+    | AutoStop of maxPreTriggerSamples : uint32 * maxPostTriggerSamples : uint32
 
 // this sequential StructLayout may result in non-verifiable IL code 
 // when FieldOffset attributes are also used but not in this case
 #nowarn "9"
 
 open System.Runtime.CompilerServices
+open System
 
 [<StructLayout(LayoutKind.Sequential, Pack = 1)>]
 type TriggerChannelProperties =
@@ -235,16 +241,43 @@ type PulseWidthQualifierConditions =
             Auxiliary = auxiliary }
     end
 
+type InputSettings = 
+    { coupling : Coupling
+      range : Range
+      analogueOffset : float<V> }
+
+type ChannelSettings =
+    | Enabled of InputSettings
+    | Disabled 
+
+type SimpleTriggerSettings =
+    { channel : Channel
+      adcThreshold : int16
+      thresholdDirection : ThresholdDirection
+      delaySampleCount : uint32
+      autoTriggerDelay : float<s> }
+
+type TriggerSettings =
+    | Simple of settings : SimpleTriggerSettings
+    | Auto of autoTriggerDelay : float<s>
+
 type PicoScopeBlockReady = 
-    // handle, status, state -> void
+    // handle, status, state -> unit 
     delegate of int16 * int16 * nativeint -> unit
 
+type StreamingValuesReady = 
+    { numberOfSamples : int
+      startIndex : uint32
+      voltageOverflows : Channel list
+      triggerPosition : TriggerPosition
+      didAutoStop : bool }
+
 type PicoScopeStreamingReady =
-    // handle, numberOfSamples, startIndex, overflows, triggeredAt, triggered, autoStop, state
+    // handle, numberOfSamples, startIndex, overflows, triggeredAt, triggered, autoStop, state -> unit
     delegate of int16 * int * uint32 * int16 * uint32 * int16 * int16 * nativeint -> unit
 
 type PicoScopeDataReady =
-    // handle, numberOfSamples, overflows, triggeredAt, triggered, state
+    // handle, numberOfSamples, overflows, triggeredAt, triggered, state -> unit
     delegate of int16 * int * int16 * uint32 * int16 * nativeint -> unit
 
 [<Extension>]
@@ -280,18 +313,18 @@ type Methods() =
     [<Extension>]
     static member ToVolts(range : Range) =
         match range with
-        | Range._10mV -> 0.010
-        | Range._20mV -> 0.020
-        | Range._50mV -> 0.050
-        | Range._100mV -> 0.100
-        | Range._200mV -> 0.200
-        | Range._500mV -> 0.500
-        | Range._1V -> 1.0
-        | Range._2V -> 2.0
-        | Range._5V -> 5.0
-        | Range._10V -> 10.0
-        | Range._20V -> 20.0
-        | Range._50V -> 50.0
+        | Range._10mV -> 0.010<V>
+        | Range._20mV -> 0.020<V>
+        | Range._50mV -> 0.050<V>
+        | Range._100mV -> 0.100<V>
+        | Range._200mV -> 0.200<V>
+        | Range._500mV -> 0.500<V>
+        | Range._1V -> 1.0<V>
+        | Range._2V -> 2.0<V>
+        | Range._5V -> 5.0<V>
+        | Range._10V -> 10.0<V>
+        | Range._20V -> 20.0<V>
+        | Range._50V -> 50.0<V>
         | _ -> failwith "Unexpected range."
 
     [<Extension>]
@@ -311,3 +344,21 @@ type Methods() =
     [<Extension>]
     static member FastestStreamingIntervalInNanosec(resolution : Resolution, channelCount : int) =
         GetFastestStreamingIntervalInNanosec(resolution, channelCount)
+
+    [<Extension>]
+    static member IntegerValue(resolution : Resolution) =
+        match resolution with
+        | Resolution._8bit -> 8
+        | Resolution._12bit -> 12
+        | Resolution._14bit -> 14
+        | Resolution._15bit -> 15
+        | Resolution._16bit -> 16
+        | _ -> failwith "Unexpected resolution."
+
+    [<Extension>]
+    static member BitMask(resolution : Resolution) =
+        // First left shift 0000 0000 0000 0001 by (16 minus the device resolution, e.g. 12).
+        // Then we have 0000 0000 0001 0000 and we subtract 1 from that. This gives 
+        // 0000 0000 0000 1111. Then negating all bits means that the highest order bits
+        // correspond to the device resolution are 1s and the lowest order bits are 0s.
+        ~~~ ((1s <<< (16 - Methods.IntegerValue(resolution))) - 1s)

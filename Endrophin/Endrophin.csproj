@@ -11,6 +11,7 @@
     <AssemblyName>Endrophin</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -97,9 +98,17 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Endorphin.Experiment\Endorphin.Experiment.fsproj">
+      <Project>{e41a01e4-eb6c-443f-b54c-e47a7d84fa11}</Project>
+      <Name>Endorphin.Experiment</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Endorphin.Instrument.PicoScope5000\Endorphin.Instrument.PicoScope5000.fsproj">
       <Project>{b1b7a7f3-66b2-48e4-9f37-b1d2d9903904}</Project>
       <Name>Endorphin.Instrument.PicoScope5000</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Endorphin.Instrument.TwickenhamSmc\Endorphin.Instrument.TwickenhamSmc.fsproj">
+      <Project>{df0b9412-54f1-44b6-aba7-6d8ce5db24c1}</Project>
+      <Name>Endorphin.Instrument.TwickenhamSmc</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

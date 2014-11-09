@@ -130,7 +130,8 @@ type PicoStatus =
     | ChannelDisabledDueToUsbPower = 0x0122
 
 module internal Errors = 
-    exception PicoException of (string * PicoStatus)
+    // message, status, command 
+    exception PicoException of (string * PicoStatus * string)
 
     let messageForStatus = function 
         | PicoStatus.MaximumUnitsOpened -> "An attempt has been made to open more than PS5000A_MAX_UNITS."
@@ -253,7 +254,7 @@ module internal Errors =
         | PicoStatus.ChannelDisabledDueToUsbPower -> "USB Power not sufficient to power all channels."
         | status -> String.Format("Failed with unexpected PicoStatus value: {0}.", status)
 
-    let checkStatusIsOk = function
+    let checkStatusIsOk command status =
+        match status with
         | PicoStatus.Ok -> ()
-        | status ->
-             raise (PicoException(messageForStatus(status), status))
+        | _ -> raise (PicoException(messageForStatus(status), status, command.ToString()))
