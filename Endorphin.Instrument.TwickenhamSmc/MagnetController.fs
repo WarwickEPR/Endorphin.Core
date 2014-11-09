@@ -220,37 +220,6 @@ type MagnetController(visaAddress, parameters) =
                 | _ -> failwith "Invalid magnet controller set point parameter string"
         
             /// <summary>
-            /// Builds the command string to be sent to the magnet controller hardware for a
-            /// <see cref="MagnetController.Command" />.
-            /// </summary> 
-            let commandString command = 
-                let terminationCharacters = "\r\n"
-                let instruction = 
-                    match command with
-                    | GetOutputParameters(_) -> "G" 
-                    | GetCurrentParameters(_) -> "K"
-                    | GetOperatingParameters(_) -> "O"
-                    | GetSetPointParameters(_) -> "S"
-                    | SetRampRate(rate) -> (float rate) |> sprintf "A%08.5f"
-                    | SetTripVoltage(voltage) -> (float voltage) |> sprintf "Y%04.1f"
-                    | SetCurrentDirection(direction) -> 
-                        match direction with
-                        | Forward -> "D0"
-                        | Reverse -> "D1"
-                    | SetLowerSetPoint(lower) -> (float lower) |> sprintf "L%07.3f"
-                    | SetUpperSetPoint(upper) -> (float upper) |> sprintf "U%07.3f"
-                    | SetRampTarget(target) -> 
-                        match target with
-                        | Zero -> "R0"
-                        | Lower -> "R1"
-                        | Upper -> "R2"
-                    | SetPause(pause) -> 
-                        if pause then "P1"
-                        else "P0"
-                    | PrepareToCloseSession(_) -> failwith "PrepareToCloseSession is not a command which requires a message to be sent to the hardware"
-                instruction + terminationCharacters
-
-            /// <summary>
             /// Returns an async computation expression defining the magnet controller's message handling
             /// behaviour.
             /// </summary>
@@ -261,32 +230,77 @@ type MagnetController(visaAddress, parameters) =
                 | PrepareToCloseSession(replyChannel) ->
                     replyChannel.Reply()
 
+                // Requests
+
                 | GetOutputParameters replyChannel ->
-                    let! response = commandString command |> querySession session
+                    let! response = session.QuerryAsync "G\r\n"
                     response 
                     |> parseOutputParameters
                     |> replyChannel.Reply
 
                 | GetCurrentParameters replyChannel ->
-                    let! response = commandString command |> querySession session
+                    let! response = session.QuerryAsync "K\r\n"
                     response 
                     |> parseCurrentParameters
                     |> replyChannel.Reply
 
                 | GetOperatingParameters replyChannel ->
-                    let! response = commandString command |> querySession session
+                    let! response = session.QuerryAsync "O\r\n"
                     response 
                     |> parseOperatingParameters
                     |> replyChannel.Reply
 
                 | GetSetPointParameters replyChannel ->
-                    let! response = commandString command |> querySession session
+                    let! response = session.QuerryAsync "S\r\n"
                     response 
                     |> parseSetPointParameters
                     |> replyChannel.Reply
+                
+                // Instructions
 
-                | _ ->
-                    do! commandString command |> writeToSesiion session
+                | SetRampRate(rate) -> 
+                    do!  
+                        sprintf "A%08.5f" (float rate)
+                        |> session.WriteAsync
+                    do! Async.Sleep(1000)
+
+                | SetTripVoltage(voltage) -> 
+                    do!
+                        sprintf "Y%04.1f" (float voltage)
+                        |> session.WriteAsync
+                    do! Async.Sleep(1000)
+
+                 | SetCurrentDirection(direction) -> 
+                    do! 
+                        match direction with
+                        | Forward -> session.WriteAsync "D0"
+                        | Reverse -> session.WriteAsync "D1"
+                    do! Async.Sleep(1000)
+
+                | SetLowerSetPoint(lower) -> 
+                    do! 
+                        sprintf "L%07.3f" (float lower) 
+                        |> session.WriteAsync
+                    do! Async.Sleep(1000)
+
+                | SetUpperSetPoint(upper) -> 
+                    do! 
+                        sprintf "U%07.3f" (float upper)
+                        |> session.WriteAsync
+                    do! Async.Sleep(1000)
+
+                | SetRampTarget(target) -> 
+                    do!
+                        match target with
+                        | Zero -> session.WriteAsync "R0"
+                        | Lower -> session.WriteAsync "R1"
+                        | Upper -> session.WriteAsync "R2"
+                    do! Async.Sleep(1000)
+
+                | SetPause(pause) -> 
+                    do! 
+                        if pause then session.WriteAsync "P1"
+                        else session.WriteAsync "P0"
                     do! Async.Sleep(1000)
 
                 return! loop() }
