@@ -14,33 +14,33 @@ type Ramp = {
     returnToZero : bool }
 
 type RampStatus =
-    | PreparingForRamp
+    | Preparing
     | ReadyToRamp
-    | PerformingRamp
-    | FinishedRamp
-    | CancellingRamp
+    | Ramping
+    | Finished
+    | Cancelling
 
 type RampCancellationCapability() =
     let cancellationCapability = new CancellationTokenSource()
     let returnToZeroAfterCancellation = ref false
-    let canCancel = ref false
+    let started = ref false
 
     member this.ReturnToZero = !returnToZeroAfterCancellation
     member this.IsCancellationRequested = cancellationCapability.IsCancellationRequested
 
     member this.Cancel(returnToZero) =
-        if not !canCancel then
+        if not !started then
             failwith "Cannot cancel ramp before it has been initiated."
         returnToZeroAfterCancellation := returnToZero
         cancellationCapability.Cancel()
 
     member this.StartUsingToken() =
-        canCancel := true 
+        started := true 
         cancellationCapability.Token
 
 type RampWorker(ramp, magnetController : MagnetController) = 
     let statusChanged = new Event<RampStatus>()
-    let error = new Event<Exception> ()
+    let error = new Event<Exception>()
     let canceled = new Event<OperationCanceledException>()
     let completed = new Event<unit>()
     
@@ -129,12 +129,12 @@ type RampWorker(ramp, magnetController : MagnetController) =
 
     member this.Cancel(returnToZero) =
         cancellationCapability.Cancel(returnToZero)
-        readyToStart.Set() |> ignore // continue the workflow if it is waiting
+        readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
         let syncContext = SynchronizationContext.CaptureCurrent()
-        syncContext.RaiseEvent statusChanged CancellingRamp
+        syncContext.RaiseEvent statusChanged Cancelling
 
     member this.PrepareAndStart() =
-        readyToStart.Set() |> ignore
+        this.SetReadyToStart()
         this.Prepare()
 
     member this.SetReadyToStart() =
@@ -171,7 +171,7 @@ type RampWorker(ramp, magnetController : MagnetController) =
             
             let prepareForRamp = async {
                 if not cancellationCapability.IsCancellationRequested then
-                    syncContext.RaiseEvent statusChanged PreparingForRamp
+                    syncContext.RaiseEvent statusChanged Preparing
                 let! initialState = magnetController.GetAllParametersAsync()
                 do! setStartingCurrentDirection initialState
                 do! setCurrentLimits initialState 
@@ -186,7 +186,7 @@ type RampWorker(ramp, magnetController : MagnetController) =
             
             let performRamp = async { 
                 if not cancellationCapability.IsCancellationRequested then
-                    syncContext.RaiseEvent statusChanged PerformingRamp
+                    syncContext.RaiseEvent statusChanged Ramping
                 if not (startingCurrentDirection = finalCurrentDirection) then 
                     magnetController.SetRampTarget Zero 
                     do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync finalCurrentDirection 
@@ -209,7 +209,7 @@ type RampWorker(ramp, magnetController : MagnetController) =
                         do! magnetController.RampToZeroAsync()
 
                     if not cancellationCapability.IsCancellationRequested then
-                        syncContext.RaiseEvent statusChanged FinishedRamp
+                        syncContext.RaiseEvent statusChanged Finished
                 
                 finally
                     syncContext.RaiseEvent completed () }
