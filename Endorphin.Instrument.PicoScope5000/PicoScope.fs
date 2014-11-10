@@ -12,7 +12,7 @@ type internal Command =
     | GetUnitDriverVersion of replyChannel : AsyncReplyChannel<string>
     | GetUnitUsbVersion of replyChannel : AsyncReplyChannel<string>
     | GetUnitHardwareVersion of replyChannel : AsyncReplyChannel<string>
-    | GetUnitVariantInfo of replyChannel : AsyncReplyChannel<string>
+    | GetUnitModelNumber of replyChannel : AsyncReplyChannel<string>
     | GetUnitSerial of replyChannel : AsyncReplyChannel<string>
     | GetUnitCalibrationDate of replyChannel : AsyncReplyChannel<string>
     | GetUnitKernelVersion of replyChannel: AsyncReplyChannel<string>
@@ -33,7 +33,6 @@ type internal Command =
     | GetAnalogueOffsetLimits of range : Range * coupling : Coupling * replyChannel : AsyncReplyChannel<float<V> * float<V>>
     | GetAvailableChannelRanges of channel : Channel *  replyChannel : AsyncReplyChannel<Range seq>
     | SetChannelSettings of channel : Channel * channelSettings : ChannelSettings
-    | SetChannelBandwidth of channel : Channel * bandwidthLimit : BandwidthLimit
     | DisableChannel of channel : Channel
     | DisableTrigger
     | SetAutoTrigger of delay : float<s>
@@ -52,51 +51,35 @@ type internal Command =
     | StopAcquisition of AsyncReplyChannel<unit>
 
 type PicoScope5000(serial, initialResolution) =
-    static let getUnitInfoValue handle info command =
-        let resultLength = 32s
-        let result = new StringBuilder(int resultLength)
-        let mutable requiredLength = 0s
-        Api.GetUnitInfo(handle, result, resultLength, &requiredLength, info) |> checkStatusIsOk command
-        result.ToString()
-
-    static let getUnitInfo handle message =
-        seq { for value in (int PicoInfo.DriverVersion) .. (int PicoInfo.FirmwareVersion2) do
-                let info = enum<PicoInfo>(value)
-                let result = (info, getUnitInfoValue handle info message) 
-                yield result }
-        |> Seq.toList
-        
-    static let integerIntervalWithTimeUnit(interval) =
-        match interval with
-        | interval when interval >= 1.0<s> -> (uint32 interval, TimeUnit.Seconds)
-        | interval when interval >= 1e-3<s> -> (uint32 (interval * 1e3), TimeUnit.Milliseconds)
-        | interval when interval >= 1e-6<s> -> (uint32 (interval * 1e6), TimeUnit.Microseconds)
-        | interval when interval >= 1e-9<s> -> (uint32 (interval * 1e9), TimeUnit.Nanoseconds)
-        | interval when interval >= 1e-12<s> -> (uint32 (interval * 1e12), TimeUnit.Picoseconds)
-        | interval when interval >= 1e-15<s> -> (uint32 (interval * 1e15), TimeUnit.Femtoseconds)
-        | _ -> invalidArg "interval" "Time units smaller than femtoseconds are not supported." interval
-
-    static let intervalInSeconds(integerInterval : uint32, timeUnit) =
-        match (integerInterval, timeUnit) with
-        | (interval, TimeUnit.Seconds) -> float interval * 1.0<s>
-        | (interval, TimeUnit.Milliseconds) -> float interval * 1e-3<s>
-        | (interval, TimeUnit.Microseconds) -> float interval * 1e-6<s>
-        | (interval, TimeUnit.Nanoseconds) -> float interval * 1e-9<s>
-        | (interval, TimeUnit.Picoseconds) -> float interval * 1e-12<s>
-        | (interval, TimeUnit.Femtoseconds) -> float interval * 1e-15<s>
-        | _ -> invalidArg "timeUnit" "Invalid time unit." timeUnit
-
-    static let autoStopAndMaxTriggerSamples(streamStop) = 
-        match streamStop with
-        | AutoStop(preTriggerSamples, postTriggerSampless) -> (1s, preTriggerSamples, postTriggerSampless)
-        | ManualStop -> (0s, 0u, 1u) 
-
     let handle =
         let mutable localHandle = 0s
         let status = Api.OpenUnit(&localHandle, serial, initialResolution)
         match status with
         | PicoStatus.Ok | PicoStatus.PowerSupplyNotConnected -> localHandle
         | _ -> raise (PicoException(messageForStatus(status), status, "Open unit"))
+
+    let getUnitInfo info command =
+        let resultLength = 32s
+        let result = new StringBuilder(int resultLength)
+        let mutable requiredLength = 0s
+        Api.GetUnitInfo(handle, result, resultLength, &requiredLength, info) |> checkStatusIsOk command
+        result.ToString()
+
+    let getAllUnitInfos message =
+        seq { 
+            for value in (int PicoInfo.DriverVersion) .. (int PicoInfo.FirmwareVersion2) do
+                let info = enum<PicoInfo>(value)
+                let result = (info, getUnitInfo info message) 
+                yield result }
+        |> Seq.toList
+
+    let inputChannels =
+        let modelNumber = getUnitInfo PicoInfo.ModelNumber "Get unit model number"
+        let numberOfInputs = int modelNumber.[1] // number of input channels is the second number in the model number
+        match numberOfInputs with
+        | 2 -> Set.ofList [ Channel.A ; Channel.B ]
+        | 4 -> Set.ofList [ Channel.A ; Channel.B ; Channel.C ; Channel.D ]
+        | _ -> failwith "Unexpected PicoScope model number."
 
     let agent = Agent.Start(fun mailbox ->
         let rec loop currentResolution = async {
@@ -110,51 +93,51 @@ type PicoScope5000(serial, initialResolution) =
             // Requests
             
             | GetUnitDriverVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.DriverVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.DriverVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitUsbVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.UsbVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.UsbVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitHardwareVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.HardwareVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.HardwareVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
-            | GetUnitVariantInfo(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.VariantInfo message |> replyChannel.Reply
+            | GetUnitModelNumber(replyChannel) -> 
+                getUnitInfo PicoInfo.ModelNumber message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitSerial(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.BatchAndSerial message |> replyChannel.Reply
+                getUnitInfo PicoInfo.BatchAndSerial message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitCalibrationDate(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.CalibrationDate message |> replyChannel.Reply
+                getUnitInfo PicoInfo.CalibrationDate message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitKernelVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.KernelVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.KernelVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitDigitalHardwareVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.DigitalHardwareVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.DigitalHardwareVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitAnalogueHardwareVersion(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.AnalogueHardwareVersion message |> replyChannel.Reply
+                getUnitInfo PicoInfo.AnalogueHardwareVersion message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitFirmwareVersion1(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.FirmwareVersion1 message |> replyChannel.Reply
+                getUnitInfo PicoInfo.FirmwareVersion1 message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitFirmwareVersion2(replyChannel) -> 
-                getUnitInfoValue handle PicoInfo.FirmwareVersion2 message |> replyChannel.Reply
+                getUnitInfo PicoInfo.FirmwareVersion2 message |> replyChannel.Reply
                 return! loop currentResolution
 
             | GetUnitInfo(replyChannel) -> 
-                let infos = getUnitInfo(handle) message
+                let infos = getAllUnitInfos message
                 infos |> replyChannel.Reply
                 return! loop currentResolution
 
@@ -190,6 +173,9 @@ type PicoScope5000(serial, initialResolution) =
                 return! loop currentResolution
 
             | GetAvailableChannelRanges(channel, replyChannel) ->
+                if not (inputChannels.Contains(channel)) then
+                    invalidArg "channel" "Channel not available on PicoScope unit." channel
+
                 let mutable rangesLength = 12
                 let ranges = Array.zeroCreate(rangesLength)
                 Api.GetChannelInformation(handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatusIsOk message
@@ -263,23 +249,29 @@ type PicoScope5000(serial, initialResolution) =
                 return! loop newResolution
 
             | SetChannelSettings(channel, channelState) ->
+                if not (inputChannels.Contains(channel)) then
+                    invalidArg "channel" "Channel not available on PicoScope unit." channel
+
                 match channelState with
                 | Disabled -> 
                     Api.SetChannel(handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) 
                     |> checkStatusIsOk message
+
                 | Enabled(inputSettings) ->
                     Api.SetChannel(
                         handle, channel, 1s, inputSettings.coupling, inputSettings.range, 
                         float32 inputSettings.analogueOffset) 
                     |> checkStatusIsOk message
                     
-                return! loop currentResolution
+                    Api.SetBandwidthFilter(handle, channel, inputSettings.bandwidthLimit) 
+                    |> checkStatusIsOk message
 
-            | SetChannelBandwidth(channel, bandwidthLimit) ->
-                Api.SetBandwidthFilter(handle, channel, bandwidthLimit) |> checkStatusIsOk message
                 return! loop currentResolution
 
             | DisableChannel(channel) ->
+                if not (inputChannels.Contains(channel)) then
+                    invalidArg "channel" "Channel not available on PicoScope unit." channel
+
                 Api.SetChannel(handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) |> checkStatusIsOk message
                 return! loop currentResolution
             
@@ -316,6 +308,9 @@ type PicoScope5000(serial, initialResolution) =
                 if downsampling = Downsampling.Aggregate then
                     invalidArg "downsampling"
                         "Attempted to set data buffer with aggregate downsampling. Use SetAggregateDataBuffers instead." downsampling
+                if not (inputChannels.Contains(channel)) then
+                    invalidArg "channel" "Channel not available on PicoScope unit." channel
+
                 Api.SetDataBuffer(handle, channel, buffer, buffer.Length, segmentIndex, downsampling) |> checkStatusIsOk message
                 return! loop currentResolution
 
@@ -323,19 +318,22 @@ type PicoScope5000(serial, initialResolution) =
                 if bufferMax.Length <> bufferMin.Length then
                     invalidArg "(bufferMax, bufferMin)"
                         "Attempted to set aggregate data buffers of different lengths" (bufferMax, bufferMin)
+                if not (inputChannels.Contains(channel)) then
+                    invalidArg "channel" "Channel not available on PicoScope unit." channel
+
                 Api.SetDataBuffers(handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, Downsampling.Aggregate) 
                 |> checkStatusIsOk message
                 return! loop currentResolution
 
             | RunStreaming(sampleInterval, streamStop, downsamplingRatio, downsampling, bufferLength, replyChannel) ->
-                let (interval, timeUnit) = integerIntervalWithTimeUnit sampleInterval
-                let (autoStop, maxPreTriggerSamples, maxPostTriggerSamples) = autoStopAndMaxTriggerSamples(streamStop)
+                let (interval, timeUnit) = sampleInterval.ToIntegerIntervalWithTimeUnit()
+                let (autoStop, maxPreTriggerSamples, maxPostTriggerSamples) = streamStop.ToAutoStopAndMaxTriggerSamples()
                 let mutable hardwareInterval = interval
 
                 Api.RunStreaming(handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
                     downsamplingRatio, downsampling, bufferLength) |> checkStatusIsOk message
 
-                intervalInSeconds (hardwareInterval, timeUnit)
+                hardwareInterval.ToInvervalInSecondsFromTimeUnit(timeUnit)
                 |> replyChannel.Reply
                 return! loop currentResolution
 
@@ -345,8 +343,8 @@ type PicoScope5000(serial, initialResolution) =
                         fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
                             { numberOfSamples = numberOfSamples
                               startIndex = startIndex
-                              voltageOverflows = [ Channel.A ; Channel.B ; Channel.C ; Channel.D ]
-                                                 |> List.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
+                              voltageOverflows = inputChannels
+                                                 |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
                               triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
                               didAutoStop = didAutoStop <> 0s }
                             |> callback)
@@ -366,9 +364,12 @@ type PicoScope5000(serial, initialResolution) =
     new(serial) = new PicoScope5000(serial, Resolution._8bit)
 
     interface IDisposable with
-        member this.Dispose() =
+        member IDisposable.Dispose() =
             CloseUnit
             |> agent.PostAndReply
+
+    member this.InputChannels =
+        inputChannels
 
     member this.GetUnitDriverVersionAsync() =
         GetUnitDriverVersion
@@ -383,7 +384,7 @@ type PicoScope5000(serial, initialResolution) =
         |> agent.PostAndAsyncReply
         
     member this.GetUnitVariantInfoAsync() =
-        GetUnitVariantInfo
+        GetUnitModelNumber
         |> agent.PostAndAsyncReply
 
     member this.GetUnitSerialAsync() =
@@ -452,10 +453,6 @@ type PicoScope5000(serial, initialResolution) =
 
     member this.SetChannelSettings(channel, channelSettings) =
         SetChannelSettings(channel, channelSettings)
-        |> agent.Post
-
-    member this.SetChannelBandwidth(channel, bandwidthLimit) =
-        SetChannelBandwidth(channel, bandwidthLimit)
         |> agent.Post
 
     member this.DisableChannel(channel) =

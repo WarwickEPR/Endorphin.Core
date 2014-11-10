@@ -11,7 +11,7 @@ type StreamingParmaeters =
       downsamplingRatio : uint32
       streamStop : StreamStop
       triggerSettings : TriggerSettings
-      activeChannels : (Channel * InputSettings * BandwidthLimit) list
+      activeChannels : (Channel * InputSettings) list
       channelStreams : ChannelData list
       channelAggregateStreams : ChannelAggregateData list
       memorySegment : uint32 }
@@ -76,10 +76,9 @@ type StreamWorker(stream, pico : PicoScope5000) =
 
     let activeChannelsSet =
         stream.activeChannels
-        |> List.map (fun (channel, _, _) -> channel)
+        |> List.map (fun (channel, _) -> channel)
         |> Set.ofList
 
-    // do initialisation checks : channels etc.
     do
         if (Set.intersect streamChannelSet streamAggregateChannelSet) <> activeChannelsSet then
             invalidArg "stream.activeChannels"
@@ -120,19 +119,15 @@ type StreamWorker(stream, pico : PicoScope5000) =
         let workflow = 
             let setupChannels = async {
                 pico.SetTrigger(stream.triggerSettings)
-
-                for (channel, inputSettings, bandwidthLimit) in stream.activeChannels do
-                    pico.SetChannelSettings(channel, Enabled(inputSettings))
-                    pico.SetChannelBandwidth(channel, bandwidthLimit)
-            
-                let inactiveChannels = 
-                    stream.activeChannels
-                    |> List.map (fun (channel, _, _) -> channel)
-                    |> Set.ofList
-                    |> Set.difference (Set.ofList [ Channel.A ; Channel.B ; Channel.C ; Channel.D ])
-
-                for channel in inactiveChannels do
-                    pico.DisableChannel(channel) }
+                for channel in pico.InputChannels do
+                    match channel with
+                    | channel when activeChannelsSet.Contains(channel) ->
+                        stream.activeChannels
+                        |> List.map (fun (channel, inputSettings) -> (channel, Enabled(inputSettings)))
+                        |> List.find (fun (activeChannel, _) -> activeChannel = channel)
+                        |> pico.SetChannelSettings
+                    | channel ->
+                        pico.DisableChannel(channel) }
 
             let createBuffers = async {
                 return 
@@ -189,7 +184,7 @@ type StreamWorker(stream, pico : PicoScope5000) =
                     if streamingValues.numberOfSamples > 0 then
                         let channelDidOverflow channel =
                             streamingValues.voltageOverflows
-                            |> List.exists (fun overflowChannel -> channel = overflowChannel)
+                            |> Set.contains channel
 
                         for buffer in buffers do
                             buffer.channelStream.ProcessDataReadyAsync(

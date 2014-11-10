@@ -10,11 +10,11 @@ type Downsampling =
 type StreamStop =
     | ManualStop
     | AutoStop of maxPreTriggerSamples : uint32 * maxPostTriggerSamples : uint32
-
+    
 type StreamingValuesReady = 
     { numberOfSamples : int
       startIndex : uint32
-      voltageOverflows : Channel list
+      voltageOverflows : Set<Channel>
       triggerPosition : TriggerPosition
       didAutoStop : bool }
 

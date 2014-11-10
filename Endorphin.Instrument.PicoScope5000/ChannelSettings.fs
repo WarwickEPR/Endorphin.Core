@@ -59,7 +59,8 @@ type BandwidthLimit =
 type InputSettings = 
     { coupling : Coupling
       range : Range
-      analogueOffset : float<V> }
+      analogueOffset : float<V>
+      bandwidthLimit : BandwidthLimit }
 
 type ChannelSettings =
     | Enabled of InputSettings
