@@ -10,27 +10,27 @@ open System.Threading
 
 [<TestFixture>]
 type ``Magnet ramp tests``() = 
-    let mutable magnetControllerOpt : MagnetController option = None
-    member this.magnetController 
-        with get() : MagnetController = magnetControllerOpt.Value
-        and set(value : MagnetController) = magnetControllerOpt <- Some(value)
+    let magnetController : MagnetController option ref = ref None
+
+    member this.MagnetController =
+        match !magnetController with
+        | Some(controller) -> controller
+        | None -> raise (new NullReferenceException())
 
     [<SetUp>]
     member this.``Connect to magnet controller and initialise``() =
-        this.magnetController <-
-            new MagnetController(magnetControllerVisaAddress, magnetControllerParameters)
-        initialiseDefaultMagnetControllerState this.magnetController
+        magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
+        initialiseDefaultMagnetControllerState this.MagnetController
         
     [<TearDown>]
     member this.``Disccnnect from magnet controller``() =
-        (this.magnetController :> IDisposable).Dispose()
+        (this.MagnetController :> IDisposable).Dispose()
 
     [<TestFixtureTearDown>]
     member this.``Connect return magnet controller to initial state after tests``() =
-        this.magnetController <-
-            new MagnetController(magnetControllerVisaAddress, magnetControllerParameters)
-        initialiseDefaultMagnetControllerState this.magnetController
-        (this.magnetController :> IDisposable).Dispose()
+        magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
+        initialiseDefaultMagnetControllerState this.MagnetController
+        (this.MagnetController :> IDisposable).Dispose()
 
     [<Test>]
     member this.``Ramp rate out of range causes exception``() =
@@ -40,7 +40,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 4095
                 rampRateIndex = -7
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -49,7 +49,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 4095
                 rampRateIndex = 44
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -58,7 +58,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 4095
                 rampRateIndex = 78
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
     [<Test>]
@@ -69,7 +69,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 0
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -78,7 +78,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 4095
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -87,7 +87,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = -231
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
     
     [<Test>]
@@ -98,7 +98,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 234
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -107,7 +107,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = -124
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
@@ -116,7 +116,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = -32750
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
         |> ignore
         
     [<Test>]
@@ -127,7 +127,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 16383
                 rampRateIndex = 0
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
             let ramp = { 
@@ -135,7 +135,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 16383
                 rampRateIndex = 43
                 returnToZero = true }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
             let ramp = { 
@@ -143,7 +143,7 @@ type ``Magnet ramp tests``() =
                 finalFieldIndex = 0
                 rampRateIndex = 34
                 returnToZero = false }
-            new RampWorker(ramp, this.magnetController) |> ignore)
+            new RampWorker(ramp, this.MagnetController) |> ignore)
 
     [<Test>]
     member this.``Can cancel ramp immediately immediately after initiating preparation``() =
@@ -156,7 +156,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 0
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
         rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -181,7 +181,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 0
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         Assert.Throws<Exception>(fun () ->
             rampWorker.Cancel(true)) 
@@ -198,7 +198,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 14
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -214,7 +214,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)        
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Zero, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
@@ -233,7 +233,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 7
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -249,7 +249,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Lower, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -269,7 +269,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 18
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -285,7 +285,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Zero, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)        
         Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
@@ -295,10 +295,10 @@ type ``Magnet ramp tests``() =
 
     [<Test>]
     member this.``Can prepare for positive ramp from negative initial current``() =
-        this.magnetController.SetCurrentDirection Reverse
-        this.magnetController.SetLowerSetPoint 0.5<A>
-        this.magnetController.SetRampTarget Lower
-        this.magnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
+        this.MagnetController.SetCurrentDirection Reverse
+        this.MagnetController.SetLowerSetPoint 0.5<A>
+        this.MagnetController.SetRampTarget Lower
+        this.MagnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
         
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
@@ -309,7 +309,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 18
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -325,7 +325,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Lower, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -336,9 +336,9 @@ type ``Magnet ramp tests``() =
 
     [<Test>]
     member this.``Can prepare for negative ramp from positive initial current``() =
-        this.magnetController.SetLowerSetPoint 0.5<A>
-        this.magnetController.SetRampTarget Lower
-        this.magnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
+        this.MagnetController.SetLowerSetPoint 0.5<A>
+        this.MagnetController.SetRampTarget Lower
+        this.MagnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
         
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
@@ -349,7 +349,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 9
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -365,7 +365,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -379,8 +379,8 @@ type ``Magnet ramp tests``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
 
-        this.magnetController.SetRampRate 0.0084<A/s>
-        this.magnetController.SetRampTarget Upper
+        this.MagnetController.SetRampRate 0.0084<A/s>
+        this.MagnetController.SetRampTarget Upper
 
         let ramp = { 
             startingFieldIndex = 784
@@ -388,7 +388,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 22
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -404,7 +404,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -418,10 +418,10 @@ type ``Magnet ramp tests``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
 
-        this.magnetController.SetRampRate 0.0840<A/s>
-        this.magnetController.SetRampTarget Upper
+        this.MagnetController.SetRampRate 0.0840<A/s>
+        this.MagnetController.SetRampTarget Upper
         Thread.Sleep(10000)
-        this.magnetController.SetPause true
+        this.MagnetController.SetPause true
 
         let ramp = { 
             startingFieldIndex = 928
@@ -429,7 +429,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 12
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -445,7 +445,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Lower, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -465,7 +465,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 39
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -481,7 +481,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.AreEqual(0.05400<A/s>, state.operatingParameters.rampRate)
@@ -500,7 +500,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 12
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -516,7 +516,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Zero, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
@@ -535,7 +535,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 43
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -549,7 +549,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Finished |], !rampStatusArray )
         Assert.IsFalse(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -569,7 +569,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 43
             returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -583,7 +583,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Finished |], !rampStatusArray )
         Assert.IsFalse(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Zero, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
@@ -602,7 +602,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 36
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -618,7 +618,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Finished |], !rampStatusArray )
         Assert.IsFalse(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.AreEqual(0.03600<A/s>, state.operatingParameters.rampRate)
@@ -638,7 +638,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 12
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -667,7 +667,7 @@ type ``Magnet ramp tests``() =
         Assert.IsTrue(!canceledDidFire)
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Lower, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -687,7 +687,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 33
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -701,7 +701,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Finished |], !rampStatusArray )
         Assert.IsFalse(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
@@ -721,7 +721,7 @@ type ``Magnet ramp tests``() =
             rampRateIndex = 37
             returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.magnetController)
+        let rampWorker = new RampWorker(ramp, this.MagnetController)
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -735,7 +735,7 @@ type ``Magnet ramp tests``() =
         Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Finished |], !rampStatusArray )
         Assert.IsFalse(!canceledDidFire)
 
-        let state = this.magnetController.GetAllParametersAsync() |> Async.RunSynchronously
+        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Upper, state.outputParameters.rampTarget)
         Assert.IsFalse(state.currentParameters.isPaused)
         Assert.IsTrue(state.currentParameters.reachedTarget)
