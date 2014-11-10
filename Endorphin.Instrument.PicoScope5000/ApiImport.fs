@@ -3,7 +3,21 @@
 open System.Text
 open System.Runtime.InteropServices
 
+type PicoInfo = 
+    | DriverVersion = 0
+    | UsbVersion = 1
+    | HardwareVersion = 2
+    | VariantInfo = 3
+    | BatchAndSerial = 4
+    | CalibrationDate = 5
+    | KernelVersion = 6
+    | DigitalHardwareVersion = 7
+    | AnalogueHardwareVersion = 8
+    | FirmwareVersion1 = 9
+    | FirmwareVersion2 = 10
+
 module internal Api =
+
     [<Literal>] 
     let dllName = "ps5000a.dll"
 

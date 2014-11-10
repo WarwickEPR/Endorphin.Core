@@ -49,8 +49,12 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="DataTypes.fs" />
+    <Compile Include="ChannelSettings.fs" />
+    <Compile Include="TriggerSettings.fs" />
+    <Compile Include="SignalGenerator.fs" />
+    <Compile Include="AcquisitionAndCallbacks.fs" />
     <Compile Include="Errors.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="ApiImport.fs" />
     <Compile Include="PicoScope.fs" />
     <Compile Include="ChannelData.fs" />
