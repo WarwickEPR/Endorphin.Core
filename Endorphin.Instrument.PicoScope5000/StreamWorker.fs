@@ -119,7 +119,11 @@ type StreamWorker(stream, pico : PicoScope5000) =
         let workflow = 
             let setupChannels = async {
                 pico.SetTrigger(stream.triggerSettings)
-                for channel in pico.InputChannels do
+                let! availableChannels = pico.GetAvailableChannelsAsync()
+                if not (activeChannelsSet.IsSubsetOf(availableChannels)) then
+                    failwith "Some input channels required by the stream are not available on the PicoScope."
+                
+                for channel in availableChannels do
                     match channel with
                     | channel when activeChannelsSet.Contains(channel) ->
                         stream.activeChannels
