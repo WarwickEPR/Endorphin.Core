@@ -23,13 +23,15 @@ type ``Magnet controller tests with prepared state``() =
     [<TearDown>]
     member this.``Disccnnect from magnet controller``() =
         (this.MagnetController :> IDisposable).Dispose()
+        magnetController := None
 
     [<TestFixtureTearDown>]
     member this.``Connect return magnet controller to initial state after tests``() =
         magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
         initialiseDefaultMagnetControllerState this.MagnetController
         (this.MagnetController :> IDisposable).Dispose()
-
+        magnetController := None
+        
     [<Test>]
     member this.``Can change current direction``() =        
         this.MagnetController.SetCurrentDirection Reverse

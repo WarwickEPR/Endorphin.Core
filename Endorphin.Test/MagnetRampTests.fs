@@ -25,12 +25,14 @@ type ``Magnet ramp tests``() =
     [<TearDown>]
     member this.``Disccnnect from magnet controller``() =
         (this.MagnetController :> IDisposable).Dispose()
+        magnetController := None
 
     [<TestFixtureTearDown>]
     member this.``Connect return magnet controller to initial state after tests``() =
         magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
         initialiseDefaultMagnetControllerState this.MagnetController
         (this.MagnetController :> IDisposable).Dispose()
+        magnetController := None
 
     [<Test>]
     member this.``Ramp rate out of range causes exception``() =

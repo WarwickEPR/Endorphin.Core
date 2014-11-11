@@ -22,7 +22,8 @@ type ``Magnet controller tests``() =
     [<TearDown>]
     member this.``Disccnnect from magnet controller``() =
         (this.MagnetController :> IDisposable).Dispose()
-
+        magnetController := None
+        
     [<Test>]
     member this.``Check ramp rate limit is set``() =
         let rampRateLimit = this.MagnetController.RampRateLimit
