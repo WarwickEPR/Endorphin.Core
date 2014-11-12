@@ -41,6 +41,4 @@ type ChannelAggregateData(channel : Channel) =
 type internal AggregateBuffer =
     { dataBufferMax : int16 array
       dataBufferMin : int16 array
-      gcHandleMax : GCHandle 
-      gcHandleMin : GCHandle
       channelAggregateStream : ChannelAggregateData }

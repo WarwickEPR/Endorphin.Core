@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\Endorphin.Test.XML</DocumentationFile>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -54,6 +55,8 @@
     <Compile Include="MagnetControllerTests.fs" />
     <Compile Include="MagnetControllerTestsWithPrep.fs" />
     <Compile Include="MagnetRampTests.fs" />
+    <Compile Include="PicoScope5000ConnectionTests.fs" />
+    <Compile Include="PicoScope5000Tests.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -86,6 +89,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">
+      <Name>Endorphin.Core</Name>
+      <Project>{b1887520-0f25-4ff4-958e-12b964df20f9}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Endorphin.Instrument.PicoScope5000\Endorphin.Instrument.PicoScope5000.fsproj">
+      <Name>Endorphin.Instrument.PicoScope5000</Name>
+      <Project>{b1b7a7f3-66b2-48e4-9f37-b1d2d9903904}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Endorphin.Instrument.TwickenhamSmc\Endorphin.Instrument.TwickenhamSmc.fsproj">
       <Name>Endorphin.Instrument.TwickenhamSmc</Name>
       <Project>{df0b9412-54f1-44b6-aba7-6d8ce5db24c1}</Project>

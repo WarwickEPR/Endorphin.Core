@@ -4,6 +4,7 @@ open Endorphin.Instrument.TwickenhamSmc
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NUnit.Framework
 
+let picoScope5000serial = "CW336/061"
 let magnetControllerVisaAddress = "GPIB0::4"
 
 let calibratedRampRates = 

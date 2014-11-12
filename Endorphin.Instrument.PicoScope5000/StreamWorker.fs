@@ -138,11 +138,9 @@ type StreamWorker(stream, pico : PicoScope5000) =
                     stream.channelStreams 
                     |> List.map (fun channelStream ->
                         let dataBuffer = Array.zeroCreate(bufferLength)
-                        let gcHandle = GCHandle.Alloc(dataBuffer, GCHandleType.Pinned)
                         pico.SetDataBuffer(channelStream.Channel, dataBuffer, stream.memorySegment, downsampling)
 
                         { dataBuffer = dataBuffer
-                          gcHandle = gcHandle
                           channelStream = channelStream }) }
             
             let createAggregateBuffers = async {
@@ -151,39 +149,33 @@ type StreamWorker(stream, pico : PicoScope5000) =
                     |> List.map (fun channelAggregateStream ->
                         let dataBufferMax = Array.zeroCreate(bufferLength)
                         let dataBufferMin = Array.zeroCreate(bufferLength)
-                        let gcHandleMax = GCHandle.Alloc(dataBufferMax, GCHandleType.Pinned)
-                        let gcHandleMin = GCHandle.Alloc(dataBufferMin, GCHandleType.Pinned)
                         pico.SetAggregateDataBuffers(
                             channelAggregateStream.Channel, dataBufferMax, dataBufferMin, stream.memorySegment)
 
                         { dataBufferMax = dataBufferMax
                           dataBufferMin = dataBufferMin
-                          gcHandleMax = gcHandleMax
-                          gcHandleMin = gcHandleMin
                           channelAggregateStream = channelAggregateStream }) } 
 
             let runStreaming = async {
-                let! hardwareSampleInterval =
+                let! (hardwareSampleInterval, cancellationCallback) =
                     pico.RunStreamingAsync(stream.sampleInterval, stream.streamStop, stream.downsamplingRatio, downsampling, uint32 bufferLength)
             
-                Started(hardwareSampleInterval) |> statusChanged.Trigger }
+                Started(hardwareSampleInterval) |> statusChanged.Trigger
+                return cancellationCallback }
 
-            let finishStream buffers aggregateBuffers didAutoStop = async {
-                do! pico.StopAcquisitionAsync()
+            let rec pollLatestValues buffers aggregateBuffers stopCallback = 
+                let finishStream buffers aggregateBuffers didAutoStop = async {
+                    stopCallback()
 
-                for buffer in buffers do
-                    buffer.gcHandle.Free()
-                    buffer.channelStream.TriggerCompleted()
+                    for buffer in buffers do
+                        buffer.channelStream.TriggerCompleted()
 
-                for buffer in aggregateBuffers do
-                    buffer.gcHandleMax.Free()
-                    buffer.gcHandleMin.Free()
-                    buffer.channelAggregateStream.TriggerCompleted()
+                    for buffer in aggregateBuffers do
+                        buffer.channelAggregateStream.TriggerCompleted()
 
-                Finished(didAutoStop) |> statusChanged.Trigger
-                completed.Trigger() } 
+                    Finished(didAutoStop) |> statusChanged.Trigger
+                    completed.Trigger() } 
 
-            let rec pollLatestValues buffers aggregateBuffers = 
                 let dataCallback streamingValues =
                     if streamingValues.numberOfSamples > 0 then
                         let channelDidOverflow channel =
@@ -202,9 +194,9 @@ type StreamWorker(stream, pico : PicoScope5000) =
                                 channelDidOverflow buffer.channelAggregateStream.Channel, streamingValues.triggerPosition)
                             |> Async.Start
 
-                        if streamingValues.didAutoStop then
-                            (finishStream buffers aggregateBuffers true) 
-                            |> Async.Start
+                    if streamingValues.didAutoStop then
+                        (finishStream buffers aggregateBuffers true) 
+                        |> Async.Start
 
                 let rec pollLoop() = async {
                     pico.GetStreamingLatestValues(dataCallback)
@@ -223,10 +215,10 @@ type StreamWorker(stream, pico : PicoScope5000) =
                 do! setupChannels
                 let! buffers = createBuffers
                 let! aggregateBuffers = createAggregateBuffers
-                do! runStreaming
+                let! stopCallback = runStreaming
 
                 let! stopToken = Async.CancellationToken
-                Async.Start(pollLatestValues buffers aggregateBuffers, stopToken) }
+                Async.Start(pollLatestValues buffers aggregateBuffers stopCallback, stopToken) }
 
         Async.StartWithContinuations
             (workflow,

@@ -43,5 +43,4 @@ type ChannelData(channel : Channel, downsampling : Downsampling) =
 
 type internal Buffer = 
     { dataBuffer : int16 array
-      gcHandle : GCHandle
       channelStream : ChannelData }

@@ -6,6 +6,8 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open System.Text
 open System.Linq
+open System.Runtime.InteropServices
+open System.Threading
 
 type internal Command =
     | CloseUnit of replyChannel : AsyncReplyChannel<unit>
@@ -47,20 +49,32 @@ type internal Command =
     | GetMaximumDownsamplingRatio of unprocessedSampleCount : uint32 * downsampling : Downsampling * memorySegment : uint32 * replyChannel : AsyncReplyChannel<uint32>
     | SetDataBuffer of channel : Channel * buffer : int16 array * segmentIndex : uint32 * downsampling : Downsampling
     | SetAggregateDataBuffers of channel : Channel * bufferMax : int16 array * bifferMin : int16 array * segmentIndex : uint32
-    | RunStreaming of sampleInterval : float<s> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<float<s>>
+    | RunStreaming of sampleInterval : float<s> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<float<s> * (unit -> unit)>
     | GetStreamingLatestValues of callback : (StreamingValuesReady -> unit)
-    | StopAcquisition of AsyncReplyChannel<unit>
+    | StopAcquisition
+
+type internal State = {
+    currentResolution : Resolution
+    isMainsPowered : bool
+    readyBuffers : (int16 array) list
+    buffersInUse : (int16 array * GCHandle) list
+    stopCapability : CancellationTokenSource option }
 
 type PicoScope5000(serial, initialResolution) =
-    let picoScopeError = new Event<PicoException>()
+    let checkStatusAndFailedDueToMainsPower message status =
+        try
+            checkStatusIsOk message status
+            false
+        with
+        | PicoException(_, status, _) when status = PicoStatus.PowerSupplyNotConnected ->
+            true
 
     let (handle, wasMainsPoweredInitially) =
         let mutable localHandle = 0s
-        let status = Api.OpenUnit(&localHandle, serial, initialResolution)
-        match status with
-        | PicoStatus.Ok -> (localHandle, true)
-        | PicoStatus.PowerSupplyNotConnected -> (localHandle, false)
-        | _ -> raise (PicoException(messageForStatus(status), status, "Open unit"))
+        let usbPowered = 
+            Api.OpenUnit(&localHandle, serial, initialResolution)
+            |> checkStatusAndFailedDueToMainsPower "Open unit"
+        (localHandle, not usbPowered)
 
     let inputChannels =
         let resultLength = 32s
@@ -73,32 +87,13 @@ type PicoScope5000(serial, initialResolution) =
         | 4 -> Set.ofList [ Channel.A ; Channel.B ; Channel.C ; Channel.D ]
         | _ -> failwith "Unexpected PicoScope model number."
 
-    let agent = Agent.Start(fun mailbox ->
-        let rec loop currentResolution isMainsPowered = async {
-            let checkStatusAndFailedDueToMainsPower message status =
-                try
-                    checkStatusIsOk message status
-                    false
-                with
-                | PicoException(_, status, _) as exn when status = PicoStatus.PowerSupplyNotConnected ->
-                    (exn :?> PicoException) |> picoScopeError.Trigger
-                    true
-                | PicoException(_, _, _) as exn ->
-                    (exn :?> PicoException) |> picoScopeError.Trigger
-                    false
-
-            let checkStatusAndTriggerErrorEvent message status =
-                try
-                    checkStatusIsOk message status
-                with
-                | PicoException(_, _, _) as exn ->
-                    (exn :?> PicoException) |> picoScopeError.Trigger
-            
+    member private this.Agent = Agent.Start(fun mailbox ->
+        let rec loop state = async {           
             let getUnitInfo info command =
                 let resultLength = 32s
                 let result = new StringBuilder(int resultLength)
                 let mutable requiredLength = 0s
-                Api.GetUnitInfo(handle, result, resultLength, &requiredLength, info) |> checkStatusAndTriggerErrorEvent command
+                Api.GetUnitInfo(handle, result, resultLength, &requiredLength, info) |> checkStatusIsOk command
                 result.ToString()
 
             let getAllUnitInfos message =
@@ -108,64 +103,62 @@ type PicoScope5000(serial, initialResolution) =
                         yield (info, getUnitInfo info message) }
                 |> Seq.toList
 
-
             let! message = mailbox.Receive() 
             match message with
 
             | CloseUnit(replyChannel) ->
-                Api.CloseUnit(handle) |> checkStatusAndTriggerErrorEvent message
+                Api.CloseUnit(handle) |> checkStatusIsOk message
                 replyChannel.Reply()
 
             // Requests
             
             | GetUnitDriverVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.DriverVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
-
+                return! loop state
             | GetUnitUsbVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.UsbVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitHardwareVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.HardwareVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitModelNumber(replyChannel) -> 
                 getUnitInfo PicoInfo.ModelNumber message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitSerial(replyChannel) -> 
                 getUnitInfo PicoInfo.SerialNumber message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitCalibrationDate(replyChannel) -> 
                 getUnitInfo PicoInfo.CalibrationDate message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitKernelVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.KernelVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitDigitalHardwareVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.DigitalHardwareVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitAnalogueHardwareVersion(replyChannel) -> 
                 getUnitInfo PicoInfo.AnalogueHardwareVersion message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitFirmwareVersion1(replyChannel) -> 
                 getUnitInfo PicoInfo.FirmwareVersion1 message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetUnitFirmwareVersion2(replyChannel) -> 
                 getUnitInfo PicoInfo.FirmwareVersion2 message |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetAllUnitInfo(replyChannel) -> 
                 let infos = getAllUnitInfos message
                 infos |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | IsUnitMainsPowered(replyChannel) -> 
                 let status = Api.CurrentPowerSource(handle)
@@ -174,42 +167,42 @@ type PicoScope5000(serial, initialResolution) =
                     | PicoStatus.PowerSupplyConnected -> true
                     | _ -> status |> checkStatusAndFailedDueToMainsPower message |> not
                 mainsPowered |> replyChannel.Reply
-                return! loop currentResolution mainsPowered
+                return! loop state
 
             | Ping(replyChannel) -> 
                 let failedDueToMainsPower = 
                     Api.PingUnit(handle) 
                     |> checkStatusAndFailedDueToMainsPower message
                 replyChannel.Reply()
-                return! loop currentResolution (isMainsPowered && not failedDueToMainsPower)
+                return! loop { state with isMainsPowered = (state.isMainsPowered && not failedDueToMainsPower) }
 
             | GetTimebaseInterval(timebase, segment, replyChannel) ->
                 let mutable interval = float32 0.0
                 let mutable maxSamples = 0
-                Api.GetTimebase(handle, timebase, 0, &interval, &maxSamples, segment) |> checkStatusAndTriggerErrorEvent message
+                Api.GetTimebase(handle, timebase, 0, &interval, &maxSamples, segment) |> checkStatusIsOk message
                 ((float interval) * 1e-9<s>, maxSamples) |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetDeviceResolution(replyChannel) -> 
-                currentResolution |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                state.currentResolution |> replyChannel.Reply
+                return! loop state
 
             | GetAnalogueOffsetLimits(range, coupling, replyChannel) ->
                 let mutable maxOffset = 0.0f
                 let mutable minOffset = 0.0f
-                Api.GetAnalogueOffset(handle, range, coupling, &maxOffset, &minOffset) |> checkStatusAndTriggerErrorEvent message
+                Api.GetAnalogueOffset(handle, range, coupling, &maxOffset, &minOffset) |> checkStatusIsOk message
                 (float maxOffset * 1.0<V>, float minOffset * 1.0<V>) |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetAvailableChannels(replyChannel) ->
-                match isMainsPowered with
+                match state.isMainsPowered with
                 | true -> inputChannels
                 | false -> 
                     [ Channel.A ; Channel.B ]
                     |> Set.ofList
                     |> Set.intersect inputChannels 
                 |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetAvailableChannelRanges(channel, replyChannel) ->
                 if not (inputChannels.Contains(channel)) then
@@ -217,49 +210,53 @@ type PicoScope5000(serial, initialResolution) =
 
                 let mutable rangesLength = 12
                 let ranges = Array.zeroCreate(rangesLength)
-                Api.GetChannelInformation(handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatusAndTriggerErrorEvent message
+                Api.GetChannelInformation(handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatusIsOk message
                 Array.toSeq(ranges).Take(rangesLength) |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | IsTriggerEnabled(replyChannel) ->
                 let mutable triggerEnabled = 0s
                 let mutable pwqEnabled = 0s
-                Api.IsTriggerOrPulseWidthQualifierEnabled(handle, &triggerEnabled, &pwqEnabled) |> checkStatusAndTriggerErrorEvent message
+                Api.IsTriggerOrPulseWidthQualifierEnabled(handle, &triggerEnabled, &pwqEnabled) |> checkStatusIsOk message
                 (triggerEnabled <> 0s) |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetMaximumNumberOfSegments(replyChannel) ->
                 let mutable maxSegments = 0u
-                Api.GetMaximumNumberOfSegments(handle, &maxSegments) |> checkStatusAndTriggerErrorEvent message
+                Api.GetMaximumNumberOfSegments(handle, &maxSegments) |> checkStatusIsOk message
                 maxSegments |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetAdcCountToVoltageConversion(range : Range, analogueOffset, replyChannel) ->
                 let mutable maxAdcCounts = 0s 
-                Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusAndTriggerErrorEvent message
+                Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusIsOk message
                 let maxAdcCountsValue = maxAdcCounts       
                 let voltageRange = range.ToVolts()
                 
-                (fun adcCounts -> (voltageRange * float(adcCounts &&& currentResolution.BitMask()) / float(maxAdcCountsValue)) + analogueOffset) 
+                (fun adcCounts -> 
+                    (voltageRange * float(adcCounts &&& state.currentResolution.BitMask()) / float(maxAdcCountsValue)) 
+                    + analogueOffset) 
                 |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | GetVoltageToAdcCountConversion(range : Range, analogueOffset, replyChannel) ->
                 let mutable maxAdcCounts = 0s
-                Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusAndTriggerErrorEvent message
+                Api.MaximumValue(handle, &maxAdcCounts) |> checkStatusIsOk message
                 let maxAdcCountsValue = maxAdcCounts            
                 let voltageRange = range.ToVolts() 
                 
-                (fun voltage -> currentResolution.BitMask() &&& int16 (((voltage - analogueOffset) / voltageRange) * float(maxAdcCountsValue)))
-                                |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                (fun voltage -> 
+                    state.currentResolution.BitMask() &&& 
+                    int16 (((voltage - analogueOffset) / voltageRange) * float(maxAdcCountsValue)))
+                |> replyChannel.Reply
+                return! loop state
 
             | GetMaximumDownsamplingRatio(sampleCount, downsampling, memorySegment, replyChannel) ->
                 let mutable maxDownsamplingRatio = 0u
                 Api.GetMaximumDownsamplingRatio(handle, sampleCount, &maxDownsamplingRatio, downsampling, memorySegment) 
-                |> checkStatusAndTriggerErrorEvent message
+                |> checkStatusIsOk message
                 maxDownsamplingRatio |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             // Instructions
 
@@ -268,29 +265,35 @@ type PicoScope5000(serial, initialResolution) =
                 let failedDueToMainsPower = 
                     Api.ChangePowerSource(handle, powerStatus) 
                     |> checkStatusAndFailedDueToMainsPower message
-                return! loop currentResolution (not failedDueToMainsPower)
+                return! loop { state with isMainsPowered = (not failedDueToMainsPower) }
 
             | FlashLedIndefinitely ->
-                Api.FlashLed(handle, -1s) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.FlashLed(handle, -1s) |> checkStatusIsOk message
+                return! loop state
 
             | StopFlashingLed ->
-                Api.FlashLed(handle, 0s) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.FlashLed(handle, 0s) |> checkStatusIsOk message
+                return! loop state
 
             | FlashLed(counts) ->
                 if counts <= 0s then 
                     invalidArg "conunts" 
                         "The device LED can only be flashed a positive, non-zero number of times." counts
-                Api.FlashLed(handle, counts) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.FlashLed(handle, counts) |> checkStatusIsOk message
+                return! loop state
 
             | SetDeviceResolution(newResolution) ->
                 let failedDueToMainsPower = 
                     Api.SetDeviceResolution(handle, newResolution) 
                     |> checkStatusAndFailedDueToMainsPower message
-                return! loop newResolution (isMainsPowered && not failedDueToMainsPower)
-
+                return! loop 
+                    { state with
+                        currentResolution = 
+                            if failedDueToMainsPower then state.currentResolution 
+                            else newResolution 
+                        isMainsPowered =
+                            (state.isMainsPowered && not failedDueToMainsPower) }
+                
             | SetChannelSettings(channel, channelState) ->
                 if not (inputChannels.Contains(channel)) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
@@ -298,52 +301,52 @@ type PicoScope5000(serial, initialResolution) =
                 match channelState with
                 | Disabled -> 
                     Api.SetChannel(handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) 
-                    |> checkStatusAndTriggerErrorEvent message
+                    |> checkStatusIsOk message
 
                 | Enabled(inputSettings) ->
                     Api.SetChannel(
                         handle, channel, 1s, inputSettings.coupling, inputSettings.range, 
                         float32 inputSettings.analogueOffset) 
-                    |> checkStatusAndTriggerErrorEvent message
+                    |> checkStatusIsOk message
                     
                     Api.SetBandwidthFilter(handle, channel, inputSettings.bandwidthLimit) 
-                    |> checkStatusAndTriggerErrorEvent message
+                    |> checkStatusIsOk message
 
-                return! loop currentResolution isMainsPowered
+                return! loop state
 
             | DisableChannel(channel) ->
                 if not (inputChannels.Contains(channel)) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
-                Api.SetChannel(handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.SetChannel(handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) |> checkStatusIsOk message
+                return! loop state
             
             | DisableTrigger ->
                 Api.SetSimpleTrigger(handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, 0s)
-                |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                |> checkStatusIsOk message
+                return! loop state
 
             | SetAutoTrigger(delay) ->
                 Api.SetSimpleTrigger(handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, int16 (float delay * 1000.0))
-                |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                |> checkStatusIsOk message
+                return! loop state
 
             | SetSimpleTrigger(triggerSettings) ->
                 Api.SetSimpleTrigger(handle, 1s, triggerSettings.channel, triggerSettings.adcThreshold, 
                     triggerSettings.thresholdDirection,  triggerSettings.delaySampleCount,
                     int16 (float triggerSettings.autoTriggerDelay * 1000.0))
-                |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                |> checkStatusIsOk message
+                return! loop state
 
             | SetTriggerDelay(sampleCount) ->
-                Api.SetTriggerDelay(handle, sampleCount) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.SetTriggerDelay(handle, sampleCount) |> checkStatusIsOk message
+                return! loop state
                 
             | SetNumberOfMemorySegments(memorySegmentCount, replyChannel) ->
                 let mutable samplesPerSegement = 0
-                Api.MemorySegments(handle, memorySegmentCount, &samplesPerSegement) |> checkStatusAndTriggerErrorEvent message
+                Api.MemorySegments(handle, memorySegmentCount, &samplesPerSegement) |> checkStatusIsOk message
                 samplesPerSegement |> replyChannel.Reply
-                return! loop currentResolution isMainsPowered 
+                return! loop state 
                 
             // Acquisition
 
@@ -354,8 +357,8 @@ type PicoScope5000(serial, initialResolution) =
                 if not (inputChannels.Contains(channel)) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
-                Api.SetDataBuffer(handle, channel, buffer, buffer.Length, segmentIndex, downsampling) |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                Api.SetDataBuffer(handle, channel, buffer, buffer.Length, segmentIndex, downsampling) |> checkStatusIsOk message
+                return! loop { state with readyBuffers = buffer :: state.readyBuffers }
 
             | SetAggregateDataBuffers(channel, bufferMax, bufferMin, segmentIndex) ->
                 if bufferMax.Length <> bufferMin.Length then
@@ -365,8 +368,8 @@ type PicoScope5000(serial, initialResolution) =
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
                 Api.SetDataBuffers(handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, Downsampling.Aggregate) 
-                |> checkStatusAndTriggerErrorEvent message
-                return! loop currentResolution isMainsPowered
+                |> checkStatusIsOk message
+                return! loop { state with readyBuffers = bufferMax :: bufferMin :: state.readyBuffers }
 
             | RunStreaming(sampleInterval, streamStop, downsamplingRatio, downsampling, bufferLength, replyChannel) ->
                 let (interval, timeUnit) = sampleInterval.ToIntegerIntervalWithTimeUnit()
@@ -377,151 +380,186 @@ type PicoScope5000(serial, initialResolution) =
                     Api.RunStreaming(handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
                         downsamplingRatio, downsampling, bufferLength)
                     |> checkStatusAndFailedDueToMainsPower message 
+                let intervalWithDimension = hardwareInterval.ToInvervalInSecondsFromTimeUnit(timeUnit)
+                
+                let stopCapability = new CancellationTokenSource()
+                let stopAcquisition() =
+                    if not stopCapability.IsCancellationRequested then
+                        stopCapability.Cancel()
+                        this.Agent.Post StopAcquisition
 
-                hardwareInterval.ToInvervalInSecondsFromTimeUnit(timeUnit)
-                |> replyChannel.Reply
-                return! loop currentResolution (isMainsPowered && not failedDueToMainsPower)
+                (intervalWithDimension, stopAcquisition) |> replyChannel.Reply
+
+                return! loop 
+                    { state with 
+                        isMainsPowered = (state.isMainsPowered && not failedDueToMainsPower)
+                        readyBuffers = []
+                        buffersInUse = 
+                            state.readyBuffers 
+                            |> List.map (fun buffer -> (buffer, GCHandle.Alloc(buffer, GCHandleType.Pinned)))
+                        stopCapability = Some(stopCapability) }
 
             | GetStreamingLatestValues(callback) ->
+                if state.stopCapability.IsNone then
+                    invalidArg "message" 
+                        "Invalid message 'GetStreamingLatestValues': no acquisition in progress." message 
+
                 let picoScopeCallback = 
                     PicoScopeStreamingReady(
                         fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
-                            { numberOfSamples = numberOfSamples
-                              startIndex = startIndex
-                              voltageOverflows = inputChannels
-                                                 |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
-                              triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
-                              didAutoStop = didAutoStop <> 0s }
-                            |> callback)
+                            if not state.stopCapability.Value.IsCancellationRequested then
+                                { numberOfSamples = numberOfSamples
+                                  startIndex = startIndex
+                                  voltageOverflows = inputChannels
+                                                     |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
+                                  triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
+                                  didAutoStop = didAutoStop <> 0s }
+                                |> callback
+                            
+                            if didAutoStop <> 0s && not state.stopCapability.Value.IsCancellationRequested then
+                                state.stopCapability.Value.Cancel()
+                                this.Agent.Post StopAcquisition)
 
                 let failedDueToMainsPower = 
                     Api.GetStreamingLatestValues(handle, picoScopeCallback, IntPtr.Zero) 
                     |> checkStatusAndFailedDueToMainsPower message
-                return! loop currentResolution (isMainsPowered && not failedDueToMainsPower)
+                return! loop { state with isMainsPowered = (state.isMainsPowered && not failedDueToMainsPower) }
 
-            | StopAcquisition(replyChannel) ->
-                Api.Stop(handle) |> checkStatusAndTriggerErrorEvent message
-                replyChannel.Reply()
-                return! loop currentResolution isMainsPowered }
+            | StopAcquisition ->
+                if state.stopCapability.IsNone then
+                    invalidArg "message" 
+                        "Invalid messsage 'StopAcquisition': no acquisition in progress." message
+                
+                state.buffersInUse
+                |> List.iter (fun (_, gcHandle) -> gcHandle.Free())
+
+                Api.Stop(handle) |> checkStatusIsOk message
+                state.stopCapability.Value.Dispose()
+                return! loop { state with stopCapability = None } }
                             
-        loop initialResolution wasMainsPoweredInitially)
+        loop {
+            currentResolution = initialResolution
+            isMainsPowered = wasMainsPoweredInitially
+            readyBuffers = []
+            buffersInUse = []
+            stopCapability = None })
 
     new() = new PicoScope5000(null, Resolution._8bit)
     new(initialResolution) = new PicoScope5000(null, initialResolution)
     new(serial) = new PicoScope5000(serial, Resolution._8bit)
 
     interface IDisposable with
-        member IDisposable.Dispose() =
+        member this.Dispose() =
             CloseUnit
-            |> agent.PostAndReply
+            |> this.Agent.PostAndReply
 
     member this.GetAvailableChannelsAsync() =
         GetAvailableChannels
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitDriverVersionAsync() =
         GetUnitDriverVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitUsbVersionAsync() =
         GetUnitUsbVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
         
     member this.GetUnitHardwareVersionAsync() =
         GetUnitHardwareVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
         
     member this.GetUnitModelNumberAsync() =
         GetUnitModelNumber
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitSerialAsync() =
         GetUnitSerial
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitCalibrationDateAsync() =
         GetUnitCalibrationDate
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitKernelVersionAsync() =
         GetUnitKernelVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
         
     member this.GetUnitDigitalHardwareVersionAsync() =
         GetUnitDigitalHardwareVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitAnalogueHardwareVersionAsync() =
         GetUnitAnalogueHardwareVersion
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitFirmwareVersion1Async() =
         GetUnitFirmwareVersion1
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitFirmwareVersion2Async() =
         GetUnitFirmwareVersion2
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetAllUnitInfoAsync() =
         GetAllUnitInfo 
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetUnitIsMainsPoweredAsync() =
         IsUnitMainsPowered
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.FlashLedIndefinitely() =
         FlashLedIndefinitely
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.FlashLed(flashCount) =
         FlashLed(flashCount)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.StopFlashingLed() =
         StopFlashingLed
-        |> agent.Post
+        |> this.Agent.Post
     
     member this.PingAsync() =
         Ping
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetTimebaseIntervalInNanosecForSegmentAsync(timebase, memorySegment) =
         fun replyChannel -> GetTimebaseInterval(timebase, memorySegment, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetDeviceResolutionAsync() =
         GetDeviceResolution
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetAnalogueOffsetLimitsAsync(range, coupling) =
         fun replyChannel -> GetAnalogueOffsetLimits(range, coupling, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetAvailableChannelRangesAsync(channel) =
         fun replyChannel -> GetAvailableChannelRanges(channel, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.SetChannelSettings(channel, channelSettings) =
         SetChannelSettings(channel, channelSettings)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.DisableChannel(channel) =
         DisableChannel(channel)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.DisableTrigger() = 
         DisableTrigger
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.SetAutoTrigger(delay) =
         SetAutoTrigger(delay)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.SetSimpleTrigger(triggerSettings) =
         SetSimpleTrigger(triggerSettings)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.SetTrigger(triggerSettings) =
         match triggerSettings with
@@ -530,51 +568,47 @@ type PicoScope5000(serial, initialResolution) =
 
     member this.SetTriggerDelay(sampleCount) =
         SetTriggerDelay(sampleCount)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.IsTriggerEnabledAsync() =
         IsTriggerEnabled
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.SetNumberOfMemorySegments(memorySegments) =
         SetNumberOfMemorySegments(memorySegments)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.GetMaximumNumberOfSegmentsAsync() =
         GetMaximumNumberOfSegments
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetAdcCountToVoltageConversionAsync(range, analogueOffset) =
         fun replyChannel -> GetAdcCountToVoltageConversion(range, analogueOffset, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetVoltageToAdcCountConversionAsync(range, analogueOffset) =
         fun replyChannel -> GetVoltageToAdcCountConversion(range, analogueOffset, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetMaximumDownsamplingRatioAsync(unprocessedSampleCount, downsampling, memorySegment) =
         fun replyChannel -> GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.SetDataBuffer(channel, buffer, segmentIndex, downsampling) =
         SetDataBuffer(channel, buffer, segmentIndex, downsampling)
-        |> agent.Post
+        |> this.Agent.Post
 
     member this.SetAggregateDataBuffers(channel, bufferMax, bufferMin, segmentIndex) =
         SetAggregateDataBuffers(channel, bufferMax, bufferMin, segmentIndex)
-        |> agent.Post
+        |> this.Agent.Post
         
     member this.RunStreamingAsync(sampleInterval, streamStop, downsamplingRatio, downsampling, bufferLength) =
         fun replyChannel -> RunStreaming(sampleInterval, streamStop, downsamplingRatio, downsampling, bufferLength, replyChannel)
-        |> agent.PostAndAsyncReply
+        |> this.Agent.PostAndAsyncReply
 
     member this.GetStreamingLatestValues(callback) =
         GetStreamingLatestValues(callback)
-        |> agent.Post
-
-    member this.StopAcquisitionAsync() =
-        StopAcquisition
-        |> agent.PostAndAsyncReply
+        |> this.Agent.Post
 
     static member GetConnectedDeviceSerials() =
         let mutable count = 0s
