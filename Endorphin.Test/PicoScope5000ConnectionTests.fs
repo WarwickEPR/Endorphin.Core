@@ -3,9 +3,11 @@
 open Endorphin.Instrument.PicoScope5000
 open Devices
 open NUnit.Framework
+open TestUtils
 
 [<TestFixture>]
 type ``PicoScope 5000 series connection tests``() = 
+    let _ = log4netConfig()
     
     [<Test>]
     member this.``Can connect to first available PicoScope``() =

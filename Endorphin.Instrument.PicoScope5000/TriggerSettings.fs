@@ -125,9 +125,9 @@ type SimpleTriggerSettings =
     { channel : Channel
       adcThreshold : int16
       thresholdDirection : ThresholdDirection
-      delaySampleCount : uint32
-      autoTriggerDelay : float<s> }
+      delaySamplesAfterTrigger : uint32
+      autoTrigger : float<s> option }
 
 type TriggerSettings =
-    | Simple of settings : SimpleTriggerSettings
-    | Auto of autoTriggerDelay : float<s>
+    | SimpleTrigger of settings : SimpleTriggerSettings
+    | AutoTrigger of delay : float<s>

@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
 open System
+open System.Reactive.Linq
 open System.Runtime.InteropServices
 
 type ChannelData(channel : Channel, downsampling : Downsampling) = 
@@ -40,6 +41,10 @@ type ChannelData(channel : Channel, downsampling : Downsampling) =
 
     member this.Channel = channel
     member this.Downsampling = downsampling
+    
+    member this.Samples =
+        Observable.SelectMany(this.SampleBlock, fun (block, _) -> Array.toSeq block)
+                  .TakeUntil(this.Completed)
 
 type internal Buffer = 
     { dataBuffer : int16 array
