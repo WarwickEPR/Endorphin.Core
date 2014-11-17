@@ -102,6 +102,8 @@ type PicoScope5000(initialisationSerial, initialResolution) =
             match message with
 
             | CloseUnit(replyChannel) ->
+                if mailbox.CurrentQueueLength <> 0 then
+                    failwith (sprintf "PicoScope %s received CloseUnit message when message queue is non-empty." state.serial)
                 (sprintf "Closing connection PicoScope %s." state.serial) |> log.Info
                 Api.CloseUnit(state.handle) |> checkStatusIsOk message
                 (sprintf "Successfully closed connection to PicoScope %s." state.serial) |> log.Info
@@ -484,7 +486,7 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 let pinnedBuffers =
                     state.readyBuffers 
                     |> List.map (fun buffer -> 
-                        (sprintf "PicoScope %s pinned buffer %A." state.serial buffer) |> log.Info
+                        (sprintf "PicoScope %s pinned buffer." state.serial) |> log.Info
                         (buffer, GCHandle.Alloc(buffer, GCHandleType.Pinned)))
 
                 return! loop 
@@ -498,7 +500,7 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                     invalidArg "message" 
                         "Invalid message 'GetStreamingLatestValues': no acquisition in progress." message 
 
-                printfn "Creating streaming callback."
+                (sprintf "PicoScope %s creating streaming callback." state.serial) |> log.Debug
                 let picoScopeCallback = 
                     PicoScopeStreamingReady(
                         fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
@@ -516,8 +518,9 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                                 (sprintf "PicoScope %s streaming acquisition stopped automatically.") |> log.Info)
 
                 let status = Api.GetStreamingLatestValues(state.handle, picoScopeCallback, IntPtr.Zero)
-                status |> printfn "%A"
-                status |> checkStatusIsOk message
+                (sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." state.serial status) |> log.Debug
+                if status <> PicoStatus.Busy then
+                    status |> checkStatusIsOk message
                 (sprintf "PicoScope %s requested latest streaming values." state.serial) |> log.Info
 
                 return! loop state
@@ -529,7 +532,7 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 
                 state.buffersInUse
                 |> List.iter (fun (buffer, gcHandle) -> 
-                    (sprintf "PicoScope %s released GC handle for buffer %A." state.serial buffer) |> log.Info
+                    (sprintf "PicoScope %s released GC handle for buffer." state.serial) |> log.Info
                     gcHandle.Free())
 
                 Api.Stop(state.handle) |> checkStatusIsOk message

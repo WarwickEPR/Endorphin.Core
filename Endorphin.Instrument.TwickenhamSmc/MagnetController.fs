@@ -5,6 +5,7 @@ open Microsoft.FSharp.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NationalInstruments.VisaNS
 open System
+open log4net
 
 /// <summary>
 /// Discriminated union type describing one of the two possible current directions. Forward current
@@ -113,13 +114,11 @@ type internal Command =
     /// <summary>Enables or disables the ramp pause on the magnet controller.</summary>
     | SetPause of pause : bool
     /// <summary>Wait for a response on this channel before disposing the NI VISA session to ensure clean closure.</summary>
-    | PrepareToCloseSession of replyChannel : AsyncReplyChannel<unit> 
+    | CloseSession of replyChannel : AsyncReplyChannel<unit> 
 
 
 type MagnetController(visaAddress, parameters) =
-    let session = 
-        visaAddress
-        |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
+    static let log = LogManager.GetLogger typeof<MagnetController>
     
     /// <summary>
     /// Actor mailbox which controls a Twickenham superconducting magnet controller, according to the
@@ -223,93 +222,129 @@ type MagnetController(visaAddress, parameters) =
             /// Returns an async computation expression defining the magnet controller's message handling
             /// behaviour.
             /// </summary>
-            let rec loop() = async {
-                let! command = mailbox.Receive()
-                match command with
+            let rec loop (session : MessageBasedSession) = async {
+                (sprintf "(Re)entering Twickenham SMC %s agent loop." visaAddress) |> log.Info
+
+                let! message = mailbox.Receive()
+                (sprintf "Twickenham SMC %s received message %A." visaAddress message) |> log.Info 
                 
-                | PrepareToCloseSession(replyChannel) ->
+                match message with
+                
+                | CloseSession(replyChannel) ->
+                    if mailbox.CurrentQueueLength <> 0 then
+                        failwith (sprintf "Twickenham SMC %s received CloseSession message when message queue is non-empty." visaAddress)
+                    (sprintf "Twichenham SMC %s ready to close session." visaAddress) |> log.Info
+                    session.Dispose()
+                    (sprintf "Twickenham SMC %s closed session successfully." visaAddress) |> log.Info
                     replyChannel.Reply()
 
                 // Requests
 
                 | GetOutputParameters replyChannel ->
                     let! response = session.QuerryAsync "G\r\n"
-                    response 
-                    |> parseOutputParameters
-                    |> replyChannel.Reply
+                    (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
+                    let outputParameters = response |> parseOutputParameters
+                    (sprintf "Twickenham SMC %s replying to output parameter request with %A." 
+                        visaAddress outputParameters) |> log.Info
+                    outputParameters |> replyChannel.Reply
+                    return! loop session
 
                 | GetCurrentParameters replyChannel ->
                     let! response = session.QuerryAsync "K\r\n"
-                    response 
-                    |> parseCurrentParameters
-                    |> replyChannel.Reply
+                    (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
+                    let currentParameters = response |> parseCurrentParameters
+                    (sprintf "Twickenham SMC %s replying to currenet parameter request with %A."
+                        visaAddress currentParameters) |> log.Info
+                    currentParameters |> replyChannel.Reply
+                    return! loop session
 
                 | GetOperatingParameters replyChannel ->
                     let! response = session.QuerryAsync "O\r\n"
-                    response 
-                    |> parseOperatingParameters
-                    |> replyChannel.Reply
+                    (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
+                    let operatingParameters = response |> parseOperatingParameters
+                    (sprintf "Twickenham SMC %s replying to operating parameter request with %A."
+                        visaAddress operatingParameters) |> log.Info
+                    operatingParameters |> replyChannel.Reply
+                    return! loop session
 
                 | GetSetPointParameters replyChannel ->
                     let! response = session.QuerryAsync "S\r\n"
-                    response 
-                    |> parseSetPointParameters
-                    |> replyChannel.Reply
+                    (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
+                    let setPointParameters = response |> parseSetPointParameters
+                    (sprintf "Twickenham SMC %s replying to set-point parameter request with %A."
+                        visaAddress setPointParameters) |> log.Info
+                    setPointParameters |> replyChannel.Reply
+                    return! loop session
                 
                 // Instructions
 
                 | SetRampRate(rate) -> 
-                    do!  
+                    (sprintf "Twickenham SMC %s setting ramp rate to %08.5f A/s." visaAddress (float rate)) |> log.Info
+                    do! 
                         sprintf "A%08.5f" (float rate)
                         |> session.WriteAsync
                     do! Async.Sleep(1000)
+                    return! loop session
 
                 | SetTripVoltage(voltage) -> 
+                    (sprintf "Twickenham SMC %s setting trip voltage to %04.1f V." visaAddress (float voltage)) |> log.Info
                     do!
                         sprintf "Y%04.1f" (float voltage)
                         |> session.WriteAsync
                     do! Async.Sleep(1000)
+                    return! loop session
 
                  | SetCurrentDirection(direction) -> 
+                    (sprintf "Twickenham SMC %s setting current direction %A." visaAddress direction) |> log.Info
                     do! 
                         match direction with
                         | Forward -> session.WriteAsync "D0"
                         | Reverse -> session.WriteAsync "D1"
                     do! Async.Sleep(1000)
+                    return! loop session
 
-                | SetLowerSetPoint(lower) -> 
+                | SetLowerSetPoint(lower) ->
+                    (sprintf "Twickenham SMC %s setting lower set point to %07.3f." visaAddress (float lower)) |> log.Info
                     do! 
                         sprintf "L%07.3f" (float lower) 
                         |> session.WriteAsync
                     do! Async.Sleep(1000)
+                    return! loop session
 
                 | SetUpperSetPoint(upper) -> 
+                    (sprintf "Twickenham SMC %s setting upper set point to %07.3f." visaAddress (float upper)) |> log.Info
                     do! 
                         sprintf "U%07.3f" (float upper)
                         |> session.WriteAsync
                     do! Async.Sleep(1000)
+                    return! loop session
 
                 | SetRampTarget(target) -> 
+                    (sprintf "Twickenham SMC %s setting ramp target to %A current limit." visaAddress target) |> log.Info
                     do!
                         match target with
                         | Zero -> session.WriteAsync "R0"
                         | Lower -> session.WriteAsync "R1"
                         | Upper -> session.WriteAsync "R2"
                     do! Async.Sleep(1000)
+                    return! loop session
 
-                | SetPause(pause) -> 
+                | SetPause(pause) ->
+                    (sprintf "Twickenham SMC %s setting pause %s." visaAddress (if pause then "on" else "off")) |> log.Info 
                     do! 
                         if pause then session.WriteAsync "P1"
                         else session.WriteAsync "P0"
                     do! Async.Sleep(1000)
-
-                return! loop() }
+                    return! loop session }
 
             and start() = async {
+                (sprintf "Creating VISA session for Twickenham SMC at %s." visaAddress) |> log.Info
+                let session = visaAddress |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
+                (sprintf "Session created successfully.") |> log.Info
                 // sleep for 1s before sending any commands because communications can otherwise crash
                 // (seems to be an issue with the magnet controller hardware)
                 do! Async.Sleep(1000)
-                return! loop() }
+                return! loop session }
 
             // initialse the actor state
             start())
@@ -360,8 +395,7 @@ type MagnetController(visaAddress, parameters) =
 
     interface IDisposable with
         member this.Dispose() =
-            PrepareToCloseSession |> agent.PostAndReply
-            session.Dispose()
+            CloseSession |> agent.PostAndReply
 
     member this.RampRateLimit = parameters.rampRateLimit
     member this.TripVoltageLimit = parameters.tripVoltageLimit

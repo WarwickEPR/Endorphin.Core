@@ -19,6 +19,7 @@ type StreamingParmaeters =
 
 type StreamStatus =
     | Preparing
+    | ReadyToStream
     | Started of hardwareSampleInterval : float<s>
     | Finished of didAutoStop : bool
     | Stopping
@@ -54,7 +55,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
     let stopCapbility = new StreamStopCapability()
 
     let bufferLength =
-        let minLength = 1e2 / (float (stream.sampleInterval * float stream.downsamplingRatio))
+        let minLength = 256.0 / (float (stream.sampleInterval * float stream.downsamplingRatio))
         let rec computeBufferLength length = 
             if (float) length > minLength
             then length
@@ -173,6 +174,12 @@ type StreamWorker(pico : PicoScope5000, stream) =
                           dataBufferMin = dataBufferMin
                           channelAggregateStream = channelAggregateStream }) } 
 
+            let awaitReadyForStream = async {
+                if not stopCapbility.IsCancellationRequested then
+                    syncContext.RaiseEvent statusChanged ReadyToStream
+                let! ready = Async.AwaitWaitHandle(readyToStart)
+                ready |> ignore }
+
             let runStreaming = async {
                 "Initiating streaming..." |> log.Info
                 let! (hardwareSampleInterval, cancellationCallback) =
@@ -240,6 +247,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 do! setupChannels
                 let! buffers = createBuffers
                 let! aggregateBuffers = createAggregateBuffers
+                do! awaitReadyForStream
                 let! stopCallback = runStreaming
 
                 let! stopToken = Async.CancellationToken
