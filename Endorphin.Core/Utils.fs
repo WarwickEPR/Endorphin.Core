@@ -4,9 +4,9 @@ open NationalInstruments.VisaNS
 open System
 open System.Threading
 open System.Text.RegularExpressions
-open System.Reactive.Linq
 open Microsoft.FSharp.Collections
-
+open System.Reactive.Linq
+open Endorphin.Core.ObservableExtensions
 
 module Utils =
 
@@ -119,12 +119,6 @@ module Utils =
             match SynchronizationContext.Current with
             | null -> new SynchronizationContext()
             | ctxt -> ctxt
-
-    type Observable with
-        static member waitHandleForNext (obs : IObservable<'a>) = 
-            let waitHandle = new ManualResetEvent(false) // create the wait handle
-            obs.Take(1) |> Observable.add (fun _ -> waitHandle.Set() |> ignore) // set the wait handle on the next observable value
-            waitHandle // return the wait handle
 
     type Async with
         static member StartAndAwaitObservableEffect(comp, obs, ?cancellationToken, ?millisecondsTimeout) =

@@ -159,6 +159,7 @@ type MagnetController(visaAddress, parameters) =
             let parseOutputParameters response = 
                 // regex for string format "Isnnn.nnnVsnn.nRd[A/V]" where s is +/-, n can be any digit
                 // and d is 0, 1 or 2   
+                (sprintf "Twichenham SMC %s parsing output parameter string %s." visaAddress response) |> log.Info
                 let regex = @"\GI([\+\-]\d{3}\.\d{3})V([\+\-]\d{2}.\d)R([012])[AV]\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
@@ -177,6 +178,7 @@ type MagnetController(visaAddress, parameters) =
             let parseCurrentParameters response = 
                 // regex for string format "RdMdPdXdHdZ0.00EddQsnnn.nnn" where d can take specific digit
                 // values in each instance, s is +/- and n can be any digit
+                (sprintf "Twichenham SMC %s parsing current parameter string %s." visaAddress response) |> log.Info
                 let regex = @"\GR([012])M([01])P([01])X[0-5]H[012]Z0\.00E[0-3][0-7]Q[\+\-\s]\d{3}\.\d{3}\s$"
                 match response with
                 | ParseRegex regex [ ParseRampTarget r; ParseIntegerBool m; ParseIntegerBool p ] ->
@@ -194,6 +196,7 @@ type MagnetController(visaAddress, parameters) =
             let parseOperatingParameters response = 
                 // regex for string format "Ann.nnnnnDdTdBdWnnn.C0.nnnnnn" where n can be any digit and
                 // d can be 0 or 1 in each case 
+                (sprintf "Twichenham SMC %s parsing operating parameter string %s." visaAddress response) |> log.Info
                 let regex = @"\GA(\d{2}\.\d{5})D([01])T[01]B[01]W\d{3}\.C0\.\d{6}\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
@@ -210,6 +213,7 @@ type MagnetController(visaAddress, parameters) =
             let parseSetPointParameters response = 
                 // regex for string format "TdUnnn.nnnnLnnn.nnnYnn.n" where d can be 0 or 1 and n can be
                 // any digit in each case
+                (sprintf "Twichenham SMC %s parsing set point parameter string %s." visaAddress response) |> log.Info
                 let regex = @"\GT[01]U(\d{3}\.\d{3})L(\d{3}\.\d{3})Y(\d{2}\.\d)\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->

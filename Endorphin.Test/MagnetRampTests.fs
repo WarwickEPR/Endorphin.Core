@@ -1,4 +1,4 @@
-﻿namespace Endorphin.Test
+﻿namespace Endorphin.Test.TwickenhamSmc
 
 open Endorphin.Instrument.TwickenhamSmc
 open Devices
@@ -166,12 +166,12 @@ type ``Magnet ramp tests``() =
         rampWorker.Prepare()
         rampWorker.Cancel(true)
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
         if Array.length !rampStatusArray = 2 then
-            Assert.ArrayElementsAreEqual( [| Preparing ; Cancelling |], !rampStatusArray )
+            Assert.ArrayElementsAreEqual( [| Preparing ; Cancelling(true) |], !rampStatusArray )
         else
-            Assert.ArrayElementsAreEqual( [| Cancelling |], !rampStatusArray )
+            Assert.ArrayElementsAreEqual( [| Cancelling(true) |], !rampStatusArray )
 
         Assert.IsTrue(!canceledDidFire)
 
@@ -211,9 +211,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(true) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)        
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -246,9 +246,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -282,9 +282,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(true) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -322,9 +322,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -362,9 +362,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -401,9 +401,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -442,9 +442,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.Prepare()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -478,9 +478,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.PrepareAndStart()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling(false) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -513,9 +513,9 @@ type ``Magnet ramp tests``() =
 
         rampWorker.PrepareAndStart()
         
-        Async.AwaitEvent(rampWorker.Completed) |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Ramping ; Cancelling(true) |], !rampStatusArray )
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
@@ -664,10 +664,10 @@ type ``Magnet ramp tests``() =
             rampWorker.Cancel(false) }
         |> Async.Start
 
-        Async.AwaitEvent(rampWorker.Canceled) |> Async.Ignore |> Async.RunSynchronously
+        Async.AwaitEvent(rampWorker.Canceled) |> Async.RunSynchronously |> ignore
         
         Assert.IsTrue(!canceledDidFire)
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling |], !rampStatusArray )
+        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToRamp ; Cancelling(false) |], !rampStatusArray )
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
         Assert.AreEqual(Lower, state.outputParameters.rampTarget)

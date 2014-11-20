@@ -1,4 +1,4 @@
-﻿namespace Endorphin.Test
+﻿namespace Endorphin.Test.PicoScope5000
 
 open Endorphin.Core.Utils
 open Endorphin.Instrument.PicoScope5000
@@ -310,7 +310,7 @@ type ``PicoScope 5000 series tests``() =
               delaySamplesAfterTrigger = 0u
               autoTrigger = None })
 
-        this.PicoScope.SetAutoTrigger(0.5<s>)
+        this.PicoScope.SetAutoTrigger 500s<ms>
 
     [<Test>]
     member this.``Can get voltage to ADC conversion function``() =

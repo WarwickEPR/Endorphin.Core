@@ -28,16 +28,16 @@ type internal Command =
     | SetMainsPower of useMainsPower : bool
     | FlashLedIndefinitely
     | StopFlashingLed
-    | FlashLed of flashCount : Int16
+    | FlashLed of flashCount : int16
     | Ping of replyChannel : AsyncReplyChannel<unit>
-    | GetTimebaseInterval of timebase : uint32 * memorySegment : uint32 * replyChannel : AsyncReplyChannel<float<s> * int32>
+    | GetTimebaseInterval of timebase : uint32 * memorySegment : uint32 * replyChannel : AsyncReplyChannel<int<ns> * int32>
     | GetDeviceResolution of replyChannel : AsyncReplyChannel<Resolution>
     | SetDeviceResolution of resolution : Resolution
     | GetAnalogueOffsetLimits of range : Range * coupling : Coupling * replyChannel : AsyncReplyChannel<float<V> * float<V>>
     | GetAvailableChannels of replyChannel : AsyncReplyChannel<Set<Channel>>
     | GetAvailableChannelRanges of channel : Channel *  replyChannel : AsyncReplyChannel<Range seq>
     | SetChannelSettings of channel : Channel * channelSettings : ChannelSettings
-    | SetAutoTrigger of autoTriggerDelay : float<s>
+    | SetAutoTrigger of autoTriggerDelay : int16<ms>
     | SetSimpleTrigger of triggerSettings : SimpleTriggerSettings
     | SetTriggerDelay of sampleCount : uint32
     | IsTriggerEnabled of replyChannel : AsyncReplyChannel<bool>
@@ -49,7 +49,7 @@ type internal Command =
     | SetDataBuffer of channel : Channel * buffer : int16 array * segmentIndex : uint32 * downsampling : Downsampling
     | SetAggregateDataBuffers of channel : Channel * bufferMax : int16 array * bifferMin : int16 array * segmentIndex : uint32
     | DiscardDataBuffers
-    | RunStreaming of sampleInterval : float<s> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<float<s> * (unit -> unit)>
+    | RunStreaming of sampleInterval : int<ns> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<int<ns> * (unit -> unit)>
     | GetStreamingLatestValues of callback : (StreamingValuesReady -> unit)
     | StopAcquisition
 
@@ -209,10 +209,10 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 return! loop { state with isMainsPowered = (state.isMainsPowered && not failedDueToMainsPower) }
 
             | GetTimebaseInterval(timebase, segment, replyChannel) ->
-                let mutable interval = float32 0.0
+                let mutable interval = 0
                 let mutable maxSamples = 0
                 Api.GetTimebase(state.handle, timebase, 0, &interval, &maxSamples, segment) |> checkStatusIsOk message
-                let timebase = ((float interval) * 1e-9<s>, maxSamples)
+                let timebase = (interval * 1<ns>, maxSamples)
                 (sprintf "PicoScope %s responding to message %A with %A." state.serial message timebase) |> log.Info
                 timebase |> replyChannel.Reply
                 return! loop state
@@ -374,14 +374,10 @@ type PicoScope5000(initialisationSerial, initialResolution) =
 
                 return! loop state
 
-            | SetAutoTrigger(delayInSec) ->
-                if delayInSec < 0.001<s> then
-                    invalidArg "delay" "AutoTrigger delay must be a positive value no smaller than 0.001<s>." delayInSec
-                let delay = int16 (float delayInSec * 1000.0)
-                
-                Api.SetSimpleTrigger(state.handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, delay)
+            | SetAutoTrigger(delay) ->
+                Api.SetSimpleTrigger(state.handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, int16 delay)
                 |> checkStatusIsOk message
-                (sprintf "PicoScope %s successfully set auto triggering with delay %dms." state.serial delay) |> log.Info
+                (sprintf "PicoScope %s successfully set auto triggering with delay %dms." state.serial (int16 delay)) |> log.Info
                 
                 return! loop state
 
@@ -389,11 +385,11 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 let delay =
                     match triggerSettings.autoTrigger with
                     | None -> int16 0
-                    | Some(delayInSec) ->
-                        if delayInSec < 0.001<s> then
-                            invalidArg "delay" "AutoTrigger delay must be a positive value no smaller than 0.001<s>." 
+                    | Some(delayInMillisec) ->
+                        if delayInMillisec = 0s<ms> then
+                            invalidArg "delay" "AutoTrigger delay must be non-zero. Use 'None' instead." 
                                 triggerSettings.autoTrigger
-                        int16 (float delayInSec * 1000.0)
+                        int16 delayInMillisec
 
                 Api.SetSimpleTrigger(state.handle, 1s, triggerSettings.channel, triggerSettings.adcThreshold, 
                     triggerSettings.thresholdDirection,  triggerSettings.delaySamplesAfterTrigger, delay)
@@ -467,8 +463,8 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 Api.RunStreaming(state.handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
                     downsamplingRatio, downsampling, bufferLength)
                 |> checkStatusIsOk message 
-                let intervalWithDimension = hardwareInterval.ToInvervalInSecondsFromTimeUnit(timeUnit)
-                (sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %A." 
+                let intervalWithDimension = hardwareInterval.ToInvervalInNanoecondsFromTimeUnit(timeUnit)
+                (sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %Ans." 
                     state.serial intervalWithDimension) |> log.Info
                 
                 let stopCapability = new CancellationTokenSource()
@@ -479,7 +475,7 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                         stopCapability.Cancel()
                         mailbox.Post StopAcquisition
 
-                (sprintf "PicoScope %s replying to message %A with sample initerval %A and stop acquisition callback."
+                (sprintf "PicoScope %s replying to message %A with sample initerval %Ans and stop acquisition callback."
                     state.serial message intervalWithDimension) |> log.Info
                 (intervalWithDimension, stopAcquisition) |> replyChannel.Reply
 
@@ -496,32 +492,43 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                         stopCapability = Some(stopCapability)}
 
             | GetStreamingLatestValues(callback) ->
-                if state.stopCapability.IsNone then
-                    invalidArg "message" 
-                        "Invalid message 'GetStreamingLatestValues': no acquisition in progress." message 
+                try
+                    if state.stopCapability.IsNone then
+                        invalidArg "message" 
+                            "Invalid message 'GetStreamingLatestValues': no acquisition in progress." message 
 
-                (sprintf "PicoScope %s creating streaming callback." state.serial) |> log.Debug
-                let picoScopeCallback = 
-                    PicoScopeStreamingReady(
-                        fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
-                            if not state.stopCapability.Value.IsCancellationRequested then
-                                // no log.Info in this performance-critical section.
-                                { numberOfSamples = numberOfSamples
-                                  startIndex = startIndex
-                                  voltageOverflows = state.inputChannels
-                                                     |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
-                                  triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
-                                  didAutoStop = didAutoStop <> 0s }
-                                |> callback
+                    (sprintf "PicoScope %s creating streaming callback." state.serial) |> log.Debug
+                    let picoScopeCallback = 
+                        PicoScopeStreamingReady(
+                            fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
+                                if not state.stopCapability.Value.IsCancellationRequested then
+                                    // no log.Info in this performance-critical section.
+                                    { numberOfSamples = numberOfSamples
+                                      startIndex = startIndex
+                                      voltageOverflows = 
+                                        state.inputChannels
+                                        |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
+                                      triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
+                                      didAutoStop = didAutoStop <> 0s }
+                                    |> callback
                             
-                            if didAutoStop <> 0s && not state.stopCapability.Value.IsCancellationRequested then
-                                (sprintf "PicoScope %s streaming acquisition stopped automatically.") |> log.Info)
+                                if didAutoStop <> 0s && not state.stopCapability.Value.IsCancellationRequested then
+                                    (sprintf "PicoScope %s streaming acquisition stopped automatically.") |> log.Info )
 
-                let status = Api.GetStreamingLatestValues(state.handle, picoScopeCallback, IntPtr.Zero)
-                (sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." state.serial status) |> log.Debug
-                if status <> PicoStatus.Busy then
+                    let status = Api.GetStreamingLatestValues(state.handle, picoScopeCallback, IntPtr.Zero)
+                    (sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." state.serial status) |> log.Debug
                     status |> checkStatusIsOk message
-                (sprintf "PicoScope %s requested latest streaming values." state.serial) |> log.Info
+                    (sprintf "PicoScope %s requested latest streaming values." state.serial) |> log.Info
+                with
+                | exn -> 
+                    (sprintf "PicoScope %s acquisition due to error %A.\nStack trace:\n%s" state.serial exn exn.StackTrace)
+                        |> log.Error
+                    Api.Stop(state.handle) |> ignore
+                    state.buffersInUse
+                    |> List.iter (fun (_, gcHandle) -> 
+                        (sprintf "PicoScope %s released GC handle for buffer." state.serial) |> log.Info
+                        gcHandle.Free())
+                    raise exn
 
                 return! loop state
 
@@ -531,7 +538,7 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                         "Invalid messsage 'StopAcquisition': no acquisition in progress." message
                 
                 state.buffersInUse
-                |> List.iter (fun (buffer, gcHandle) -> 
+                |> List.iter (fun (_, gcHandle) -> 
                     (sprintf "PicoScope %s released GC handle for buffer." state.serial) |> log.Info
                     gcHandle.Free())
 

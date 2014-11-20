@@ -142,7 +142,7 @@ type CwEprAgent(picoScope : PicoScope5000Agent, magnetController : MagnetControl
                     readyForRamp.OnNext(true)
                     
                     let! _ = rampStatus
-                             |> Observable.filter (fun status -> status = FinishedRamp)
+                             |> Observable.filter (fun status -> status = Finished)
                              |> Async.AwaitObservable
 
                     stopStream streamAgent

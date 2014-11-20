@@ -89,24 +89,19 @@ type Methods() =
     [<Extension>]
     static member ToIntegerIntervalWithTimeUnit interval =
         match interval with
-        | interval when interval >= 1.0<s> -> (uint32 interval, TimeUnit.Seconds)
-        | interval when interval >= 1e-3<s> -> (uint32 (interval * 1e3), TimeUnit.Milliseconds)
-        | interval when interval >= 1e-6<s> -> (uint32 (interval * 1e6), TimeUnit.Microseconds)
-        | interval when interval >= 1e-9<s> -> (uint32 (interval * 1e9), TimeUnit.Nanoseconds)
-        | interval when interval >= 1e-12<s> -> (uint32 (interval * 1e12), TimeUnit.Picoseconds)
-        | interval when interval >= 1e-15<s> -> (uint32 (interval * 1e15), TimeUnit.Femtoseconds)
-        | _ -> invalidArg "interval" "Time units smaller than femtoseconds are not supported." interval
+        | interval when interval >= 1000000000<ns> -> (uint32 (interval / 1000000000), TimeUnit.Seconds)
+        | interval when interval >= 1000000<ns> -> (uint32 (interval / 1000000), TimeUnit.Milliseconds)
+        | interval when interval >= 1000<ns> -> (uint32 (interval / 1000), TimeUnit.Microseconds)
+        | interval -> (uint32 interval, TimeUnit.Nanoseconds)
 
     [<Extension>]
-    static member ToInvervalInSecondsFromTimeUnit (integerInterval : uint32, timeUnit) =
+    static member ToInvervalInNanoecondsFromTimeUnit (integerInterval : uint32, timeUnit) =
         match (integerInterval, timeUnit) with
-        | (interval, TimeUnit.Seconds) -> float interval * 1.0<s>
-        | (interval, TimeUnit.Milliseconds) -> float interval * 1e-3<s>
-        | (interval, TimeUnit.Microseconds) -> float interval * 1e-6<s>
-        | (interval, TimeUnit.Nanoseconds) -> float interval * 1e-9<s>
-        | (interval, TimeUnit.Picoseconds) -> float interval * 1e-12<s>
-        | (interval, TimeUnit.Femtoseconds) -> float interval * 1e-15<s>
-        | _ -> invalidArg "timeUnit" "Invalid time unit." timeUnit
+        | (interval, TimeUnit.Seconds) -> (int interval) * 1000000000<ns>
+        | (interval, TimeUnit.Milliseconds) -> (int interval) * 1000000<ns>
+        | (interval, TimeUnit.Microseconds) -> (int interval) * 1000<ns>
+        | (interval, TimeUnit.Nanoseconds) -> (int interval) * 1<ns>
+        | _ -> invalidArg "timeUnit" "Smallest supported time unit is nanoseconds." timeUnit
 
     [<Extension>]
     static member ToAutoStopAndMaxTriggerSamples (streamStop) = 

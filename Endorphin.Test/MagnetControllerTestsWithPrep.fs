@@ -1,4 +1,4 @@
-﻿namespace Endorphin.Test
+﻿namespace Endorphin.Test.TwickenhamSmc
 
 open Endorphin.Instrument.TwickenhamSmc
 open Devices

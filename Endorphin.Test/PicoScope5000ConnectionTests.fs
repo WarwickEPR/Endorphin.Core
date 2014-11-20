@@ -1,4 +1,4 @@
-﻿namespace Endorphin.Test
+﻿namespace Endorphin.Test.PicoScope5000
 
 open Endorphin.Instrument.PicoScope5000
 open Devices

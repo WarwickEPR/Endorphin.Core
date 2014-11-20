@@ -61,8 +61,8 @@ module internal Api =
     [<DllImport(dllName, EntryPoint = "ps5000aGetStreamingLatestValues")>]
     extern PicoStatus GetStreamingLatestValues(int16 handle, PicoScopeStreamingReady callback, nativeint state)
 
-    [<DllImport(dllName, EntryPoint = "ps5000aGetTimebase2")>]
-    extern PicoStatus GetTimebase(int16 handle, uint32 timebase, int numberOfSamples, float32& timebaseIntervalInNanosec, int& maxSamples, uint32 segmentIndex)
+    [<DllImport(dllName, EntryPoint = "ps5000aGetTimebase")>]
+    extern PicoStatus GetTimebase(int16 handle, uint32 timebase, int numberOfSamples, int& timebaseIntervalInNanosec, int& maxSamples, uint32 segmentIndex)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetTriggerTimeOffset64")>]
     extern PicoStatus GetTriggerTimeOffset(int16 handle, int64& time, TimeUnit& timeUnit, uint32 segmentIndex)
