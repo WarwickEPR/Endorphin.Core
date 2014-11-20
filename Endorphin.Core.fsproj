@@ -49,6 +49,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="ObservableExtensions.fs" />
     <Compile Include="Utils.fs" />
     <None Include="packages.config" />
   </ItemGroup>
