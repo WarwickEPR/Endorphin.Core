@@ -5,10 +5,12 @@ open Devices
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NUnit.Framework
 open System
+open TestUtils
 
 [<TestFixture>]
 type ``Magnet controller tests with prepared state``() = 
     let magnetController : MagnetController option ref = ref None
+    let _ = log4netConfig()
 
     member this.MagnetController =
         match !magnetController with

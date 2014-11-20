@@ -49,7 +49,6 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="MagnetRampAcquisition.fs" />
     <Compile Include="CwEpr.fs" />
     <None Include="packages.config" />
   </ItemGroup>

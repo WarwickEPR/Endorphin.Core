@@ -11,6 +11,7 @@ open System.Threading
 [<TestFixture>]
 type ``Magnet ramp tests``() = 
     let magnetController : MagnetController option ref = ref None
+    let _ = log4netConfig()
 
     member this.MagnetController =
         match !magnetController with
@@ -484,7 +485,7 @@ type ``Magnet ramp tests``() =
         Assert.IsTrue(!canceledDidFire)
 
         let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
+        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
         Assert.IsTrue(state.currentParameters.isPaused)
         Assert.AreEqual(0.05400<A/s>, state.operatingParameters.rampRate)
         Assert.AreEqual(Forward, state.operatingParameters.currentDirection)

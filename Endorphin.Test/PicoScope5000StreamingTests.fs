@@ -50,7 +50,7 @@ type ``PicoScope 5000 series streaming tests``() =
         this.PicoScope.PingAsync() |> Async.RunSynchronously
 
     [<Test>]
-    // [<Repeat(1000)>]
+    [<Repeat(1000)>]
     member this.``Can perform 1000 short streaming acquisitions with auto stop``() =
         let streamStatusArray = ref Array.empty
         let canceledDidFire = ref false
@@ -97,7 +97,7 @@ type ``PicoScope 5000 series streaming tests``() =
 
         let streamWorker = 
             new StreamWorker(this.PicoScope,
-                { streamStop = AutoStop(0u, 60000u)
+                { streamStop = AutoStop(0u, 6000000u)
                   sampleInterval = 100000<ns>
                   downsamplingRatio = 1u
                   triggerSettings = AutoTrigger 200s<ms>
@@ -132,7 +132,7 @@ type ``PicoScope 5000 series streaming tests``() =
 
         let streamWorker = 
             new StreamWorker(this.PicoScope,
-                { streamStop = AutoStop(0u, 6000000u)
+                { streamStop = AutoStop(0u, 600000000u)
                   sampleInterval = 1000<ns>
                   downsamplingRatio = 1u
                   triggerSettings = AutoTrigger 200s<ms>
@@ -156,7 +156,7 @@ type ``PicoScope 5000 series streaming tests``() =
         Assert.IsFalse(!canceledDidFire)
 
     [<Test>]
-    // [<Repeat(1000)>]
+    [<Repeat(1000)>]
     member this.``Can perform 1000 short streaming acquisitions with manual stop``() =
         let streamStatusArray = ref Array.empty
         let canceledDidFire = ref false
@@ -229,7 +229,7 @@ type ``PicoScope 5000 series streaming tests``() =
         |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
         
         "Waiting for 10 min." |> log.Debug
-        Thread.Sleep(6000)
+        Thread.Sleep(600000)
         "Stopping acquisition stream" |> log.Debug
         
         let waitForCompletion = Observable.waitHandleForNext streamWorker.Completed

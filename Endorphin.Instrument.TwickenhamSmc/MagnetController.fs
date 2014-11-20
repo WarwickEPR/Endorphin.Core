@@ -248,7 +248,7 @@ type MagnetController(visaAddress, parameters) =
                     let! response = session.QuerryAsync "G\r\n"
                     (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
                     let outputParameters = response |> parseOutputParameters
-                    (sprintf "Twickenham SMC %s replying to output parameter request with %A." 
+                    (sprintf "Twickenham SMC %s replying to output parameter request with\n%A." 
                         visaAddress outputParameters) |> log.Info
                     outputParameters |> replyChannel.Reply
                     return! loop session
@@ -257,7 +257,7 @@ type MagnetController(visaAddress, parameters) =
                     let! response = session.QuerryAsync "K\r\n"
                     (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
                     let currentParameters = response |> parseCurrentParameters
-                    (sprintf "Twickenham SMC %s replying to currenet parameter request with %A."
+                    (sprintf "Twickenham SMC %s replying to currenet parameter request with\n%A."
                         visaAddress currentParameters) |> log.Info
                     currentParameters |> replyChannel.Reply
                     return! loop session
@@ -266,7 +266,7 @@ type MagnetController(visaAddress, parameters) =
                     let! response = session.QuerryAsync "O\r\n"
                     (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
                     let operatingParameters = response |> parseOperatingParameters
-                    (sprintf "Twickenham SMC %s replying to operating parameter request with %A."
+                    (sprintf "Twickenham SMC %s replying to operating parameter request with\n%A."
                         visaAddress operatingParameters) |> log.Info
                     operatingParameters |> replyChannel.Reply
                     return! loop session
@@ -275,7 +275,7 @@ type MagnetController(visaAddress, parameters) =
                     let! response = session.QuerryAsync "S\r\n"
                     (sprintf "Twickenham SMC %s received response from hardware: %s." visaAddress response) |> log.Info
                     let setPointParameters = response |> parseSetPointParameters
-                    (sprintf "Twickenham SMC %s replying to set-point parameter request with %A."
+                    (sprintf "Twickenham SMC %s replying to set-point parameter request with\n%A."
                         visaAddress setPointParameters) |> log.Info
                     setPointParameters |> replyChannel.Reply
                     return! loop session
