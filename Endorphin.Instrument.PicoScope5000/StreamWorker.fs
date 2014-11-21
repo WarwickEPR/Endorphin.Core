@@ -64,7 +64,7 @@ type StreamStopCapability() =
         "Started using stream run token." |> log.Info
         stopCapability.Token
 
-type StreamWorker(pico : PicoScope5000, stream) =
+type StreamWorker(stream, pico : PicoScope5000) =
     static let log = LogManager.GetLogger typeof<StreamWorker>
 
     let statusChanged = new Event<StreamStatus>()
