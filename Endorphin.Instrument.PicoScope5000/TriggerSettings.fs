@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core.Units
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Runtime.InteropServices
 open System.Runtime.CompilerServices

@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core.Units
 open System.Runtime.CompilerServices
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -49,6 +50,22 @@ type Methods() =
         | Range._20V -> 20.0<V>
         | Range._50V -> 50.0<V>
         | _ -> failwith "Unexpected range."
+
+    [<Extension>]
+    static member SmallestInputRangeForVoltage (inputVoltageRange : float<V>) =
+        match inputVoltageRange with
+        | voltageRange when voltageRange <= 0.010<V> -> Range._10mV
+        | voltageRange when voltageRange <= 0.020<V> -> Range._20mV
+        | voltageRange when voltageRange <= 0.050<V> -> Range._50mV
+        | voltageRange when voltageRange <= 0.100<V> -> Range._100mV
+        | voltageRange when voltageRange <= 0.200<V> -> Range._200mV
+        | voltageRange when voltageRange <= 0.500<V> -> Range._500mV
+        | voltageRange when voltageRange <= 1.0<V> -> Range._1V
+        | voltageRange when voltageRange <= 2.0<V> -> Range._2V
+        | voltageRange when voltageRange <= 5.0<V> -> Range._5V
+        | voltageRange when voltageRange <= 10.0<V> -> Range._10V
+        | voltageRange when voltageRange <= 20.0<V> -> Range._20V
+        | _ -> failwith "Requested voltage exceed maximum device input range."
 
     [<Extension>]
     static member FastestTimebase(resolution : Resolution) =

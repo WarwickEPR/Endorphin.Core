@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core.Units
 open Endorphin.Core.Utils
 open Errors
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols

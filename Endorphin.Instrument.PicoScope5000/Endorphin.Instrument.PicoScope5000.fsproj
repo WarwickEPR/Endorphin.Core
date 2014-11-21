@@ -49,7 +49,6 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Units.fs" />
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="TriggerSettings.fs" />
     <Compile Include="SignalGenerator.fs" />
