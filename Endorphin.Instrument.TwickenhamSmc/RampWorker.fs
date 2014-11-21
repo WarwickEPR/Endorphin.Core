@@ -141,7 +141,7 @@ type RampWorker(ramp, magnetController : MagnetController) =
     member this.Completed = completed.Publish
 
     member this.Cancel(returnToZero) =
-        "Ramp worker stopping" |> log.Info
+        "Ramp worker stopping..." |> log.Info
         cancellationCapability.Cancel(returnToZero)
         readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
 
@@ -154,7 +154,7 @@ type RampWorker(ramp, magnetController : MagnetController) =
         readyToStart.Set() |> ignore
 
     member this.Prepare() =
-        "Ramp worker preparing" |> log.Info
+        "Ramp worker preparing..." |> log.Info
         (sprintf "Starting current direction: %A." startingCurrentDirection) |> log.Info
         (sprintf "Final current direction: %A." finalCurrentDirection) |> log.Info
         (sprintf "Lower current limit: %07.3f A." (float lowerCurrentLimit)) |> log.Info
