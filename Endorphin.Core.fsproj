@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="ObservableExtensions.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="Units.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
