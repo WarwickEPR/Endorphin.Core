@@ -45,7 +45,7 @@ type RampCancellationCapability() =
     member this.StartUsingToken() =
         if !started then
             failwith "Cannot reuse ramp token."
-        "Started using stream run token." |> log.Info
+        "Started using ramp token." |> log.Info
         started := true 
         cancellationCapability.Token
 
