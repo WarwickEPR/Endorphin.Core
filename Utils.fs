@@ -119,15 +119,3 @@ module Utils =
             match SynchronizationContext.Current with
             | null -> new SynchronizationContext()
             | ctxt -> ctxt
-
-    type Async with
-        static member StartAndAwaitObservableEffect(comp, obs, ?cancellationToken, ?millisecondsTimeout) =
-            let waitHandle = Observable.waitHandleForNext obs
-
-            match cancellationToken with
-            | Some(token) -> Async.Start(comp, token)
-            | None -> Async.Start(comp)
-
-            match millisecondsTimeout with
-            | Some(timeout) -> Async.AwaitWaitHandle(waitHandle, timeout)
-            | None -> Async.AwaitWaitHandle(waitHandle)

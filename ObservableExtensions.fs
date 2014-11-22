@@ -20,8 +20,3 @@ module ObservableExtensions =
 
         static member buffer (bufferSize : int) (source : IObservable<'a>) =
             Observable.Buffer(source, bufferSize)
-
-        static member waitHandleForNext (obs : IObservable<'a>) = 
-            let waitHandle = new ManualResetEvent(false) // create the wait handle
-            obs.Take(1) |> Observable.add (fun _ -> waitHandle.Set() |> ignore) // set the wait handle on the next observable value
-            waitHandle // return the wait handle
