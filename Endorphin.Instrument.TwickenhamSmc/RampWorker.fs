@@ -49,7 +49,7 @@ type RampCancellationCapability() =
         started := true 
         cancellationCapability.Token
 
-type RampWorker(ramp, magnetController : MagnetController) =
+type RampWorker(magnetController : MagnetController, ramp) =
     static let log = LogManager.GetLogger typeof<RampWorker>
 
     let statusChanged = new Event<RampStatus>()

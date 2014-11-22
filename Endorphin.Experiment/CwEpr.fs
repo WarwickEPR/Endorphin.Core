@@ -1,27 +1,31 @@
-﻿namespace Endorphin.Experiment.CwEpr
+﻿namespace Endorphin.Experiment
 
+open Endorphin.Core.Units
+open Endorphin.Core.Utils
+open Endorphin.Core.ObservableExtensions
 open Endorphin.Instrument.PicoScope5000
-open Endorphin.Instrument.PicoScope5000.PicoScope5000FSharp
 open Endorphin.Instrument.TwickenhamSmc
-open Endorphin.Instrument.TwickenhamSmc.TwickenhamSmcFSharp
-open Endorphin.Instrument.TwickenhamSmc.MagnetRampFSharp
-open FSharp.Control.Observable
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open System.Reactive.Linq
-open System.Reactive.Subjects
 open System.Threading
-open System.Collections.Generic
+open log4net
 
-type Experiment =
+type CwEprExperiment =
     { startingFieldIndex : int
-      numberOfPoints : int
-      stepsPerPoint : int
+      finalFieldIndex : int
       rampRateIndex : int
+      returnToZero : bool
+      conversionTime : int<ms>
       quadratureDetection : bool
-      numberOfScans : int
-      readyToStart : IObservable<bool> }
+      numberOfScans : int }
 
-type ExperimentStatus =
+type CwEprDataPoint =
+    { accumulatedValue : int
+      count : int
+      magneticField : float<T> }
+
+type CwEprExperimentStatus =
     | PreparingFieldForScan of scan : int
     | PreparingAcquisitionForScan of scan : int
     | StartedScan of scan : int
@@ -29,174 +33,233 @@ type ExperimentStatus =
     | FinishedExperiment
     | StoppedExperiment
 
-type ExperimentObservables =
-    { fieldInMillitelsa : IObservable<float>
-      inPhasePoints : IObservable<float> array
-      quadraturePoints : IObservable<float> array
-      status : IObservable<ExperimentStatus> }
+type CwEprCancellationCapability() =
+    static let log = LogManager.GetLogger typeof<CwEprCancellationCapability>
 
-type ExperimentSubjects =
-    { fieldInMillitesla : ISubject<float>
-      inPhasePoints : ISubject<float> array
-      quadraturePoints : ISubject<float> array
-      status : ISubject<ExperimentStatus> }
+    let cancellationRequested = new Event<bool>()
+
+    let cancellationCapability = new CancellationTokenSource()
+    let stopAfterScanCapability = new CancellationTokenSource()
+
+    let returnToZeroAfterCancellation = ref false
+    let started = ref false
+    let cancelling = ref false
+
+    member this.ReturnToZero = !returnToZeroAfterCancellation
+    member this.IsCancellationRequested = cancellationCapability.IsCancellationRequested
+    member this.IsStopAfterScanRequested = stopAfterScanCapability.IsCancellationRequested
+    member this.CancellationRequested = cancellationRequested.Publish
+
+    member this.Cancel(returnToZero) =
+        if !cancelling then
+            failwith "CW EPR experiment is already stopping."
+        if not !started then
+            failwith "Cannot cancel CW EPR experiment before it has been initiated."
+        "Cancelling CW EPR experiment token." |> log.Info
+        cancelling := true
+        returnToZeroAfterCancellation := returnToZero
+        cancellationCapability.Cancel()
+        stopAfterScanCapability.Cancel()
+        cancellationRequested.Trigger(returnToZero)
     
-    member this.asObservables() =
-        { fieldInMillitelsa = this.fieldInMillitesla.AsObservable()
-          inPhasePoints = Array.map (fun (subject : ISubject<float>) -> subject.AsObservable()) this.inPhasePoints
-          quadraturePoints = Array.map (fun (subject : ISubject<float>) -> subject.AsObservable()) this.quadraturePoints
-          status = this.status.AsObservable() }
+    member this.StopAfterScan(returnToZero) =
+        if !cancelling then
+            failwith "Cannot request stop after scan: CW EPR experiment is already stopping."
+        if not !started then
+            failwith "Cannot stop CW EPR experiment after current scan as it has not been started."
+        returnToZeroAfterCancellation := returnToZero
+        stopAfterScanCapability.Cancel()
 
-type Command =
-    | StartExperiment of experiment : Experiment * replyChannel : AsyncReplyChannel<ExperimentObservables>
-    | StopExperiment of finishScan : bool
-    // TODO: add pause / resume
+    member this.StartExperimentUsingToken() =
+        if !started then
+            failwith "Cannot reuse CW EPR experiment token."
+        "Started using experiment token." |> log.Info
+        started := true 
+        cancellationCapability.Token
 
-type CwEprAgent(picoScope : PicoScope5000Agent, magnetController : MagnetController, rampAgent : MagnetRampAgent) = 
-    let mailboxProcessor =
-        (fun (mailbox : MailboxProcessor<Command>) ->
-            let asyncExperiment (experiment : Experiment) (subjects : ExperimentSubjects) =
-                let prepareForRamp readyForRamp = async { 
-                    let ramp = 
-                        { startingFieldIndex = experiment.startingFieldIndex
-                          numberOfSteps = experiment.numberOfPoints * experiment.stepsPerPoint
-                          rampRateIndex = experiment.rampRateIndex
-                          returnToZero = false
-                          readyForRamp = readyForRamp }
-                    return performRamp ramp rampAgent }
+    member this.StartScanUsingToken() =
+        if not !started then
+            failwith "Cannot use scan token before CW EPR experiment has been started."
+        "Started using scan token." |> log.Info
+        stopAfterScanCapability.Token
 
-                let prepareForAcquisition = async { 
-                    let channelSettings enabled = 
-                        { enabled = enabled
-                          coupling = Coupling.DC
-                          range = Range._500mV 
-                          analogueOffsetInVolts = 0.0 }
+type CwEprWorker(experiment, magnetController : MagnetController, pico : PicoScope5000) =
+    static let log = LogManager.GetLogger typeof<CwEprWorker>
+
+    let statusChanged = new Event<CwEprExperimentStatus>()
+    let error = new Event<Exception>()
+    let canceled = new Event<OperationCanceledException>()
+    let completed = new Event<unit>()
+            
+    let readyToStart = new ManualResetEvent(false)
+    let cancellationCapability = new CwEprCancellationCapability()
+
+    let ramp : Ramp = {
+        startingFieldIndex = experiment.startingFieldIndex
+        finalFieldIndex = experiment.finalFieldIndex
+        rampRateIndex = experiment.rampRateIndex
+        returnToZero = experiment.returnToZero }
+    
+    let rampVoltageRange = magnetController.ShuntStep * float (abs (ramp.startingFieldIndex - ramp.finalFieldIndex))
+    let rampVoltageOffset = magnetController.ShuntStep * 0.5 * (float (ramp.startingFieldIndex + ramp.finalFieldIndex))
+
+    let magneticFieldInputSettings : InputSettings = { 
+        coupling = Coupling.DC
+        range = (0.5 * rampVoltageRange).SmallestInputRangeForVoltage()
+        analogueOffset = rampVoltageOffset
+        bandwidthLimit = BandwidthLimit._20MHz }
+
+    let lockinSignalInputSettings : InputSettings = { 
+        coupling = Coupling.DC
+        range = Range._10V
+        analogueOffset = 0.0<V>
+        bandwidthLimit = BandwidthLimit._20MHz }
+
+    let magneticFieldChannel = (Channel.A, magneticFieldInputSettings)
+    let signalChannels =
+        if experiment.quadratureDetection then
+            [ (Channel.B, lockinSignalInputSettings) ; (Channel.C, lockinSignalInputSettings) ]
+        else
+            [ (Channel.B, lockinSignalInputSettings) ]
+
+    let magneticFieldStream = ChannelData(Channel.A, Downsampling.None)
+    let signalStreams =
+        if experiment.quadratureDetection then
+            [ ChannelData(Channel.B, Downsampling.None) ; ChannelData(Channel.C, Downsampling.None) ]
+        else
+            [ ChannelData(Channel.B, Downsampling.None) ]
+
+    let stream : StreamingParmaeters = {  
+        sampleInterval = experiment.conversionTime * 1000000<ns/ms>
+        downsamplingRatio = 1u
+        streamStop = ManualStop
+        triggerSettings = AutoTrigger 1s<ms> // fastest possible
+        activeChannels = magneticFieldChannel :: signalChannels
+        channelStreams = magneticFieldStream :: signalStreams
+        channelAggregateStreams = []
+        memorySegment = 0u }
+
+    [<CLIEvent>]
+    member this.StatusChanged = statusChanged.Publish
+
+    [<CLIEvent>]
+    member this.Error = error.Publish
+
+    [<CLIEvent>]
+    member this.Canceled = canceled.Publish
+
+    [<CLIEvent>]
+    member this.Completed = completed.Publish
+    
+    member this.Cancel(returnToZero) =
+        "CW EPR worker stopping..." |> log.Info
+        cancellationCapability.Cancel(returnToZero)
+        readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
+
+    member this.PrepareAndStart() =
+        this.SetReadyToStart()
+        this.Prepare()
+
+    member this.SetReadyToStart() =
+        "Setting CW EPR worker ready to start." |> log.Info
+        readyToStart.Set() |> ignore
+
+    member this.Prepare() =
+        "CW EPR worker preparing..." |> log.Info
+        (sprintf "Ramp parameters:\n%A" ramp) |> log.Info
+        (sprintf "Streaming parameters:\n%A" stream) |> log.Info
+        (sprintf "Magnetic field input settings:\n%A" magneticFieldInputSettings) |> log.Info
+        (sprintf "Lock-in signal input settings:\n%A" lockinSignalInputSettings) |> log.Info
+
+        let syncContext = SynchronizationContext.CaptureCurrent()
+
+        let workflow =
+            let scan n =
+                let rampWorker = new RampWorker(ramp, magnetController)
+                let streamWorker = new StreamWorker(stream, pico)
+
+                let prepareRamp = async {
+                    "Preparing ramp." |> log.Info
+                    let waitForReadyToRamp =
+                        rampWorker.StatusChanged
+                        |> Event.filter ((=) ReadyToRamp)
+
+                    rampWorker.Prepare()
+                    do! Async.AwaitEvent(waitForReadyToRamp)
+                        |> Async.Ignore }
+
+                let startAcquisition = async {
+                    "Prepariing and starting stream acquisition." |> log.Info 
+                    let waitForStart =
+                        streamWorker.StatusChanged
+                        |> Observable.filter ((=) (Started stream.sampleInterval))
+                        |> Observable.waitHandleForNext
                     
-                    setChannelSettings Channel.A (channelSettings true) picoScope
-                    setChannelSettings Channel.B (channelSettings true) picoScope
-                    setChannelSettings Channel.C (channelSettings experiment.quadratureDetection) picoScope
-                    setChannelSettings Channel.D (channelSettings false) picoScope
-                    
-                    setAutoTrigger 1s picoScope
-                    
-                    let adcToVoltage = adcCountToVoltsConversion Range._500mV 0.0 picoScope
-                    let streamAgent = createStreamAgent picoScope
-
-                    let b = observe Channel.A Downsampling.Averaged streamAgent
-                            |> observeSamples
-                            |> Observable.map adcToVoltage
-
-                    let x = observe Channel.B Downsampling.Averaged streamAgent
-                            |> observeSamples
-                            |> Observable.map adcToVoltage
-
-                    let signals = Observable.Zip(b, x);
+                    streamWorker.PrepareAndStart()
+                    do! Async.AwaitWaitHandle(waitForStart)
+                        |> Async.Ignore
+                    do! Async.Sleep(1) } // sleep 1ms for auto trigger to kick in
+            
+                let beginRamp = async {
+                    "Beginning ramp." |> log.Info
+                    rampWorker.SetReadyToStart() }
                 
-                    let streamingParameters =
-                        { sampleInterval = Microseconds(100u)
-                          downsamplingRatio = 200u
-                          maximumPreTriggerSamples = 0u 
-                          maximumPostTriggerSamples = 10000u
-                          autoStop = false }
+                let stopAcquisition = async {
+                    "Stopping acquisition." |> log.Info
+                    let waitForCompleted =
+                        streamWorker.Completed
+                        |> Observable.waitHandleForNext
 
-                    let streamStatus = runStream streamingParameters streamAgent
-                    return (streamAgent, signals, streamStatus) }
+                    streamWorker.Stop()
+                    do! Async.AwaitWaitHandle(waitForCompleted)
+                        |> Async.Ignore }
 
-                let subscribeToAcquisition (signals : IObservable<IList<float>>) = async {
-                        return signals
-                        |> Observable.subscribe (
-                            fun samples ->
-                                let outputIndex = nearestDigitisedOutputIndexForShuntVoltage (samples.Item(0)) magnetController
-                                
-                                let minimumOutputIndex = 
-                                    if experiment.stepsPerPoint > 0
-                                    then experiment.startingFieldIndex
-                                    else experiment.startingFieldIndex + experiment.stepsPerPoint * (experiment.numberOfPoints - 1)
-                                
-                                let maximumOutputIndex = 
-                                    if experiment.stepsPerPoint < 0
-                                    then experiment.startingFieldIndex
-                                    else experiment.startingFieldIndex + experiment.stepsPerPoint * (experiment.numberOfPoints - 1)
+                let performRamp = async {
+                    let canceled =
+                        cancellationCapability.CancellationRequested
+                        |> Event.map (fun returnToZero -> Some(returnToZero))
+                    
+                    let completed =
+                        rampWorker.Completed
+                        |> Event.map (fun () -> None) // no cancellation
 
-                                if outputIndex >= minimumOutputIndex && outputIndex < maximumOutputIndex
-                                then let observableIndex = (outputIndex - experiment.startingFieldIndex) / experiment.stepsPerPoint
-                                     subjects.inPhasePoints.[observableIndex].OnNext(samples.Item(1))) }
-
+                    let! cancellation =
+                        Event.merge canceled completed
+                        |> Async.AwaitEvent
+                      
+                    match cancellation with
+                    | Some(returnToZero) -> 
+                        rampWorker.Cancel(returnToZero)
+                        do! stopAcquisition
+                    | None ->
+                        do! stopAcquisition }
 
                 async {
-                    use readyForRamp = new BehaviorSubject<bool>(false)
-                    let! rampStatus = prepareForRamp readyForRamp
-                    let! _ = rampStatus
-                             |> Observable.filter (fun status -> status = ReadyToRamp)
-                             |> Async.AwaitObservable
-                    
-                    let! (streamAgent, signals, streamStatus) = prepareForAcquisition
-                    let! _ = streamStatus
-                             |> Observable.filter(
-                                 function
-                                 | Started(_) -> true
-                                 | _ -> false)
-                             |> Async.AwaitObservable
-
-                    use! processData = subscribeToAcquisition signals
-                    readyForRamp.OnNext(true)
-                    
-                    let! _ = rampStatus
-                             |> Observable.filter (fun status -> status = Finished)
-                             |> Async.AwaitObservable
-
-                    stopStream streamAgent
-                    (streamAgent :> IDisposable).Dispose() }
-
-            let rec waiting() = async {
-                let! message = mailbox.Receive()
-                match message with
-                | StartExperiment(experiment, replyChannel) ->
-                    let (subjects : ExperimentSubjects) = 
-                        { fieldInMillitesla = new Subject<float>() 
-                          inPhasePoints =  Array.init (experiment.numberOfPoints) (fun _ -> (new Subject<_>()) :> ISubject<_> )
-                          quadraturePoints = 
-                              if experiment.quadratureDetection
-                              then Array.init (experiment.numberOfPoints) (fun _ -> (new Subject<_>()) :> ISubject<_> )
-                              else null
-                          status = new BehaviorSubject<ExperimentStatus>(PreparingFieldForScan(1)) }
-                    replyChannel.Reply(subjects.asObservables())
-                    return! runningExperiment experiment subjects
-                | StopExperiment(_) -> return! waiting() }
+                    do! prepareRamp
+                    do! startAcquisition
+                    do! beginRamp
+                    do! performRamp }
             
-            and runningExperiment experiment subjects = async {
-                do!
-                    use experimentCts = new CancellationTokenSource()
-                    use mailboxCts = new CancellationTokenSource()
-                    use cancelMailboxToken = 
-                        subjects.status.AsObservable().IgnoreElements()
-                        |> Observable.subscribe (fun _ -> mailboxCts.Cancel())
 
-                    let rec waitForStopMessage() = async {
-                        if (not mailboxCts.IsCancellationRequested)
-                        then if mailbox.CurrentQueueLength <> 0
-                             then let! message = mailbox.Receive()
-                                  match message with 
-                                  | StopExperiment(finishScan) -> 
-                                      if finishScan
-                                      then subjects.status.AsObservable()
-                                           |> Observable.filter(
-                                               function
-                                               | FinishedScan(_) -> true
-                                               | _ -> false)
-                                           |> Observable.add (fun _ -> experimentCts.Cancel())
-                                           // wait for experiment to finish
-                                      else experimentCts.Cancel()
-                                  | _ -> failwith "Attempted to start a CW EPR experiment when one is already in progress."
-                             else do! Async.Sleep(100)
-                                  do! waitForStopMessage() }
+            async {
+                ()
+                (* use! cancelHandler = Async.OnCancel(cancelRamp)
 
-                    Async.Start(asyncExperiment experiment subjects, experimentCts.Token)
-                    waitForStopMessage()
+                do! prepareForRamp
+                do! awaitReadyForRamp
+                do! performRamp
+                if ramp.returnToZero then 
+                    do! magnetController.RampToZeroAsync()
 
-                return! waiting() }
-
-            waiting ())
-        |> MailboxProcessor.Start
-
-    member this.Post(message) = mailboxProcessor.Post(message)
+                if not cancellationCapability.IsCancellationRequested then
+                    syncContext.RaiseEvent statusChanged Finished *) }
+        
+        "Starting ramp workflow." |> log.Info
+        Async.StartWithContinuations
+            (workflow,
+                (fun () -> syncContext.RaiseEvent completed ()), // no continuation unless there is an error or cancellation
+                (fun exn -> syncContext.RaiseEvent error exn),
+                (fun exn -> 
+                    syncContext.RaiseEvent statusChanged (Cancelling cancellationCapability.ReturnToZero)
+                    syncContext.RaiseEvent canceled exn),
+                    cancellationCapability.StartUsingToken())

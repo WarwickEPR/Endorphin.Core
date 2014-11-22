@@ -38,128 +38,127 @@ type ``Magnet ramp tests``() =
     [<Test>]
     member this.``Ramp rate out of range causes exception``() =
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 0
-                finalFieldIndex = 4095
-                rampRateIndex = -7
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = 4095
+                  rampRateIndex = -7
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 0
-                finalFieldIndex = 4095
-                rampRateIndex = 44
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = 4095
+                  rampRateIndex = 44
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 0
-                finalFieldIndex = 4095
-                rampRateIndex = 78
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = 4095
+                  rampRateIndex = 78
+                  returnToZero = true }) |> ignore)
         |> ignore
 
     [<Test>]
     member this.``Ramp with zero steps causes exception``() = 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 0
-                finalFieldIndex = 0
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = 0
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 4095
-                finalFieldIndex = 4095
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 4095
+                  finalFieldIndex = 4095
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = -231
-                finalFieldIndex = -231
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -231
+                  finalFieldIndex = -231
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
     
     [<Test>]
     member this.``Ramp exceeding current limit causes exception``() = 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = -16384
-                finalFieldIndex = 234
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -16384
+                  finalFieldIndex = 234
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 16384 
-                finalFieldIndex = -124
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(this.MagnetController,
+                { startingFieldIndex = 16384 
+                  finalFieldIndex = -124
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            let ramp = { 
-                startingFieldIndex = 6
-                finalFieldIndex = -32750
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 6
+                  finalFieldIndex = -32750
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
         |> ignore
         
     [<Test>]
     member this.``Can initialise ramp worker``() = 
         Assert.DoesNotThrow(fun () ->
-            let ramp = { 
-                startingFieldIndex = -16383
-                finalFieldIndex = 16383
-                rampRateIndex = 0
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController, 
+                { startingFieldIndex = -16383
+                  finalFieldIndex = 16383
+                  rampRateIndex = 0
+                  returnToZero = true }) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
-            let ramp = { 
-                startingFieldIndex = 0
-                finalFieldIndex = 16383
-                rampRateIndex = 43
-                returnToZero = true }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = 16383
+                  rampRateIndex = 43
+                  returnToZero = true }) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
-            let ramp = { 
-                startingFieldIndex = 16383
-                finalFieldIndex = 0
-                rampRateIndex = 34
-                returnToZero = false }
-            new RampWorker(ramp, this.MagnetController) |> ignore)
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 16383
+                  finalFieldIndex = 0
+                  rampRateIndex = 34
+                  returnToZero = false }) |> ignore)
 
     [<Test>]
     member this.``Can cancel ramp immediately immediately after initiating preparation``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 500
-            finalFieldIndex = 4595
-            rampRateIndex = 0
-            returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker = 
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 500
+                  finalFieldIndex = 4595
+                  rampRateIndex = 0
+                  returnToZero = true })
         
         rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
         rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -178,13 +177,13 @@ type ``Magnet ramp tests``() =
 
     [<Test>]
     member this.``Cancelling ramp before initiating preparation causes exception``() =
-        let ramp = { 
-            startingFieldIndex = 500
-            finalFieldIndex = 4595
-            rampRateIndex = 0
-            returnToZero = true }
-            
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 500
+                  finalFieldIndex = 4595
+                  rampRateIndex = 0
+                  returnToZero = true })
         
         Assert.Throws<Exception>(fun () ->
             rampWorker.Cancel(true)) 
@@ -194,14 +193,14 @@ type ``Magnet ramp tests``() =
     member this.``Can prepare to zero initial current with negative final current``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 0
-            finalFieldIndex = -2341
-            rampRateIndex = 14
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 0
+                  finalFieldIndex = -2341
+                  rampRateIndex = 141
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -229,14 +228,14 @@ type ``Magnet ramp tests``() =
     member this.``Can prepare to positive initial current``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 500
-            finalFieldIndex = 4595
-            rampRateIndex = 7
-            returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 500
+                  finalFieldIndex = 4595
+                  rampRateIndex = 7
+                  returnToZero = true })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -266,13 +265,13 @@ type ``Magnet ramp tests``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
 
-        let ramp = { 
-            startingFieldIndex = -1023
-            finalFieldIndex = 412
-            rampRateIndex = 18
-            returnToZero = true }
-            
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -1023
+                  finalFieldIndex = 412
+                  rampRateIndex = 18
+                  returnToZero = true })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -305,14 +304,14 @@ type ``Magnet ramp tests``() =
         
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 245
-            finalFieldIndex = 4126
-            rampRateIndex = 18
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker = 
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 245
+                  finalFieldIndex = 4126
+                  rampRateIndex = 18
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -345,14 +344,14 @@ type ``Magnet ramp tests``() =
         
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = -4231
-            finalFieldIndex = -124
-            rampRateIndex = 9
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -4231
+                  finalFieldIndex = -124
+                  rampRateIndex = 9
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -384,14 +383,14 @@ type ``Magnet ramp tests``() =
 
         this.MagnetController.SetRampRate 0.0084<A/s>
         this.MagnetController.SetRampTarget Upper
-
-        let ramp = { 
-            startingFieldIndex = 784
-            finalFieldIndex = 215
-            rampRateIndex = 22
-            returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 784
+                  finalFieldIndex = 215
+                  rampRateIndex = 22
+                  returnToZero = true })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -425,14 +424,14 @@ type ``Magnet ramp tests``() =
         this.MagnetController.SetRampTarget Upper
         Thread.Sleep(10000)
         this.MagnetController.SetPause true
-
-        let ramp = { 
-            startingFieldIndex = 928
-            finalFieldIndex = 1536
-            rampRateIndex = 12
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 928
+                  finalFieldIndex = 1536
+                  rampRateIndex = 12
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -461,14 +460,14 @@ type ``Magnet ramp tests``() =
     member this.``Can cancel ramp while performing``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 5421
-            finalFieldIndex = 623
-            rampRateIndex = 39
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 5421
+                  finalFieldIndex = 623
+                  rampRateIndex = 39
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -496,14 +495,14 @@ type ``Magnet ramp tests``() =
     member this.``Can cancel ramp while performing and return to zero``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = -280
-            finalFieldIndex = -2345
-            rampRateIndex = 12
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -280
+                  finalFieldIndex = -2345
+                  rampRateIndex = 12
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -531,14 +530,14 @@ type ``Magnet ramp tests``() =
     member this.``Can perform ramp``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 200
-            finalFieldIndex = 6002
-            rampRateIndex = 43
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 200
+                  finalFieldIndex = 6002
+                  rampRateIndex = 43
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -565,14 +564,14 @@ type ``Magnet ramp tests``() =
     member this.``Can perform ramp and return to zero``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 204
-            finalFieldIndex = 4921
-            rampRateIndex = 43
-            returnToZero = true }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 204
+                  finalFieldIndex = 4921
+                  rampRateIndex = 43
+                  returnToZero = true })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -598,14 +597,14 @@ type ``Magnet ramp tests``() =
     member this.``Can prepare ramp and start when ready``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = -235
-            finalFieldIndex = -993
-            rampRateIndex = 36
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -235
+                  finalFieldIndex = -993
+                  rampRateIndex = 36
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -634,14 +633,14 @@ type ``Magnet ramp tests``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
         let readyToRamp = new Event<unit>()
-
-        let ramp = { 
-            startingFieldIndex = -77
-            finalFieldIndex = 4456
-            rampRateIndex = 12
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -77
+                  finalFieldIndex = 4456
+                  rampRateIndex = 12
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |]
@@ -683,14 +682,14 @@ type ``Magnet ramp tests``() =
     member this.``Can perform ramp up across zero``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = -205
-            finalFieldIndex = 623
-            rampRateIndex = 33
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = -205
+                  finalFieldIndex = 623
+                  rampRateIndex = 33
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
@@ -717,14 +716,14 @@ type ``Magnet ramp tests``() =
     member this.``Can perform ramp down across zero``() =
         let rampStatusArray = ref Array.empty
         let canceledDidFire = ref false
-
-        let ramp = { 
-            startingFieldIndex = 382
-            finalFieldIndex = -1000
-            rampRateIndex = 37
-            returnToZero = false }
             
-        let rampWorker = new RampWorker(ramp, this.MagnetController)
+        let rampWorker =
+            new RampWorker(
+                this.MagnetController,
+                { startingFieldIndex = 382
+                  finalFieldIndex = -1000
+                  rampRateIndex = 37
+                  returnToZero = false })
         
         rampWorker.StatusChanged.Add(fun newStatus -> 
             rampStatusArray := Array.append !rampStatusArray [| newStatus |])
