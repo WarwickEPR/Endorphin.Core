@@ -1,7 +1,7 @@
 ﻿namespace Endorphin.Test.PicoScope5000
 
+open Endorphin.Core.StringUtils
 open Endorphin.Core.Units
-open Endorphin.Core.Utils
 open Endorphin.Instrument.PicoScope5000
 open Devices
 open NUnit.Framework

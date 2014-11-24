@@ -1,14 +1,13 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core
 open Endorphin.Core.Units
-open Endorphin.Core.Utils
 open Errors
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
-open System.Text
 open System.Linq
 open System.Runtime.InteropServices
-open System.Threading
+open System.Text
 open log4net
 
 type internal Command =
@@ -50,7 +49,7 @@ type internal Command =
     | SetDataBuffer of channel : Channel * buffer : int16 array * segmentIndex : uint32 * downsampling : Downsampling
     | SetAggregateDataBuffers of channel : Channel * bufferMax : int16 array * bifferMin : int16 array * segmentIndex : uint32
     | DiscardDataBuffers
-    | RunStreaming of sampleInterval : int<ns> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<int<ns> * (unit -> unit)>
+    | RunStreaming of sampleInterval : int<ns> * streamStop : StreamStop * downsamplingRatio : uint32 * downsampling : Downsampling * bufferLength : uint32 * replyChannel : AsyncReplyChannel<int<ns> * IDisposable>
     | GetStreamingLatestValues of callback : (StreamingValuesReady -> unit)
     | StopAcquisition
 
@@ -62,7 +61,7 @@ type internal State = {
     isMainsPowered : bool
     readyBuffers : (int16 array) list
     buffersInUse : (int16 array * GCHandle) list
-    stopCapability : CancellationTokenSource option }
+    stopCapability : CancellationCapability option }
 
 type PicoScope5000(initialisationSerial, initialResolution) =
     static let log = LogManager.GetLogger typeof<PicoScope5000>
@@ -468,17 +467,18 @@ type PicoScope5000(initialisationSerial, initialResolution) =
                 (sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %Ans." 
                     state.serial intervalWithDimension) |> log.Info
                 
-                let stopCapability = new CancellationTokenSource()
-                let stopAcquisition() =
-                    (sprintf "PicoScope %s stopping acquisition." state.serial) |> log.Info
-                    if not stopCapability.IsCancellationRequested then
-                        (sprintf "PicoScope %s cancelling acquisition stop token." state.serial) |> log.Info
-                        stopCapability.Cancel()
-                        mailbox.Post StopAcquisition
+                let stopCapability = new CancellationCapability()
+                let acquisition = { new IDisposable with
+                    member this.Dispose() = 
+                        (sprintf "PicoScope %s stopping acquisition." state.serial) |> log.Info
+                        if not stopCapability.IsCancellationRequested then
+                            (sprintf "PicoScope %s cancelling acquisition stop token." state.serial) |> log.Info
+                            stopCapability.Cancel()
+                            mailbox.Post StopAcquisition }
 
                 (sprintf "PicoScope %s replying to message %A with sample initerval %Ans and stop acquisition callback."
                     state.serial message intervalWithDimension) |> log.Info
-                (intervalWithDimension, stopAcquisition) |> replyChannel.Reply
+                (intervalWithDimension, acquisition) |> replyChannel.Reply
 
                 let pinnedBuffers =
                     state.readyBuffers 
@@ -518,8 +518,11 @@ type PicoScope5000(initialisationSerial, initialResolution) =
 
                     let status = Api.GetStreamingLatestValues(state.handle, picoScopeCallback, IntPtr.Zero)
                     (sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." state.serial status) |> log.Debug
-                    status |> checkStatusIsOk message
-                    (sprintf "PicoScope %s requested latest streaming values." state.serial) |> log.Info
+                    if status <> PicoStatus.Busy then
+                        status |> checkStatusIsOk message
+                        (sprintf "PicoScope %s requested latest streaming values." state.serial) |> log.Info
+                    else
+                        (sprintf "PicoScope %s did not request latest streaming values because it is busy." state.serial) |> log.Info
                 with
                 | exn -> 
                     (sprintf "PicoScope %s acquisition due to error %A.\nStack trace:\n%s" state.serial exn exn.StackTrace)

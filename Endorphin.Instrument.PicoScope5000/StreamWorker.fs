@@ -1,10 +1,9 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core
 open Endorphin.Core.Units
-open Endorphin.Core.Utils
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Runtime.InteropServices
-open System.Threading
 open System
 open log4net
 
@@ -21,59 +20,24 @@ type StreamingParmaeters =
 type StreamStatus =
     | Preparing
     | ReadyToStream
-    | Started of hardwareSampleInterval : int<ns>
+    | Streaming of hardwareSampleInterval : int<ns>
     | Finished of didAutoStop : bool
-    
-type StreamStopCapability() =
-    static let log = LogManager.GetLogger typeof<StreamStopCapability> 
 
-    let stopCapability = new CancellationTokenSource()
-    let cancelCapability = new CancellationTokenSource()
-    let preparing = ref false
-    let running = ref false
-    let stopping = ref false
-    let stoppedAutomatically = ref false
-
-    member this.IsCancellationRequested = stopCapability.IsCancellationRequested
-    member this.DidStopAutomatically = !stoppedAutomatically
-
-    member this.Stop autoStop =
-        if !stopping then
-            failwith "Stream is already stopping."
-        if not !preparing then
-            failwith "Cannot stop stream before it has started preparing."
-        "Cancelling stream token." |> log.Info
-        stopping := true
-        stoppedAutomatically := autoStop
-        stopCapability.Cancel()
-        cancelCapability.Cancel()
-
-    member this.PrepareStreamUsingToken() =
-        if !preparing then
-            failwith "Cannot reuse stream preparation token."
-        "Started using stream preparation token." |> log.Info
-        preparing := true 
-        cancelCapability.Token
-
-    member this.RunStreamUsingToken() =
-        if !running then
-            failwith "Cannot reuse stream run token."
-        if not !preparing then
-            failwith "Cannot set stream to run before it has started preparing."
-        running := true
-        "Started using stream run token." |> log.Info
-        stopCapability.Token
+type StreamStopOptions = {
+    didAutoStop : bool }
 
 type StreamWorker(pico : PicoScope5000, stream) =
     static let log = LogManager.GetLogger typeof<StreamWorker>
 
     let statusChanged = new Event<StreamStatus>()
     let completed = new Event<unit>()
-    let canceled = new Event<OperationCanceledException>()
+    let cancelling = new Event<OperationCanceledException>()
     let error = new Event<Exception>()
+    let workerFinished = new Event<unit>()
    
-    let readyToStart = new ManualResetEvent(false)
-    let stopCapbility = new StreamStopCapability()
+    let readyToStart = new ManualResetHandle(false)
+    let stopCapbility = new CancellationCapability<StreamStopOptions>()
+    let cancellationCapability = new CancellationCapability()
 
     let bufferLength =
         let minLength = 256.0 * 1e9 / (float (int stream.sampleInterval * int stream.downsamplingRatio))
@@ -117,25 +81,16 @@ type StreamWorker(pico : PicoScope5000, stream) =
             invalidArg "stream.activeChannels"
                 "Set of active channels contains multiple entires for some channel(s)." stream.activeChannels
 
-    [<CLIEvent>]
     member this.StatusChanged = statusChanged.Publish
-
-    [<CLIEvent>]
     member this.Error = error.Publish
-
-    [<CLIEvent>]
-    member this.Canceled = canceled.Publish
-
-    [<CLIEvent>]
+    member this.Cancelling = cancelling.Publish
     member this.Completed = completed.Publish
 
     member this.Stop() =
-        if not stopCapbility.IsCancellationRequested then
-            "Stream worker stoppping." |> log.Info
-            stopCapbility.Stop(false)
-            readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
-        else
-            "Manual stop requested but stream is already stopping." |> log.Info
+        "Stream worker stoppping." |> log.Info
+        cancellationCapability.Cancel()
+        stopCapbility.Cancel { didAutoStop = false }
+        readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
 
     member this.PrepareAndStart() =
         this.SetReadyToStart()
@@ -146,13 +101,16 @@ type StreamWorker(pico : PicoScope5000, stream) =
         readyToStart.Set() |> ignore
 
     member this.Prepare() =
+        if cancellationCapability.IsCancellationRequested then
+            failwith "Cannot prepare stream as cancellation was already requested."
+
         "Stream worker preparing." |> log.Info
         (sprintf "Active channels: %A." streamChannelSet) |> log.Info
         (sprintf "Sample interval: %dns." (int stream.sampleInterval)) |> log.Info
         (sprintf "Trigger settings: %A." stream.triggerSettings) |> log.Info
         (sprintf "Stream stop: %A." stream.streamStop) |> log.Info
 
-        let syncContext = SynchronizationContext.CaptureCurrent()
+        let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
 
         let workflow = 
             let setupChannels = async {
@@ -174,50 +132,37 @@ type StreamWorker(pico : PicoScope5000, stream) =
 
             let createBuffers = async {
                 "Creating stream buffers." |> log.Info
-                return 
-                    stream.channelStreams 
-                    |> List.map (fun channelStream ->
-                        let dataBuffer = Array.zeroCreate(bufferLength)
-                        pico.SetDataBuffer(channelStream.Channel, dataBuffer, stream.memorySegment, downsampling)
+                return stream.channelStreams 
+                |> List.map (fun channelStream ->
+                   let dataBuffer = Array.zeroCreate(bufferLength)
+                   pico.SetDataBuffer(channelStream.Channel, dataBuffer, stream.memorySegment, downsampling)
 
-                        { dataBuffer = dataBuffer
-                          channelStream = channelStream }) }
+                   { dataBuffer = dataBuffer
+                     channelStream = channelStream }) }
             
             let createAggregateBuffers = async {
                 "Creating stream aggregate buffers." |> log.Info
-                return 
-                    stream.channelAggregateStreams 
-                    |> List.map (fun channelAggregateStream ->
-                        let dataBufferMax = Array.zeroCreate(bufferLength)
-                        let dataBufferMin = Array.zeroCreate(bufferLength)
-                        pico.SetAggregateDataBuffers(
-                            channelAggregateStream.Channel, dataBufferMax, dataBufferMin, stream.memorySegment)
+                return stream.channelAggregateStreams 
+                |> List.map (fun channelAggregateStream ->
+                    let dataBufferMax = Array.zeroCreate(bufferLength)
+                    let dataBufferMin = Array.zeroCreate(bufferLength)
+                    pico.SetAggregateDataBuffers(
+                        channelAggregateStream.Channel, dataBufferMax, dataBufferMin, stream.memorySegment)
 
-                        { dataBufferMax = dataBufferMax
-                          dataBufferMin = dataBufferMin
-                          channelAggregateStream = channelAggregateStream }) } 
+                    { dataBufferMax = dataBufferMax
+                      dataBufferMin = dataBufferMin
+                      channelAggregateStream = channelAggregateStream }) } 
 
             let awaitReadyForStream = async {
-                syncContext.RaiseEvent statusChanged ReadyToStream
                 "Waiting for ready-to-stream signal..." |> log.Info
-                let! ready = Async.AwaitWaitHandle(readyToStart)
-                "Received ready-to-stream signal" |> log.Info
-                ready |> ignore }
+                syncContext.RaiseEvent statusChanged ReadyToStream
+                do! Async.AwaitWaitHandle(readyToStart) |> Async.Ignore
+                "Received ready-to-stream signal" |> log.Info }
 
-            let runStreaming = async {
-                "Initiating streaming..." |> log.Info
-                let! (hardwareSampleInterval, cancellationCallback) =
-                    pico.RunStreamingAsync(stream.sampleInterval, stream.streamStop, stream.downsamplingRatio, downsampling, uint32 bufferLength)
-                (sprintf "Started streaming with sammple interval: %Ans." hardwareSampleInterval) |> log.Info
-                
-                if not stopCapbility.IsCancellationRequested then
-                    syncContext.RaiseEvent statusChanged (Started hardwareSampleInterval) 
-                return cancellationCallback }
-
-            let rec pollLatestValues buffers aggregateBuffers stopCallback = 
-                let finishStream buffers aggregateBuffers =
+            let rec pollLatestValues buffers aggregateBuffers (acquisition : IDisposable) = 
+                let finishStream() =
                     "Stream worker finishing stream." |> log.Info
-                    stopCallback()
+                    acquisition.Dispose()
 
                     for buffer in buffers do
                         (sprintf "Triggering completed event on buffer %A." buffer) |> log.Info
@@ -228,16 +173,31 @@ type StreamWorker(pico : PicoScope5000, stream) =
                         buffer.channelAggregateStream.TriggerCompleted()
 
                     (sprintf "Stream worker finished stream %s." 
-                        (if stopCapbility.DidStopAutomatically then "automatically" else "manually")) |> log.Info
+                        (if stopCapbility.Options.didAutoStop then "automatically" else "manually")) |> log.Info
 
-                    syncContext.RaiseEvent statusChanged (Finished stopCapbility.DidStopAutomatically)
-                    syncContext.RaiseEvent completed ()
+                    syncContext.RaiseEvent statusChanged (Finished stopCapbility.Options.didAutoStop)
+                    workerFinished.Trigger()
+
+                let handleError (exn : Exception) =
+                    (sprintf "Stopping streaming acquisition due to error %A.\nStack trace:%s\n" exn exn.StackTrace) |> log.Error
+                    acquisition.Dispose()
+                    
+                    for buffer in buffers do
+                        (sprintf "Triggering error event on buffer %A." buffer) |> log.Info
+                        buffer.channelStream.TriggerError(exn)
+
+                    for buffer in aggregateBuffers do
+                        (sprintf "Triggering error event on buffer %A." buffer) |> log.Info
+                        buffer.channelAggregateStream.TriggerError(exn)
+
+                    syncContext.RaiseEvent error exn
+                    workerFinished.Trigger()
 
                 let dataCallback streamingValues =
                     (sprintf "Received stream data block of %d samples" streamingValues.numberOfSamples) |> log.Info
                     (sprintf "Stream did %s." (if streamingValues.didAutoStop then "auto-stop" else "not auto-stop")) |> log.Info
                     if streamingValues.didAutoStop then
-                        stopCapbility.Stop(true)
+                        stopCapbility.Cancel { didAutoStop = true }
 
                     if streamingValues.numberOfSamples > 0 then
                         let channelDidOverflow channel =
@@ -263,25 +223,30 @@ type StreamWorker(pico : PicoScope5000, stream) =
                     do! pollLoop() }
 
                 async {
-                    use! cancelHandler = Async.OnCancel(fun () -> 
-                        finishStream buffers aggregateBuffers)
-                    
-                    do! pollLoop() }
+                    use! cancelHandler = 
+                        Async.OnCancel(finishStream)  
+                                    
+                    try 
+                        do! pollLoop() 
+                    with
+                        | :? OperationCanceledException as exn -> raise exn
+                        | exn -> handleError exn }
 
-            let handleError buffers aggregateBuffers (exn : Exception) =
-                (sprintf "Stopping streaming acquisition due to error %A.\nStack trace:%s\n" exn exn.StackTrace) |> log.Error
-                stopCapbility.Stop(false)
+            let runStreaming buffers aggregateBuffers = async {
+                "Initiating streaming..." |> log.Info
+                let! (hardwareSampleInterval, acquisition) =
+                    pico.RunStreamingAsync(stream.sampleInterval, stream.streamStop, stream.downsamplingRatio, downsampling, uint32 bufferLength)
                 
-                for buffer in buffers do
-                    buffer.channelStream.TriggerError(exn)
-                for buffer in aggregateBuffers do
-                    buffer.channelAggregateStream.TriggerError(exn)
-                
-                syncContext.RaiseEvent error exn
+                (sprintf "Started streaming with sammple interval: %Ans." hardwareSampleInterval) |> log.Info
+                syncContext.RaiseEvent statusChanged (Streaming hardwareSampleInterval)
+
+                "Starting poll loop." |> log.Info
+                Async.Start(
+                    pollLatestValues buffers aggregateBuffers acquisition,
+                    stopCapbility.Token)  }
 
             async {
-                use! cancelHandler = Async.OnCancel(fun () ->
-                    pico.DiscardDataBuffers())
+                use! cancelHandler = Async.OnCancel(pico.DiscardDataBuffers)
                 
                 "Preparing for stream acquisition." |> log.Info
                 syncContext.RaiseEvent statusChanged Preparing
@@ -290,20 +255,27 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 let! buffers = createBuffers
                 let! aggregateBuffers = createAggregateBuffers
                 do! awaitReadyForStream
-                let! stopCallback = runStreaming
-                
-                "Starting poll loop." |> log.Info
-                Async.StartWithContinuations
-                    (pollLatestValues buffers aggregateBuffers stopCallback,
-                        (ignore),
-                        (fun exn -> handleError buffers aggregateBuffers exn),
-                        (ignore), // the poll loop will be cancelled whether the stream is stopped manually or automatically
-                        stopCapbility.RunStreamUsingToken()) }
+                do! runStreaming buffers aggregateBuffers }
 
-        "Starting stream workflow." |> log.Info 
-        Async.StartWithContinuations
-            (workflow,
+        async {
+            "Listening for worker finished event." |> log.Info
+            let! waitToFinish =
+                workerFinished.Publish
+                |> Async.AwaitEvent
+                |> Async.StartChild
+
+            "Starting stream workflow." |> log.Info 
+            Async.StartWithContinuations(
+                workflow,
                 (ignore), // no continuation unless there is an error or cancellation
                 (fun exn -> syncContext.RaiseEvent error exn),
-                (fun exn -> syncContext.RaiseEvent canceled exn), // canceled event won't be raised unless the stream is stopped before it starts running
-                stopCapbility.PrepareStreamUsingToken())
+                (fun exn -> 
+                    syncContext.RaiseEvent cancelling exn
+                    syncContext.RaiseEvent workerFinished ()), // canceled event won't be raised unless the stream is stopped before it starts running
+                cancellationCapability.Token)
+            
+            "Waiting for worker to finish." |> log.Info
+            do! waitToFinish 
+            "Stream completed." |> log.Info
+            syncContext.RaiseEvent completed () }
+        |> Async.Start

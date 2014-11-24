@@ -1,10 +1,8 @@
 ﻿namespace Endorphin.Instrument.TwickenhamSmc
 
-open Endorphin.Core.Utils
-open Microsoft.FSharp.Control
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
-open System.Threading
 open System.Reactive.Linq
 open log4net
 
@@ -19,47 +17,24 @@ type RampStatus =
     | ReadyToRamp
     | Ramping
     | Finished
-    | Cancelling of returnToZero : bool
+    | Canceled of returnToZero : bool
 
-type RampCancellationCapability() =
-    static let log = LogManager.GetLogger typeof<RampCancellationCapability>
-
-    let cancellationCapability = new CancellationTokenSource()
-    let returnToZeroAfterCancellation = ref false
-    let started = ref false
-    let cancelling = ref false
-
-    member this.ReturnToZero = !returnToZeroAfterCancellation
-    member this.IsCancellationRequested = cancellationCapability.IsCancellationRequested
-
-    member this.Cancel(returnToZero) =
-        if !cancelling then
-            failwith "Ramp is already stopping."
-        if not !started then
-            failwith "Cannot cancel ramp before it has been initiated."
-        "Cancelling ramp token." |> log.Info
-        cancelling := true
-        returnToZeroAfterCancellation := returnToZero
-        cancellationCapability.Cancel()
-
-    member this.StartUsingToken() =
-        if !started then
-            failwith "Cannot reuse ramp token."
-        "Started using ramp token." |> log.Info
-        started := true 
-        cancellationCapability.Token
+type RampCancellationOptions = {
+    returnToZero : bool }
 
 type RampWorker(magnetController : MagnetController, ramp) =
     static let log = LogManager.GetLogger typeof<RampWorker>
 
     let statusChanged = new Event<RampStatus>()
     let error = new Event<Exception>()
-    let canceled = new Event<OperationCanceledException>()
+    let cancelling = new Event<OperationCanceledException>()
     let completed = new Event<unit>()
+    let workerFinished = new Event<unit>()
     
-    let readyToStart = new ManualResetEvent(false)
-    let cancellationCapability = new RampCancellationCapability()
-
+    let readyToStart = new ManualResetHandle(false)
+    let cancellationCapability =
+        new CancellationCapability<RampCancellationOptions>()
+    
     let currentDirection index =
         match index with
         | c when c > 0 -> Forward
@@ -128,21 +103,14 @@ type RampWorker(magnetController : MagnetController, ramp) =
         if ramp.rampRateIndex < 0 || ramp.rampRateIndex >= Seq.length magnetController.AvailableCurrentRampRates then
             failwith "Ramp rate index outside of available ramp rate range."
     
-    [<CLIEvent>]
     member this.StatusChanged = statusChanged.Publish
-
-    [<CLIEvent>]
     member this.Error = error.Publish
-
-    [<CLIEvent>]
-    member this.Canceled = canceled.Publish
-
-    [<CLIEvent>]
+    member this.Cancelling = cancelling.Publish
     member this.Completed = completed.Publish
 
     member this.Cancel(returnToZero) =
         "Ramp worker stopping..." |> log.Info
-        cancellationCapability.Cancel(returnToZero)
+        cancellationCapability.Cancel { returnToZero = returnToZero }
         readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
 
     member this.PrepareAndStart() =
@@ -154,6 +122,9 @@ type RampWorker(magnetController : MagnetController, ramp) =
         readyToStart.Set() |> ignore
 
     member this.Prepare() =
+        if cancellationCapability.IsCancellationRequested then
+            failwith "Cannot prepare ramp as cancellation was already requested."
+
         "Ramp worker preparing..." |> log.Info
         (sprintf "Starting current direction: %A." startingCurrentDirection) |> log.Info
         (sprintf "Final current direction: %A." finalCurrentDirection) |> log.Info
@@ -164,7 +135,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
         (sprintf "Ramp rate index: %d." ramp.rampRateIndex) |> log.Info
         (sprintf "Return to zero: %A." ramp.returnToZero) |> log.Info
 
-        let syncContext = SynchronizationContext.CaptureCurrent()
+        let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
 
         let workflow =         
             let setStartingCurrentDirection initialState = async {
@@ -205,11 +176,10 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 magnetController.SetRampRateByIndex (ramp.rampRateIndex) }
 
             let awaitReadyForRamp = async {
-                syncContext.RaiseEvent statusChanged ReadyToRamp
                 "Waiting for ready-for-ramp signal..." |> log.Info
-                let! ready = Async.AwaitWaitHandle(readyToStart)
-                "Received ready-for-ramp signal." |> log.Info
-                ready |> ignore }
+                syncContext.RaiseEvent statusChanged ReadyToRamp
+                do! Async.AwaitWaitHandle(readyToStart) |> Async.Ignore
+                "Received ready-for-ramp signal." |> log.Info }
             
             let performRamp = async { 
                 "Performing ramp..." |> log.Info
@@ -225,33 +195,54 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 do! magnetController.WaitToReachTargetAsync() 
                 "Reached final ramp target." |> log.Info } 
 
-            let cancelRamp () =
-                "Cancelling ramp." |> log.Info
-                if not cancellationCapability.ReturnToZero then 
-                    "Not requested to return to zero current. Pausing ramp..." |> log.Info
-                    magnetController.SetPause(true)
-                else 
-                    "Returning to zero current..." |> log.Info
-                    magnetController.InitiateRampToZero()
+            let cancelRamp () = 
+                async {
+                    "Cancelling ramp..." |> log.Info
+                    if cancellationCapability.Options.returnToZero then 
+                        "Returning to zero current..." |> log.Info
+                        magnetController.InitiateRampToZero() 
+                    else 
+                        "Not requested to return to zero current. Pausing ramp..." |> log.Info
+                        magnetController.SetPause(true)
 
+
+                    "Worker finished with cancellation." |> log.Info
+                    syncContext.RaiseEvent statusChanged (Canceled cancellationCapability.Options.returnToZero)
+                    syncContext.RaiseEvent workerFinished () }
+                |> Async.Start
+            
             async {
-                use! cancelHandler = Async.OnCancel(cancelRamp)
+                use! cancelHandler = 
+                    Async.OnCancel(cancelRamp)
 
-                do! prepareForRamp
-                do! awaitReadyForRamp
-                do! performRamp
-                if ramp.returnToZero then 
-                    do! magnetController.RampToZeroAsync()
-
-                if not cancellationCapability.IsCancellationRequested then
-                    syncContext.RaiseEvent statusChanged Finished }
+                try
+                    do! prepareForRamp
+                    do! awaitReadyForRamp
+                    do! performRamp
+                    if ramp.returnToZero then 
+                        do! magnetController.RampToZeroAsync()
+                
+                finally
+                    "Worker finished ramp." |> log.Info 
+                    syncContext.RaiseEvent workerFinished () }
         
-        "Starting ramp workflow." |> log.Info
-        Async.StartWithContinuations
-            (workflow,
-                (fun () -> syncContext.RaiseEvent completed ()), // no continuation unless there is an error or cancellation
+        async {
+            "Listening for worker finished event." |> log.Info
+            let! waitToFinish =
+                workerFinished.Publish
+                |> Async.AwaitEvent
+                |> Async.StartChild
+            
+            "Starting ramp workflow." |> log.Info
+            Async.StartWithContinuations(
+                workflow,
+                (fun () -> syncContext.RaiseEvent statusChanged Finished),
                 (fun exn -> syncContext.RaiseEvent error exn),
-                (fun exn -> 
-                    syncContext.RaiseEvent statusChanged (Cancelling cancellationCapability.ReturnToZero)
-                    syncContext.RaiseEvent canceled exn),
-                cancellationCapability.StartUsingToken())
+                (fun exn -> syncContext.RaiseEvent cancelling exn),
+                cancellationCapability.Token)
+            
+            "Waiting for worker to finish." |> log.Info
+            do! waitToFinish 
+            "Ramp completed." |> log.Info
+            syncContext.RaiseEvent completed () }
+        |> Async.Start

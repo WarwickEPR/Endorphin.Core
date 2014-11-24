@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.TwickenhamSmc
 
-open Endorphin.Core.Utils
+open Endorphin.Core
+open Endorphin.Core.StringUtils
 open Microsoft.FSharp.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NationalInstruments.VisaNS
