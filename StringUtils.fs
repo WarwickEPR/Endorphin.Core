@@ -8,7 +8,7 @@ open Microsoft.FSharp.Collections
 open System.Reactive.Linq
 open Endorphin.Core.ObservableExtensions
 
-module Utils =
+module StringUtils =
     /// <summary>
     /// Partial active pattern which returns the list of matches (excluding the complete pattern)
     /// for a regular expression.

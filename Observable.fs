@@ -2,8 +2,8 @@
 
 open System
 open System.Reactive.Linq
-open System.Threading
 
+[<AutoOpen>]
 module ObservableExtensions =
     type Observable with
         static member zipn (sources : IObservable<'a> list) =
