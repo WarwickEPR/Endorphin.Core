@@ -89,7 +89,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.PrepareAndStart()    
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns>; Finished(true) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream(true) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -131,7 +131,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.PrepareAndStart()    
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(true) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -173,7 +173,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.PrepareAndStart()    
         waitForCompleted |> Async.RunSynchronously
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 1000<ns> ; Finished(true) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream(true) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -221,7 +221,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Stop()
         waitForCompleted |> Async.RunSynchronously
         
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(false) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -269,7 +269,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Stop()
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(false) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -319,7 +319,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.PrepareAndStart()
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(true) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -360,7 +360,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Prepare()
         waitForReady |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
         
         do
@@ -380,7 +380,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Stop()
         waitForCompleted |> Async.RunSynchronously |> ignore
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
         Assert.IsTrue(!cancellingDidFire)
 
     [<Test>]
@@ -424,7 +424,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Prepare()
         waitForReady |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
         do
@@ -444,7 +444,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.SetReadyToStart()
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(true) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     [<Test>]
@@ -495,7 +495,7 @@ type ``PicoScope 5000 series streaming tests``() =
         streamWorker.Stop()
         waitForCompleted |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| Preparing ; ReadyToStream ; Streaming 100000<ns> ; Finished(false) |], !streamStatusArray )
+        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
         Assert.IsFalse(!cancellingDidFire)
 
     // TODO:

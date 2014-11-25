@@ -18,10 +18,10 @@ type StreamingParmaeters =
       memorySegment : uint32 }
 
 type StreamStatus =
-    | Preparing
+    | PreparingStream
     | ReadyToStream
     | Streaming of hardwareSampleInterval : int<ns>
-    | Finished of didAutoStop : bool
+    | FinishedStream of didAutoStop : bool
 
 type StreamStopOptions = {
     didAutoStop : bool }
@@ -175,11 +175,11 @@ type StreamWorker(pico : PicoScope5000, stream) =
                     (sprintf "Stream worker finished stream %s." 
                         (if stopCapbility.Options.didAutoStop then "automatically" else "manually")) |> log.Info
 
-                    syncContext.RaiseEvent statusChanged (Finished stopCapbility.Options.didAutoStop)
+                    syncContext.RaiseEvent statusChanged (FinishedStream stopCapbility.Options.didAutoStop)
                     workerFinished.Trigger()
 
                 let handleError (exn : Exception) =
-                    (sprintf "Stopping streaming acquisition due to error %A.\nStack trace:%s\n" exn exn.StackTrace) |> log.Error
+                    (sprintf "Stopping streaming acquisition due to error: %A.\nStack trace:%s\n" exn exn.StackTrace) |> log.Error
                     acquisition.Dispose()
                     
                     for buffer in buffers do
@@ -223,13 +223,11 @@ type StreamWorker(pico : PicoScope5000, stream) =
                     do! pollLoop() }
 
                 async {
-                    use! cancelHandler = 
-                        Async.OnCancel(finishStream)  
+                    use! cancelHandler = Async.OnCancel(finishStream)  
                                     
                     try 
                         do! pollLoop() 
                     with
-                        | :? OperationCanceledException as exn -> raise exn
                         | exn -> handleError exn }
 
             let runStreaming buffers aggregateBuffers = async {
@@ -249,7 +247,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 use! cancelHandler = Async.OnCancel(pico.DiscardDataBuffers)
                 
                 "Preparing for stream acquisition." |> log.Info
-                syncContext.RaiseEvent statusChanged Preparing
+                syncContext.RaiseEvent statusChanged PreparingStream
 
                 do! setupChannels
                 let! buffers = createBuffers

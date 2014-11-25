@@ -13,11 +13,11 @@ type Ramp = {
     returnToZero : bool }
 
 type RampStatus =
-    | Preparing
+    | PreparingRamp
     | ReadyToRamp
     | Ramping
-    | Finished
-    | Canceled of returnToZero : bool
+    | FinishedRamp
+    | CanceledRamp of returnToZero : bool
 
 type RampCancellationOptions = {
     returnToZero : bool }
@@ -168,7 +168,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             
             let prepareForRamp = async {
                 "Preparing for ramp..." |> log.Info
-                syncContext.RaiseEvent statusChanged Preparing
+                syncContext.RaiseEvent statusChanged PreparingRamp
                 let! initialState = magnetController.GetAllParametersAsync()
                 do! setStartingCurrentDirection initialState
                 do! setCurrentLimits initialState 
@@ -205,9 +205,8 @@ type RampWorker(magnetController : MagnetController, ramp) =
                         "Not requested to return to zero current. Pausing ramp..." |> log.Info
                         magnetController.SetPause(true)
 
-
                     "Worker finished with cancellation." |> log.Info
-                    syncContext.RaiseEvent statusChanged (Canceled cancellationCapability.Options.returnToZero)
+                    syncContext.RaiseEvent statusChanged (CanceledRamp cancellationCapability.Options.returnToZero)
                     syncContext.RaiseEvent workerFinished () }
                 |> Async.Start
             
@@ -221,10 +220,13 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     do! performRamp
                     if ramp.returnToZero then 
                         do! magnetController.RampToZeroAsync()
-                
-                finally
-                    "Worker finished ramp." |> log.Info 
-                    syncContext.RaiseEvent workerFinished () }
+                with
+                    | exn -> 
+                        (sprintf "Worker failed due to error: %A.\nStack trace:\n%s" exn (exn.StackTrace)) |> log.Info
+                        raise exn
+                    
+                "Worker finished succesfully ramp." |> log.Info 
+                syncContext.RaiseEvent workerFinished () }
         
         async {
             "Listening for worker finished event." |> log.Info
@@ -236,7 +238,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             "Starting ramp workflow." |> log.Info
             Async.StartWithContinuations(
                 workflow,
-                (fun () -> syncContext.RaiseEvent statusChanged Finished),
+                (fun () -> syncContext.RaiseEvent statusChanged FinishedRamp),
                 (fun exn -> syncContext.RaiseEvent error exn),
                 (fun exn -> syncContext.RaiseEvent cancelling exn),
                 cancellationCapability.Token)
