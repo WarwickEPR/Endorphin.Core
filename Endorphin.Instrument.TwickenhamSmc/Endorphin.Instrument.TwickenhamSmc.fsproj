@@ -50,6 +50,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="MagnetController.fs" />
+    <Compile Include="MagnetControllerSession.fs" />
     <Compile Include="RampWorker.fs" />
     <None Include="packages.config" />
   </ItemGroup>

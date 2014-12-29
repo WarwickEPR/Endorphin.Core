@@ -10,36 +10,35 @@ open System.Threading
 
 [<TestFixture>]
 type ``Magnet ramp tests``() = 
-    let magnetController : MagnetController option ref = ref None
+    let magnetControllerSession = new MagnetControllerSession(magnetControllerVisaAddress, magnetControllerParameters)
     let _ = log4netConfig()
 
-    member this.MagnetController =
-        match !magnetController with
-        | Some(controller) -> controller
-        | None -> raise (new NullReferenceException())
-
     [<SetUp>]
-    member this.``Connect to magnet controller and initialise``() =
-        magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
-        initialiseDefaultMagnetControllerState this.MagnetController
-        
-    [<TearDown>]
-    member this.``Disccnnect from magnet controller``() =
-        (this.MagnetController :> IDisposable).Dispose()
-        magnetController := None
+    member __.``Prepare magnet controller state``() = 
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+            initialiseDefaultMagnetControllerState magnetController }
+        |> Async.RunSynchronously
 
     [<TestFixtureTearDown>]
-    member this.``Connect return magnet controller to initial state after tests``() =
-        magnetController := Some(new MagnetController(magnetControllerVisaAddress, magnetControllerParameters))
-        initialiseDefaultMagnetControllerState this.MagnetController
-        (this.MagnetController :> IDisposable).Dispose()
-        magnetController := None
+    member __.``Close magnet controller session``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+            initialiseDefaultMagnetControllerState magnetController }
+        |> Async.RunSynchronously
 
+        magnetControllerSession.CloseSessionAsync() 
+        |> Async.RunSynchronously
+        
     [<Test>]
-    member this.``Ramp rate out of range causes exception``() =
+    member __.``Ramp rate out of range causes exception``() =
+        use magnetController =
+            magnetControllerSession.RequestControlAsync()
+            |> Async.RunSynchronously
+
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 0
                   finalFieldIndex = 4095
                   rampRateIndex = -7
@@ -48,7 +47,7 @@ type ``Magnet ramp tests``() =
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 0
                   finalFieldIndex = 4095
                   rampRateIndex = 44
@@ -57,7 +56,7 @@ type ``Magnet ramp tests``() =
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 0
                   finalFieldIndex = 4095
                   rampRateIndex = 78
@@ -65,10 +64,14 @@ type ``Magnet ramp tests``() =
         |> ignore
 
     [<Test>]
-    member this.``Ramp with zero steps causes exception``() = 
+    member __.``Ramp with zero steps causes exception``() = 
+        use magnetController =
+            magnetControllerSession.RequestControlAsync()
+            |> Async.RunSynchronously
+
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 0
                   finalFieldIndex = 0
                   rampRateIndex = 0
@@ -77,7 +80,7 @@ type ``Magnet ramp tests``() =
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 4095
                   finalFieldIndex = 4095
                   rampRateIndex = 0
@@ -86,7 +89,7 @@ type ``Magnet ramp tests``() =
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = -231
                   finalFieldIndex = -231
                   rampRateIndex = 0
@@ -94,10 +97,14 @@ type ``Magnet ramp tests``() =
         |> ignore
     
     [<Test>]
-    member this.``Ramp exceeding current limit causes exception``() = 
+    member __.``Ramp exceeding current limit causes exception``() = 
+        use magnetController =
+            magnetControllerSession.RequestControlAsync()
+            |> Async.RunSynchronously
+        
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = -16384
                   finalFieldIndex = 234
                   rampRateIndex = 0
@@ -105,7 +112,8 @@ type ``Magnet ramp tests``() =
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
-            new RampWorker(this.MagnetController,
+            new RampWorker(
+                magnetController,
                 { startingFieldIndex = 16384 
                   finalFieldIndex = -124
                   rampRateIndex = 0
@@ -114,7 +122,7 @@ type ``Magnet ramp tests``() =
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 6
                   finalFieldIndex = -32750
                   rampRateIndex = 0
@@ -122,10 +130,14 @@ type ``Magnet ramp tests``() =
         |> ignore
         
     [<Test>]
-    member this.``Can initialise ramp worker``() = 
+    member __.``Can initialise ramp worker``() = 
+        use magnetController =
+            magnetControllerSession.RequestControlAsync()
+            |> Async.RunSynchronously
+
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
-                this.MagnetController, 
+                magnetController, 
                 { startingFieldIndex = -16383
                   finalFieldIndex = 16383
                   rampRateIndex = 0
@@ -133,7 +145,7 @@ type ``Magnet ramp tests``() =
 
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 0
                   finalFieldIndex = 16383
                   rampRateIndex = 43
@@ -141,764 +153,831 @@ type ``Magnet ramp tests``() =
 
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
-                this.MagnetController,
+                magnetController,
                 { startingFieldIndex = 16383
                   finalFieldIndex = 0
                   rampRateIndex = 34
                   returnToZero = false }) |> ignore)
 
     [<Test>]
-    member this.``Can cancel ramp immediately immediately after initiating preparation``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can cancel ramp immediately immediately after initiating preparation``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync() 
             
-        let rampWorker = 
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 1500
-                  finalFieldIndex = 4595
-                  rampRateIndex = 0
-                  returnToZero = true })
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker = 
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 1500
+                      finalFieldIndex = 4595
+                      rampRateIndex = 0
+                      returnToZero = true })
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let waitForPreparing =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) PreparingRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForPreparing =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) PreparingRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        rampWorker.Prepare()
-        waitForPreparing |> Async.RunSynchronously
-        
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            rampWorker.Prepare()
+            do! waitForPreparing
 
-        rampWorker.Cancel(true)
-        waitForCompleted |> Async.RunSynchronously
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; CanceledRamp(true) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
+            rampWorker.Cancel true
+            do! waitForCanceled
+
+            Assert.AreEqual( 
+                [ PreparingRamp ; CanceledRamp true ], 
+                List.rev !rampStatusList)
+            Assert.IsTrue(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Cancelling ramp before initiating preparation causes exception``() =
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 500
-                  finalFieldIndex = 4595
-                  rampRateIndex = 0
-                  returnToZero = true })
-        
-        rampWorker.Cancel(true)
+    member __.``Can prepare to zero initial current with negative final current``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync() 
 
-        Assert.Throws<Exception>(fun () ->
-            rampWorker.Prepare()) 
-        |> ignore
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 0
+                      finalFieldIndex = -2341
+                      rampRateIndex = 41
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+            
+            rampWorker.Cancel true
+            do! waitForCanceled
+
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp true ], 
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)        
+            
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.000<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.714<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can prepare to zero initial current with negative final current``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can prepare to positive initial current``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync() 
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = -2341
-                  rampRateIndex = 141
-                  returnToZero = false })
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 500
+                      finalFieldIndex = 4595
+                      rampRateIndex = 7
+                      returnToZero = true })
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+        
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+        
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
             
-        rampWorker.Cancel(true)
-        waitForCompleted |> Async.RunSynchronously
+            rampWorker.Cancel false
+            do! waitForCanceled
 
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(true) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)        
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Zero, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.000<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.715<A>, state.setPointParameters.upperLimit)
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00054<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.153<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.402<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can prepare to positive initial current``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can prepare to negative initial current``() =
+        async { 
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -1023
+                      finalFieldIndex = 412
+                      rampRateIndex = 18
+                      returnToZero = true })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+        
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+        
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
             
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 500
-                  finalFieldIndex = 4595
-                  rampRateIndex = 7
-                  returnToZero = true })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-        
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-        
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00054<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.152<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.403<A>, state.setPointParameters.upperLimit)
-
-    [<Test>]
-    member this.``Can prepare to negative initial current``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -1023
-                  finalFieldIndex = 412
-                  rampRateIndex = 18
-                  returnToZero = true })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-        
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-        
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(true)
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(true) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Zero, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)        
-        Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.126<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.313<A>, state.setPointParameters.upperLimit)
-
-    [<Test>]
-    member this.``Can prepare for positive ramp from negative initial current``() =
-        this.MagnetController.SetCurrentDirection Reverse
-        this.MagnetController.SetLowerSetPoint 0.5<A>
-        this.MagnetController.SetRampTarget Lower
-        this.MagnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
-        
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker = 
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 245
-                  finalFieldIndex = 4126
-                  rampRateIndex = 18
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-                
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-                
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00260<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.074<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.260<A>, state.setPointParameters.upperLimit)
-
-    [<Test>]
-    member this.``Can prepare for negative ramp from positive initial current``() =
-        this.MagnetController.SetLowerSetPoint 0.5<A>
-        this.MagnetController.SetRampTarget Lower
-        this.MagnetController.WaitToReachTargetAsync() |> Async.RunSynchronously
-        
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -4231
-                  finalFieldIndex = -124
-                  rampRateIndex = 9
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-                
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-                
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00072<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.037<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.292<A>, state.setPointParameters.upperLimit)
-
-    [<Test>]
-    member this.``Can prepare if magnet controller is initially ramping``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-
-        this.MagnetController.SetRampRate 0.0084<A/s>
-        this.MagnetController.SetRampTarget Upper
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 784
-                  finalFieldIndex = 215
-                  rampRateIndex = 22
-                  returnToZero = true })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-                
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-                
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00480<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.065<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.240<A>, state.setPointParameters.upperLimit)
-
-    [<Test>]
-    member this.``Can prepare if magnet controller is initially paused``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-
-        this.MagnetController.SetRampRate 0.0840<A/s>
-        this.MagnetController.SetRampTarget Upper
-        Thread.Sleep(10000)
-        this.MagnetController.SetPause true
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 928
-                  finalFieldIndex = 1536
-                  rampRateIndex = 12
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-        
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) ReadyToRamp)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
-                
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
-            
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
-
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00110<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.283<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.469<A>, state.setPointParameters.upperLimit)
-        
-    [<Test>]
-    member this.``Can cancel ramp while performing``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 5421
-                  finalFieldIndex = 623
-                  rampRateIndex = 39
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-
-        let waitForRamping =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) Ramping)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
-
-        rampWorker.PrepareAndStart()
-        waitForRamping |> Async.RunSynchronously
-                
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            rampWorker.Cancel true
+            do! waitForCanceled
                     
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; CanceledRamp(false) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp true ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.AreEqual(0.05400<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.190<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.655<A>, state.setPointParameters.upperLimit)
+            let! parameters = magnetController.GetAllParametersAsync() 
+            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)        
+            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.126<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.312<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+
+    [<Test>]
+    member __.``Can prepare for positive ramp from negative initial current``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            magnetController.SetCurrentDirection Reverse
+            magnetController.SetLowerSetPoint 0.5<A>
+            magnetController.SetRampTarget Lower
+            do! magnetController.WaitToReachTargetAsync()
+        
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker = 
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 245
+                      finalFieldIndex = 4126
+                      rampRateIndex = 18
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+                
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+                
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+            
+            rampWorker.Cancel false
+            do! waitForCanceled
+        
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00260<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.075<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.259<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+
+    [<Test>]
+    member __.``Can prepare for negative ramp from positive initial current``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            magnetController.SetLowerSetPoint 0.5<A>
+            magnetController.SetRampTarget Lower
+            do! magnetController.WaitToReachTargetAsync()
+        
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -4231
+                      finalFieldIndex = -124
+                      rampRateIndex = 9
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+                
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+                
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+            
+            rampWorker.Cancel false
+            do! waitForCanceled
+        
+            Assert.AreEqual( 
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00072<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.038<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.291<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+
+    [<Test>]
+    member __.``Can prepare if magnet controller is initially ramping``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+
+            magnetController.SetRampRate 0.0084<A/s>
+            magnetController.SetRampTarget Upper
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 784
+                      finalFieldIndex = 215
+                      rampRateIndex = 22
+                      returnToZero = true })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+                
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+                
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+            
+            rampWorker.Cancel false
+            do! waitForCanceled
+
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00480<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.066<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.239<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+
+    [<Test>]
+    member __.``Can prepare if magnet controller is initially paused``() =
+        async { 
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+
+            magnetController.SetRampRate 0.0840<A/s>
+            magnetController.SetRampTarget Upper
+            do! Async.Sleep(10000)
+            magnetController.SetPause true
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 928
+                      finalFieldIndex = 1536
+                      rampRateIndex = 12
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+        
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
+                
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+            
+            rampWorker.Cancel false
+            do! waitForCanceled
+
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList)
+            Assert.IsTrue(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00110<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.283<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.469<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+        
+    [<Test>]
+    member __.``Can cancel ramp while performing``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 5421
+                      finalFieldIndex = 623
+                      rampRateIndex = 39
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+
+            let! waitForRamping =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) (Ramping Forward))
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.PrepareAndStart()
+            do! waitForRamping
+                
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+                    
+            rampWorker.Cancel false
+            do! waitForCanceled
+        
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; CanceledRamp false ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.AreEqual(0.05400<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.190<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.654<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
     
     [<Test>]
-    member this.``Can cancel ramp while performing and return to zero``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -280
-                  finalFieldIndex = -2345
-                  rampRateIndex = 12
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-        
-        let waitForRamping =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) Ramping)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+    member __.``Can cancel ramp while performing and return to zero``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
 
-        rampWorker.PrepareAndStart()
-        waitForRamping |> Async.RunSynchronously
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
+            
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -280
+                      finalFieldIndex = -2345
+                      rampRateIndex = 12
+                      returnToZero = false })
+        
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+        
+            let! waitForRamping =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) (Ramping Reverse))
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
+
+            rampWorker.PrepareAndStart()
+            do! waitForRamping
                 
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
                     
-        rampWorker.Cancel(true)
-        waitForCompleted |> Async.RunSynchronously
+            rampWorker.Cancel true
+            do! waitForCanceled
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; CanceledRamp(true) |], !rampStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
+            Assert.AreEqual( 
+                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; CanceledRamp true ],
+                List.rev !rampStatusList )
+            Assert.IsTrue(!canceledDidFire)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Zero, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.085<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.716<A>, state.setPointParameters.upperLimit)
-    
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.086<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.716<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
+
     [<Test>]
-    member this.``Can perform ramp``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can perform ramp``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 200
-                  finalFieldIndex = 6002
-                  rampRateIndex = 43
-                  returnToZero = false })
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 200
+                      finalFieldIndex = 6002
+                      rampRateIndex = 43
+                      returnToZero = false })
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
                    
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                rampWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
             
-        rampWorker.PrepareAndStart()
-        waitForCompleted |> Async.RunSynchronously
+            rampWorker.PrepareAndStart()
+            do! waitForSuccess
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; FinishedRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; FinishedRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.061<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.832<A>, state.setPointParameters.upperLimit)
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.061<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.832<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform ramp and return to zero``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 204
-                  finalFieldIndex = 4921
-                  rampRateIndex = 43
-                  returnToZero = true })
+    member __.``Can perform ramp and return to zero``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        rampWorker.PrepareAndStart()
-        waitForCompleted |> Async.RunSynchronously
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 204
+                      finalFieldIndex = 4921
+                      rampRateIndex = 43
+                      returnToZero = true })
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; FinishedRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Zero, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.AreEqual(0.09800<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.062<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.502<A>, state.setPointParameters.upperLimit)
+            let! waitForSuccess =
+                rampWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
+            
+            rampWorker.PrepareAndStart()
+            do! waitForSuccess
+        
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; Ramping Forward; FinishedRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.062<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.502<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can prepare ramp and start when ready``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can prepare ramp and start later``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -235
-                  finalFieldIndex = -993
-                  rampRateIndex = 36
-                  returnToZero = false })
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -235
+                      finalFieldIndex = -993
+                      rampRateIndex = 36
+                      returnToZero = false })
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
                 
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) Ramping)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) (ReadyToRamp))
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
 
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
 
-        Assert.Throws<TimeoutException>(fun () ->
-            Async.RunSynchronously(Async.AwaitEvent(rampWorker.StatusChanged) |> Async.Ignore, 10000))
-        |> ignore
+            Assert.Throws<TimeoutException>(fun () ->
+                Async.RunSynchronously(Async.AwaitEvent(rampWorker.StatusChanged) |> Async.Ignore, 10000))
+            |> ignore
 
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                rampWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
             
-        rampWorker.SetReadyToStart()
-        waitForCompleted |> Async.RunSynchronously
+            rampWorker.SetReadyToStart()
+            do! waitForSuccess
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; FinishedRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse; FinishedRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.AreEqual(0.03600<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.071<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.304<A>, state.setPointParameters.upperLimit)
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.AreEqual(0.03600<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.072<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.303<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can cancel ramp when it is prepared but not started``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+    member __.``Can cancel ramp when it is prepared but not started``() =
+        async { 
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -77
-                  finalFieldIndex = 4456
-                  rampRateIndex = 12
-                  returnToZero = false })
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -77
+                      finalFieldIndex = 4456
+                      rampRateIndex = 12
+                      returnToZero = false })
         
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
-        let waitForReadyToRamp =
-            rampWorker.StatusChanged
-            |> Event.filter ((=) Ramping)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForReadyToRamp =
+                rampWorker.StatusChanged
+                |> Event.filter ((=) ReadyToRamp)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        rampWorker.Prepare()
-        waitForReadyToRamp |> Async.RunSynchronously
+            rampWorker.Prepare()
+            do! waitForReadyToRamp
         
-        Assert.IsFalse(!cancellingDidFire)
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp |], !rampStatusArray )
+            Assert.IsFalse(!canceledDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ], 
+                List.rev !rampStatusList )
 
-        Assert.Throws<TimeoutException>(fun () ->
-            Async.RunSynchronously(Async.AwaitEvent(rampWorker.StatusChanged) |> Async.Ignore, 10000))
-        |> ignore
+            Assert.Throws<TimeoutException>(fun () ->
+                Async.RunSynchronously(Async.AwaitEvent(rampWorker.StatusChanged) |> Async.Ignore, 10000))
+            |> ignore
         
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForCanceled =
+                rampWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
             
-        rampWorker.Cancel(false)
-        waitForCompleted |> Async.RunSynchronously
+            rampWorker.Cancel false
+            do! waitForCanceled
 
-        Assert.IsTrue(!cancellingDidFire)
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; CanceledRamp(false) |], !rampStatusArray )
+            Assert.IsTrue(!canceledDidFire)
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                List.rev !rampStatusList )
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Lower, state.outputParameters.rampTarget)
-        Assert.IsTrue(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.00110<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.024<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(1.360<A>, state.setPointParameters.upperLimit)
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
+            Assert.IsTrue(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.00110<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.024<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(1.360<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform ramp up across zero``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = -205
-                  finalFieldIndex = 623
-                  rampRateIndex = 33
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+    member __.``Can perform ramp up across zero``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
 
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        rampWorker.PrepareAndStart()
-        waitForCompleted |> Async.RunSynchronously
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = -205
+                      finalFieldIndex = 623
+                      rampRateIndex = 33
+                      returnToZero = false })
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; FinishedRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.02400<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Forward, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.063<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.191<A>, state.setPointParameters.upperLimit)
+            let! waitForSuccess =
+                rampWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
+            
+            rampWorker.PrepareAndStart()
+            do! waitForSuccess
+        
+            Assert.AreEqual( 
+                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; ChangingCurrentDirection ; Ramping Forward ; FinishedRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.02400<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.063<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.190<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform ramp down across zero``() =
-        let rampStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-            
-        let rampWorker =
-            new RampWorker(
-                this.MagnetController,
-                { startingFieldIndex = 382
-                  finalFieldIndex = -1000
-                  rampRateIndex = 37
-                  returnToZero = false })
-        
-        rampWorker.StatusChanged.Add(fun newStatus -> rampStatusArray := Array.append !rampStatusArray [| newStatus |])
-        rampWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+    member __.``Can perform ramp down across zero``() =
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
 
-        let waitForCompleted =
-            rampWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let rampStatusList = ref List.empty
+            let canceledDidFire = ref false
             
-        rampWorker.PrepareAndStart()
-        waitForCompleted |> Async.RunSynchronously
+            let rampWorker =
+                new RampWorker(
+                    magnetController,
+                    { startingFieldIndex = 382
+                      finalFieldIndex = -1000
+                      rampRateIndex = 37
+                      returnToZero = false })
         
-        Assert.ArrayElementsAreEqual( [| PreparingRamp ; ReadyToRamp ; Ramping ; FinishedRamp |], !rampStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
+            rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let state = this.MagnetController.GetAllParametersAsync() |> Async.RunSynchronously
-        Assert.AreEqual(Upper, state.outputParameters.rampTarget)
-        Assert.IsFalse(state.currentParameters.isPaused)
-        Assert.IsTrue(state.currentParameters.reachedTarget)
-        Assert.AreEqual(0.04200<A/s>, state.operatingParameters.rampRate)
-        Assert.AreEqual(Reverse, state.operatingParameters.currentDirection)
-        Assert.AreEqual(0.117<A>, state.setPointParameters.lowerLimit)
-        Assert.AreEqual(0.306<A>, state.setPointParameters.upperLimit)
+            let! waitForSuccess =
+                rampWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
+            
+            rampWorker.PrepareAndStart()
+            do! waitForSuccess
+        
+            Assert.AreEqual(
+                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; ChangingCurrentDirection ; Ramping Reverse ; FinishedRamp ],
+                List.rev !rampStatusList )
+            Assert.IsFalse(!canceledDidFire)
+
+            let! parameters = magnetController.GetAllParametersAsync()
+            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
+            Assert.IsFalse(parameters.currentParameters.isPaused)
+            Assert.IsTrue(parameters.currentParameters.reachedTarget)
+            Assert.AreEqual(0.04200<A/s>, parameters.operatingParameters.rampRate)
+            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
+            Assert.AreEqual(0.117<A>, parameters.setPointParameters.lowerSetPoint)
+            Assert.AreEqual(0.305<A>, parameters.setPointParameters.upperSetPoint) }
+        |> Async.RunSynchronously
