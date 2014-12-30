@@ -174,7 +174,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
             let parseOutputParameters response = 
                 // regex for string format "Isnnn.nnnVsnn.nRd[A/V]" where s is +/-, n can be any digit
                 // and d is 0, 1 or 2   
-                (sprintf "Twichenham SMC %s parsing output parameter string %s." (session.ResourceName) response) |> log.Info
+                sprintf "Twichenham SMC %s parsing output parameter string %s." (session.ResourceName) response |> log.Info
                 let regex = @"\GI([\+\-]\d{3}\.\d{3})V([\+\-]\d{2}.\d)R([012])[AV]\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
@@ -186,7 +186,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
             let parseCurrentParameters response = 
                 // regex for string format "RdMdPdXdHdZ0.00EddQsnnn.nnn" where d can take specific digit
                 // values in each instance, s is +/- and n can be any digit
-                (sprintf "Twichenham SMC %s parsing current parameter string %s." (session.ResourceName) response) |> log.Info
+                sprintf "Twichenham SMC %s parsing current parameter string %s." (session.ResourceName) response |> log.Info
                 let regex = @"\GR([012])M([01])P([01])X[0-5]H[012]Z0\.00E[0-3][0-7]Q[\+\-\s]\d{3}\.\d{3}\s$"
                 match response with
                 | ParseRegex regex [ ParseRampTarget r; ParseIntegerBool m; ParseIntegerBool p ] ->
@@ -198,7 +198,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
             let parseOperatingParameters response = 
                 // regex for string format "Ann.nnnnnDdTdBdWnnn.C0.nnnnnn" where n can be any digit and
                 // d can be 0 or 1 in each case 
-                (sprintf "Twichenham SMC %s parsing operating parameter string %s." (session.ResourceName) response) |> log.Info
+                sprintf "Twichenham SMC %s parsing operating parameter string %s." (session.ResourceName) response |> log.Info
                 let regex = @"\GA(\d{2}\.\d{5})D([01])T[01]B[01]W\d{3}\.C0\.\d{6}\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
@@ -209,7 +209,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
             let parseSetPointParameters response = 
                 // regex for string format "TdUnnn.nnnnLnnn.nnnYnn.n" where d can be 0 or 1 and n can be
                 // any digit in each case
-                (sprintf "Twichenham SMC %s parsing set point parameter string %s." (session.ResourceName) response) |> log.Info
+                sprintf "Twichenham SMC %s parsing set point parameter string %s." (session.ResourceName) response |> log.Info
                 let regex = @"\GT[01]U(\d{3}\.\d{3})L(\d{3}\.\d{3})Y(\d{2}\.\d)\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->
@@ -219,61 +219,60 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                 | _ -> failwith "Invalid magnet controller set point parameter string"
         
             let rec loop () = async {
-                (sprintf "(Re)entering Twickenham SMC %s agent loop." (session.ResourceName)) |> log.Info
+                sprintf "(Re)entering Twickenham SMC %s agent loop." (session.ResourceName) |> log.Info
 
                 let! message = mailbox.Receive()
-                (sprintf "Twickenham SMC %s received message %A." (session.ResourceName) message) |> log.Info 
+                sprintf "Twickenham SMC %s received message %A." (session.ResourceName) message |> log.Info 
                 
                 match message with
                 
                 | ReleaseSession ->
-                    (sprintf "Twickenham SMC %s releasing session." (session.ResourceName)) |> log.Info
+                    sprintf "Twickenham SMC %s releasing session." (session.ResourceName) |> log.Info
                     if mailbox.CurrentQueueLength <> 0 then
-                        failwith (sprintf "Twickenham SMC %s received ReleaseSession message when message queue is non-empty." (session.ResourceName))
+                        failwithf "Twickenham SMC %s received ReleaseSession message when message queue is non-empty." (session.ResourceName)
                     sessionReleased.Trigger()
                     
                 // Requests
 
                 | GetOutputParameters replyChannel ->
                     let! response = session.QuerryAsync "G\r\n"
-                    (sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response) |> log.Info
+                    sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response |> log.Info
                     let outputParameters = response |> parseOutputParameters
-                    (sprintf "Twickenham SMC %s replying to output parameter request with\n%A." 
-                        (session.ResourceName) outputParameters) |> log.Info
+                    sprintf "Twickenham SMC %s replying to output parameter request with\n%A." (session.ResourceName) outputParameters |> log.Info
                     outputParameters |> replyChannel.Reply
                     return! loop ()
 
                 | GetCurrentParameters replyChannel ->
                     let! response = session.QuerryAsync "K\r\n"
-                    (sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response) |> log.Info
+                    sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response |> log.Info
                     let currentParameters = response |> parseCurrentParameters
-                    (sprintf "Twickenham SMC %s replying to currenet parameter request with\n%A."
-                        (session.ResourceName) currentParameters) |> log.Info
+                    sprintf "Twickenham SMC %s replying to currenet parameter request with\n%A."
+                        (session.ResourceName) currentParameters |> log.Info
                     currentParameters |> replyChannel.Reply
                     return! loop ()
 
                 | GetOperatingParameters replyChannel ->
                     let! response = session.QuerryAsync "O\r\n"
-                    (sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response) |> log.Info
+                    sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response |> log.Info
                     let operatingParameters = response |> parseOperatingParameters
-                    (sprintf "Twickenham SMC %s replying to operating parameter request with\n%A."
-                        (session.ResourceName) operatingParameters) |> log.Info
+                    sprintf "Twickenham SMC %s replying to operating parameter request with\n%A."
+                        (session.ResourceName) operatingParameters |> log.Info
                     operatingParameters |> replyChannel.Reply
                     return! loop ()
 
                 | GetSetPointParameters replyChannel ->
                     let! response = session.QuerryAsync "S\r\n"
-                    (sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response) |> log.Info
+                    sprintf "Twickenham SMC %s received response from hardware: %s." (session.ResourceName) response |> log.Info
                     let setPointParameters = response |> parseSetPointParameters
-                    (sprintf "Twickenham SMC %s replying to set-point parameter request with\n%A."
-                        (session.ResourceName) setPointParameters) |> log.Info
+                    sprintf "Twickenham SMC %s replying to set-point parameter request with\n%A."
+                        (session.ResourceName) setPointParameters |> log.Info
                     setPointParameters |> replyChannel.Reply
                     return! loop ()
                 
                 // Commands
 
                 | SetRampRate rampRate -> 
-                    (sprintf "Twickenham SMC %s setting ramp rate to %08.5f A/s." (session.ResourceName) (float rampRate)) |> log.Info
+                    sprintf "Twickenham SMC %s setting ramp rate to %08.5f A/s." (session.ResourceName) (float rampRate) |> log.Info
                     do! 
                         sprintf "A%08.5f" (float rampRate)
                         |> session.WriteAsync
@@ -281,7 +280,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
 
                 | SetTripVoltage tripVoltage -> 
-                    (sprintf "Twickenham SMC %s setting trip voltage to %04.1f V." (session.ResourceName) (float tripVoltage)) |> log.Info
+                    sprintf "Twickenham SMC %s setting trip voltage to %04.1f V." (session.ResourceName) (float tripVoltage) |> log.Info
                     do!
                         sprintf "Y%04.1f" (float tripVoltage)
                         |> session.WriteAsync
@@ -289,7 +288,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
 
                  | SetCurrentDirection currentDirection -> 
-                    (sprintf "Twickenham SMC %s setting current direction %A." (session.ResourceName) currentDirection) |> log.Info
+                    sprintf "Twickenham SMC %s setting current direction %A." (session.ResourceName) currentDirection |> log.Info
                     do! 
                         match currentDirection with
                         | Forward -> session.WriteAsync "D0"
@@ -298,7 +297,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
                     
                 | SetLowerSetPoint lowerSetPoint ->
-                    (sprintf "Twickenham SMC %s setting lower set point to %08.4f." (session.ResourceName) (float lowerSetPoint)) |> log.Info
+                    sprintf "Twickenham SMC %s setting lower set point to %08.4f." (session.ResourceName) (float lowerSetPoint) |> log.Info
                     do! 
                         if lowerSetPoint < 100.0<A> then
                             sprintf "L%07.4f" (float lowerSetPoint)
@@ -309,7 +308,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
 
                 | SetUpperSetPoint upperSetPoint -> 
-                    (sprintf "Twickenham SMC %s setting upper set point to %08.4f." (session.ResourceName) (float upperSetPoint)) |> log.Info
+                    sprintf "Twickenham SMC %s setting upper set point to %08.4f." (session.ResourceName) (float upperSetPoint) |> log.Info
                     do! 
                         if upperSetPoint < 100.0<A> then
                             sprintf "U%07.4f" (float upperSetPoint)
@@ -320,7 +319,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
 
                 | SetRampTarget rampTarget -> 
-                    (sprintf "Twickenham SMC %s setting ramp target to %A current limit." (session.ResourceName) rampTarget) |> log.Info
+                    sprintf "Twickenham SMC %s setting ramp target to %A current limit." (session.ResourceName) rampTarget |> log.Info
                     do!
                         match rampTarget with
                         | Zero -> session.WriteAsync "R0"
@@ -330,7 +329,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     return! loop ()
 
                 | SetPause pause ->
-                    (sprintf "Twickenham SMC %s setting pause %s." (session.ResourceName) (if pause then "on" else "off")) |> log.Info 
+                    sprintf "Twickenham SMC %s setting pause %s." (session.ResourceName) (if pause then "on" else "off") |> log.Info 
                     do! 
                         if pause then session.WriteAsync "P1"
                         else session.WriteAsync "P0"
@@ -370,7 +369,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
 
     member __.SetRampRate rampRate =
         if rampRate > deviceParameters.rampRateLimit then 
-            failwith (sprintf "Cannot set magnet controller ramp rate greater than %A A/s." deviceParameters.rampRateLimit)
+            failwithf "Cannot set magnet controller ramp rate greater than %A A/s." deviceParameters.rampRateLimit
         if rampRate < 0.0<A/s> then
             failwith "Cannot set magnet controller ramp rate to a negative value."
 
@@ -383,7 +382,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
 
     member __.SetTripVoltage tripVoltage =
         if tripVoltage > deviceParameters.tripVoltageLimit then 
-            failwith (sprintf "Cannot set magnet controller trip voltage greater than %A V." deviceParameters.tripVoltageLimit)
+            failwithf "Cannot set magnet controller trip voltage greater than %A V." deviceParameters.tripVoltageLimit
         if tripVoltage < 0.0<V> then
             failwith "Cannot set magnet controller trip voltage to a negative value."
 
@@ -396,7 +395,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
 
     member __.SetLowerSetPoint lowerSetPoint =
         if lowerSetPoint > deviceParameters.currentLimit then
-            failwith (sprintf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit)
+            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit
         if lowerSetPoint < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
 
@@ -410,7 +409,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
 
     member __.SetUpperSetPoint upperSetPoint =
         if upperSetPoint > deviceParameters.currentLimit then
-            failwith (sprintf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit)
+            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit
         if upperSetPoint < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
         

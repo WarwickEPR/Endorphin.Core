@@ -109,14 +109,14 @@ type RampWorker(magnetController : MagnetController, ramp) =
             failwith "Cannot prepare ramp as cancellation was already requested."
 
         "Ramp worker preparing..." |> log.Info
-        (sprintf "Starting current direction: %A." startingCurrentDirection) |> log.Info
-        (sprintf "Final current direction: %A." finalCurrentDirection) |> log.Info
-        (sprintf "Starting current: %08.4f A." (float startingCurrent)) |> log.Info
-        (sprintf "Final current: %08.4f A." (float finalCurrent)) |> log.Info
-        (sprintf "Starting ramp target: %A." startingRampTarget) |> log.Info
-        (sprintf "Final ramp target: %A." finalRampTarget) |> log.Info
-        (sprintf "Ramp rate index: %d." ramp.rampRateIndex) |> log.Info
-        (sprintf "Return to zero: %A." ramp.returnToZero) |> log.Info
+        sprintf "Starting current direction: %A." startingCurrentDirection |> log.Info
+        sprintf "Final current direction: %A." finalCurrentDirection |> log.Info
+        sprintf "Starting current: %08.4f A." (float startingCurrent) |> log.Info
+        sprintf "Final current: %08.4f A." (float finalCurrent) |> log.Info
+        sprintf "Starting ramp target: %A." startingRampTarget |> log.Info
+        sprintf "Final ramp target: %A." finalRampTarget |> log.Info
+        sprintf "Ramp rate index: %d." ramp.rampRateIndex |> log.Info
+        sprintf "Return to zero: %A." ramp.returnToZero |> log.Info
 
         let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
 
@@ -209,7 +209,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 syncContext.RaiseEvent statusChanged FinishedRamp
                 syncContext.RaiseEvent success ()),
             (fun exn -> // error
-                (sprintf "Ramp failed due to error: %A. Stack trace:\n%s" exn (exn.StackTrace)) |> log.Error
+                sprintf "Ramp failed due to error: %A. Stack trace:\n%s" exn (exn.StackTrace) |> log.Error
                 syncContext.RaiseEvent statusChanged FailedRamp
                 syncContext.RaiseEvent error exn),
             (fun exn -> // cancellation
