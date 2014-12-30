@@ -228,11 +228,10 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                 
                 | ReleaseSession ->
                     (sprintf "Twickenham SMC %s releasing session." (session.ResourceName)) |> log.Info
+                    if mailbox.CurrentQueueLength <> 0 then
+                        failwith (sprintf "Twickenham SMC %s received ReleaseSession message when message queue is non-empty." (session.ResourceName))
                     sessionReleased.Trigger()
                     
-                    if mailbox.CurrentQueueLength <> 0 then
-                        failwith (sprintf "Twickenham SMC %s received CloseSession message when message queue is non-empty." (session.ResourceName))
-
                 // Requests
 
                 | GetOutputParameters replyChannel ->
