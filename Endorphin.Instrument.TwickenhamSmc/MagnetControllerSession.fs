@@ -29,7 +29,7 @@ type MagnetControllerSession(visaAddress, deviceParameters : DeviceParameters) =
             sprintf "Twickenham SMC session %s received session command %A." visaAddress message |> log.Info
             
             match message with
-            | RequestControl(replyChannel) ->
+            | RequestControl replyChannel ->
                 sprintf "Creating controller for Twickenham SMC session %s." visaAddress |> log.Info
                 let magnetController = new MagnetController(session, deviceParameters)
                 let! waitForSessionReleased = 
@@ -44,12 +44,14 @@ type MagnetControllerSession(visaAddress, deviceParameters : DeviceParameters) =
                 sprintf "Controler released Twickenham SMC session %s." visaAddress |> log.Info
                 return! loop session
             
-            | CloseSession(replyChannel) ->                
+            | CloseSession replyChannel ->                
                 sprintf "Closing Twickenham SMC session %s." visaAddress |> log.Info
                 session.Dispose()
 
                 if mailbox.CurrentQueueLength <> 0 then
-                    failwith "Closed magnet controller session with pending requests."
+                    let closeError = sprintf "Closed Twicenham SMC session %s with pending requests." visaAddress
+                    log.Error closeError
+                    failwith closeError
                 
                 sprintf "Successfully closed Twickenham SMC session %s." visaAddress |> log.Info
                 replyChannel.Reply() }
