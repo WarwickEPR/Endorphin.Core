@@ -57,8 +57,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ApiImport.fs" />
     <Compile Include="PicoScope.fs" />
-    <Compile Include="ChannelData.fs" />
-    <Compile Include="ChannelAggregateData.fs" />
+    <Compile Include="PicoScopeSession.fs" />
     <Compile Include="StreamWorker.fs" />
     <None Include="packages.config" />
   </ItemGroup>

@@ -254,7 +254,7 @@ module internal Errors =
         | PicoStatus.ChannelDisabledDueToUsbPower -> "USB Power not sufficient to power all channels."
         | status -> String.Format("Failed with unexpected PicoStatus value: {0}.", status)
 
-    let checkStatusIsOk command status =
+    let errorMessage status =
         match status with
-        | PicoStatus.Ok -> ()
-        | _ -> raise (PicoException(messageForStatus(status), status, command.ToString()))
+        | PicoStatus.Ok | PicoStatus.PowerSupplyConnected -> None
+        | _ -> Some (messageForStatus status)
