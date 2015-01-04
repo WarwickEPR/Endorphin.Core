@@ -209,7 +209,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 syncContext.RaiseEvent statusChanged FinishedRamp
                 syncContext.RaiseEvent success ()),
             (fun exn -> // error
-                sprintf "Ramp failed due to error: %A. Stack trace:\n%s" exn (exn.StackTrace) |> log.Error
+                log.Error (sprintf "Ramp failed due to error: %A." exn, exn)
                 syncContext.RaiseEvent statusChanged FailedRamp
                 syncContext.RaiseEvent error exn),
             (fun exn -> // cancellation
