@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="Async.fs" />
     <Compile Include="Observable.fs" />
+    <Compile Include="Event.fs" />
     <Compile Include="StringUtils.fs" />
     <Compile Include="Units.fs" />
     <Compile Include="NationalInstruments.fs" />
