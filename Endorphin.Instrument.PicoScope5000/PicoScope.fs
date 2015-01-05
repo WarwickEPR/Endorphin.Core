@@ -11,9 +11,9 @@ open log4net
 open System.Runtime.InteropServices
 
 type LedFlash =
-    | Off
-    | Repeat of counts : int16
-    | IndefiniteRepeat
+    | LedOff
+    | LedRepeat of counts : int16
+    | LedIndefiniteRepeat
 
 type internal Command =
     | ReleaseSession
@@ -399,15 +399,15 @@ type PicoScope5000(session) =
 
             | SetLedFlash ledFlash ->
                 match ledFlash with
-                | Off ->
+                | LedOff ->
                     Api.FlashLed(session.handle, 0s) |> checkStatus message
                     sprintf "PicoScope %s successfully stopped LED flashing." |> log.Info
-                | Repeat counts ->
+                | LedRepeat counts ->
                     if counts <= 0s then
                         invalidArg "conunts" "The device LED can only be flashed a positive, non-zero number of times." counts
                     Api.FlashLed(session.handle, counts) |> checkStatus message
                     sprintf "PicoScope %s successfully set LED to flash %d times." session.serial counts |> log.Info
-                | IndefiniteRepeat ->
+                | LedIndefiniteRepeat ->
                     Api.FlashLed(session.handle, -1s) |> checkStatus message
                     sprintf "PicoScope %s successfully set LED to flash indefinitely." session.serial |> log.Info
 
