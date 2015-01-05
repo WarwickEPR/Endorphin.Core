@@ -16,487 +16,470 @@ open log4net
 type ``PicoScope 5000 series streaming tests``() = 
     static let log = LogManager.GetLogger typeof<``PicoScope 5000 series streaming tests``>
 
-    let picoScope : PicoScope5000 option ref = ref None
+    let picoScopeSession = new PicoScope5000Session(picoScope5000serial)
     let _ = log4netConfig()
-
-    member this.PicoScope =
-        match !picoScope with
-        | Some(scope) -> scope
-        | None -> raise (new NullReferenceException())
-
-    [<TestFixtureSetUp>]
-    member this.``Connect to PicoScope``() =
-        picoScope := Some(new PicoScope5000())
-        this.PicoScope.Error.Add(fun exn ->
-            picoScope := None
-            Assert.Fail(sprintf "PicoScope agent crashed due to error: %A" exn))
-
-        let isMainsPowered =
-            this.PicoScope.GetUnitIsMainsPoweredAsync()
-            |> Async.RunSynchronously
-        Assert.IsTrue(isMainsPowered, 
-            "The PicoScope is not mains-powered. These unit test assume that the device has mains-power.")
 
     [<TestFixtureTearDown>]
     member this.``Disconnect from PicoScope``() =
-        if (!picoScope).IsSome then
-            this.PicoScope.PingAsync() |> Async.RunSynchronously 
-            (this.PicoScope :> IDisposable).Dispose()
-            picoScope := None
+        picoScopeSession.CloseSessionAsync() |> Async.RunSynchronously
 
     [<TearDown>]
     member this.``Check response after test``() =
         // if the agent crashes then this will fail
-        this.PicoScope.PingAsync() |> Async.RunSynchronously
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
+            do! pico.PingAsync() } 
+        |> Async.RunSynchronously
 
     [<Test>]
     [<Repeat(1000)>]
     member this.``Can perform 1000 short streaming acquisitions with auto stop``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+        async { 
+            use! pico = picoScopeSession.RequestControlAsync()
+
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
         
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
+            let x = (Channel.A, { 
+                inputSettings =  { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 5000u)
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
         
-        let x = ChannelData(Channel.A, Downsampling.None)
-
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 5000u)
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 1000
+            |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-        x.Samples.Buffer(1000)
-        |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
-        
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild 
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild 
 
-        streamWorker.PrepareAndStart()    
-        waitForCompleted |> Async.RunSynchronously
+            streamWorker.PrepareAndStart()    
+            do! waitForSuccess
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream(true) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream(true) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can perform long-running (10min) streaming acquisition with auto stop``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+        async { 
+            use! pico = picoScopeSession.RequestControlAsync()
+             
+            let streamStatusArray = ref Array.empty
+            let cancellingDidFire = ref false
         
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
+            let x = (Channel.A, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
         
-        let x = ChannelData(Channel.A, Downsampling.None)
-
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 6000000u)
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 6000000u)
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
         
-        x.Samples.Buffer(1000)
-        |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 1000
+            |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
 
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> cancellingDidFire := true)
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild 
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild 
 
-        streamWorker.PrepareAndStart()    
-        waitForCompleted |> Async.RunSynchronously
+            streamWorker.PrepareAndStart()    
+            do! waitForSuccess
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
+            Assert.IsFalse(!cancellingDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can perform long-running (10min) streaming acquisition at 1 Msps``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
+
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
         
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
+            let x = (Channel.A, { 
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
         
-        let x = ChannelData(Channel.A, Downsampling.None)
-
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 600000000u)
-                  sampleInterval = 1000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 600000000u)
+                      sampleInterval = 1000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
         
-        x.Samples.Buffer(1000000)
-        |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 1000000
+            |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
 
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild 
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild 
 
-        streamWorker.PrepareAndStart()    
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream(true) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            streamWorker.PrepareAndStart()    
+            do! waitForSuccess
+
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream(true) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     [<Repeat(1000)>]
     member this.``Can perform 1000 short streaming acquisitions with manual stop``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
+
+            let x = (Channel.A, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full}
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = ManualStop
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
+
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 1000
+            |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-        let x = ChannelData(Channel.A, Downsampling.None)
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = ManualStop
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
-
-        x.Samples.Buffer(1000)
-        |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.PrepareAndStart()
+            "Waiting for 1s." |> log.Debug
+            do! Async.Sleep 1000
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
-        
-        streamWorker.PrepareAndStart()
-        "Waiting for 1s." |> log.Debug
-        Thread.Sleep(1000)
+            let! waitForSuccess =
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            "Stopping acquisition stream" |> log.Debug
+            streamWorker.Stop()
+            do! waitForSuccess
 
-        "Stopping acquisition stream" |> log.Debug
-        streamWorker.Stop()
-        waitForCompleted |> Async.RunSynchronously
-        
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can perform long-running (10min) streaming acquisition with manual stop``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-        
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
-        
-        let x = ChannelData(Channel.A, Downsampling.None)
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = ManualStop
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
+        
+            let x = (Channel.A, { 
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList }) 
+        
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = ManualStop
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
 
-        x.Samples.Buffer(10000)
-        |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 10000
+            |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
                           
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
-        streamWorker.PrepareAndStart()
+            streamWorker.PrepareAndStart()
 
-        "Waiting for 10 min." |> log.Debug
-        Thread.Sleep(600000)
+            "Waiting for 10 min." |> log.Debug
+            do! Async.Sleep 600000
         
-        let waitForCompleted = 
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForSuccess = 
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
 
-        "Stopping acquisition stream" |> log.Debug
-        streamWorker.Stop()
-        waitForCompleted |> Async.RunSynchronously
+            "Stopping acquisition stream" |> log.Debug
+            streamWorker.Stop()
+            do! waitForSuccess
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can perform stream sampling all input channels``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-        
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full })  
-              (Channel.B, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full })  
-              (Channel.C, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full })  
-              (Channel.D, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
-        
-        let w = ChannelData(Channel.A, Downsampling.None)
-        let x = ChannelData(Channel.B, Downsampling.None)
-        let y = ChannelData(Channel.C, Downsampling.None)
-        let z = ChannelData(Channel.D, Downsampling.None)
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 100000u)
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ w ; x ; y ; z ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
-                                            
-        (w.Samples, x.Samples, y.Samples, z.Samples)
-        |> Observable.zip4
-        |> Observable.buffer 10000
-        |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
+        
+            let w = (Channel.A, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
             
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            let x = (Channel.B, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+            
+            let y = (Channel.C, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+            
+            let z = (Channel.D, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 100000u)
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ w ; x ; y ; z ] |> Map.ofList
+                      memorySegment = 0u })
+                                            
+            streamWorker.SampleSlice
+            |> Observable.buffer 10000
+            |> Observable.add (fun _ -> "Processed 10000 sample slices." |> log.Debug)
+            
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        let waitForCompleted = 
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        streamWorker.PrepareAndStart()
-        waitForCompleted |> Async.RunSynchronously
+            let! waitForSuccess = 
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            streamWorker.PrepareAndStart()
+            do! waitForSuccess
+
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can prepare stream and cancel without starting``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-        
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
-        
-        let x = ChannelData(Channel.A, Downsampling.None)
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = ManualStop
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
         
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            let x = 
+                (Channel.A, { 
+                    inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                    downsamplingModes = [ Downsampling.None ] |> Set.ofList })
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = ManualStop
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
         
-        let waitForReady = 
-            streamWorker.StatusChanged
-            |> Event.filter ((=) ReadyToStream)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
+        
+            let! waitForReady = 
+                streamWorker.StatusChanged
+                |> Event.filter ((=) ReadyToStream)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
                     
-        streamWorker.Prepare()
-        waitForReady |> Async.RunSynchronously
+            streamWorker.Prepare()
+            do! waitForReady
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire)
         
-        do
-            use failIfStatusChanged =
+            let failIfStatusChanged =
                 streamWorker.StatusChanged
                 |> Observable.subscribe (fun status -> 
                     (sprintf "Stream status changed to %A after ReadyToStream but before call to SetReadyToStart." status) |> Assert.Fail)
 
-            Thread.Sleep(3000)
+            do! Async.Sleep 1000
+            failIfStatusChanged.Dispose()
+            
+            let! waitForCanceled =
+                streamWorker.Canceled
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            streamWorker.Stop()
+            do! waitForCanceled
 
-        streamWorker.Stop()
-        waitForCompleted |> Async.RunSynchronously |> ignore
-
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-        Assert.IsTrue(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
+            Assert.IsTrue(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can prepare stream then start``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
-        
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
-        
-        let x = ChannelData(Channel.A, Downsampling.None)
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 100000u)
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
+        
+            let x = (Channel.A, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+        
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 100000u)
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
                   
-        x.Samples.Buffer(10000)
-        |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
+            streamWorker.Samples Channel.A AllSamples
+            |> Observable.buffer 10000
+            |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
 
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let waitForReady = 
-            streamWorker.StatusChanged
-            |> Event.filter ((=) ReadyToStream)
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForReady = 
+                streamWorker.StatusChanged
+                |> Event.filter ((=) ReadyToStream)
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        streamWorker.Prepare()
-        waitForReady |> Async.RunSynchronously
+            streamWorker.Prepare()
+            do! waitForReady
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire)
 
-        do
-            use failIfStatusChanged =
+            let failIfStatusChanged =
                 streamWorker.StatusChanged
                 |> Observable.subscribe (fun status -> 
                     (sprintf "Stream status changed to %A after ReadyToStream but before call to SetReadyToStart." status) |> Assert.Fail)
 
-            Thread.Sleep(3000)
-        
-        let waitForCompleted = 
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            do! Async.Sleep 3000
+            failIfStatusChanged.Dispose()
 
-        streamWorker.SetReadyToStart()
-        waitForCompleted |> Async.RunSynchronously
+            let! waitForSuccess = 
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            streamWorker.SetReadyToStart()
+            do! waitForSuccess
+
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     [<Test>]
     member this.``Can manually stop auto-stop stream``() =
-        let streamStatusArray = ref Array.empty
-        let cancellingDidFire = ref false
+        async {
+            use! pico = picoScopeSession.RequestControlAsync()
 
-        let streamChannels =  
-            [ (Channel.A, { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }) ] 
+            let streamStatusArray = ref Array.empty
+            let canceledDidFire = ref false
+
+            let x = (Channel.A, {
+                inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
+                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
         
-        let x = ChannelData(Channel.A, Downsampling.None)
-
-        let streamWorker = 
-            new StreamWorker(
-                this.PicoScope,
-                { streamStop = AutoStop(0u, 600000u)
-                  sampleInterval = 100000<ns>
-                  downsamplingRatio = 1u
-                  triggerSettings = AutoTrigger 200s<ms>
-                  activeChannels = streamChannels
-                  channelStreams = [ x ]
-                  channelAggregateStreams = []
-                  memorySegment = 0u })
+            let streamWorker = 
+                new StreamWorker(pico,
+                    { streamStop = AutoStop(0u, 600000u)
+                      sampleInterval = 100000<ns>
+                      downsamplingRatio = 1u
+                      triggerSettings = AutoTrigger 200s<ms>
+                      activeChannels = [ x ] |> Map.ofList
+                      memorySegment = 0u })
                   
-        streamWorker.StatusChanged.Add(fun newStatus -> 
-            streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
+            streamWorker.StatusChanged.Add(fun newStatus -> 
+                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
 
-        streamWorker.Cancelling.Add(fun _ -> cancellingDidFire := true)
+            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
-        let waitForStreaming = 
-            streamWorker.StatusChanged
-            |> Event.filter ((=) (Streaming 100000<ns>))
-            |> Async.AwaitEvent
-            |> Async.Ignore
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForStreaming = 
+                streamWorker.StatusChanged
+                |> Event.filter ((=) (Streaming 100000<ns>))
+                |> Async.AwaitEvent
+                |> Async.Ignore
+                |> Async.StartChild
 
-        streamWorker.PrepareAndStart()
-        waitForStreaming |> Async.RunSynchronously
-        Thread.Sleep(5000)
+            streamWorker.PrepareAndStart()
+            do! waitForStreaming
+            do! Async.Sleep 5000
 
-        let waitForCompleted =
-            streamWorker.Completed
-            |> Async.AwaitEvent
-            |> Async.StartChild
-            |> Async.RunSynchronously
+            let! waitForSuccess =
+                streamWorker.Success
+                |> Async.AwaitEvent
+                |> Async.StartChild
 
-        streamWorker.Stop()
-        waitForCompleted |> Async.RunSynchronously
+            streamWorker.Stop()
+            waitForSuccess |> Async.RunSynchronously
 
-        Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-        Assert.IsFalse(!cancellingDidFire)
+            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
+            Assert.IsFalse(!canceledDidFire) }
+        |> Async.RunSynchronously
 
     // TODO:
     // - downsampling
