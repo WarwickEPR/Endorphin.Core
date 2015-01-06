@@ -16,6 +16,7 @@ type RampStatus =
     | PreparingRamp
     | ReadyToRamp
     | ChangingCurrentDirection
+    | ReadyToContinue // after crossing zero current
     | Ramping of CurrentDirection
     | FinishedRamp
     | CanceledRamp of returnToZero : bool
@@ -33,6 +34,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
     let canceled = new Event<OperationCanceledException>()
     
     let readyToStart = new ManualResetHandle(false)
+    let readyToContinue = new ManualResetHandle(false)
     let cancellationCapability =
         new CancellationCapability<RampCancellationOptions>()
     
@@ -94,15 +96,22 @@ type RampWorker(magnetController : MagnetController, ramp) =
     member __.Cancel returnToZero =
         "Ramp worker stopping..." |> log.Info
         cancellationCapability.Cancel { returnToZero = returnToZero }
-        readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
+        // continue the workflow if it is currently waiting
+        readyToStart.Set() |> ignore
+        readyToContinue.Set() |> ignore
 
     member this.PrepareAndStart() =
         this.SetReadyToStart()
+        this.SetReadyToContinue()
         this.Prepare()
 
     member __.SetReadyToStart() =
         "Setting ramp worker ready to start." |> log.Info
         readyToStart.Set() |> ignore
+
+    member __.SetReadyToContinue() =
+        "Setting ramp worker ready to continue." |> log.Info
+        readyToContinue.Set() |> ignore
 
     member __.Prepare() =
         if cancellationCapability.IsCancellationRequested then
@@ -160,10 +169,16 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 magnetController.SetRampRateByIndex (ramp.rampRateIndex) }
 
             let awaitReadyForRamp = async {
-                "Waiting for ready-for-ramp signal..." |> log.Info
+                "Waiting for ready-to-start signal..." |> log.Info
                 syncContext.RaiseEvent statusChanged ReadyToRamp
                 do! Async.AwaitWaitHandle readyToStart |> Async.Ignore
-                "Received ready-for-ramp signal." |> log.Info }
+                "Received ready-to-start signal." |> log.Info }
+
+            let awaitReadyToContinue = async {
+                "Waiting for ready-to-continue signal..." |> log.Info
+                syncContext.RaiseEvent statusChanged ReadyToContinue
+                do! Async.AwaitWaitHandle readyToContinue |> Async.Ignore
+                "Ready ready-to-continue signal." |> log.Info }
             
             let performRamp = async { 
                 "Performing ramp..." |> log.Info
@@ -175,6 +190,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     syncContext.RaiseEvent statusChanged ChangingCurrentDirection
                     do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync finalCurrentDirection 
                     "Reached zero current and changed current direction." |> log.Info
+                    do! awaitReadyToContinue
                 
                 "Ramping to final ramp target." |> log.Info
                 syncContext.RaiseEvent statusChanged (Ramping finalCurrentDirection)
@@ -193,7 +209,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     magnetController.SetPause true
 
                 "Ramp Canceled." |> log.Info
-                syncContext.RaiseEvent statusChanged (CanceledRamp (cancellationCapability.Options.returnToZero)))
+                syncContext.RaiseEvent statusChanged (CanceledRamp cancellationCapability.Options.returnToZero))
             
             // perform ramp
             do! prepareForRamp

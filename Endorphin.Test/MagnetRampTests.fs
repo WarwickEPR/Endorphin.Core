@@ -925,7 +925,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual( 
-                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; ChangingCurrentDirection ; Ramping Forward ; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; ChangingCurrentDirection ; ReadyToContinue ; Ramping Forward ; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -967,7 +967,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; ChangingCurrentDirection ; Ramping Reverse ; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; ChangingCurrentDirection ; ReadyToContinue ; Ramping Reverse ; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
