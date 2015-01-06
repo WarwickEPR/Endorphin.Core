@@ -50,8 +50,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="TestUtils.fs" />
-    <Compile Include="Devices.fs" />
+    <Compile Include="Config.fs" />
     <Compile Include="MagnetControllerTests.fs" />
     <Compile Include="MagnetControllerTestsWithPrep.fs" />
     <Compile Include="MagnetRampTests.fs" />

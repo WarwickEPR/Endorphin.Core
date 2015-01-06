@@ -192,28 +192,26 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     "Not requested to return to zero current. Pausing magnet controller..." |> log.Info
                     magnetController.SetPause true
 
-                "Workflow finished with cancellation." |> log.Info)
+                "Ramp Canceled." |> log.Info
+                syncContext.RaiseEvent statusChanged (CanceledRamp (cancellationCapability.Options.returnToZero)))
             
             // perform ramp
             do! prepareForRamp
             do! awaitReadyForRamp
             do! performRamp
             if ramp.returnToZero then 
-                do! magnetController.RampToZeroAsync() }
+                do! magnetController.RampToZeroAsync()
+            
+            "Ramp completed successfully." |> log.Info
+            syncContext.RaiseEvent statusChanged FinishedRamp }
         
         "Starting ramp workflow." |> log.Info
         Async.StartWithContinuations(
             workflow,
-            (fun () -> // success
-                "Ramp completed successfully." |> log.Info
-                syncContext.RaiseEvent statusChanged FinishedRamp
-                syncContext.RaiseEvent success ()),
+            (fun () -> syncContext.RaiseEvent success ()),
             (fun exn -> // error
                 log.Error (sprintf "Ramp failed due to error: %A." exn, exn)
                 syncContext.RaiseEvent statusChanged FailedRamp
                 syncContext.RaiseEvent error exn),
-            (fun exn -> // cancellation
-                "Ramp cancelled" |> log.Info
-                syncContext.RaiseEvent statusChanged (CanceledRamp (cancellationCapability.Options.returnToZero))
-                syncContext.RaiseEvent canceled exn),
+            (fun exn -> syncContext.RaiseEvent canceled exn),
             cancellationCapability.Token)

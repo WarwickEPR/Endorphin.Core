@@ -3,13 +3,12 @@
 open Endorphin.Core.StringUtils
 open Endorphin.Core.Units
 open Endorphin.Instrument.PicoScope5000
-open Devices
 open NUnit.Framework
 open System
 open System.Threading
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Reactive.Linq
-open TestUtils
+open Config
 
 [<TestFixture>]
 type ``PicoScope 5000 series tests``() = 

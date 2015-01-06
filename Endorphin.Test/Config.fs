@@ -1,8 +1,12 @@
-﻿module Devices
+﻿module Config
 
+open NUnit.Framework
+open log4net.Config
 open Endorphin.Instrument.TwickenhamSmc
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-open NUnit.Framework
+
+type log4netConfig() =
+    static do BasicConfigurator.Configure() |> ignore
 
 let picoScope5000serial = "CW336/061"
 let magnetControllerVisaAddress = "GPIB0::4"

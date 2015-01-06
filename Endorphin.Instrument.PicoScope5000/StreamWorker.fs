@@ -181,7 +181,11 @@ type StreamWorker(pico : PicoScope5000, stream) =
             syncContext.RaiseEvent statusChanged (Streaming acquisition.SampleInterval)
 
             "Starting poll loop." |> log.Info
-            do! pollLoop acquisition }
+            do! pollLoop acquisition
+            
+            let didAutoStop = stopCabapility.Options.didAutoStop
+            sprintf "Stream finished successfully %s auto-stop." (if didAutoStop then "with" else "without") |> log.Info
+            syncContext.RaiseEvent statusChanged (FinishedStream didAutoStop) }
 
         let startupWorkflow = async {
             let setupChannels = async {
@@ -226,18 +230,19 @@ type StreamWorker(pico : PicoScope5000, stream) =
             "Preparing for stream acquisition." |> log.Info
             syncContext.RaiseEvent statusChanged PreparingStream
             
-            use! __ = Async.OnCancel pico.DiscardDataBuffers
+            use! __ = Async.OnCancel (fun () -> 
+                pico.DiscardDataBuffers()
+                
+                "Stream canceled before starting." |> log.Info
+                syncContext.RaiseEvent statusChanged CanceledStream)
+
             do! setupChannels
             let! buffers = createBuffers
             do! awaitReadyForStream
             
             Async.StartWithContinuations(
                 streamWorkflow buffers,
-                (fun () ->
-                    let didAutoStop = stopCabapility.Options.didAutoStop
-                    sprintf "Stream finished successfully %s auto-stop." (if didAutoStop then "with" else "without") |> log.Info
-                    syncContext.RaiseEvent statusChanged (FinishedStream didAutoStop)
-                    syncContext.RaiseEvent success ()),
+                (fun () -> syncContext.RaiseEvent success ()),
                 (fun exn ->
                     stopCabapility.Cancel { didAutoStop = false }
                     log.Error (sprintf "Stream failed during acquisition acquisition due to error %A." exn, exn)
@@ -253,8 +258,5 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 log.Error ((sprintf "Stream failed before starting due to error %A." exn), exn)
                 syncContext.RaiseEvent statusChanged FailedStream
                 syncContext.RaiseEvent error exn),
-            (fun exn -> 
-                "Stream canceled before starting." |> log.Info
-                syncContext.RaiseEvent statusChanged CanceledStream
-                syncContext.RaiseEvent canceled exn), // canceled event won't be raised unless the stream is stopped before it starts running
+            (fun exn -> syncContext.RaiseEvent canceled exn), // canceled event won't be raised unless the stream is stopped before it starts running
             cancellationCapability.Token)

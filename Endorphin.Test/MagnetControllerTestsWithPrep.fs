@@ -1,11 +1,10 @@
 ﻿namespace Endorphin.Test.TwickenhamSmc
 
 open Endorphin.Instrument.TwickenhamSmc
-open Devices
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NUnit.Framework
 open System
-open TestUtils
+open Config
 
 [<TestFixture>]
 type ``Magnet controller tests with prepared state``() = 

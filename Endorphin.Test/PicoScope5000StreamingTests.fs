@@ -3,13 +3,12 @@
 open Endorphin.Core.Units
 open Endorphin.Core.ObservableExtensions
 open Endorphin.Instrument.PicoScope5000
-open Devices
 open NUnit.Framework
 open System
 open System.Threading
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Reactive.Linq
-open TestUtils
+open Config
 open log4net
 
 [<TestFixture>]
@@ -37,7 +36,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async { 
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let x = (Channel.A, { 
@@ -57,9 +56,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
@@ -70,8 +67,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()    
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream(true) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream true ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -79,7 +78,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async { 
             use! pico = picoScopeSession.RequestControlAsync()
              
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let cancellingDidFire = ref false
         
             let x = (Channel.A, {
@@ -99,9 +98,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> cancellingDidFire := true)
 
             let! waitForSuccess =
@@ -112,8 +109,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()    
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-            Assert.IsFalse(!cancellingDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
+                List.rev !streamStatusList )
+            Assert.IsFalse !cancellingDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -121,7 +120,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let x = (Channel.A, { 
@@ -141,9 +140,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 1000000
             |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
@@ -154,8 +151,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()    
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream(true) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream true ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -164,7 +163,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
 
             let x = (Channel.A, {
@@ -184,9 +183,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
             streamWorker.PrepareAndStart()
@@ -202,8 +199,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -211,7 +210,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let x = (Channel.A, { 
@@ -231,9 +230,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
                           
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
             streamWorker.PrepareAndStart()
@@ -250,8 +247,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -259,7 +258,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let w = (Channel.A, {
@@ -291,9 +290,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 sample slices." |> log.Debug)
             
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess = 
@@ -304,8 +301,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -313,7 +312,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let x = 
@@ -330,9 +329,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
         
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
         
             let! waitForReady = 
@@ -345,8 +342,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Prepare()
             do! waitForReady
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire)
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire
         
             let failIfStatusChanged =
                 streamWorker.StatusChanged
@@ -365,8 +364,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! waitForCanceled
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-            Assert.IsTrue(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; CanceledStream ],
+                List.rev !streamStatusList)
+            Assert.IsTrue !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -374,7 +375,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
         
             let x = (Channel.A, {
@@ -394,9 +395,7 @@ type ``PicoScope 5000 series streaming tests``() =
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForReady = 
@@ -409,8 +408,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Prepare()
             do! waitForReady
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire)
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire
 
             let failIfStatusChanged =
                 streamWorker.StatusChanged
@@ -428,8 +429,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.SetReadyToStart()
             do! waitForSuccess
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(true) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -437,7 +440,7 @@ type ``PicoScope 5000 series streaming tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusArray = ref Array.empty
+            let streamStatusList = ref List.empty
             let canceledDidFire = ref false
 
             let x = (Channel.A, {
@@ -453,9 +456,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
                   
-            streamWorker.StatusChanged.Add(fun newStatus -> 
-                streamStatusArray := Array.append !streamStatusArray [| newStatus |] )
-
+            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForStreaming = 
@@ -477,8 +478,10 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             waitForSuccess |> Async.RunSynchronously
 
-            Assert.ArrayElementsAreEqual( [| PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream(false) |], !streamStatusArray )
-            Assert.IsFalse(!canceledDidFire) }
+            Assert.AreEqual(
+                [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
+                List.rev !streamStatusList)
+            Assert.IsFalse !canceledDidFire }
         |> Async.RunSynchronously
 
     // TODO:

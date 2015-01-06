@@ -1,9 +1,8 @@
 ﻿namespace Endorphin.Test.PicoScope5000
 
 open Endorphin.Instrument.PicoScope5000
-open Devices
 open NUnit.Framework
-open TestUtils
+open Config
 
 [<TestFixture>]
 type ``PicoScope 5000 series connection tests``() = 
