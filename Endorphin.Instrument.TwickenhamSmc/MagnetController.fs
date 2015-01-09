@@ -276,7 +276,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     do! 
                         sprintf "A%08.5f" (float rampRate)
                         |> session.WriteAsync
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
 
                 | SetTripVoltage tripVoltage -> 
@@ -284,7 +284,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     do!
                         sprintf "Y%04.1f" (float tripVoltage)
                         |> session.WriteAsync
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
 
                  | SetCurrentDirection currentDirection -> 
@@ -293,7 +293,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                         match currentDirection with
                         | Forward -> session.WriteAsync "D0"
                         | Reverse -> session.WriteAsync "D1"
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
                     
                 | SetLowerSetPoint lowerSetPoint ->
@@ -304,7 +304,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                         else
                             sprintf "L%07.3f" (float lowerSetPoint) 
                         |> session.WriteAsync
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
 
                 | SetUpperSetPoint upperSetPoint -> 
@@ -315,7 +315,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                         else
                             sprintf "U%07.3f" (float upperSetPoint) 
                         |> session.WriteAsync
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
 
                 | SetRampTarget rampTarget -> 
@@ -325,7 +325,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                         | Zero -> session.WriteAsync "R0"
                         | Lower -> session.WriteAsync "R1"
                         | Upper -> session.WriteAsync "R2"
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop ()
 
                 | SetPause pause ->
@@ -333,7 +333,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : DevicePa
                     do! 
                         if pause then session.WriteAsync "P1"
                         else session.WriteAsync "P0"
-                    do! Async.Sleep(1000)
+                    do! Async.Sleep 1000
                     return! loop () }
 
             // initialse the agent state

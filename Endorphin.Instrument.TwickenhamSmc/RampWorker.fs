@@ -14,9 +14,9 @@ type Ramp = {
 
 type RampStatus =
     | PreparingRamp
-    | ReadyToRamp
+    | ReadyToRamp of CurrentDirection
     | ChangingCurrentDirection
-    | ReadyToContinue // after crossing zero current
+    | ReadyToContinue of CurrentDirection // after crossing zero current
     | Ramping of CurrentDirection
     | FinishedRamp
     | CanceledRamp of returnToZero : bool
@@ -170,13 +170,13 @@ type RampWorker(magnetController : MagnetController, ramp) =
 
             let awaitReadyForRamp = async {
                 "Waiting for ready-to-start signal..." |> log.Info
-                syncContext.RaiseEvent statusChanged ReadyToRamp
+                syncContext.RaiseEvent statusChanged (ReadyToRamp startingCurrentDirection)
                 do! Async.AwaitWaitHandle readyToStart |> Async.Ignore
                 "Received ready-to-start signal." |> log.Info }
 
             let awaitReadyToContinue = async {
                 "Waiting for ready-to-continue signal..." |> log.Info
-                syncContext.RaiseEvent statusChanged ReadyToContinue
+                syncContext.RaiseEvent statusChanged (ReadyToContinue finalCurrentDirection)
                 do! Async.AwaitWaitHandle readyToContinue |> Async.Ignore
                 "Ready ready-to-continue signal." |> log.Info }
             

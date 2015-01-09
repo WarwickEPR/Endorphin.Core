@@ -47,7 +47,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
 
     let readyToStart = new ManualResetHandle(false)
     let cancellationCapability = new CancellationCapability()
-    let stopCabapility = new CancellationCapability<StreamStopOptions>()
+    let stopCapability = new CancellationCapability<StreamStopOptions>()
 
     let bufferLength =
         let minLength = 256.0 * 1e9 / (float (int stream.sampleInterval * int stream.downsamplingRatio))
@@ -114,10 +114,10 @@ type StreamWorker(pico : PicoScope5000, stream) =
 
     member __.Stop() =
         // avoid stopping the stream manually if it is already stopping automatically
-        if not stopCabapility.IsCancellationRequested then
+        if not stopCapability.IsCancellationRequested then
             "Stream worker stopping." |> log.Info
             cancellationCapability.Cancel()
-            stopCabapility.Cancel { didAutoStop = false }
+            stopCapability.Cancel { didAutoStop = false }
             readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
 
     member this.PrepareAndStart() =
@@ -143,9 +143,9 @@ type StreamWorker(pico : PicoScope5000, stream) =
         let streamWorkflow buffers = async {
             // this callback will be sent to the PicoScope and called when the driver has written new data to the buffer
             let dataCallback (streamingValues : StreamingValuesReady) =
-                if not stopCabapility.IsCancellationRequested then
+                if not stopCapability.IsCancellationRequested then
                     if streamingValues.didAutoStop then
-                        stopCabapility.Cancel { didAutoStop = true }
+                        stopCapability.Cancel { didAutoStop = true }
 
                     if streamingValues.numberOfSamples > 0 then
                         let processSamples = 
@@ -171,7 +171,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 "Polling PicoScope for stream values..." |> log.Info
                 acquisition.GetLatestValues dataCallback
                 do! Async.Sleep 100
-                if not stopCabapility.IsCancellationRequested then
+                if not stopCapability.IsCancellationRequested then
                     do! pollLoop acquisition }
 
             "Initiating streaming..." |> log.Info
@@ -183,7 +183,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
             "Starting poll loop." |> log.Info
             do! pollLoop acquisition
             
-            let didAutoStop = stopCabapility.Options.didAutoStop
+            let didAutoStop = stopCapability.Options.didAutoStop
             sprintf "Stream finished successfully %s auto-stop." (if didAutoStop then "with" else "without") |> log.Info
             syncContext.RaiseEvent statusChanged (FinishedStream didAutoStop) }
 
@@ -244,7 +244,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 streamWorkflow buffers,
                 (fun () -> syncContext.RaiseEvent success ()),
                 (fun exn ->
-                    stopCabapility.Cancel { didAutoStop = false }
+                    stopCapability.Cancel { didAutoStop = false }
                     log.Error (sprintf "Stream failed during acquisition acquisition due to error %A." exn, exn)
                     syncContext.RaiseEvent statusChanged FailedStream
                     syncContext.RaiseEvent error exn),
