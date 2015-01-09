@@ -88,6 +88,9 @@ type DeviceParameters =
     member this.FieldForIndex index =
         (this.CurrentForIndex index) * this.fieldCalibration
 
+    member this.FieldForShuntVoltage voltage =
+        ((this.CurrentForShuntVoltage voltage) * this.fieldCalibration) + this.staticField
+
     member this.MaximumField =
         this.staticField + abs (this.fieldCalibration * this.currentLimit)
 

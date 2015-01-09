@@ -45,8 +45,8 @@ type internal Command =
     | GetAvailableChannelRanges of channel : Channel *  replyChannel : AsyncReplyChannel<Range seq>
     | GetAnalogueOffsetLimits of range : Range * coupling : Coupling * replyChannel : AsyncReplyChannel<float<V> * float<V>>
     | SetChannelSettings of channel : Channel * channelSettings : ChannelSettings
-    | GetAdcCountToVoltageConversion of range : Range * analogueOffset : float<V> * replyChannel : AsyncReplyChannel<Sample -> float<V>>
-    | GetVoltageToAdcCountConversion of range : Range * analogueOffset : float<V> * replyChannel : AsyncReplyChannel<float<V> -> Sample>
+    // | GetAdcCountToVoltageConversion of range : Range * analogueOffset : float<V> * replyChannel : AsyncReplyChannel<Sample -> float<V>>
+    // | GetVoltageToAdcCountConversion of range : Range * analogueOffset : float<V> * replyChannel : AsyncReplyChannel<float<V> -> Sample>
 
     // Trigger setup
     | SetTrigger of triggerSettings : TriggerSettings
@@ -257,32 +257,6 @@ type PicoScope5000(session) =
                     |> checkStatus message
                     sprintf "PicoScope %s successfully disabled %A." session.serial channel |> log.Info
 
-                return! preparing dataBuffers
-
-            | GetAdcCountToVoltageConversion (range, analogueOffset, replyChannel) ->
-                let mutable maxAdcCounts = 0s 
-                Api.MaximumValue(session.handle, &maxAdcCounts) |> checkStatus message
-                let maxAdcCountsValue = maxAdcCounts       
-                let voltageRange = range.ToVolts()
-                sprintf "PicoScope %s responding to message %A with ADC -> voltage conversion function with values %A."
-                    session.serial message (voltageRange, analogueOffset, maxAdcCounts) |> log.Info
-
-                (fun adcCounts -> 
-                    (voltageRange * float(adcCounts) / float(maxAdcCountsValue) + analogueOffset))
-                |> replyChannel.Reply
-                return! preparing dataBuffers
-
-            | GetVoltageToAdcCountConversion (range, analogueOffset, replyChannel) ->
-                let mutable maxAdcCounts = 0s
-                Api.MaximumValue(session.handle, &maxAdcCounts) |> checkStatus message
-                let maxAdcCountsValue = maxAdcCounts            
-                let voltageRange = range.ToVolts() 
-                (sprintf "PicoScope %s responding to message %A with voltage -> ADC conversion function with values %A."
-                    session.serial message (voltageRange, analogueOffset, maxAdcCounts)) |> log.Info
-
-                (fun voltage -> 
-                    int16 (((voltage - analogueOffset) / voltageRange) * float(maxAdcCountsValue)))
-                |> replyChannel.Reply
                 return! preparing dataBuffers
 
             // Trigger setup
@@ -600,13 +574,27 @@ type PicoScope5000(session) =
         SetChannelSettings(channel, channelSettings)
         |> agent.Post
 
-    member __.GetAdcCountToVoltageConversionAsync(range, analogueOffset) =
-        fun replyChannel -> GetAdcCountToVoltageConversion(range, analogueOffset, replyChannel)
-        |> agent.PostAndAsyncReply
+    member __.GetAdcCountToVoltageConversion(range : Range, analogueOffset) =
+        let maxAdcCounts = 
+            match session.resolution with
+            | Resolution._8bit -> 0x8100s
+            | _ -> 0x8001s
 
-    member __.GetVoltageToAdcCountConversionAsync(range, analogueOffset) =
-        fun replyChannel -> GetVoltageToAdcCountConversion(range, analogueOffset, replyChannel)
-        |> agent.PostAndAsyncReply
+        let voltageRange = range.ToVolts()
+
+        fun (adcCounts : Sample) -> 
+            (voltageRange * (float adcCounts) / (float maxAdcCounts) + analogueOffset)
+
+    member __.GetVoltageToAdcCountConversion(range : Range, analogueOffset) : (float<V> -> Sample) =
+        let maxAdcCounts = 
+            match session.resolution with
+            | Resolution._8bit -> 0x8100s
+            | _ -> 0x8001s        
+
+        let voltageRange = range.ToVolts() 
+
+        fun voltage -> 
+            int16 (((voltage - analogueOffset) / voltageRange) * (float maxAdcCounts))
 
     // Trigger settings
     

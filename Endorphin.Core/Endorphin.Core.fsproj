@@ -54,6 +54,7 @@
     <Compile Include="Event.fs" />
     <Compile Include="StringUtils.fs" />
     <Compile Include="Units.fs" />
+    <Compile Include="Map.fs" />
     <Compile Include="NationalInstruments.fs" />
     <None Include="packages.config" />
   </ItemGroup>
