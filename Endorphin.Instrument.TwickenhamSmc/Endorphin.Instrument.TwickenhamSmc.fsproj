@@ -52,6 +52,7 @@
     <Compile Include="MagnetController.fs" />
     <Compile Include="MagnetControllerSession.fs" />
     <Compile Include="RampWorker.fs" />
+    <Compile Include="StaticFieldWorker.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

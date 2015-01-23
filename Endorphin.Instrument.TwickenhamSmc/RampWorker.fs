@@ -85,10 +85,10 @@ type RampWorker(magnetController : MagnetController, ramp) =
         new CancellationCapability<RampCancellationOptions>()
     
     let startingCurrent =
-        magnetController.DeviceParameters.CurrentForIndex (ramp.startingFieldIndex)
+        magnetController.DeviceParameters.CurrentForIndex ramp.startingFieldIndex
 
     let finalCurrent =
-        magnetController.DeviceParameters.CurrentForIndex (ramp.finalFieldIndex)
+        magnetController.DeviceParameters.CurrentForIndex ramp.finalFieldIndex
 
     do // initialisation checks
         if abs startingCurrent > magnetController.DeviceParameters.currentLimit then
@@ -143,8 +143,8 @@ type RampWorker(magnetController : MagnetController, ramp) =
             // define workflows which will be used to perform the ramp
             let setStartingCurrentDirection initialState = async {
                 "Setting starting current direction." |> log.Info
-                if not (initialState.operatingParameters.currentDirection = ramp.StartingCurrentDirection)
-                then do! magnetController.RampToZeroAndSetCurrentDirectionAsync ramp.StartingCurrentDirection }
+                if initialState.operatingParameters.currentDirection <> ramp.StartingCurrentDirection then
+                    do! magnetController.RampToZeroAndSetCurrentDirectionAsync ramp.StartingCurrentDirection }
             
             let setCurrentLimits initialState = async { 
                 "Setting current limits." |> log.Info
@@ -165,7 +165,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             let rampToInitialCurrent = async {
                 "Ramping to initial current." |> log.Info
                 magnetController.SetRampTarget ramp.StartingRampTarget
-                magnetController.SetRampRate (magnetController.DeviceParameters.rampRateLimit) 
+                magnetController.SetRampRate magnetController.DeviceParameters.rampRateLimit 
                 magnetController.SetPause false
                 do! magnetController.WaitToReachTargetAsync() } 
             
