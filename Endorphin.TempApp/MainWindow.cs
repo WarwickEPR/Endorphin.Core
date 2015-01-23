@@ -105,11 +105,10 @@ namespace Endorphin.TempApp
                     .Select(new Func<OperationCanceledException, Unit>(ex => null))
                     .Amb(experimentWorker.Success);
 
-            var experimentResultReady =
-                experimentWorker.DataUpdated
-                    .TakeUntil(canceledOrFinished)
-                    .LastAsync()
-                    .Subscribe((data) => experimentResult = data);
+            experimentWorker.DataUpdated
+                .TakeUntil(canceledOrFinished)
+                .LastAsync()
+                .Subscribe((data) => experimentResult = data);
         }
 
         private void ReleaseInstruments()
