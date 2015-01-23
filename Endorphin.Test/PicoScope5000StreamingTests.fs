@@ -52,7 +52,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
         
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
@@ -94,7 +94,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
         
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
 
@@ -136,7 +136,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
         
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 1000000
             |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
 
@@ -179,7 +179,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
 
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
@@ -226,7 +226,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
 
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
                           
@@ -391,7 +391,7 @@ type ``PicoScope 5000 series streaming tests``() =
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
                   
-            streamWorker.Samples Channel.A AllSamples
+            streamWorker.Sample(Channel.A, AllSamples)
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
 
