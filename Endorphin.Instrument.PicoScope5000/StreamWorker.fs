@@ -7,18 +7,24 @@ open System.Runtime.InteropServices
 open System.Reactive.Linq
 open System
 open log4net
+open FSharp.Charting
+open System.Threading
 
 type ChannelStream = 
     { inputSettings : InputSettings
-      downsamplingModes : Set<Downsampling> }
+      downsamplingModes : Set<DownsamplingMode> }
 
-type Stream =
+type PicoScope5000Stream =
     { sampleInterval : int<ns> 
-      downsamplingRatio : uint32
+      downsampling : uint32 option
       streamStop : StreamStop
       triggerSettings : TriggerSettings
       activeChannels : Map<Channel, ChannelStream>
       memorySegment : uint32 }
+
+type PicoScope5000Stream with
+    static member NoDownsampling : uint32 option = None
+    static member DownsamplingRatio (ratio : uint32) = Some ratio
 
 type StreamStatus =
     | PreparingStream
@@ -32,7 +38,7 @@ type StreamStopOptions =
     { didAutoStop : bool }
 
 type SampleBlock =
-    { samples : Map<Channel * BufferDescription, Sample array>
+    { samples : Map<Channel * BufferDownsampling, Sample array>
       length : int
       voltageOverflows : Set<Channel> }
 
@@ -49,8 +55,13 @@ type StreamWorker(pico : PicoScope5000, stream) =
     let cancellationCapability = new CancellationCapability()
     let stopCapability = new CancellationCapability<StreamStopOptions>()
 
+    let downsamplingRatio =
+        match stream.downsampling with
+        | Some value -> value
+        | None -> 1u
+
     let bufferLength =
-        let minLength = 256.0 * 1e9 / (float (int stream.sampleInterval * int stream.downsamplingRatio))
+        let minLength = 256.0 * 1e9 / (float (int stream.sampleInterval * int downsamplingRatio))
         let rec computeBufferLength length = 
             if (float) length > minLength
             then length
@@ -62,16 +73,16 @@ type StreamWorker(pico : PicoScope5000, stream) =
         seq { for channel in stream.activeChannels -> channel.Key }
         |> Set.ofSeq
 
-    let downsampling =
+    let downsamplingModes =
         seq { for channel in stream.activeChannels -> channel.Value }
         |> Seq.collect (fun channelStream -> Set.toSeq channelStream.downsamplingModes)
-        |> Seq.fold (|||) Downsampling.None // combine the required types of downsampling using logical OR
+        |> Seq.fold (|||) DownsamplingMode.None // combine the required types of downsampling using logical OR
     
     let streamingParameters = 
         { sampleInterval = stream.sampleInterval
           streamStop = stream.streamStop
-          downsamplingRatio = stream.downsamplingRatio
-          downsampling = downsampling
+          downsamplingRatio = downsamplingRatio
+          downsamplingModes = downsamplingModes
           bufferLength = uint32 bufferLength }
 
     do
@@ -79,21 +90,28 @@ type StreamWorker(pico : PicoScope5000, stream) =
             invalidArg "stream.activeChannels"
                 "Set of active channels must be non-empty." stream.activeChannels
 
+        if stream.downsampling.IsNone && downsamplingModes <> DownsamplingMode.None then
+            invalidArg "stream.downsampling"
+                "A downsampling ratio must be specified for a stream where an active channel uses downsampling." stream.downsampling
+
+        if stream.downsampling.IsSome && downsamplingModes = DownsamplingMode.None then
+            invalidArg "stream.downsampling"
+                "A downsampling ratio was specified but none of the active channels use downsampling." stream.downsampling
+
         stream.activeChannels
         |> Map.iter (fun channel channelStream ->
             if channelStream.downsamplingModes.Count = 0 then
                 invalidArg "stream.activeChannels"
                     "List downsampling modes for active channel must be non-empty." (channel, channelStream)
             
-            if downsampling <> Downsampling.None && channelStream.downsamplingModes.Contains Downsampling.None then
+            if downsamplingModes <> DownsamplingMode.None && channelStream.downsamplingModes.Contains DownsamplingMode.None then
                 invalidArg "stream.activeChannels"
-                    "Downsampling.None cannot be used in a stream which uses another form of downsampling." (channel, channelStream))
-
+                    "DownsamplingMode.None cannot be used in a stream which uses another form of downsampling." (channel, channelStream))
+    
     member __.StatusChanged = statusChanged.Publish
     member __.Success = success.Publish
     member __.Error = error.Publish
     member __.Canceled = canceled.Publish
-    
     member __.SampleSlice =
         sampleBlock.Publish
         |> Event.collectSeq (fun block -> seq { 
@@ -101,21 +119,68 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 block.samples
                 |> Map.map (fun _ buffer -> buffer.[index]) })
 
-    member __.Samples channel buffer =
+    member __.Sample(channel, buffer) =
         sampleBlock.Publish
         |> Event.collectSeq (fun block ->
             block.samples.[channel, buffer]
             |> Array.toSeq)
-
+    
     member __.VoltageOverflow channel =
         sampleBlock.Publish
         |> Event.choose (fun block ->
             if block.voltageOverflows.Contains channel then Some () else None)
 
+    member this.Chart(channel, buffer, refreshInterval : TimeSpan) =
+        (this.Sample(channel, buffer)
+         |> Event.scan (fun chartData x ->
+             match chartData with
+             | [] -> [(0, x)]
+             | (last, _) :: rest -> (last + 1, x) :: chartData) List.empty)
+         .Sample(refreshInterval)
+         .ObserveOn(SynchronizationContext.CaptureCurrent())
+        |> LiveChart.FastLine
+
+    member this.ChartXY(channelX, bufferX, channelY, bufferY, refreshInterval : TimeSpan) =
+        (sampleBlock.Publish
+         |> Event.scan (fun chartData block ->
+             let samples = seq {
+                 for index in 0 .. block.length - 1 ->
+                     (block.samples.[channelX, bufferX].[index],
+                      block.samples.[channelY, bufferY].[index]) }
+             Seq.fold (fun data sample -> sample :: data) chartData samples) List.empty)
+         .Sample(refreshInterval)
+         .ObserveOn(SynchronizationContext.CaptureCurrent())
+        |> LiveChart.FastLine
+    
+    member this.ChartAll (refreshInterval : TimeSpan) =
+        let sampler = Observable.Interval refreshInterval
+        let channelBuffers = seq {
+            for (channel, channelStream) in (Map.toSeq stream.activeChannels) do
+                for downsamplingMode in channelStream.downsamplingModes do
+                    match downsamplingMode with
+                    | DownsamplingMode.None -> yield (channel, BufferDownsampling.AllSamples)
+                    | DownsamplingMode.Averaged -> yield (channel, BufferDownsampling.Averaged)
+                    | DownsamplingMode.Decimated -> yield (channel, BufferDownsampling.Decimated)
+                    | DownsamplingMode.Aggregate -> 
+                        yield (channel, BufferDownsampling.AggregateMin)
+                        yield (channel, BufferDownsampling.AggregateMax)
+                    | _ -> invalidArg "downsamplingMode" "Invalid DownsamplingMode" downsamplingMode }
+        seq { 
+            for (channel, buffer) in channelBuffers ->
+                ((this.Sample(channel, buffer)
+                  |> Event.scan (fun chartData x ->
+                     match chartData with
+                     | [] -> [(0, x)]
+                     | (last, _) :: rest -> (last + 1, x) :: chartData) List.empty)
+                  .Sample(refreshInterval)
+                  .ObserveOn(SynchronizationContext.CaptureCurrent()))
+                |> LiveChart.FastLine }
+        |> Chart.Combine
+
     member __.Stop() =
         // avoid stopping the stream manually if it is already stopping automatically
         if not stopCapability.IsCancellationRequested then
-            "Stream worker stopping." |> log.Info
+            "Stream worker stopping manually." |> log.Info
             cancellationCapability.Cancel()
             stopCapability.Cancel { didAutoStop = false }
             readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
@@ -169,7 +234,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
             // this loop polls the PicoScope for the latest stream values
             let rec pollLoop (acquisition : IStreamingAcquisition) = async {
                 "Polling PicoScope for stream values..." |> log.Info
-                acquisition.GetLatestValues dataCallback
+                do! acquisition.GetLatestValues dataCallback
                 do! Async.Sleep 100
                 if not stopCapability.IsCancellationRequested then
                     do! pollLoop acquisition }

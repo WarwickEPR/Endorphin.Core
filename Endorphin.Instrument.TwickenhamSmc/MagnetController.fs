@@ -36,7 +36,7 @@ type SetPointParameters =
       upperSetPoint : float<A>
       tripVoltage : float<V> }
 
-type DeviceParameters = 
+type MagnetControllerParameters = 
     { staticField : float<T>
       fieldCalibration : float<T/A>
       rampRateLimit : float<A/s>
@@ -45,30 +45,31 @@ type DeviceParameters =
       currentLimit : float<A>
       shuntOffset : float<V>
       shuntCalibration : float<V/A>
+      shuntNoise : float<V>
       outputResolutionInBits : int
       setPointDecimalPlaces : int
-      calibratedRampRates : float<A/s> list }
+      calibratedRampRates : float<A/s> seq }
       
     member this.AvailableCurrentRampRates =
         this.calibratedRampRates
-        |> List.filter (fun rampRate -> rampRate <= this.rampRateLimit)
-        |> List.sort
+        |> Seq.filter (fun rampRate -> rampRate <= this.rampRateLimit)
+        |> Seq.sort
 
     member this.CurrentRampRateForIndex index =
-        if index >= (List.length this.AvailableCurrentRampRates) || index < 0
+        if index >= (Seq.length this.AvailableCurrentRampRates) || index < 0
             then failwith "Ramp rate index out of range."
             
-        List.nth (this.AvailableCurrentRampRates) index
+        Seq.nth index (this.AvailableCurrentRampRates) 
 
     member this.AvailableFieldRampRates =
         this.AvailableCurrentRampRates
-        |> List.map (fun rampRate -> rampRate * abs(this.fieldCalibration))
+        |> Seq.map (fun rampRate -> rampRate * abs(this.fieldCalibration))
     
     member this.FieldRampRateForIndex index =
-        if index >= (List.length this.AvailableFieldRampRates) || index < 0
+        if index >= (Seq.length this.AvailableFieldRampRates) || index < 0
             then failwith "Ramp rate index out of range."
             
-        List.nth (this.AvailableFieldRampRates) index
+        Seq.nth index (this.AvailableFieldRampRates)
 
     member this.NumberOfCurrentSteps =
         int (2.0 ** (float this.outputResolutionInBits))
@@ -76,9 +77,9 @@ type DeviceParameters =
     member this.CurrentStep =
         this.maximumCurrent / (float (this.NumberOfCurrentSteps - 1))
 
-    member this.CurrentForIndex (index) =
-        if abs index >= this.NumberOfCurrentSteps
-            then failwith "Current index out of range."
+    member this.CurrentForIndex index =
+        if abs index >= this.NumberOfCurrentSteps then
+            failwith "Current index out of range."
         
         this.CurrentStep * (float index)
 
@@ -86,10 +87,25 @@ type DeviceParameters =
         this.CurrentStep * (abs this.fieldCalibration)
 
     member this.FieldForIndex index =
-        (this.CurrentForIndex index) * this.fieldCalibration
+        this.staticField + (this.CurrentForIndex index) * this.fieldCalibration
+
+    member this.ShuntVoltageForIndex index =
+        this.shuntOffset + (this.CurrentForIndex index) * this.shuntCalibration
 
     member this.FieldForShuntVoltage voltage =
         ((this.CurrentForShuntVoltage voltage) * this.fieldCalibration) + this.staticField
+
+    member this.IndexForCurrent current =
+        if abs current > this.currentLimit then
+            failwith "Current outside current limit."
+
+        int (round (current / this.CurrentStep))
+
+    member this.IndexForField field =
+        if (field > this.MaximumField) || (field < this.MinimumField) then
+            failwith "Field outside of field range."
+
+        int (round ((field - this.staticField) / (this.CurrentStep * this.fieldCalibration)))
 
     member this.MaximumField =
         this.staticField + abs (this.fieldCalibration * this.currentLimit)
@@ -99,8 +115,8 @@ type DeviceParameters =
 
     member this.NearestDigitisedCurrent current =
         current
-        |> max this.currentLimit
-        |> min -this.currentLimit
+        |> max -this.currentLimit
+        |> min this.currentLimit
         |> fun current -> round(current / this.CurrentStep) * this.CurrentStep
 
     member this.NearestDigitisedField field =
@@ -110,7 +126,7 @@ type DeviceParameters =
     
     member this.NearestDigitisedCurrentRampRate rampRate =
         this.AvailableCurrentRampRates
-        |> List.minBy (fun digitisedRampRate -> abs(digitisedRampRate - rampRate))
+        |> Seq.minBy (fun digitisedRampRate -> abs(digitisedRampRate - rampRate))
 
     member this.NearestDigitisedFieldRampRate rampRate =
         rampRate / (abs this.fieldCalibration)
@@ -119,11 +135,11 @@ type DeviceParameters =
 
     member this.NearestDigitisedCurrentRampRateIndex rampRate =
         let digitisedRampRate = (this.NearestDigitisedCurrentRampRate rampRate)
-        List.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
+        Seq.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
    
     member this.NearestDigitisedFieldRampRateIndex rampRate =
         let digitisedRampRate = this.NearestDigitisedCurrentRampRate (rampRate / (abs this.fieldCalibration))
-        List.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
+        Seq.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
     
     member this.MaximumShuntVoltage =
         this.shuntOffset + this.maximumCurrent * this.shuntCalibration
@@ -154,7 +170,7 @@ type internal Message =
     | SetPause of pause : bool
     | ReleaseSession 
 
-type MagnetController(session : MessageBasedSession, deviceParameters : DeviceParameters) =
+type MagnetController(session : MessageBasedSession, deviceParameters : MagnetControllerParameters) =
     static let log = LogManager.GetLogger typeof<MagnetController>
     
     let sessionReleased = new Event<unit>()

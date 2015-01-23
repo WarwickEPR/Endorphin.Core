@@ -129,6 +129,14 @@ type SimpleTriggerSettings =
       delaySamplesAfterTrigger : uint32
       autoTrigger : int16<ms> option }
 
+[<DefaultAugmentation(false)>]
 type TriggerSettings =
     | SimpleTrigger of settings : SimpleTriggerSettings
     | AutoTrigger of delay : int16<ms>
+
+type TriggerSettings with
+    static member Auto delay =
+         AutoTrigger delay
+
+    static member Simple settings =
+        SimpleTrigger settings

@@ -223,7 +223,7 @@ type ``Magnet ramp tests``() =
 
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Reverse))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -241,7 +241,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
 
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp true ], 
+                [ PreparingRamp ; ReadyToRamp Reverse ; CanceledRamp true ], 
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)        
             
@@ -275,7 +275,7 @@ type ``Magnet ramp tests``() =
         
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Forward))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -293,7 +293,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
 
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Forward ; CanceledRamp false ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -328,7 +328,7 @@ type ``Magnet ramp tests``() =
         
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Reverse))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -346,7 +346,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
                     
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp true ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; CanceledRamp true ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -385,7 +385,7 @@ type ``Magnet ramp tests``() =
                 
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Forward))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -403,7 +403,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Forward ; CanceledRamp false ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -442,7 +442,7 @@ type ``Magnet ramp tests``() =
                 
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Reverse))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -460,7 +460,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
         
             Assert.AreEqual( 
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; CanceledRamp false ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -498,7 +498,7 @@ type ``Magnet ramp tests``() =
                 
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Forward))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -516,7 +516,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
 
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Forward ; CanceledRamp false ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -540,7 +540,7 @@ type ``Magnet ramp tests``() =
 
             magnetController.SetRampRate 0.0840<A/s>
             magnetController.SetRampTarget Upper
-            do! Async.Sleep(10000)
+            do! Async.Sleep 10000
             magnetController.SetPause true
             
             let rampWorker =
@@ -556,7 +556,7 @@ type ``Magnet ramp tests``() =
         
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Forward))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -574,7 +574,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
 
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Forward ; CanceledRamp false ],
                 List.rev !rampStatusList)
             Assert.IsTrue(!canceledDidFire)
 
@@ -627,7 +627,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Forward ; Ramping Forward ; CanceledRamp false ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -679,7 +679,7 @@ type ``Magnet ramp tests``() =
             do! waitForCanceled
         
             Assert.AreEqual( 
-                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; CanceledRamp true ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; Ramping Reverse ; CanceledRamp true ],
                 List.rev !rampStatusList )
             Assert.IsTrue(!canceledDidFire)
 
@@ -720,7 +720,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp Forward ; Ramping Forward ; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -762,7 +762,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Forward; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp Forward ; Ramping Forward; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -796,7 +796,7 @@ type ``Magnet ramp tests``() =
                 
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) (ReadyToRamp))
+                |> Event.filter ((=) (ReadyToRamp Reverse))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -805,7 +805,7 @@ type ``Magnet ramp tests``() =
             do! waitForReadyToRamp
 
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ],
+                [ PreparingRamp ; ReadyToRamp Reverse ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -822,7 +822,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; Ramping Reverse; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -856,7 +856,7 @@ type ``Magnet ramp tests``() =
         
             let! waitForReadyToRamp =
                 rampWorker.StatusChanged
-                |> Event.filter ((=) ReadyToRamp)
+                |> Event.filter ((=) (ReadyToRamp Reverse))
                 |> Async.AwaitEvent
                 |> Async.Ignore
                 |> Async.StartChild
@@ -866,7 +866,7 @@ type ``Magnet ramp tests``() =
         
             Assert.IsFalse(!canceledDidFire)
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ], 
+                [ PreparingRamp ; ReadyToRamp Reverse ], 
                 List.rev !rampStatusList )
 
             Assert.Throws<TimeoutException>(fun () ->
@@ -884,7 +884,7 @@ type ``Magnet ramp tests``() =
 
             Assert.IsTrue(!canceledDidFire)
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; CanceledRamp false ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; CanceledRamp false ],
                 List.rev !rampStatusList )
 
             let! parameters = magnetController.GetAllParametersAsync()
@@ -925,7 +925,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual( 
-                [ PreparingRamp ; ReadyToRamp ; Ramping Reverse ; ChangingCurrentDirection ; ReadyToContinue ; Ramping Forward ; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp Reverse ; Ramping Reverse ; ChangingCurrentDirection ; ReadyToContinue Forward ; Ramping Forward ; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 
@@ -967,7 +967,7 @@ type ``Magnet ramp tests``() =
             do! waitForSuccess
         
             Assert.AreEqual(
-                [ PreparingRamp ; ReadyToRamp ; Ramping Forward ; ChangingCurrentDirection ; ReadyToContinue ; Ramping Reverse ; FinishedRamp ],
+                [ PreparingRamp ; ReadyToRamp Forward ; Ramping Forward ; ChangingCurrentDirection ; ReadyToContinue Reverse ; Ramping Reverse ; FinishedRamp ],
                 List.rev !rampStatusList )
             Assert.IsFalse(!canceledDidFire)
 

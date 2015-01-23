@@ -223,7 +223,7 @@ type ``Magnet controller tests``() =
     member __.``Fastest available ramp rate is correct``() =
         let maximumRampRate =
             magnetControllerSession.DeviceParameters.AvailableCurrentRampRates
-            |> List.max
+            |> Seq.max
         
         Assert.AreEqual(
             0.09800<A/s>, 

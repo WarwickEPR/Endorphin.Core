@@ -5,13 +5,13 @@ open System
 
 type Sample = int16
 
-type Downsampling =
+type DownsamplingMode =
     | None = 0
     | Aggregate = 1
     | Decimated = 2
     | Averaged = 4
 
-type BufferDescription =
+type BufferDownsampling =
     | AllSamples
     | AggregateMax
     | AggregateMin
@@ -19,13 +19,20 @@ type BufferDescription =
     | Averaged
 
 type Buffer =
-    | Single of buffer : BufferDescription
-    | Pair of bufferMax : BufferDescription * bufferMin : BufferDescription
+    | Single of buffer : BufferDownsampling
+    | Pair of bufferMax : BufferDownsampling * bufferMin : BufferDownsampling
 
+[<DefaultAugmentation(false)>]
 type StreamStop =
     | ManualStop
     | AutoStop of maxPreTriggerSamples : uint32 * maxPostTriggerSamples : uint32
     
+type StreamStop with
+    static member Manual = ManualStop
+
+    static member Auto (maxPreTriggerSamples, maxPostTriggerSamples) =
+        AutoStop(maxPreTriggerSamples, maxPostTriggerSamples)
+
 type StreamingValuesReady = 
     { numberOfSamples : int
       startIndex : uint32
@@ -37,13 +44,13 @@ type StreamingParameters =
     { sampleInterval : int<ns>
       streamStop : StreamStop
       downsamplingRatio : uint32
-      downsampling : Downsampling
+      downsamplingModes : DownsamplingMode
       bufferLength : uint32 }
 
 type IStreamingAcquisition =
     inherit IDisposable
     abstract member SampleInterval : int<ns>
-    abstract member GetLatestValues : (StreamingValuesReady -> unit) -> unit
+    abstract member GetLatestValues : (StreamingValuesReady -> unit) -> Async<unit>
 
 type PicoScopeBlockReady = 
     // handle, status, state -> unit 

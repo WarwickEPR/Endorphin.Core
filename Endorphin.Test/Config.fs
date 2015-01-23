@@ -22,7 +22,6 @@ let calibratedRampRates =
         yield! Seq.map (fun value -> 100.0 * value) firstDecade
         yield! Seq.map (fun value -> 1000.0 * value) firstDecade
         yield (10000.0) * firstDecade.[0] }
-    |> List.ofSeq
 
 let magnetControllerParameters = {
     staticField = 14.0<T>
@@ -33,6 +32,7 @@ let magnetControllerParameters = {
     currentLimit = 5.0<A>
     shuntCalibration = 0.020<V/A>
     shuntOffset = 2e-5<V>
+    shuntNoise = 0.1<V>
     outputResolutionInBits = 16 
     setPointDecimalPlaces = 3
     calibratedRampRates = calibratedRampRates }

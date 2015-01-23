@@ -41,13 +41,13 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let x = (Channel.A, { 
                 inputSettings =  { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
 
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 5000u)
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -83,13 +83,13 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let x = (Channel.A, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
         
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 6000000u)
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -125,13 +125,13 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let x = (Channel.A, { 
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
         
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 600000000u)
                       sampleInterval = 1000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -168,13 +168,13 @@ type ``PicoScope 5000 series streaming tests``() =
 
             let x = (Channel.A, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full}
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
 
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = ManualStop
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -215,13 +215,13 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let x = (Channel.A, { 
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList }) 
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList }) 
         
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = ManualStop
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -263,25 +263,25 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let w = (Channel.A, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
             
             let x = (Channel.B, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
             
             let y = (Channel.C, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
             
             let z = (Channel.D, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
 
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 100000u)
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ w ; x ; y ; z ] |> Map.ofList
                       memorySegment = 0u })
@@ -318,13 +318,13 @@ type ``PicoScope 5000 series streaming tests``() =
             let x = 
                 (Channel.A, { 
                     inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                    downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                    downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
 
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = ManualStop
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -380,13 +380,13 @@ type ``PicoScope 5000 series streaming tests``() =
         
             let x = (Channel.A, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
         
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 100000u)
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })
@@ -445,13 +445,13 @@ type ``PicoScope 5000 series streaming tests``() =
 
             let x = (Channel.A, {
                 inputSettings = { coupling = Coupling.DC; range = Range._5V; analogueOffset = 0.0<V>; bandwidthLimit = BandwidthLimit.Full }
-                downsamplingModes = [ Downsampling.None ] |> Set.ofList })
+                downsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
         
             let streamWorker = 
                 new StreamWorker(pico,
                     { streamStop = AutoStop(0u, 600000u)
                       sampleInterval = 100000<ns>
-                      downsamplingRatio = 1u
+                      downsampling = None
                       triggerSettings = AutoTrigger 200s<ms>
                       activeChannels = [ x ] |> Map.ofList
                       memorySegment = 0u })

@@ -16,7 +16,7 @@ type CwEprScan =
       finalFieldIndex : int
       rampRateIndex : int
       returnToZero : bool
-      conversionTime : int<ms>
+      conversionTime : int<us>
       downsampling : uint32 option
       quadratureDetection : bool 
       shuntVoltageRange : Range
@@ -24,8 +24,8 @@ type CwEprScan =
 
 type CwEprSample =
     { magneticFieldShuntAdc : Sample
-      xSignalAdc : Sample
-      ySignalAdc : Sample }
+      reSignalAdc : Sample
+      imSignalAdc : Sample }
 
 type CwEprScanStatus =
     | PreparingScan
@@ -43,7 +43,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
     let canceled = new Event<OperationCanceledException>()
     let success = new Event<unit>()
     let sample = new Event<CwEprSample>()
-
+    
     let readyToStart = new ManualResetEvent(false)
     let cancellationCapability = new CancellationCapability<RampCancellationOptions>()
 
@@ -54,33 +54,35 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         returnToZero = scan.returnToZero }
     
     let minShuntVoltage =
-        if sign scan.startingFieldIndex <> sign scan.finalFieldIndex then
-            magnetController.DeviceParameters.shuntOffset
+        if ramp.StartingCurrentDirection <> ramp.FinalCurrentDirection then
+            magnetController.DeviceParameters.ShuntVoltageForIndex 0
+            |> min (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.startingFieldIndex)
+            |> min (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.finalFieldIndex)
         else
-            magnetController.DeviceParameters.shuntOffset + 
-                magnetController.DeviceParameters.ShuntStep * float (min (abs scan.startingFieldIndex) (abs scan.finalFieldIndex))
-    
+            min (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.startingFieldIndex)
+                (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.finalFieldIndex)
+
     let maxShuntVoltage =
-        magnetController.DeviceParameters.shuntOffset + 
-            magnetController.DeviceParameters.ShuntStep * float (max (abs scan.startingFieldIndex) (abs scan.finalFieldIndex))
+        if ramp.StartingCurrentDirection <> ramp.FinalCurrentDirection then
+            magnetController.DeviceParameters.ShuntVoltageForIndex 0
+            |> max (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.startingFieldIndex)
+            |> max (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.finalFieldIndex)
+        else
+            max (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.startingFieldIndex)
+                (magnetController.DeviceParameters.ShuntVoltageForIndex ramp.finalFieldIndex)
 
-    let shuntVoltageRange = (0.5 * (maxShuntVoltage - minShuntVoltage)).SmallestInputRangeForVoltage()
-    let shuntVoltageOffset = 0.5 * (minShuntVoltage + maxShuntVoltage)
+    let shuntVoltageRange = (2.0 * magnetController.DeviceParameters.shuntNoise + maxShuntVoltage).SmallestInputRangeForVoltage()
+    let shuntVoltageOffset = Math.Round(0.5 * float (minShuntVoltage + maxShuntVoltage), 1) * 1.0<V>
 
-    let downsampling =
+    let downsamplingMode =
         match scan.downsampling with
-        | None -> Downsampling.None
-        | Some _ -> Downsampling.Averaged
+        | None -> DownsamplingMode.None
+        | Some _ -> DownsamplingMode.Averaged
 
     let buffer =
         match scan.downsampling with
         | None -> AllSamples
         | Some _ -> Averaged
-
-    let downsamplingRatio =
-        match scan.downsampling with
-        | None -> 1u
-        | Some ratio -> ratio
 
     let magneticFieldChannelStream = {
         inputSettings = 
@@ -89,7 +91,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
               analogueOffset = shuntVoltageOffset
               bandwidthLimit = BandwidthLimit._20MHz }
         downsamplingModes =
-            [ downsampling ] |> Set.ofList }
+            [ downsamplingMode ] |> Set.ofList }
 
     let lockinSignalChannelStream = {
         inputSettings =
@@ -98,7 +100,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
               analogueOffset = 0.0<V>
               bandwidthLimit = BandwidthLimit._20MHz }
         downsamplingModes =
-            [ downsampling ] |> Set.ofList }
+            [ downsamplingMode ] |> Set.ofList }
 
     let magneticFieldChannel = (Channel.A, magneticFieldChannelStream)
     let signalChannels =
@@ -107,11 +109,11 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         else
             [ (Channel.B, lockinSignalChannelStream) ]
 
-    let sampleInterval = scan.conversionTime * 1000000<ns/ms>
+    let sampleInterval = scan.conversionTime * 1000<ns/us>
 
     let stream = {
         sampleInterval = sampleInterval
-        downsamplingRatio = downsamplingRatio
+        downsampling = scan.downsampling
         streamStop = ManualStop
         triggerSettings = AutoTrigger 1s<ms> // fastest possible
         activeChannels = (magneticFieldChannel :: signalChannels) |> Map.ofList
@@ -181,10 +183,11 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
             let startAcquisition (streamWorker : StreamWorker) (magneticFieldSign : int) = async {
                 streamWorker.SampleSlice
                 |> Event.add (fun slice ->
-                    syncContext.RaiseEvent sample
+                    let newSample = 
                         { magneticFieldShuntAdc = (int16 magneticFieldSign) * slice.[Channel.A, buffer]
-                          xSignalAdc = slice.[Channel.B, buffer]
-                          ySignalAdc = if scan.quadratureDetection then slice.[Channel.C, buffer] else 0s } )
+                          reSignalAdc = slice.[Channel.B, buffer]
+                          imSignalAdc = if scan.quadratureDetection then slice.[Channel.C, buffer] else 0s }
+                    syncContext.RaiseEvent sample newSample)
 
                 let! waitForStart =
                     streamWorker.StatusChanged
@@ -197,9 +200,12 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                 do! waitForStart
                 do! Async.Sleep 1 // sleep 1ms for auto trigger to kick in
                 
-                return! streamWorker.Success
-                |> Async.AwaitEvent
-                |> Async.StartChild }
+                let! waitForStreamFinished =
+                    streamWorker.Success
+                    |> Async.AwaitEvent
+                    |> Async.StartChild
+                
+                return waitForStreamFinished }
 
             let scanStartToZero = async { 
                 let streamWorker = new StreamWorker(pico, stream)
@@ -220,7 +226,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                     |> Async.Ignore
                     |> Async.StartChild
 
-                let! waitForStreamFinished = startAcquisition streamWorker (sign scan.startingFieldIndex)
+                let! waitForStreamFinished = startAcquisition streamWorker ramp.StartingCurrentSign
                 rampWorker.SetReadyToStart()
                 do! waitForStreamFinished
                 do! waitForReadyToContinue }
@@ -236,8 +242,10 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                     |> Async.Ignore
                     |> Async.StartChild
 
-                let! waitForStreamFinished = startAcquisition streamWorker (sign scan.finalFieldIndex)
+                let! waitForStreamFinished = startAcquisition streamWorker ramp.FinalCurrentSign
+
                 rampWorker.SetReadyToStart()
+
                 rampWorker.SetReadyToContinue()
 
                 do! waitForRampFinished
@@ -248,7 +256,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                 "Starting CW EPR scan." |> log.Info
                 syncContext.RaiseEvent statusChanged Scanning
                 
-                if (sign scan.startingFieldIndex <> sign scan.finalFieldIndex) then
+                if (ramp.StartingCurrentDirection <> ramp.FinalCurrentDirection) then
                     do! scanStartToZero
                 do! scanToFinish }
             
@@ -263,6 +271,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
 
             do! prepareRamp
             do! awaitReadyToStart
+            do! performScan
             
             "Worker successfully finished CW EPR scan." |> log.Info
             syncContext.RaiseEvent statusChanged FinishedScan }

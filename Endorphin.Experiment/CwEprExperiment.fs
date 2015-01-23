@@ -1,34 +1,66 @@
 ﻿namespace Endorphin.Experiment
 
 open Endorphin.Core
+open Endorphin.Core.CSharpInterop
 open Endorphin.Core.Units
 open Endorphin.Instrument.PicoScope5000
 open Endorphin.Instrument.TwickenhamSmc
+open FSharp.Charting
+open FSharp.Charting.ChartTypes
+open log4net
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
+open System.IO
 open System.Reactive.Linq
 open System.Threading
-open log4net
 open System.Collections.Generic
+open System.Text
 
 type CwEprExperiment =
     { startingFieldIndex : int
       finalFieldIndex : int
       rampRateIndex : int
       returnToZero : bool
-      conversionTime : int<ms>
+      conversionTime : int<us>
       downsampling : uint32 option
       quadratureDetection : bool 
       numberOfScans : int }
 
 type CwEprDataPoint =
-    { accumulatedX : int
-      accumulatedY : int
+    { accumulatedRe : int
+      accumulatedIm : int
       count : int }
 
 type CwEprData =
     { shuntAdcToField : int16 -> float<T>
       signal : Map<int16, CwEprDataPoint> }
+
+    member this.ReSignal() =
+        this.signal
+        |> Map.toSeq
+        |> Seq.map (fun (shuntAdc, dataPoint) -> 
+            (this.shuntAdcToField shuntAdc, (float dataPoint.accumulatedRe) / (float dataPoint.count)))
+
+    member this.ImSignal() =
+        this.signal
+        |> Map.toSeq
+        |> Seq.map (fun (shuntAdc, dataPoint) -> 
+            (this.shuntAdcToField shuntAdc, (float dataPoint.accumulatedIm) / (float dataPoint.count)))
+ 
+    member this.CsvData() = seq {
+        yield "Shunt ADC, Magnetic field (T), Re signal, Im signal, Sample count"
+
+        yield! 
+            this.signal
+            |> Map.toSeq
+            |> Seq.map (fun (shuntAdc, dataPoint) ->
+                String.Join(", ", 
+                    [ shuntAdc.ToString()
+                      (this.shuntAdcToField shuntAdc).ToString()
+                      ((float dataPoint.accumulatedRe) / (float dataPoint.count)).ToString()
+                      ((float dataPoint.accumulatedIm) / (float dataPoint.count)).ToString()
+                      (dataPoint.count).ToString() ]
+                    |> List.toSeq)) }
 
 type CwEprExperimentStatus =
     | StartingExperiment
@@ -49,7 +81,6 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
     let canceled = new Event<OperationCanceledException>()
     let stoppedAfterScan = new Event<int>()
     let scanFinished = new Event<int>()
-    let dataUpdated = new Event<CwEprData>()
 
     let readyToStart = new ManualResetEvent(false)
     let cancellationCapability = new CancellationCapability<RampCancellationOptions>()
@@ -72,24 +103,35 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
     let processSample (data : CwEprData) (sample : CwEprSample) =
         { data with 
             signal = 
-                data.signal
-                |> Map.updateKey sample.magneticFieldShuntAdc (function
+                let bin =
+                    data.signal
+                    |> Map.tryFind sample.magneticFieldShuntAdc
+
+                let newBin = 
+                    match bin with
                     | None ->
-                        { accumulatedX = int sample.xSignalAdc
-                          accumulatedY = int sample.ySignalAdc
+                        { accumulatedRe = int sample.reSignalAdc
+                          accumulatedIm = int sample.imSignalAdc
                           count = 1 }
                     | Some value ->
-                        { accumulatedX = value.accumulatedX + int sample.xSignalAdc
-                          accumulatedY = value.accumulatedY + int sample.ySignalAdc
-                          count = value.count + 1 }) }
+                        { accumulatedRe = value.accumulatedRe + int sample.reSignalAdc
+                          accumulatedIm = value.accumulatedIm + int sample.imSignalAdc
+                          count = value.count + 1 }
+                
+                data.signal
+                |> Map.add sample.magneticFieldShuntAdc newBin }
 
     let sample = new Event<CwEprSample>()
     let emptyData =
-        { shuntAdcToField = fun adc -> 
-            adc 
+        { shuntAdcToField = fun adc ->
+            adc
             |> pico.GetAdcCountToVoltageConversion(shuntVoltageRange, shuntVoltageOffset)
             |> magnetController.DeviceParameters.FieldForShuntVoltage
           signal = Map.empty }
+
+    member this.MagnetController = magnetController
+    member this.PicoScope = pico
+    member this.Experiment = experiment
 
     member this.StatusChanged = statusChanged.Publish
     member this.Success = success.Publish
@@ -102,10 +144,42 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
         sample.Publish
         |> Event.scan processSample emptyData
 
+    member this.LiveChart (refreshInterval : TimeSpan) =
+        if experiment.quadratureDetection then
+            let reChart =
+                (this.DataUpdated
+                 |> Event.map (fun data -> data.ReSignal()))
+                    .Sample(refreshInterval)
+                    .ObserveOn(SynchronizationContext.CaptureCurrent())
+                  
+                |> LiveChart.FastLine
+
+            let imChart =
+                (this.DataUpdated
+                 |> Event.map (fun data -> data.ImSignal()))
+                    .Sample(refreshInterval)
+                    .ObserveOn(SynchronizationContext.CaptureCurrent())
+                |> LiveChart.FastLine
+
+            new ChartControl (Chart.Combine [ reChart ; imChart ])
+        else
+            let reChart =
+                (this.DataUpdated
+                 |> Event.map (fun data -> data.ReSignal()))
+                    .Sample(refreshInterval)
+                    .ObserveOn(SynchronizationContext.CaptureCurrent())
+                |> LiveChart.FastLine
+            
+            new ChartControl (reChart)
+
     member this.Cancel returnToZero =
         "CW EPR worker stopping..." |> log.Info
         cancellationCapability.Cancel returnToZero
         readyToStart.Set() |> ignore // continue the workflow if it is currently waiting
+
+    member this.StopAfterScan() =
+        "Setting CW EPR worker to stop after scan..." |> log.Info
+        stopAfterScanCapability.Cancel()
 
     member this.PrepareAndStart() =
         this.SetReadyToStart()
@@ -128,12 +202,18 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
                     sprintf "CW EPR experiment performing scan (%d of %d)." scanNumber (experiment.numberOfScans) |> log.Info
                     syncContext.RaiseEvent statusChanged (PreparingExperimentScan scanNumber)
                     
+                    let returnToZero =
+                        if experiment.returnToZero && (scanNumber = experiment.numberOfScans) then
+                            true
+                        else
+                            false
+
                     let scanWorker = 
                         new CwEprScanWorker(magnetController, pico,
                             { startingFieldIndex = experiment.startingFieldIndex
                               finalFieldIndex  = experiment.finalFieldIndex
                               rampRateIndex = experiment.rampRateIndex
-                              returnToZero = experiment.returnToZero
+                              returnToZero = returnToZero
                               conversionTime = experiment.conversionTime
                               downsampling = experiment.downsampling
                               quadratureDetection = experiment.quadratureDetection
@@ -155,11 +235,11 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
                     scanWorker.StatusChanged
                     |> Event.filter ((=) Scanning)
                     |> Event.add (fun _ -> syncContext.RaiseEvent statusChanged (StartedExperimentScan scanNumber))
-                    
+
                     scanWorker.PrepareAndStart()
                     do! waitForScanCompleted
                     
-                    sprintf "CW EPR experiment finished scan (%d of %d)." scanNumber (experiment.numberOfScans) |> log.Info
+                    sprintf "CW EPR experiment finished scan (%d of %d)." scanNumber experiment.numberOfScans |> log.Info
                     syncContext.RaiseEvent statusChanged (FinishedExperimentScan scanNumber)
                     syncContext.RaiseEvent scanFinished scanNumber }
 
@@ -171,7 +251,7 @@ type CwEprExperimentWorker(experiment, magnetController : MagnetController, pico
                     syncContext.RaiseEvent statusChanged (StoppedAfterScan currentScanNumber)
                     syncContext.RaiseEvent stoppedAfterScan currentScanNumber
                     
-                if currentScanNumber < experiment.numberOfScans then
+                else if currentScanNumber < experiment.numberOfScans then
                     do! scanLoop (currentScanNumber + 1) }
 
             async {

@@ -127,10 +127,10 @@ type Methods() =
         | ManualStop -> (0s, 0u, 1u)
     
     [<Extension>]
-    static member Buffer (downsampling : Downsampling) =
+    static member Buffer (downsampling : DownsamplingMode) =
         match downsampling with
-        | Downsampling.None -> Single AllSamples
-        | Downsampling.Aggregate -> Pair (AggregateMax, AggregateMin)
-        | Downsampling.Decimated -> Single Decimated
-        | Downsampling.Averaged -> Single Averaged
+        | DownsamplingMode.None -> Single AllSamples
+        | DownsamplingMode.Aggregate -> Pair (AggregateMax, AggregateMin)
+        | DownsamplingMode.Decimated -> Single Decimated
+        | DownsamplingMode.Averaged -> Single Averaged
         | _ -> invalidArg "downsampling" "Unexpected Downsampling enumeration type." downsampling

@@ -55,10 +55,10 @@ type internal Command =
     
     // Buffer setup and memory segmentation
     | GetTimebaseInterval of timebase : uint32 * memorySegment : uint32 * replyChannel : AsyncReplyChannel<int<ns> * int32>
-    | GetMaximumDownsamplingRatio of unprocessedSampleCount : uint32 * downsampling : Downsampling * memorySegment : uint32 * replyChannel : AsyncReplyChannel<uint32>
+    | GetMaximumDownsamplingRatio of unprocessedSampleCount : uint32 * downsampling : DownsamplingMode * memorySegment : uint32 * replyChannel : AsyncReplyChannel<uint32>
     | GetMaximumNumberOfSegments of replyChannel : AsyncReplyChannel<uint32>
     | SetNumberOfMemorySegments of memorySegments : uint32 * replyChannel : AsyncReplyChannel<int32>
-    | SetDataBuffer of channel : Channel * buffer : Sample array * segmentIndex : uint32 * downsampling : Downsampling
+    | SetDataBuffer of channel : Channel * buffer : Sample array * segmentIndex : uint32 * downsampling : DownsamplingMode
     | SetAggregateDataBuffers of channel : Channel * bufferMax : Sample array * bifferMin : Sample array * segmentIndex : uint32
     | DiscardDataBuffers
     
@@ -68,7 +68,7 @@ type internal Command =
 
     // Acqusition
     | RunStreaming of streamingParameters : StreamingParameters * replyChannel : AsyncReplyChannel<IStreamingAcquisition>
-    | GetStreamingLatestValues of callback : (StreamingValuesReady -> unit)
+    | GetStreamingLatestValues of callback : (StreamingValuesReady -> unit) * replyChannel : AsyncReplyChannel<unit>
     | StopAcquisition
 
 type SessionParameters = {
@@ -332,7 +332,7 @@ type PicoScope5000(session) =
                 return! preparing dataBuffers
                 
             | SetDataBuffer (channel, buffer, segmentIndex, downsampling) ->
-                if downsampling = Downsampling.Aggregate then
+                if downsampling = DownsamplingMode.Aggregate then
                     invalidArg "downsampling"
                         "Attempted to set data buffer with aggregate downsampling. Use SetAggregateDataBuffers instead." downsampling
                 if not (session.inputChannels.Contains channel) then
@@ -350,7 +350,7 @@ type PicoScope5000(session) =
                 if not (session.inputChannels.Contains channel) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
-                Api.SetDataBuffers(session.handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, Downsampling.Aggregate) 
+                Api.SetDataBuffers(session.handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, DownsamplingMode.Aggregate) 
                 |> checkStatus message
                 
                 sprintf "PicoScope %s successfully set aggregate data buffers for %A with buffer length %d." session.serial channel (bufferMax.Length) |> log.Info
@@ -395,10 +395,10 @@ type PicoScope5000(session) =
                 let mutable hardwareInterval = interval
 
                 Api.RunStreaming(session.handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
-                    streamingParameters.downsamplingRatio, streamingParameters.downsampling, streamingParameters.bufferLength)
+                    streamingParameters.downsamplingRatio, streamingParameters.downsamplingModes, streamingParameters.bufferLength)
                 |> checkStatus message 
                 let intervalWithDimension = hardwareInterval.ToInvervalInNanoecondsFromTimeUnit(timeUnit)
-                sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %Ans." 
+                sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %A ns." 
                     session.serial intervalWithDimension |> log.Info
                 
                 let acquisition = { new IStreamingAcquisition with
@@ -406,7 +406,8 @@ type PicoScope5000(session) =
 
                     member __.GetLatestValues callback =
                         sprintf "PicoScope %s polling for latest streaming values." session.serial |> log.Info
-                        GetStreamingLatestValues callback |> mailbox.Post
+                        (fun replyChannel -> GetStreamingLatestValues(callback, replyChannel)
+                        |> mailbox.PostAndAsyncReply)
                     
                     member __.Dispose() = 
                         sprintf "PicoScope %s stopping acquisition." session.serial |> log.Info
@@ -436,7 +437,6 @@ type PicoScope5000(session) =
                     sprintf "PicoScope %s released GC handle for buffer after %s." session.serial reason |> log.Info
                     gcHandle.Free())
 
-
             (sprintf "(Re)entering PicoScope %s agent streaming loop." session.serial) |> log.Info
             
             let! message = mailbox.TryReceive 1000
@@ -450,7 +450,7 @@ type PicoScope5000(session) =
 
             match message.Value with
 
-            | GetStreamingLatestValues callback ->
+            | GetStreamingLatestValues(callback, replyChannel) ->
                 try
                     sprintf "PicoScope %s creating streaming callback." session.serial |> log.Debug
                     let picoScopeCallback = 
@@ -471,6 +471,7 @@ type PicoScope5000(session) =
                         sprintf "PicoScope %s requested latest streaming values." session.serial |> log.Info
                     else
                         sprintf "PicoScope %s did not request latest streaming values because it is busy." session.serial |> log.Info
+                    replyChannel.Reply()
                 with
                 | exn -> 
                     log.Error (sprintf "PicoScope %s acquisition due to error %A." session.serial exn, exn)

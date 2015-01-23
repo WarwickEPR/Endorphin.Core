@@ -46,7 +46,7 @@ module internal Api =
     extern PicoStatus GetDeviceResolution(int16 handle, Resolution& resolution)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetMaxDownSampleRatio")>]
-    extern PicoStatus GetMaximumDownsamplingRatio(int16 handle, uint32 numberOfUnaggregatedSamples, uint32& maxDownsamplingRatio, Downsampling downsampling,
+    extern PicoStatus GetMaximumDownsamplingRatio(int16 handle, uint32 numberOfUnaggregatedSamples, uint32& maxDownsamplingRatio, DownsamplingMode downsampling,
         uint32 segmentIndex)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetMaxSegments")>]
@@ -71,23 +71,23 @@ module internal Api =
     extern PicoStatus GetUnitInfo(int16 handle, StringBuilder result, int16 stringLength, int16& requiredSize, PicoInfo info)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValues")>]
-    extern PicoStatus GetValues(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, Downsampling downsampling,
+    extern PicoStatus GetValues(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, DownsamplingMode downsampling,
         uint32 segmentIndex, int16& overflow)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesAsync")>]
-    extern PicoStatus GetValuesAsync(int16 handle, uint32 startIndex, uint32 numberOfSamples, uint32 downsamplingRatio, Downsampling downsampling,
+    extern PicoStatus GetValuesAsync(int16 handle, uint32 startIndex, uint32 numberOfSamples, uint32 downsamplingRatio, DownsamplingMode downsampling,
         uint32 segmentIndex, PicoScopeDataReady callback, nativeint state)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesBulk")>]
     extern PicoStatus GetValuesBulk(int16 handle, uint32& numberOfSamples, uint32 fromSegmentIndex, uint32 toSegmentIndex, uint32 downsamplingRatio,
-        Downsampling downsampling, int16& overflow)
+        DownsamplingMode downsampling, int16& overflow)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesOverlapped")>]
-    extern PicoStatus GetValuesOverlapped(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, Downsampling downsampling,
+    extern PicoStatus GetValuesOverlapped(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, DownsamplingMode downsampling,
         uint32 segmentIndex, int16& overflow)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesOverlappedBulk")>]
-    extern PicoStatus GetValuesOverlappedBulk(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, Downsampling downsampling,
+    extern PicoStatus GetValuesOverlappedBulk(int16 handle, uint32 startIndex, uint32& numberOfSamples, uint32 downsamplingRatio, DownsamplingMode downsampling,
         uint32 fromSegmentIndex, uint32& toSegmentIndex, int16& overflow)
  
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesTriggerTimeOffsetBulk64")>]
@@ -129,7 +129,7 @@ module internal Api =
  
     [<DllImport(dllName, EntryPoint = "ps5000aRunStreaming")>]
     extern PicoStatus RunStreaming(int16 handle, uint32& sampleInterval, TimeUnit sampleIntervalTimeUnit, uint32 maxPreTriggerSamples,
-        uint32 maxPostTriggerSamples, int16 autoStop, uint32 downsamplingRatio, Downsampling downsampling, uint32 bufferSize);
+        uint32 maxPostTriggerSamples, int16 autoStop, uint32 downsamplingRatio, DownsamplingMode downsampling, uint32 bufferSize);
  
     [<DllImport(dllName, EntryPoint = "ps5000aSetBandwidthFilter")>]
     extern PicoStatus SetBandwidthFilter(int16 handle, Channel channel, BandwidthLimit bandwidth);
@@ -138,11 +138,11 @@ module internal Api =
     extern PicoStatus SetChannel(int16 handle, Channel channel, int16 enabled, Coupling coupling, Range range, float32 analogueOffset);
 
     [<DllImport(dllName, EntryPoint = "ps5000aSetDataBuffer")>]
-    extern PicoStatus SetDataBuffer(int16 handle, Channel channel, int16[] buffer, int bufferLength, uint32 segmentIndex, Downsampling downsampling);
+    extern PicoStatus SetDataBuffer(int16 handle, Channel channel, int16[] buffer, int bufferLength, uint32 segmentIndex, DownsamplingMode downsampling);
 
     [<DllImport(dllName, EntryPoint = "ps5000aSetDataBuffers")>]
     extern PicoStatus SetDataBuffers(int16 handle, Channel channel, int16[] bufferMax, int16[] bufferMin, int bufferLength, uint32 segmentIndex,
-        Downsampling downsampling);
+        DownsamplingMode downsampling);
 
     [<DllImport(dllName, EntryPoint = "ps5000aSetDeviceResolution")>]
     extern PicoStatus SetDeviceResolution(int16 handle, Resolution resolution);

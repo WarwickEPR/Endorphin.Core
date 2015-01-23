@@ -54,8 +54,8 @@
     <Compile Include="Event.fs" />
     <Compile Include="StringUtils.fs" />
     <Compile Include="Units.fs" />
-    <Compile Include="Map.fs" />
     <Compile Include="NationalInstruments.fs" />
+    <Compile Include="CSharpInterop.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

@@ -12,8 +12,8 @@ type Channel =
     | None = 6
 
 type Coupling = 
-    | DC = 0
-    | AC = 1
+    | AC = 0
+    | DC = 1
 
 type Range =
     | _10mV = 0

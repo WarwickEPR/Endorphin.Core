@@ -2,7 +2,10 @@
 
 [<AutoOpen>]
 module Event =
-    let concatSeq (source: IEvent<'a seq>) =
+    open System.Threading
+    open System
+
+    let concatSeq (source : IEvent<'a seq>) =
         let out = new Event<_>()
         source |> Event.add (fun xs -> for x in xs do out.Trigger x)
         out.Publish
@@ -10,7 +13,7 @@ module Event =
     let collectSeq f =
         Event.map f >> concatSeq
 
-    let every n (source: IEvent<_>) =
+    let every n (source : IEvent<_>) =
         let out = new Event<_>()
         let count = ref 0 
         source.Add (fun arg -> incr count; if !count % n = 0 then out.Trigger arg)

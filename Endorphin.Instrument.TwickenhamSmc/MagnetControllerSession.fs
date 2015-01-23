@@ -9,18 +9,24 @@ type SessionCommand =
     | RequestControl of AsyncReplyChannel<MagnetController>
     | CloseSession of AsyncReplyChannel<unit>
 
-type MagnetControllerSession(visaAddress, deviceParameters : DeviceParameters) =
+type MagnetControllerSession(visaAddress, deviceParameters : MagnetControllerParameters) =
     static let log = LogManager.GetLogger typeof<MagnetControllerSession>
 
     let agent = Agent.Start(fun (mailbox : Agent<SessionCommand>) ->
         let rec start() = async {
             sprintf "Creating VISA session for Twickenham SMC at %s." visaAddress |> log.Info
-            let session = visaAddress |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
-            sprintf "Session created successfully." |> log.Info
-            // sleep for 1s before sending any commands because communications can otherwise crash
-            // (seems to be an issue with the magnet controller hardware)
-            do! Async.Sleep(1000)
-            return! loop session }
+            
+            try
+                let session = visaAddress |> ResourceManager.GetLocalManager().Open :?> MessageBasedSession
+                sprintf "Session created successfully." |> log.Info
+                // sleep for 1s before sending any commands because communications can otherwise crash
+                // (seems to be an issue with the magnet controller hardware)
+                do! Async.Sleep(1000)
+                return! loop session
+            with
+                | exn -> 
+                    log.Error("Failed to create session.", exn)
+                    raise exn }
 
         and loop session = async {
             sprintf "Twickenham SMC session %s waiting for session command." visaAddress |> log.Info

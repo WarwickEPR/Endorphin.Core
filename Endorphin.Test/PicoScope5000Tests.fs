@@ -278,7 +278,7 @@ type ``PicoScope 5000 series tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let! voltsToAdc = pico.GetVoltageToAdcCountConversionAsync(Range._10V, 0.25<V>)
+            let voltsToAdc = pico.GetVoltageToAdcCountConversion(Range._10V, 0.25<V>)
 
             pico.SetTrigger (SimpleTrigger
                 { channel = Channel.A
@@ -295,13 +295,13 @@ type ``PicoScope 5000 series tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
-            let! voltsToAdc = pico.GetVoltageToAdcCountConversionAsync(Range._10V, 0.25<V>)
+            let voltsToAdc = pico.GetVoltageToAdcCountConversion(Range._10V, 0.25<V>)
             Assert.That(voltsToAdc 10.25<V>, Is.EqualTo(0x7F00s).Within(1s))
             Assert.That(voltsToAdc 0.25<V>, Is.EqualTo(0x0000s).Within(1s))
             Assert.That(voltsToAdc -9.75<V>, Is.EqualTo(0x8100s).Within(1s))
             Assert.That(voltsToAdc 5.25<V>, Is.EqualTo(0x3F80s).Within(1s))
 
-            let! voltsToAdc = pico.GetVoltageToAdcCountConversionAsync(Range._200mV, 0.010<V>)
+            let voltsToAdc = pico.GetVoltageToAdcCountConversion(Range._200mV, 0.010<V>)
             Assert.That(voltsToAdc 0.210<V>, Is.EqualTo(0x7F00s).Within(1s))
             Assert.That(voltsToAdc 0.010<V>, Is.EqualTo(0x0000s).Within(1s))
             Assert.That(voltsToAdc -0.190<V>, Is.EqualTo(0x8100s).Within(1s))
@@ -313,13 +313,13 @@ type ``PicoScope 5000 series tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
-            let! adcToVolts = pico.GetAdcCountToVoltageConversionAsync(Range._5V, -0.050<V>)
+            let adcToVolts = pico.GetAdcCountToVoltageConversion(Range._5V, -0.050<V>)
             Assert.That(adcToVolts 0x7F00s, Is.EqualTo(4.950<V>).Within(0.0000001<V>))
             Assert.That(adcToVolts 0x0000s, Is.EqualTo(-0.050<V>).Within(0.0000001<V>))
             Assert.That(adcToVolts 0x8100s, Is.EqualTo(-5.050<V>).Within(0.0000001<V>))
             Assert.That(adcToVolts 0x3F80s, Is.EqualTo(2.450<V>).Within(0.0000001<V>))
 
-            let! adcToVolts = pico.GetAdcCountToVoltageConversionAsync(Range._10mV, 0.0<V>)
+            let adcToVolts = pico.GetAdcCountToVoltageConversion(Range._10mV, 0.0<V>)
             Assert.That(adcToVolts 0x7F00s, Is.EqualTo(0.010<V>).Within(0.0000001<V>))
             Assert.That(adcToVolts 0x0000s, Is.EqualTo(0.0<V>).Within(0.0000001<V>))
             Assert.That(adcToVolts 0x8100s, Is.EqualTo(-0.010<V>).Within(0.0000001<V>))
@@ -331,8 +331,8 @@ type ``PicoScope 5000 series tests``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let! adcToVolts = pico.GetAdcCountToVoltageConversionAsync(Range._5V, 0.25<V>)
-            let! voltsToAdc = pico.GetVoltageToAdcCountConversionAsync(Range._5V, 0.25<V>)
+            let adcToVolts = pico.GetAdcCountToVoltageConversion(Range._5V, 0.25<V>)
+            let voltsToAdc = pico.GetVoltageToAdcCountConversion(Range._5V, 0.25<V>)
             
             Assert.That(adcToVolts (voltsToAdc 0.43<V>), Is.EqualTo(0.43<V>).Within(0.0001<V>))
             Assert.That(adcToVolts (voltsToAdc -3.3<V>), Is.EqualTo(-3.3<V>).Within(0.0001<V>))

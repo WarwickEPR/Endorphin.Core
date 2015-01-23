@@ -4,6 +4,7 @@ open Endorphin.Core
 open Errors
 open System.Text
 open log4net
+open System
 
 type SessionCommand =
     | RequestControl of AsyncReplyChannel<PicoScope5000>
@@ -27,13 +28,13 @@ type PicoScope5000Session(initSerial, resolution) =
                     sprintf "Successfully started session agent for PicoScope %s with mains power." initSerial |> log.Info
                     localHandle
                 | PicoStatus.PowerSupplyNotConnected ->
-                    let error = sprintf "Connected to PicoScope %s but device is not mains poewred. USB power is not currently supported." initSerial
-                    log.Error error
-                    failwith error
+                    let error = new Exception(sprintf "Connected to PicoScope %s but device is not mains poewred. USB power is not currently supported." initSerial)
+                    log.Error (error.Message, error)
+                    raise error
                 | _ ->
                     let exn = PicoException(messageForStatus status, status, "Open unit")
                     let error = sprintf "Failed to start agent for PicoScope due to error: %s" (messageForStatus status)
-                    log.Error(error, exn)
+                    log.Error (error, exn)
                     raise exn
             
             let serial =
@@ -44,9 +45,9 @@ type PicoScope5000Session(initSerial, resolution) =
                     let status = Api.GetUnitInfo(handle, localSerial, resultLength, &requiredLength, PicoInfo.SerialNumber)
                     let error = errorMessage status
                     if error.IsSome then
-                        let initError = sprintf "Failed to retrieve PicoScope serial number during initialisation due to error: %s." error.Value
-                        log.Error initError
-                        failwith initError
+                        let initError = new Exception(sprintf "Failed to retrieve PicoScope serial number during initialisation due to error: %s." error.Value)
+                        log.Error (initError.Message, initError)
+                        raise initError
                     sprintf "Successfully retreived serial number %s for PicoScope." (localSerial.ToString()) |> log.Info
                     localSerial.ToString()
                 else initSerial
@@ -58,9 +59,9 @@ type PicoScope5000Session(initSerial, resolution) =
                 let status = Api.GetUnitInfo(handle, localModelNumber, resultLength, &requiredLength, PicoInfo.ModelNumber) 
                 let error = errorMessage status
                 if error.IsSome then
-                    let initError = sprintf "Failed to retrieve PicoScope model number during initialisation due to error: %s." error.Value
-                    log.Error initError
-                    failwith initError
+                    let initError = new Exception(sprintf "Failed to retrieve PicoScope model number during initialisation due to error: %s." error.Value)
+                    log.Error (initError.Message, initError)
+                    raise initError
                 sprintf "Successfully retreived model number %s for PicoScope %s." (localModelNumber.ToString()) serial |> log.Info
                 localModelNumber.ToString()
             
@@ -70,9 +71,9 @@ type PicoScope5000Session(initSerial, resolution) =
                 | 2 -> Set.ofList [ Channel.A ; Channel.B ]
                 | 4 -> Set.ofList [ Channel.A ; Channel.B ; Channel.C ; Channel.D ]
                 | _ -> 
-                    let initError = sprintf "PicoScope %s has unexpected model number." serial
-                    log.Error initError
-                    failwith initError
+                    let initError = new Exception(sprintf "PicoScope %s has unexpected model number %s." serial modelNumber)
+                    log.Error (initError.Message, initError)
+                    raise initError
             sprintf "PicoScope %s has input channels: %A." serial inputChannels |> log.Info
 
             return! loop {
@@ -108,14 +109,14 @@ type PicoScope5000Session(initSerial, resolution) =
                 let status = Api.CloseUnit(session.handle)
                 let error = errorMessage status
                 if error.IsSome then
-                    let closeError = sprintf "PicoScope session %s failed to close due to error: %s." session.serial error.Value
-                    log.Error closeError
-                    failwith closeError
+                    let closeError = new Exception(sprintf "PicoScope session %s failed to close due to error: %s." session.serial error.Value)
+                    log.Error (closeError.Message, closeError)
+                    raise closeError
 
                 if mailbox.CurrentQueueLength <> 0 then
-                    let closeError = sprintf "Closed PicoScope %s session with %d pending requests." session.serial mailbox.CurrentQueueLength
-                    log.Error closeError
-                    failwith closeError
+                    let closeError = new Exception(sprintf "Closed PicoScope %s session with %d pending requests." session.serial mailbox.CurrentQueueLength)
+                    log.Error (closeError.Message, closeError)
+                    raise closeError
 
                 sprintf "Successfully closed connection to PicoScope %s." session.serial |> log.Info
                 replyChannel.Reply() }
