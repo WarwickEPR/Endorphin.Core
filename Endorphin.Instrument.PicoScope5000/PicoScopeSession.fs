@@ -77,20 +77,20 @@ type PicoScope5000Session(initSerial, resolution) =
             sprintf "PicoScope %s has input channels: %A." serial inputChannels |> log.Info
 
             return! loop {
-                handle = handle
-                serial = serial
-                resolution = resolution
-                inputChannels = inputChannels } }
+                Handle = handle
+                Serial = serial
+                Resolution = resolution
+                InputChannels = inputChannels } }
 
         and loop session = async {
-            sprintf "PicoScope session %s waiting for session command." (session.serial) |> log.Info
+            sprintf "PicoScope session %s waiting for session command." (session.Serial) |> log.Info
             
             let! message = mailbox.Receive()
-            sprintf "PicoScope session %s received session command %A." (session.serial) message |> log.Info
+            sprintf "PicoScope session %s received session command %A." (session.Serial) message |> log.Info
             
             match message with
             | RequestControl replyChannel ->
-                sprintf "Creating PicoScope agent for session %s." (session.serial) |> log.Info
+                sprintf "Creating PicoScope agent for session %s." (session.Serial) |> log.Info
                 let picoScope = new PicoScope5000(session)
                 let! waitForSessionReleased =
                     picoScope.SessionReleased
@@ -98,27 +98,27 @@ type PicoScope5000Session(initSerial, resolution) =
                     |> Async.StartChild
                 picoScope |> replyChannel.Reply
 
-                sprintf "Waiting for PicoScope agent to release session %s." (session.serial) |> log.Info
+                sprintf "Waiting for PicoScope agent to release session %s." (session.Serial) |> log.Info
                 do! waitForSessionReleased
 
-                sprintf "PicoScope agent released session %s." (session.serial) |> log.Info
+                sprintf "PicoScope agent released session %s." (session.Serial) |> log.Info
                 return! loop session
             
             | CloseSession replyChannel ->                
-                sprintf "Closing PicoScope session %s." (session.serial) |> log.Info
-                let status = Api.CloseUnit(session.handle)
+                sprintf "Closing PicoScope session %s." (session.Serial) |> log.Info
+                let status = Api.CloseUnit(session.Handle)
                 let error = errorMessage status
                 if error.IsSome then
-                    let closeError = new Exception(sprintf "PicoScope session %s failed to close due to error: %s." session.serial error.Value)
+                    let closeError = new Exception(sprintf "PicoScope session %s failed to close due to error: %s." session.Serial error.Value)
                     log.Error (closeError.Message, closeError)
                     raise closeError
 
                 if mailbox.CurrentQueueLength <> 0 then
-                    let closeError = new Exception(sprintf "Closed PicoScope %s session with %d pending requests." session.serial mailbox.CurrentQueueLength)
+                    let closeError = new Exception(sprintf "Closed PicoScope %s session with %d pending requests." session.Serial mailbox.CurrentQueueLength)
                     log.Error (closeError.Message, closeError)
                     raise closeError
 
-                sprintf "Successfully closed connection to PicoScope %s." session.serial |> log.Info
+                sprintf "Successfully closed connection to PicoScope %s." session.Serial |> log.Info
                 replyChannel.Reply() }
 
         start())

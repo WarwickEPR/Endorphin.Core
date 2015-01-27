@@ -264,10 +264,10 @@ type ``PicoScope 5000 series tests``() =
             use! pico = picoScopeSession.RequestControlAsync()
 
             pico.SetChannelSettings (Channel.A, (Enabled { 
-                coupling = Coupling.DC 
-                range = Range._2V
-                analogueOffset = 0.2<V>
-                bandwidthLimit = BandwidthLimit._20MHz }))
+                Coupling = Coupling.DC 
+                Range = Range._2V
+                AnalogueOffset = 0.2<V>
+                BandwidthLimit = BandwidthLimit._20MHz }))
             
             pico.SetChannelSettings (Channel.B, Disabled)
             pico.SetChannelSettings (Channel.A, Disabled) }
@@ -281,11 +281,11 @@ type ``PicoScope 5000 series tests``() =
             let voltsToAdc = pico.GetVoltageToAdcCountConversion(Range._10V, 0.25<V>)
 
             pico.SetTrigger (SimpleTrigger
-                { channel = Channel.A
-                  adcThreshold = 5.0<V> |> voltsToAdc
-                  thresholdDirection = ThresholdDirection.Rising
-                  delaySamplesAfterTrigger = 0u
-                  autoTrigger = None })
+                { Channel = Channel.A
+                  AdcThreshold = 5.0<V> |> voltsToAdc
+                  ThresholdDirection = ThresholdDirection.Rising
+                  DelaySamplesAfterTrigger = 0u
+                  AutoTrigger = None })
 
             pico.SetTrigger (AutoTrigger 500s<ms>) }
         |> Async.RunSynchronously

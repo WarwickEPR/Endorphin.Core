@@ -12,8 +12,8 @@ type SetFieldStatus =
     | CanceledSettingField of returnToZero : bool
     | FailedSettingField
             
-type SetFieldCancellationOptions = {
-    returnToZero : bool }
+type SetFieldCancellationOptions =
+    { ReturnToZero : bool }
 
 type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
     static let log = LogManager.GetLogger typeof<StaticFieldWorker>
@@ -30,7 +30,7 @@ type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
         magnetController.DeviceParameters.CurrentForIndex targetFieldIndex
 
     do // initialisation checks
-        if abs targetCurrent > magnetController.DeviceParameters.currentLimit then
+        if abs targetCurrent > magnetController.DeviceParameters.CurrentLimit then
             failwith "Target current outside of magnet controller current limit."
     
     member __.StatusChanged = statusChanged.Publish
@@ -40,7 +40,7 @@ type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
 
     member __.Cancel returnToZero =
         "Ramp worker stopping..." |> log.Info
-        cancellationCapability.Cancel { returnToZero = returnToZero }
+        cancellationCapability.Cancel { ReturnToZero = returnToZero }
 
     member this.Start() =
         if cancellationCapability.IsCancellationRequested then
@@ -59,7 +59,7 @@ type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
                 let! operatingParameters = magnetController.GetOperatingParametersAsync()
                 if targetFieldIndex <> 0 then
                     let targetCurrentDirection = if targetFieldIndex > 0 then Forward else Reverse
-                    if operatingParameters.currentDirection <> targetCurrentDirection then 
+                    if operatingParameters.CurrentDirection <> targetCurrentDirection then 
                         do! magnetController.RampToZeroAndSetCurrentDirectionAsync targetCurrentDirection }
             
             let setCurrentLimits = async { 
@@ -71,14 +71,14 @@ type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
             let rampToTarget = async {
                 "Ramping to target current." |> log.Info
                 magnetController.SetRampTarget Upper
-                magnetController.SetRampRate magnetController.DeviceParameters.rampRateLimit
+                magnetController.SetRampRate magnetController.DeviceParameters.RampRateLimit
                 magnetController.SetPause false
                 do! magnetController.WaitToReachTargetAsync() } 
             
             // set up cancellation handler
             use! __ = Async.OnCancel(fun () ->
                 "Cancelling ramp to target field..." |> log.Info
-                if cancellationCapability.Options.returnToZero then 
+                if cancellationCapability.Options.ReturnToZero then 
                     "Returning to zero current..." |> log.Info
                     magnetController.BeginRampToZero()
                 else 
@@ -86,7 +86,7 @@ type StaticFieldWorker(magnetController : MagnetController, targetFieldIndex) =
                     magnetController.SetPause true
 
                 "Canceled setting field." |> log.Info
-                syncContext.RaiseEvent statusChanged (CanceledSettingField cancellationCapability.Options.returnToZero))
+                syncContext.RaiseEvent statusChanged (CanceledSettingField cancellationCapability.Options.ReturnToZero))
             
             // ramp to target
             do! setStartingCurrentDirection

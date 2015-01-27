@@ -18,47 +18,47 @@ type ``Magnet controller tests``() =
         
     [<Test>]
     member __.``Check ramp rate limit is set``() =
-        let rampRateLimit = magnetControllerSession.DeviceParameters.rampRateLimit
+        let rampRateLimit = magnetControllerSession.DeviceParameters.RampRateLimit
         Assert.AreEqual(0.1<A/s>, rampRateLimit)
 
     [<Test>]
     member __.``Check trip voltage limit is set``() =
-        let tripVoltageLimit = magnetControllerSession.DeviceParameters.tripVoltageLimit
+        let tripVoltageLimit = magnetControllerSession.DeviceParameters.TripVoltageLimit
         Assert.AreEqual(2.5<V>, tripVoltageLimit)
 
     [<Test>]
     member __.``Check current limit is set``() =
-        let currentLimit = magnetControllerSession.DeviceParameters.currentLimit
+        let currentLimit = magnetControllerSession.DeviceParameters.CurrentLimit
         Assert.AreEqual(5.0<A>, currentLimit)
 
     [<Test>]
     member __.``Check static field is set``() =
-        let staticField = magnetControllerSession.DeviceParameters.staticField
+        let staticField = magnetControllerSession.DeviceParameters.StaticField
         Assert.AreEqual(14.0<T>, staticField)
 
     [<Test>]
     member __.``Check field calibration is set``() =
-        let fieldCalibration = magnetControllerSession.DeviceParameters.fieldCalibration
+        let fieldCalibration = magnetControllerSession.DeviceParameters.FieldCalibration
         Assert.AreEqual(-0.003<T/A>, fieldCalibration)
 
     [<Test>]
     member __.``Check maximum current is set``() =
-        let maximumCurrent = magnetControllerSession.DeviceParameters.maximumCurrent
+        let maximumCurrent = magnetControllerSession.DeviceParameters.MaximumCurrent
         Assert.AreEqual(20.0<A>, maximumCurrent)
 
     [<Test>]
     member __.``Check shunt calibration is set``() =
-        let shuntCalibration = magnetControllerSession.DeviceParameters.shuntCalibration
+        let shuntCalibration = magnetControllerSession.DeviceParameters.ShuntCalibration
         Assert.AreEqual(0.020<V/A>, shuntCalibration)
 
     [<Test>]
     member __.``Check shunt offset is set``() =
-        let shuntOffset = magnetControllerSession.DeviceParameters.shuntOffset
+        let shuntOffset = magnetControllerSession.DeviceParameters.ShuntOffset
         Assert.AreEqual(2e-5<V>, shuntOffset)
 
     [<Test>]
     member __.``Check output resolution is set``() =
-        let outputResolution = magnetControllerSession.DeviceParameters.outputResolutionInBits
+        let outputResolution = magnetControllerSession.DeviceParameters.OutputResolution
         Assert.AreEqual(16, outputResolution)
 
     [<Test>]
@@ -111,13 +111,13 @@ type ``Magnet controller tests``() =
         let operatingParams = 
             magnetController.GetOperatingParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.064<A/s>, operatingParams.rampRate)
+        Assert.AreEqual(0.064<A/s>, operatingParams.RampRate)
 
         magnetController.SetRampRate 0.0072<A/s>
         let operatingParams = 
             magnetController.GetOperatingParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.0072<A/s>, operatingParams.rampRate)
+        Assert.AreEqual(0.0072<A/s>, operatingParams.RampRate)
 
     [<Test>]
     member __.``Can set ramp rate by index``() =
@@ -129,13 +129,13 @@ type ``Magnet controller tests``() =
         let operatingParams = 
             magnetController.GetOperatingParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.00042<A/s>, operatingParams.rampRate)
+        Assert.AreEqual(0.00042<A/s>, operatingParams.RampRate)
 
         magnetController.SetRampRateByIndex 20
         let operatingParams =
             magnetController.GetOperatingParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.00360<A/s>, operatingParams.rampRate)
+        Assert.AreEqual(0.00360<A/s>, operatingParams.RampRate)
 
     [<Test>]
     member __.``Ramp rates in amps per sec within limit are available``() =
@@ -256,13 +256,13 @@ type ``Magnet controller tests``() =
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.4<A>, setPointParams.lowerSetPoint)
+        Assert.AreEqual(0.4<A>, setPointParams.LowerSetPoint)
 
         magnetController.SetLowerSetPoint 2.2<A>
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(2.2<A>, setPointParams.lowerSetPoint)
+        Assert.AreEqual(2.2<A>, setPointParams.LowerSetPoint)
 
     [<Test>]
     member __.``Can set upper set point``() =
@@ -275,13 +275,13 @@ type ``Magnet controller tests``() =
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(0.8<A>, setPointParams.upperSetPoint)
+        Assert.AreEqual(0.8<A>, setPointParams.UpperSetPoint)
 
         magnetController.SetUpperSetPoint 3.7<A>
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(3.7<A>, setPointParams.upperSetPoint)
+        Assert.AreEqual(3.7<A>, setPointParams.UpperSetPoint)
 
     [<Test>]
     member __.``Can set trip voltage``() =
@@ -293,13 +293,13 @@ type ``Magnet controller tests``() =
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(1.5<V>, setPointParams.tripVoltage)
+        Assert.AreEqual(1.5<V>, setPointParams.TripVoltage)
 
         magnetController.SetTripVoltage 2.0<V>
         let setPointParams = 
             magnetController.GetSetPointParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(2.0<V>, setPointParams.tripVoltage)
+        Assert.AreEqual(2.0<V>, setPointParams.TripVoltage)
 
     [<Test>]
     member __.``Can pause``() =
@@ -311,13 +311,13 @@ type ``Magnet controller tests``() =
         let currentParams = 
             magnetController.GetCurrentParametersAsync()
             |> Async.RunSynchronously
-        Assert.IsTrue(currentParams.isPaused)
+        Assert.IsTrue(currentParams.IsPaused)
 
         magnetController.SetPause false
         let currentParams = 
             magnetController.GetCurrentParametersAsync()
             |> Async.RunSynchronously
-        Assert.IsFalse(currentParams.isPaused)
+        Assert.IsFalse(currentParams.IsPaused)
 
     [<Test>]
     member __.``Can set ramp target``() =
@@ -331,13 +331,13 @@ type ``Magnet controller tests``() =
         let currentParams =
             magnetController.GetCurrentParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(Upper, currentParams.rampTarget)
+        Assert.AreEqual(Upper, currentParams.RampTarget)
 
         magnetController.SetRampTarget Zero
         let currentParams =
             magnetController.GetCurrentParametersAsync()
             |> Async.RunSynchronously
-        Assert.AreEqual(Zero, currentParams.rampTarget)
+        Assert.AreEqual(Zero, currentParams.RampTarget)
 
         magnetController.SetPause false
 

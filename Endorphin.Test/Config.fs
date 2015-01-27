@@ -24,18 +24,18 @@ let calibratedRampRates =
         yield (10000.0) * firstDecade.[0] }
 
 let magnetControllerParameters = {
-    staticField = 14.0<T>
-    fieldCalibration = -0.003<T/A>
-    rampRateLimit = 0.1<A/s>
-    tripVoltageLimit = 2.5<V>
-    maximumCurrent = 20.0<A>
-    currentLimit = 5.0<A>
-    shuntCalibration = 0.020<V/A>
-    shuntOffset = 2e-5<V>
-    shuntNoise = 0.1<V>
-    outputResolutionInBits = 16 
-    setPointDecimalPlaces = 3
-    calibratedRampRates = calibratedRampRates }
+    StaticField = 14.0<T>
+    FieldCalibration = -0.003<T/A>
+    RampRateLimit = 0.1<A/s>
+    TripVoltageLimit = 2.5<V>
+    MaximumCurrent = 20.0<A>
+    CurrentLimit = 5.0<A>
+    ShuntCalibration = 0.020<V/A>
+    ShuntOffset = 2e-5<V>
+    ShuntNoise = 0.1<V>
+    OutputResolution = 16 
+    SetPointPrecision = 3
+    CalibratedRampRates = calibratedRampRates }
 
 let initialiseDefaultMagnetControllerState (magnetController : MagnetController) =
     magnetController.SetRampRate 0.098<A/s>
@@ -47,13 +47,13 @@ let initialiseDefaultMagnetControllerState (magnetController : MagnetController)
     magnetController.SetUpperSetPoint 5.0<A>
 
     let initialState = magnetController.GetAllParametersAsync() |> Async.RunSynchronously
-    Assert.AreEqual(false, initialState.currentParameters.isPaused, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(Zero, initialState.currentParameters.rampTarget, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(true, initialState.currentParameters.reachedTarget, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(Forward, initialState.operatingParameters.currentDirection, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(0.098<A/s>, initialState.operatingParameters.rampRate, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(0.0<A>, initialState.outputParameters.outputCurrent, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(Zero, initialState.outputParameters.rampTarget, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(0.0<A>, initialState.setPointParameters.lowerSetPoint, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(5.0<A>, initialState.setPointParameters.upperSetPoint, "Failed to prepare magnet controller state.")
-    Assert.AreEqual(2.0<V>, initialState.setPointParameters.tripVoltage, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(false, initialState.CurrentParameters.IsPaused, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(Zero, initialState.CurrentParameters.RampTarget, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(true, initialState.CurrentParameters.ReachedTarget, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(Forward, initialState.OperatingParameters.CurrentDirection, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(0.098<A/s>, initialState.OperatingParameters.RampRate, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(0.0<A>, initialState.OutputParameters.OutputCurrent, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(Zero, initialState.OutputParameters.RampTarget, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(0.0<A>, initialState.SetPointParameters.LowerSetPoint, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(5.0<A>, initialState.SetPointParameters.UpperSetPoint, "Failed to prepare magnet controller state.")
+    Assert.AreEqual(2.0<V>, initialState.SetPointParameters.TripVoltage, "Failed to prepare magnet controller state.")

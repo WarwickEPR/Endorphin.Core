@@ -1,5 +1,8 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+// enumerations in this file are present for completeness but not used in any of the PicoScope API
+// features implemented so far
+
 type SignalGeneratorWaveType =
     | Sine = 0
     | Square = 1

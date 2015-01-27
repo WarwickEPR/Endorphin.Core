@@ -2,6 +2,7 @@
 
 open Endorphin.Core
 open Endorphin.Core.StringUtils
+open Endorphin.Core.Units
 open Microsoft.FSharp.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NationalInstruments.VisaNS
@@ -18,41 +19,41 @@ type RampTarget =
     | Upper
 
 type OutputParameters = 
-    { outputCurrent : float<A>
-      outputVoltage : float<V>
-      rampTarget : RampTarget }
+    { OutputCurrent : float<A>
+      OutputVoltage : float<V>
+      RampTarget : RampTarget }
 
 type CurrentParameters = 
-    { rampTarget : RampTarget
-      reachedTarget : bool
-      isPaused : bool }
+    { RampTarget : RampTarget
+      ReachedTarget : bool
+      IsPaused : bool }
 
 type OperatingParameters = 
-    { rampRate : float<A/s>
-      currentDirection : CurrentDirection }
+    { RampRate : float<A/s>
+      CurrentDirection : CurrentDirection }
 
 type SetPointParameters = 
-    { lowerSetPoint : float<A>
-      upperSetPoint : float<A>
-      tripVoltage : float<V> }
+    { LowerSetPoint : float<A>
+      UpperSetPoint : float<A>
+      TripVoltage : float<V> }
 
 type MagnetControllerParameters = 
-    { staticField : float<T>
-      fieldCalibration : float<T/A>
-      rampRateLimit : float<A/s>
-      tripVoltageLimit : float<V>
-      maximumCurrent : float<A>
-      currentLimit : float<A>
-      shuntOffset : float<V>
-      shuntCalibration : float<V/A>
-      shuntNoise : float<V>
-      outputResolutionInBits : int
-      setPointDecimalPlaces : int
-      calibratedRampRates : float<A/s> seq }
+    { StaticField : float<T>
+      FieldCalibration : float<T/A>
+      RampRateLimit : float<A/s>
+      TripVoltageLimit : float<V>
+      MaximumCurrent : float<A>
+      CurrentLimit : float<A>
+      ShuntOffset : float<V>
+      ShuntCalibration : float<V/A>
+      ShuntNoise : float<V>
+      OutputResolution : int<bits>
+      SetPointPrecision : int<dp>
+      CalibratedRampRates : float<A/s> seq }
       
     member this.AvailableCurrentRampRates =
-        this.calibratedRampRates
-        |> Seq.filter (fun rampRate -> rampRate <= this.rampRateLimit)
+        this.CalibratedRampRates
+        |> Seq.filter (fun rampRate -> rampRate <= this.RampRateLimit)
         |> Seq.sort
 
     member this.CurrentRampRateForIndex index =
@@ -63,7 +64,7 @@ type MagnetControllerParameters =
 
     member this.AvailableFieldRampRates =
         this.AvailableCurrentRampRates
-        |> Seq.map (fun rampRate -> rampRate * abs(this.fieldCalibration))
+        |> Seq.map (fun rampRate -> rampRate * abs(this.FieldCalibration))
     
     member this.FieldRampRateForIndex index =
         if index >= (Seq.length this.AvailableFieldRampRates) || index < 0
@@ -72,10 +73,10 @@ type MagnetControllerParameters =
         Seq.nth index (this.AvailableFieldRampRates)
 
     member this.NumberOfCurrentSteps =
-        int (2.0 ** (float this.outputResolutionInBits))
+        int (2.0 ** (float this.OutputResolution))
 
     member this.CurrentStep =
-        this.maximumCurrent / (float (this.NumberOfCurrentSteps - 1))
+        this.MaximumCurrent / (float (this.NumberOfCurrentSteps - 1))
 
     member this.CurrentForIndex index =
         if abs index >= this.NumberOfCurrentSteps then
@@ -84,19 +85,19 @@ type MagnetControllerParameters =
         this.CurrentStep * (float index)
 
     member this.FieldStep =
-        this.CurrentStep * (abs this.fieldCalibration)
+        this.CurrentStep * (abs this.FieldCalibration)
 
     member this.FieldForIndex index =
-        this.staticField + (this.CurrentForIndex index) * this.fieldCalibration
+        this.StaticField + (this.CurrentForIndex index) * this.FieldCalibration
 
     member this.ShuntVoltageForIndex index =
-        this.shuntOffset + (this.CurrentForIndex index) * this.shuntCalibration
+        this.ShuntOffset + (this.CurrentForIndex index) * this.ShuntCalibration
 
     member this.FieldForShuntVoltage voltage =
-        ((this.CurrentForShuntVoltage voltage) * this.fieldCalibration) + this.staticField
+        ((this.CurrentForShuntVoltage voltage) * this.FieldCalibration) + this.StaticField
 
     member this.IndexForCurrent current =
-        if abs current > this.currentLimit then
+        if abs current > this.CurrentLimit then
             failwith "Current outside current limit."
 
         int (round (current / this.CurrentStep))
@@ -105,56 +106,56 @@ type MagnetControllerParameters =
         if (field > this.MaximumField) || (field < this.MinimumField) then
             failwith "Field outside of field range."
 
-        int (round ((field - this.staticField) / (this.CurrentStep * this.fieldCalibration)))
+        int (round ((field - this.StaticField) / (this.CurrentStep * this.FieldCalibration)))
 
     member this.MaximumField =
-        this.staticField + abs (this.fieldCalibration * this.currentLimit)
+        this.StaticField + abs (this.FieldCalibration * this.CurrentLimit)
 
     member this.MinimumField =
-        this.staticField - abs (this.fieldCalibration * this.currentLimit)
+        this.StaticField - abs (this.FieldCalibration * this.CurrentLimit)
 
     member this.NearestDigitisedCurrent current =
         current
-        |> max -this.currentLimit
-        |> min this.currentLimit
+        |> max -this.CurrentLimit
+        |> min this.CurrentLimit
         |> fun current -> round(current / this.CurrentStep) * this.CurrentStep
 
     member this.NearestDigitisedField field =
-        (field - this.staticField) / this.fieldCalibration
+        (field - this.StaticField) / this.FieldCalibration
         |> this.NearestDigitisedCurrent
-        |> fun nearestCurrent -> this.staticField + nearestCurrent * this.fieldCalibration
+        |> fun nearestCurrent -> this.StaticField + nearestCurrent * this.FieldCalibration
     
     member this.NearestDigitisedCurrentRampRate rampRate =
         this.AvailableCurrentRampRates
         |> Seq.minBy (fun digitisedRampRate -> abs(digitisedRampRate - rampRate))
 
     member this.NearestDigitisedFieldRampRate rampRate =
-        rampRate / (abs this.fieldCalibration)
+        rampRate / (abs this.FieldCalibration)
         |> this.NearestDigitisedCurrentRampRate
-        |> fun nearestRampRate -> nearestRampRate * (abs this.fieldCalibration)
+        |> fun nearestRampRate -> nearestRampRate * (abs this.FieldCalibration)
 
     member this.NearestDigitisedCurrentRampRateIndex rampRate =
         let digitisedRampRate = (this.NearestDigitisedCurrentRampRate rampRate)
         Seq.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
    
     member this.NearestDigitisedFieldRampRateIndex rampRate =
-        let digitisedRampRate = this.NearestDigitisedCurrentRampRate (rampRate / (abs this.fieldCalibration))
+        let digitisedRampRate = this.NearestDigitisedCurrentRampRate (rampRate / (abs this.FieldCalibration))
         Seq.findIndex ((=) digitisedRampRate) this.AvailableCurrentRampRates
     
     member this.MaximumShuntVoltage =
-        this.shuntOffset + this.maximumCurrent * this.shuntCalibration
+        this.ShuntOffset + this.MaximumCurrent * this.ShuntCalibration
 
     member this.ShuntStep =
-        this.CurrentStep * this.shuntCalibration
+        this.CurrentStep * this.ShuntCalibration
 
     member this.CurrentForShuntVoltage shuntVoltage =
-        (shuntVoltage - this.shuntOffset) / this.shuntCalibration
+        (shuntVoltage - this.ShuntOffset) / this.ShuntCalibration
 
 type AllParameters = 
-    { setPointParameters : SetPointParameters
-      outputParameters : OutputParameters
-      operatingParameters : OperatingParameters
-      currentParameters : CurrentParameters }
+    { SetPointParameters : SetPointParameters
+      OutputParameters : OutputParameters
+      OperatingParameters : OperatingParameters
+      CurrentParameters : CurrentParameters }
 
 type internal Message = 
     | GetOutputParameters of replyChannel : AsyncReplyChannel<OutputParameters>
@@ -179,15 +180,15 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
         Agent.Start(fun mailbox -> 
             let (|ParseCurrentDirection|_|) = 
                 function 
-                | "0" -> Some(Forward)
-                | "1" -> Some(Reverse)
+                | "0" -> Some Forward
+                | "1" -> Some Reverse
                 | _ -> None
         
             let (|ParseRampTarget|_|) = 
                 function 
-                | "0" -> Some(Zero)
-                | "1" -> Some(Lower)
-                | "2" -> Some(Upper)
+                | "0" -> Some Zero
+                | "1" -> Some Lower
+                | "2" -> Some Upper
                 | _ -> None
         
             let parseOutputParameters response = 
@@ -197,9 +198,9 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
                 let regex = @"\GI([\+\-]\d{3}\.\d{3})V([\+\-]\d{2}.\d)R([012])[AV]\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
-                    { outputCurrent = i * 1.0<A>
-                      outputVoltage = v * 1.0<V>
-                      rampTarget = r }
+                    { OutputCurrent = i * 1.0<A>
+                      OutputVoltage = v * 1.0<V>
+                      RampTarget = r }
                 | _ -> failwith "Invalid magnet controller output parameter string"
         
             let parseCurrentParameters response = 
@@ -209,9 +210,9 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
                 let regex = @"\GR([012])M([01])P([01])X[0-5]H[012]Z0\.00E[0-3][0-7]Q[\+\-\s]\d{3}\.\d{3}\s$"
                 match response with
                 | ParseRegex regex [ ParseRampTarget r; ParseIntegerBool m; ParseIntegerBool p ] ->
-                    { rampTarget = r 
-                      reachedTarget = m
-                      isPaused = p }
+                    { RampTarget = r 
+                      ReachedTarget = m
+                      IsPaused = p }
                 | _ -> failwith "Invalid magnet controller current parameter string"
 
             let parseOperatingParameters response = 
@@ -221,8 +222,8 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
                 let regex = @"\GA(\d{2}\.\d{5})D([01])T[01]B[01]W\d{3}\.C0\.\d{6}\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
-                    { rampRate = a * 1.0<A/s>
-                      currentDirection = d }
+                    { RampRate = a * 1.0<A/s>
+                      CurrentDirection = d }
                 | _ -> failwith "Invalid magnet controller operating parameter string"
         
             let parseSetPointParameters response = 
@@ -232,9 +233,9 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
                 let regex = @"\GT[01]U(\d{3}\.\d{3})L(\d{3}\.\d{3})Y(\d{2}\.\d)\s$"
                 match response with
                 | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->
-                    { lowerSetPoint = l * 1.0<A>
-                      upperSetPoint = u * 1.0<A>
-                      tripVoltage = y * 1.0<V> }
+                    { LowerSetPoint = l * 1.0<A>
+                      UpperSetPoint = u * 1.0<A>
+                      TripVoltage = y * 1.0<V> }
                 | _ -> failwith "Invalid magnet controller set point parameter string"
         
             let rec loop () = async {
@@ -387,8 +388,8 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
         |> agent.PostAndAsyncReply
 
     member __.SetRampRate rampRate =
-        if rampRate > deviceParameters.rampRateLimit then 
-            failwithf "Cannot set magnet controller ramp rate greater than %A A/s." deviceParameters.rampRateLimit
+        if rampRate > deviceParameters.RampRateLimit then 
+            failwithf "Cannot set magnet controller ramp rate greater than %A A/s." deviceParameters.RampRateLimit
         if rampRate < 0.0<A/s> then
             failwith "Cannot set magnet controller ramp rate to a negative value."
 
@@ -400,8 +401,8 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
         |> this.SetRampRate
 
     member __.SetTripVoltage tripVoltage =
-        if tripVoltage > deviceParameters.tripVoltageLimit then 
-            failwithf "Cannot set magnet controller trip voltage greater than %A V." deviceParameters.tripVoltageLimit
+        if tripVoltage > deviceParameters.TripVoltageLimit then 
+            failwithf "Cannot set magnet controller trip voltage greater than %A V." deviceParameters.TripVoltageLimit
         if tripVoltage < 0.0<V> then
             failwith "Cannot set magnet controller trip voltage to a negative value."
 
@@ -413,8 +414,8 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
         |> agent.Post
 
     member __.SetLowerSetPoint lowerSetPoint =
-        if lowerSetPoint > deviceParameters.currentLimit then
-            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit
+        if lowerSetPoint > deviceParameters.CurrentLimit then
+            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.CurrentLimit
         if lowerSetPoint < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
 
@@ -427,8 +428,8 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
         |> this.SetLowerSetPoint
 
     member __.SetUpperSetPoint upperSetPoint =
-        if upperSetPoint > deviceParameters.currentLimit then
-            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.currentLimit
+        if upperSetPoint > deviceParameters.CurrentLimit then
+            failwithf "Cannot set magnet controller current limit to a value greater than %A A." deviceParameters.CurrentLimit
         if upperSetPoint < 0.0<A> then
             failwith "Cannot set magnet controller current limit to a negative value"
         
@@ -457,22 +458,22 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
             let! operatingParams = this.GetOperatingParametersAsync()
             let! currentParams = this.GetCurrentParametersAsync()
 
-            return { setPointParameters = setPointParams
-                     outputParameters = outputParams
-                     operatingParameters = operatingParams 
-                     currentParameters = currentParams } } 
+            return { SetPointParameters = setPointParams
+                     OutputParameters = outputParams
+                     OperatingParameters = operatingParams 
+                     CurrentParameters = currentParams } } 
                      
     member this.WaitToReachTargetAsync () =
         let rec loop() = async {
             let! currentParams = this.GetCurrentParametersAsync()
-            if not currentParams.reachedTarget then
+            if not currentParams.ReachedTarget then
                 do! loop() }
         loop()
         
     member this.WaitToReachZeroAndSetCurrentDirectionAsync currentDirection =
         let rec loop() = async {
             let! outputParams = this.GetOutputParametersAsync()
-            if not (outputParams.outputCurrent = 0.0<A>) then 
+            if not (outputParams.OutputCurrent = 0.0<A>) then 
                 do! loop() }
         
         async {
@@ -481,7 +482,7 @@ type MagnetController(session : MessageBasedSession, deviceParameters : MagnetCo
 
     member this.BeginRampToZero () =
         this.SetRampTarget Zero
-        this.SetRampRate (deviceParameters.rampRateLimit)
+        this.SetRampRate (deviceParameters.RampRateLimit)
         this.SetPause false
 
     member this.RampToZeroAsync () = 

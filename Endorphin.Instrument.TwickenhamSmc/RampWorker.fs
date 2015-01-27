@@ -7,43 +7,43 @@ open System.Reactive.Linq
 open log4net
 
 type Ramp =
-    { startingFieldIndex : int
-      finalFieldIndex : int
-      rampRateIndex : int
-      returnToZero : bool }
+    { StartingFieldIndex : int
+      FinalFieldIndex : int
+      RampRateIndex : int
+      ReturnToZero : bool }
 
-    static member private currentDirection index =
+    static member private CurrentDirection index =
         match index with
         | c when c > 0 -> Forward
         | c when c < 0 -> Reverse
         | _ -> failwith "Magnet controller direction for zero current is arbitrary."
 
     member this.StartingCurrentDirection = 
-        match (this.startingFieldIndex, this.finalFieldIndex) with
+        match (this.StartingFieldIndex, this.FinalFieldIndex) with
         | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-        | (0, f) -> Ramp.currentDirection f
-        | (s, _) -> Ramp.currentDirection s
+        | (0, f) -> Ramp.CurrentDirection f
+        | (s, _) -> Ramp.CurrentDirection s
         
     member this.FinalCurrentDirection =
-        match (this.startingFieldIndex, this.finalFieldIndex) with
+        match (this.StartingFieldIndex, this.FinalFieldIndex) with
         | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
-        | (s, 0) -> Ramp.currentDirection s
-        | (_, f) -> Ramp.currentDirection f
+        | (s, 0) -> Ramp.CurrentDirection s
+        | (_, f) -> Ramp.CurrentDirection f
 
     member this.UpperCurrentIndex = 
-        max (abs this.startingFieldIndex) (abs this.finalFieldIndex)
+        max (abs this.StartingFieldIndex) (abs this.FinalFieldIndex)
 
     member this.LowerCurrentIndex = 
-        min (abs this.startingFieldIndex) (abs this.finalFieldIndex)
+        min (abs this.StartingFieldIndex) (abs this.FinalFieldIndex)
 
     member this.StartingRampTarget =
-        match (abs this.startingFieldIndex, abs this.finalFieldIndex) with
+        match (abs this.StartingFieldIndex, abs this.FinalFieldIndex) with
         | (0, _) -> Zero
         | (s, f) when s <= f -> Lower
         | _ -> Upper
 
     member this.FinalRampTarget = 
-        match (abs this.startingFieldIndex, abs this.finalFieldIndex) with
+        match (abs this.StartingFieldIndex, abs this.FinalFieldIndex) with
         | (_, 0) -> Zero
         | (s, f) when f >= s -> Upper
         | _ -> Lower
@@ -68,8 +68,8 @@ type RampStatus =
     | CanceledRamp of returnToZero : bool
     | FailedRamp
             
-type RampCancellationOptions = {
-    returnToZero : bool }
+type RampCancellationOptions =
+    { ReturnToZero : bool }
 
 type RampWorker(magnetController : MagnetController, ramp) =
     static let log = LogManager.GetLogger typeof<RampWorker>
@@ -85,17 +85,17 @@ type RampWorker(magnetController : MagnetController, ramp) =
         new CancellationCapability<RampCancellationOptions>()
     
     let startingCurrent =
-        magnetController.DeviceParameters.CurrentForIndex ramp.startingFieldIndex
+        magnetController.DeviceParameters.CurrentForIndex ramp.StartingFieldIndex
 
     let finalCurrent =
-        magnetController.DeviceParameters.CurrentForIndex ramp.finalFieldIndex
+        magnetController.DeviceParameters.CurrentForIndex ramp.FinalFieldIndex
 
     do // initialisation checks
-        if abs startingCurrent > magnetController.DeviceParameters.currentLimit then
+        if abs startingCurrent > magnetController.DeviceParameters.CurrentLimit then
             failwith "Ramp starting current outside of magnet controller current limit."
-        if abs finalCurrent > magnetController.DeviceParameters.currentLimit then
+        if abs finalCurrent > magnetController.DeviceParameters.CurrentLimit then
             failwith "Ramp final current outside of magnet controller current limit."
-        if ramp.rampRateIndex < 0 || ramp.rampRateIndex >= Seq.length magnetController.DeviceParameters.AvailableCurrentRampRates then
+        if ramp.RampRateIndex < 0 || ramp.RampRateIndex >= Seq.length magnetController.DeviceParameters.AvailableCurrentRampRates then
             failwith "Ramp rate index outside of available ramp rate range."
     
     member __.StatusChanged = statusChanged.Publish
@@ -105,7 +105,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
 
     member __.Cancel returnToZero =
         "Ramp worker stopping..." |> log.Info
-        cancellationCapability.Cancel { returnToZero = returnToZero }
+        cancellationCapability.Cancel { ReturnToZero = returnToZero }
         // continue the workflow if it is currently waiting
         readyToStart.Set() |> ignore
         readyToContinue.Set() |> ignore
@@ -134,8 +134,8 @@ type RampWorker(magnetController : MagnetController, ramp) =
         sprintf "Final current: %08.4f A." (float finalCurrent) |> log.Info
         sprintf "Starting ramp target: %A." ramp.StartingRampTarget |> log.Info
         sprintf "Final ramp target: %A." ramp.FinalRampTarget |> log.Info
-        sprintf "Ramp rate index: %d." ramp.rampRateIndex |> log.Info
-        sprintf "Return to zero: %A." ramp.returnToZero |> log.Info
+        sprintf "Ramp rate index: %d." ramp.RampRateIndex |> log.Info
+        sprintf "Return to zero: %A." ramp.ReturnToZero |> log.Info
 
         let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
 
@@ -143,7 +143,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             // define workflows which will be used to perform the ramp
             let setStartingCurrentDirection initialState = async {
                 "Setting starting current direction." |> log.Info
-                if initialState.operatingParameters.currentDirection <> ramp.StartingCurrentDirection then
+                if initialState.OperatingParameters.CurrentDirection <> ramp.StartingCurrentDirection then
                     do! magnetController.RampToZeroAndSetCurrentDirectionAsync ramp.StartingCurrentDirection }
             
             let setCurrentLimits initialState = async { 
@@ -157,7 +157,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 // will be ignored. Similarly, if the initial upper current limit (which is inevitably larger
                 // than the initial lower current limit) is smaller than the new lower current limit, then the
                 // upper current limit must be changed first.
-                if initialState.setPointParameters.lowerSetPoint >= (max startingCurrent finalCurrent) then
+                if initialState.SetPointParameters.LowerSetPoint >= (max startingCurrent finalCurrent) then
                     setLowerLimit() ; setUpperLimit()
                 else 
                     setUpperLimit() ; setLowerLimit() }
@@ -165,7 +165,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             let rampToInitialCurrent = async {
                 "Ramping to initial current." |> log.Info
                 magnetController.SetRampTarget ramp.StartingRampTarget
-                magnetController.SetRampRate magnetController.DeviceParameters.rampRateLimit 
+                magnetController.SetRampRate magnetController.DeviceParameters.RampRateLimit 
                 magnetController.SetPause false
                 do! magnetController.WaitToReachTargetAsync() } 
             
@@ -176,7 +176,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 do! setStartingCurrentDirection initialState
                 do! setCurrentLimits initialState 
                 do! rampToInitialCurrent
-                magnetController.SetRampRateByIndex (ramp.rampRateIndex) }
+                magnetController.SetRampRateByIndex (ramp.RampRateIndex) }
 
             let awaitReadyForRamp = async {
                 "Waiting for ready-to-start signal..." |> log.Info
@@ -211,7 +211,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
             // set up cancellation handler
             use! __ = Async.OnCancel(fun () ->
                 "Cancelling ramp..." |> log.Info
-                if cancellationCapability.Options.returnToZero then 
+                if cancellationCapability.Options.ReturnToZero then 
                     "Returning to zero current..." |> log.Info
                     magnetController.BeginRampToZero() 
                 else 
@@ -219,13 +219,13 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     magnetController.SetPause true
 
                 "Ramp Canceled." |> log.Info
-                syncContext.RaiseEvent statusChanged (CanceledRamp cancellationCapability.Options.returnToZero))
+                syncContext.RaiseEvent statusChanged (CanceledRamp cancellationCapability.Options.ReturnToZero))
             
             // perform ramp
             do! prepareForRamp
             do! awaitReadyForRamp
             do! performRamp
-            if ramp.returnToZero then 
+            if ramp.ReturnToZero then 
                 do! magnetController.RampToZeroAsync()
             
             "Ramp completed successfully." |> log.Info

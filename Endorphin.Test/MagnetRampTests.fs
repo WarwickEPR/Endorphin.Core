@@ -38,28 +38,28 @@ type ``Magnet ramp tests``() =
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = 4095
-                  rampRateIndex = -7
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 0
+                  FinalFieldIndex = 4095
+                  RampRateIndex = -7
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = 4095
-                  rampRateIndex = 44
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 0
+                  FinalFieldIndex = 4095
+                  RampRateIndex = 44
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = 4095
-                  rampRateIndex = 78
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 0
+                  FinalFieldIndex = 4095
+                  RampRateIndex = 78
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
     [<Test>]
@@ -71,28 +71,28 @@ type ``Magnet ramp tests``() =
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = 0
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 0
+                  FinalFieldIndex = 0
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 4095
-                  finalFieldIndex = 4095
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 4095
+                  FinalFieldIndex = 4095
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = -231
-                  finalFieldIndex = -231
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = -231
+                  FinalFieldIndex = -231
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
     
     [<Test>]
@@ -104,28 +104,28 @@ type ``Magnet ramp tests``() =
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = -16384
-                  finalFieldIndex = 234
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = -16384
+                  FinalFieldIndex = 234
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 16384 
-                  finalFieldIndex = -124
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 16384 
+                  FinalFieldIndex = -124
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
 
         Assert.Throws<Exception>(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 6
-                  finalFieldIndex = -32750
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 6
+                  FinalFieldIndex = -32750
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
         |> ignore
         
     [<Test>]
@@ -137,26 +137,26 @@ type ``Magnet ramp tests``() =
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
                 magnetController, 
-                { startingFieldIndex = -16383
-                  finalFieldIndex = 16383
-                  rampRateIndex = 0
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = -16383
+                  FinalFieldIndex = 16383
+                  RampRateIndex = 0
+                  ReturnToZero = true }) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 0
-                  finalFieldIndex = 16383
-                  rampRateIndex = 43
-                  returnToZero = true }) |> ignore)
+                { StartingFieldIndex = 0
+                  FinalFieldIndex = 16383
+                  RampRateIndex = 43
+                  ReturnToZero = true }) |> ignore)
 
         Assert.DoesNotThrow(fun () ->
             new RampWorker(
                 magnetController,
-                { startingFieldIndex = 16383
-                  finalFieldIndex = 0
-                  rampRateIndex = 34
-                  returnToZero = false }) |> ignore)
+                { StartingFieldIndex = 16383
+                  FinalFieldIndex = 0
+                  RampRateIndex = 34
+                  ReturnToZero = false }) |> ignore)
 
     [<Test>]
     member __.``Can cancel ramp immediately immediately after initiating preparation``() =
@@ -169,10 +169,10 @@ type ``Magnet ramp tests``() =
             let rampWorker = 
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 1500
-                      finalFieldIndex = 4595
-                      rampRateIndex = 0
-                      returnToZero = true })
+                    { StartingFieldIndex = 1500
+                      FinalFieldIndex = 4595
+                      RampRateIndex = 0
+                      ReturnToZero = true })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -213,10 +213,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 0
-                      finalFieldIndex = -2341
-                      rampRateIndex = 41
-                      returnToZero = false })
+                    { StartingFieldIndex = 0
+                      FinalFieldIndex = -2341
+                      RampRateIndex = 41
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -246,12 +246,12 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)        
             
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.000<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.714<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Zero, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.000<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.714<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -265,10 +265,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 500
-                      finalFieldIndex = 4595
-                      rampRateIndex = 7
-                      returnToZero = true })
+                    { StartingFieldIndex = 500
+                      FinalFieldIndex = 4595
+                      RampRateIndex = 7
+                      ReturnToZero = true })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -298,13 +298,13 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00054<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.153<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.402<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00054<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.153<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.402<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -318,10 +318,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -1023
-                      finalFieldIndex = 412
-                      rampRateIndex = 18
-                      returnToZero = true })
+                    { StartingFieldIndex = -1023
+                      FinalFieldIndex = 412
+                      RampRateIndex = 18
+                      ReturnToZero = true })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -351,12 +351,12 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync() 
-            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)        
-            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.126<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.312<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Zero, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)        
+            Assert.AreEqual(0.09800<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.126<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.312<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -375,10 +375,10 @@ type ``Magnet ramp tests``() =
             let rampWorker = 
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 245
-                      finalFieldIndex = 4126
-                      rampRateIndex = 18
-                      returnToZero = false })
+                    { StartingFieldIndex = 245
+                      FinalFieldIndex = 4126
+                      RampRateIndex = 18
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -408,13 +408,13 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00260<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.075<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.259<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00260<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.075<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.259<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -432,10 +432,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -4231
-                      finalFieldIndex = -124
-                      rampRateIndex = 9
-                      returnToZero = false })
+                    { StartingFieldIndex = -4231
+                      FinalFieldIndex = -124
+                      RampRateIndex = 9
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -465,13 +465,13 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00072<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.038<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.291<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00072<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.038<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.291<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -488,10 +488,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 784
-                      finalFieldIndex = 215
-                      rampRateIndex = 22
-                      returnToZero = true })
+                    { StartingFieldIndex = 784
+                      FinalFieldIndex = 215
+                      RampRateIndex = 22
+                      ReturnToZero = true })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -521,13 +521,13 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00480<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.066<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.239<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00480<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.066<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.239<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -546,10 +546,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 928
-                      finalFieldIndex = 1536
-                      rampRateIndex = 12
-                      returnToZero = false })
+                    { StartingFieldIndex = 928
+                      FinalFieldIndex = 1536
+                      RampRateIndex = 12
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -579,13 +579,13 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00110<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.283<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.469<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00110<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.283<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.469<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
         
     [<Test>]
@@ -599,10 +599,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 5421
-                      finalFieldIndex = 623
-                      rampRateIndex = 39
-                      returnToZero = false })
+                    { StartingFieldIndex = 5421
+                      FinalFieldIndex = 623
+                      RampRateIndex = 39
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -632,12 +632,12 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.AreEqual(0.05400<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.190<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.654<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.AreEqual(0.05400<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.190<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.654<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
     
     [<Test>]
@@ -651,10 +651,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -280
-                      finalFieldIndex = -2345
-                      rampRateIndex = 12
-                      returnToZero = false })
+                    { StartingFieldIndex = -280
+                      FinalFieldIndex = -2345
+                      RampRateIndex = 12
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -684,12 +684,12 @@ type ``Magnet ramp tests``() =
             Assert.IsTrue(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.086<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.716<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Zero, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.086<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.716<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -703,10 +703,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 200
-                      finalFieldIndex = 6002
-                      rampRateIndex = 43
-                      returnToZero = false })
+                    { StartingFieldIndex = 200
+                      FinalFieldIndex = 6002
+                      RampRateIndex = 43
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -725,13 +725,13 @@ type ``Magnet ramp tests``() =
             Assert.IsFalse(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.061<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.832<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.09800<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.061<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.832<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -745,10 +745,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 204
-                      finalFieldIndex = 4921
-                      rampRateIndex = 43
-                      returnToZero = true })
+                    { StartingFieldIndex = 204
+                      FinalFieldIndex = 4921
+                      RampRateIndex = 43
+                      ReturnToZero = true })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -767,12 +767,12 @@ type ``Magnet ramp tests``() =
             Assert.IsFalse(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Zero, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.AreEqual(0.09800<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.062<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.502<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Zero, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.AreEqual(0.09800<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.062<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.502<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -786,10 +786,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -235
-                      finalFieldIndex = -993
-                      rampRateIndex = 36
-                      returnToZero = false })
+                    { StartingFieldIndex = -235
+                      FinalFieldIndex = -993
+                      RampRateIndex = 36
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -827,12 +827,12 @@ type ``Magnet ramp tests``() =
             Assert.IsFalse(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.AreEqual(0.03600<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.072<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.303<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.AreEqual(0.03600<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.072<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.303<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -846,10 +846,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -77
-                      finalFieldIndex = 4456
-                      rampRateIndex = 12
-                      returnToZero = false })
+                    { StartingFieldIndex = -77
+                      FinalFieldIndex = 4456
+                      RampRateIndex = 12
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -888,13 +888,13 @@ type ``Magnet ramp tests``() =
                 List.rev !rampStatusList )
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Lower, parameters.outputParameters.rampTarget)
-            Assert.IsTrue(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.00110<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.024<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(1.360<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)
+            Assert.IsTrue(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.00110<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.024<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(1.360<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -908,10 +908,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = -205
-                      finalFieldIndex = 623
-                      rampRateIndex = 33
-                      returnToZero = false })
+                    { StartingFieldIndex = -205
+                      FinalFieldIndex = 623
+                      RampRateIndex = 33
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -930,13 +930,13 @@ type ``Magnet ramp tests``() =
             Assert.IsFalse(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.02400<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Forward, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.063<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.190<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.02400<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Forward, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.063<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.190<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -950,10 +950,10 @@ type ``Magnet ramp tests``() =
             let rampWorker =
                 new RampWorker(
                     magnetController,
-                    { startingFieldIndex = 382
-                      finalFieldIndex = -1000
-                      rampRateIndex = 37
-                      returnToZero = false })
+                    { StartingFieldIndex = 382
+                      FinalFieldIndex = -1000
+                      RampRateIndex = 37
+                      ReturnToZero = false })
         
             rampWorker.StatusChanged.Add(fun newStatus -> rampStatusList := newStatus :: !rampStatusList)
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
@@ -972,11 +972,11 @@ type ``Magnet ramp tests``() =
             Assert.IsFalse(!canceledDidFire)
 
             let! parameters = magnetController.GetAllParametersAsync()
-            Assert.AreEqual(Upper, parameters.outputParameters.rampTarget)
-            Assert.IsFalse(parameters.currentParameters.isPaused)
-            Assert.IsTrue(parameters.currentParameters.reachedTarget)
-            Assert.AreEqual(0.04200<A/s>, parameters.operatingParameters.rampRate)
-            Assert.AreEqual(Reverse, parameters.operatingParameters.currentDirection)
-            Assert.AreEqual(0.117<A>, parameters.setPointParameters.lowerSetPoint)
-            Assert.AreEqual(0.305<A>, parameters.setPointParameters.upperSetPoint) }
+            Assert.AreEqual(Upper, parameters.OutputParameters.RampTarget)
+            Assert.IsFalse(parameters.CurrentParameters.IsPaused)
+            Assert.IsTrue(parameters.CurrentParameters.ReachedTarget)
+            Assert.AreEqual(0.04200<A/s>, parameters.OperatingParameters.RampRate)
+            Assert.AreEqual(Reverse, parameters.OperatingParameters.CurrentDirection)
+            Assert.AreEqual(0.117<A>, parameters.SetPointParameters.LowerSetPoint)
+            Assert.AreEqual(0.305<A>, parameters.SetPointParameters.UpperSetPoint) }
         |> Async.RunSynchronously

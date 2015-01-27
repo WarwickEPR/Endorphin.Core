@@ -5,21 +5,26 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 
+/// Enumeration indicating the direction of singal change which is required for a trigger event to
+/// occur on a PicoScope 5000 series channel.
 type ThresholdDirection = 
-    // Values for level threshold mode
+    // values for level threshold mode
     | Above = 0
     | Below = 1
     | Rising = 2
     | Falling = 3
     | RisingOrFalling = 4
-    // Values for window threshold mode
+    // values for window threshold mode
     | Inside = 0
     | Outside = 1
     | Enter = 2
     | Exit = 3
     | EnterOrExit = 4
-    // None
+    // none
     | None = 2
+
+// the remaining enumerations in this file are present for completeness but not used in any of the PicoScope
+// API features implemented so far
 
 type PulseWidthType =
     | None = 0
@@ -36,15 +41,6 @@ type TriggerState =
 type ThresholdMode =
     | Level = 0
     | Window = 1
-
-type TriggerPosition =
-    | NotTriggered
-    | Triggered of uint32
-
-    static member FromTriggeredAndPosition(triggered, position) =
-        if triggered <> 0s then Triggered(position)
-        else NotTriggered
-
 
 // this sequential StructLayout may result in non-verifiable IL code 
 // when FieldOffset attributes are also used but not in this case
@@ -123,11 +119,11 @@ type PulseWidthQualifierConditions =
     end
 
 type SimpleTriggerSettings =
-    { channel : Channel
-      adcThreshold : int16
-      thresholdDirection : ThresholdDirection
-      delaySamplesAfterTrigger : uint32
-      autoTrigger : int16<ms> option }
+    { Channel : Channel
+      AdcThreshold : int16
+      ThresholdDirection : ThresholdDirection
+      DelaySamplesAfterTrigger : uint32
+      AutoTrigger : int16<ms> option }
 
 [<DefaultAugmentation(false)>]
 type TriggerSettings =

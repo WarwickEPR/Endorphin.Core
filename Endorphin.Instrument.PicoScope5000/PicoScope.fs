@@ -72,10 +72,10 @@ type internal Command =
     | StopAcquisition
 
 type SessionParameters = {
-    handle : int16
-    serial : string
-    resolution : Resolution
-    inputChannels : Set<Channel> }
+    Handle : int16
+    Serial : string
+    Resolution : Resolution
+    InputChannels : Set<Channel> }
 
 type PicoScope5000(session) =
     static let log = LogManager.GetLogger typeof<PicoScope5000>
@@ -87,17 +87,17 @@ type PicoScope5000(session) =
         | None -> ()
         | Some error ->
             let exn = PicoException(error, status, message.ToString())
-            let logMessage = sprintf "PicoScope %s command %s failed: %s." (session.serial) (message.ToString()) error
+            let logMessage = sprintf "PicoScope %s command %s failed: %s." (session.Serial) (message.ToString()) error
             log.Error (logMessage, exn)
             raise exn
 
     let getUnitInfo info message =
-        sprintf "Getting unit info %A from PicoScope %s." info (session.serial) |> log.Info
+        sprintf "Getting unit info %A from PicoScope %s." info (session.Serial) |> log.Info
 
         let resultLength = 32s
         let result = new StringBuilder(int resultLength)
         let mutable requiredLength = 0s
-        Api.GetUnitInfo(session.handle, result, resultLength, &requiredLength, info) |> checkStatus message
+        Api.GetUnitInfo(session.Handle, result, resultLength, &requiredLength, info) |> checkStatus message
         result.ToString()
 
     let getAllUnitInfos message =
@@ -109,84 +109,84 @@ type PicoScope5000(session) =
 
     let agent = Agent.Start(fun mailbox ->
         let rec preparing dataBuffers = async {           
-            sprintf "(Re)entering PicoScope %s agent preparation loop." session.serial |> log.Info
+            sprintf "(Re)entering PicoScope %s agent preparation loop." session.Serial |> log.Info
             
             let! message = mailbox.Receive() 
-            sprintf "PicoScope %s received messsage %A." session.serial message |> log.Info
+            sprintf "PicoScope %s received messsage %A." session.Serial message |> log.Info
 
             match message with
                             
             | ReleaseSession ->
-                sprintf "PicoScope %s releasing session." session.serial |> log.Info
+                sprintf "PicoScope %s releasing session." session.Serial |> log.Info
                 if mailbox.CurrentQueueLength <> 0 then
-                    failwithf "PicoScope %s received ReleaseSession message when message queue is non-empty." session.serial
+                    failwithf "PicoScope %s received ReleaseSession message when message queue is non-empty." session.Serial
                 sessionReleased.Trigger()
 
             // Device info requests
             
             | GetUnitDriverVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.DriverVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitUsbVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.UsbVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitHardwareVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.HardwareVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitModelNumber replyChannel -> 
                 let info = getUnitInfo PicoInfo.ModelNumber message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitSerial replyChannel -> 
                 let info = getUnitInfo PicoInfo.SerialNumber message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitCalibrationDate replyChannel -> 
                 let info = getUnitInfo PicoInfo.CalibrationDate message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitKernelVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.KernelVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitDigitalHardwareVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.DigitalHardwareVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitAnalogueHardwareVersion replyChannel -> 
                 let info = getUnitInfo PicoInfo.AnalogueHardwareVersion message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitFirmwareVersion1 replyChannel -> 
                 let info = getUnitInfo PicoInfo.FirmwareVersion1 message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetUnitFirmwareVersion2 replyChannel -> 
                 let info = getUnitInfo PicoInfo.FirmwareVersion2 message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message info |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message info |> log.Info
                 info |> replyChannel.Reply
                 return! preparing dataBuffers
 
@@ -195,7 +195,7 @@ type PicoScope5000(session) =
                 let infoStrings =
                     infos
                     |> Seq.map (fun (info, value) -> sprintf "(%A: %s)" info value)
-                sprintf "PicoScope %s repsponding to message %A with\n    %A." session.serial message
+                sprintf "PicoScope %s repsponding to message %A with\n    %A." session.Serial message
                     (String.Join("\n   ", infoStrings)) |> log.Info
                 infos |> replyChannel.Reply
                 return! preparing dataBuffers
@@ -203,59 +203,59 @@ type PicoScope5000(session) =
             // Device resolution settings
 
             | GetDeviceResolution replyChannel -> 
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message (session.resolution) |> log.Info
-                session.resolution |> replyChannel.Reply
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message (session.Resolution) |> log.Info
+                session.Resolution |> replyChannel.Reply
                 return! preparing dataBuffers
 
             // Channel setup
             
             | GetAvailableChannels replyChannel ->
-                let availableChannels = session.inputChannels
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message availableChannels |> log.Info
+                let availableChannels = session.InputChannels
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message availableChannels |> log.Info
                 availableChannels |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetAvailableChannelRanges (channel, replyChannel) ->
-                if not (session.inputChannels.Contains channel) then
+                if not (session.InputChannels.Contains channel) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
                 let mutable rangesLength = 12
                 let ranges = Array.zeroCreate(rangesLength)
-                Api.GetChannelInformation(session.handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatus message
+                Api.GetChannelInformation(session.Handle, ChannelInfo.VoltageOffsetRanges, 0, ranges, &rangesLength, channel) |> checkStatus message
                 let availableChannelRanges = Array.toSeq(ranges).Take(rangesLength)
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message availableChannelRanges |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message availableChannelRanges |> log.Info
                 availableChannelRanges |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetAnalogueOffsetLimits (range, coupling, replyChannel) ->
                 let mutable maxOffset = 0.0f
                 let mutable minOffset = 0.0f
-                Api.GetAnalogueOffset(session.handle, range, coupling, &maxOffset, &minOffset) |> checkStatus message
+                Api.GetAnalogueOffset(session.Handle, range, coupling, &maxOffset, &minOffset) |> checkStatus message
                 let offsetLimits = (float maxOffset * 1.0<V>, float minOffset * 1.0<V>)
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message offsetLimits |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message offsetLimits |> log.Info
                 offsetLimits |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | SetChannelSettings (channel, channelSettings) ->
-                if not (session.inputChannels.Contains channel) then
+                if not (session.InputChannels.Contains channel) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
                 match channelSettings with
                 | Enabled inputSettings ->
                     Api.SetChannel(
-                        session.handle, channel, 1s, inputSettings.coupling, inputSettings.range, 
-                        float32 inputSettings.analogueOffset) 
+                        session.Handle, channel, 1s, inputSettings.Coupling, inputSettings.Range, 
+                        float32 inputSettings.AnalogueOffset) 
                     |> checkStatus message
-                    sprintf "PicoScope %s successfully set channel settings on %A." session.serial channel |> log.Info
+                    sprintf "PicoScope %s successfully set channel settings on %A." session.Serial channel |> log.Info
                     
-                    Api.SetBandwidthFilter(session.handle, channel, inputSettings.bandwidthLimit) 
+                    Api.SetBandwidthFilter(session.Handle, channel, inputSettings.BandwidthLimit) 
                     |> checkStatus message
-                    sprintf "PicoScope %s successfully set channel bandwidth on %A." session.serial channel |> log.Info
+                    sprintf "PicoScope %s successfully set channel bandwidth on %A." session.Serial channel |> log.Info
 
                 | Disabled -> 
-                    Api.SetChannel(session.handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) 
+                    Api.SetChannel(session.Handle, channel, 0s, Coupling.DC, Range._10V, 0.0f) 
                     |> checkStatus message
-                    sprintf "PicoScope %s successfully disabled %A." session.serial channel |> log.Info
+                    sprintf "PicoScope %s successfully disabled %A." session.Serial channel |> log.Info
 
                 return! preparing dataBuffers
 
@@ -264,36 +264,36 @@ type PicoScope5000(session) =
             | IsTriggerEnabled replyChannel ->
                 let mutable triggerEnabled = 0s
                 let mutable pwqEnabled = 0s
-                Api.IsTriggerOrPulseWidthQualifierEnabled(session.handle, &triggerEnabled, &pwqEnabled) |> checkStatus message
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message (triggerEnabled <> 0s) |> log.Info
+                Api.IsTriggerOrPulseWidthQualifierEnabled(session.Handle, &triggerEnabled, &pwqEnabled) |> checkStatus message
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message (triggerEnabled <> 0s) |> log.Info
                 (triggerEnabled <> 0s) |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | SetTrigger trigger ->
                 match trigger with
                 | AutoTrigger delay ->
-                    Api.SetSimpleTrigger(session.handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, int16 delay)
+                    Api.SetSimpleTrigger(session.Handle, 0s, Channel.A, 0s, ThresholdDirection.None, 0u, int16 delay)
                     |> checkStatus message
-                    sprintf "PicoScope %s successfully set auto triggering with delay %dms." session.serial (int16 delay) |> log.Info
+                    sprintf "PicoScope %s successfully set auto triggering with delay %dms." session.Serial (int16 delay) |> log.Info
                 | SimpleTrigger settings ->
                     let delay =
-                        match settings.autoTrigger with
+                        match settings.AutoTrigger with
                         | None -> int16 0
                         | Some delayMillisec ->
                             if delayMillisec = 0s<ms> then
-                                invalidArg "delay" "AutoTrigger delay must be non-zero. Use 'None' instead." settings.autoTrigger
+                                invalidArg "delay" "AutoTrigger delay must be non-zero. Use 'None' instead." settings.AutoTrigger
                             int16 delayMillisec
 
-                    Api.SetSimpleTrigger(session.handle, 1s, settings.channel, settings.adcThreshold, settings.thresholdDirection,
-                        settings.delaySamplesAfterTrigger, delay)
+                    Api.SetSimpleTrigger(session.Handle, 1s, settings.Channel, settings.AdcThreshold, settings.ThresholdDirection,
+                        settings.DelaySamplesAfterTrigger, delay)
                     |> checkStatus message
-                    sprintf "PicoScope %s successfully set simple trigger settings." session.serial |> log.Info
+                    sprintf "PicoScope %s successfully set simple trigger settings." session.Serial |> log.Info
 
                 return! preparing dataBuffers
 
             | SetTriggerDelay sampleCount ->
-                Api.SetTriggerDelay(session.handle, sampleCount) |> checkStatus message
-                sprintf "PicoScope %s successfully set trigger delay." session.serial |> log.Info
+                Api.SetTriggerDelay(session.Handle, sampleCount) |> checkStatus message
+                sprintf "PicoScope %s successfully set trigger delay." session.Serial |> log.Info
                 return! preparing dataBuffers
                 
             // Buffer setup and memory segmentation
@@ -301,33 +301,33 @@ type PicoScope5000(session) =
             | GetTimebaseInterval (timebase, segment, replyChannel) ->
                 let mutable interval = 0
                 let mutable maxSamples = 0
-                Api.GetTimebase(session.handle, timebase, 0, &interval, &maxSamples, segment) |> checkStatus message
+                Api.GetTimebase(session.Handle, timebase, 0, &interval, &maxSamples, segment) |> checkStatus message
                 let timebase = (interval * 1<ns>, maxSamples)
-                sprintf "PicoScope %s responding to message %A with %A." session.serial message timebase |> log.Info
+                sprintf "PicoScope %s responding to message %A with %A." session.Serial message timebase |> log.Info
                 timebase |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetMaximumDownsamplingRatio (sampleCount, downsampling, memorySegment, replyChannel) ->
                 let mutable maxDownsamplingRatio = 0u
-                Api.GetMaximumDownsamplingRatio(session.handle, sampleCount, &maxDownsamplingRatio, downsampling, memorySegment) 
+                Api.GetMaximumDownsamplingRatio(session.Handle, sampleCount, &maxDownsamplingRatio, downsampling, memorySegment) 
                 |> checkStatus message
-                sprintf "PicoScope %s responding to message %A with %d." session.serial message maxDownsamplingRatio |> log.Info
+                sprintf "PicoScope %s responding to message %A with %d." session.Serial message maxDownsamplingRatio |> log.Info
                 maxDownsamplingRatio |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | GetMaximumNumberOfSegments replyChannel ->
                 let mutable maxSegments = 0u
-                Api.GetMaximumNumberOfSegments(session.handle, &maxSegments) |> checkStatus message
-                sprintf "PicoScope %s responding to message %A with %d." session.serial message maxSegments |> log.Info
+                Api.GetMaximumNumberOfSegments(session.Handle, &maxSegments) |> checkStatus message
+                sprintf "PicoScope %s responding to message %A with %d." session.Serial message maxSegments |> log.Info
                 maxSegments |> replyChannel.Reply
                 return! preparing dataBuffers
 
             | SetNumberOfMemorySegments (memorySegmentCount, replyChannel) ->
                 let mutable samplesPerSegement = 0
-                Api.MemorySegments(session.handle, memorySegmentCount, &samplesPerSegement) |> checkStatus message
-                sprintf "PicoScope %s succesfully segmented device memory." session.serial |> log.Info
+                Api.MemorySegments(session.Handle, memorySegmentCount, &samplesPerSegement) |> checkStatus message
+                sprintf "PicoScope %s succesfully segmented device memory." session.Serial |> log.Info
 
-                sprintf "PicoScope %s replying to message %A with %d." session.serial message samplesPerSegement |> log.Info
+                sprintf "PicoScope %s replying to message %A with %d." session.Serial message samplesPerSegement |> log.Info
                 samplesPerSegement |> replyChannel.Reply
                 return! preparing dataBuffers
                 
@@ -335,11 +335,11 @@ type PicoScope5000(session) =
                 if downsampling = DownsamplingMode.Aggregate then
                     invalidArg "downsampling"
                         "Attempted to set data buffer with aggregate downsampling. Use SetAggregateDataBuffers instead." downsampling
-                if not (session.inputChannels.Contains channel) then
+                if not (session.InputChannels.Contains channel) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
-                Api.SetDataBuffer(session.handle, channel, buffer, buffer.Length, segmentIndex, downsampling) |> checkStatus message
-                sprintf "PicoScope %s successfully set data buffer for %A with buffer length %d." session.serial channel (buffer.Length) |> log.Info
+                Api.SetDataBuffer(session.Handle, channel, buffer, buffer.Length, segmentIndex, downsampling) |> checkStatus message
+                sprintf "PicoScope %s successfully set data buffer for %A with buffer length %d." session.Serial channel (buffer.Length) |> log.Info
 
                 return! preparing (buffer :: dataBuffers)
 
@@ -347,134 +347,134 @@ type PicoScope5000(session) =
                 if bufferMax.Length <> bufferMin.Length then
                     invalidArg "(bufferMax, bufferMin)"
                         "Attempted to set aggregate data buffers of different lengths" (bufferMax, bufferMin)
-                if not (session.inputChannels.Contains channel) then
+                if not (session.InputChannels.Contains channel) then
                     invalidArg "channel" "Channel not available on PicoScope unit." channel
 
-                Api.SetDataBuffers(session.handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, DownsamplingMode.Aggregate) 
+                Api.SetDataBuffers(session.Handle, channel, bufferMax, bufferMin, bufferMax.Length, segmentIndex, DownsamplingMode.Aggregate) 
                 |> checkStatus message
                 
-                sprintf "PicoScope %s successfully set aggregate data buffers for %A with buffer length %d." session.serial channel (bufferMax.Length) |> log.Info
+                sprintf "PicoScope %s successfully set aggregate data buffers for %A with buffer length %d." session.Serial channel (bufferMax.Length) |> log.Info
 
                 return! preparing (bufferMax :: bufferMin :: dataBuffers)
 
             | DiscardDataBuffers ->
-                Api.Stop(session.handle) |> checkStatus message
-                sprintf "PicoScope %s successfully discarded data buffers." session.serial |> log.Info
+                Api.Stop(session.Handle) |> checkStatus message
+                sprintf "PicoScope %s successfully discarded data buffers." session.Serial |> log.Info
 
                 return! preparing []
 
             // Miscelaneous
 
             | Ping replyChannel -> 
-                Api.PingUnit(session.handle) |> checkStatus message
-                sprintf "PicoScope %s responding to ping request." session.serial |> log.Info
+                Api.PingUnit(session.Handle) |> checkStatus message
+                sprintf "PicoScope %s responding to ping request." session.Serial |> log.Info
                 replyChannel.Reply()
                 return! preparing dataBuffers
 
             | SetLedFlash ledFlash ->
                 match ledFlash with
                 | LedOff ->
-                    Api.FlashLed(session.handle, 0s) |> checkStatus message
+                    Api.FlashLed(session.Handle, 0s) |> checkStatus message
                     sprintf "PicoScope %s successfully stopped LED flashing." |> log.Info
                 | LedRepeat counts ->
                     if counts <= 0s then
                         invalidArg "conunts" "The device LED can only be flashed a positive, non-zero number of times." counts
-                    Api.FlashLed(session.handle, counts) |> checkStatus message
-                    sprintf "PicoScope %s successfully set LED to flash %d times." session.serial counts |> log.Info
+                    Api.FlashLed(session.Handle, counts) |> checkStatus message
+                    sprintf "PicoScope %s successfully set LED to flash %d times." session.Serial counts |> log.Info
                 | LedIndefiniteRepeat ->
-                    Api.FlashLed(session.handle, -1s) |> checkStatus message
-                    sprintf "PicoScope %s successfully set LED to flash indefinitely." session.serial |> log.Info
+                    Api.FlashLed(session.Handle, -1s) |> checkStatus message
+                    sprintf "PicoScope %s successfully set LED to flash indefinitely." session.Serial |> log.Info
 
                 return! preparing dataBuffers
 
             // Acquisition
 
             | RunStreaming (streamingParameters, replyChannel) ->             
-                let (interval, timeUnit) = streamingParameters.sampleInterval.ToIntegerIntervalWithTimeUnit()
-                let (autoStop, maxPreTriggerSamples, maxPostTriggerSamples) = streamingParameters.streamStop.ToAutoStopAndMaxTriggerSamples()
+                let (interval, timeUnit) = TimeUnit.FromNanoseconds streamingParameters.SampleInterval
+                let (autoStop, maxPreTriggerSamples, maxPostTriggerSamples) = streamingParameters.StreamStop.ToAutoStopAndMaxTriggerSamples()
                 let mutable hardwareInterval = interval
 
-                Api.RunStreaming(session.handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
-                    streamingParameters.downsamplingRatio, streamingParameters.downsamplingModes, streamingParameters.bufferLength)
+                Api.RunStreaming(session.Handle, &hardwareInterval, timeUnit, maxPreTriggerSamples, maxPostTriggerSamples, autoStop, 
+                    streamingParameters.DownsamplingRatio, streamingParameters.DownsamplingModes, streamingParameters.BufferLength)
                 |> checkStatus message 
-                let intervalWithDimension = hardwareInterval.ToInvervalInNanoecondsFromTimeUnit(timeUnit)
+                let intervalWithDimension = timeUnit.ToNanoseconds hardwareInterval
                 sprintf "PicoScope %s successfully initiated streaming acquisition with sample interval %A ns." 
-                    session.serial intervalWithDimension |> log.Info
+                    session.Serial intervalWithDimension |> log.Info
                 
                 let acquisition = { new IStreamingAcquisition with
                     member __.SampleInterval = intervalWithDimension
 
                     member __.GetLatestValues callback =
-                        sprintf "PicoScope %s polling for latest streaming values." session.serial |> log.Info
+                        sprintf "PicoScope %s polling for latest streaming values." session.Serial |> log.Info
                         (fun replyChannel -> GetStreamingLatestValues(callback, replyChannel)
                         |> mailbox.PostAndAsyncReply)
                     
                     member __.Dispose() = 
-                        sprintf "PicoScope %s stopping acquisition." session.serial |> log.Info
+                        sprintf "PicoScope %s stopping acquisition." session.Serial |> log.Info
                         StopAcquisition |> mailbox.Post }
                     
                 sprintf "PicoScope %s replying to message %A with sample initerval %Ans and stop acquisition callback."
-                    session.serial message intervalWithDimension |> log.Info
+                    session.Serial message intervalWithDimension |> log.Info
                 acquisition |> replyChannel.Reply
 
                 let pinnedBuffers =
                     dataBuffers
                     |> List.map (fun buffer -> 
-                        sprintf "PicoScope %s pinned buffer." session.serial |> log.Info
+                        sprintf "PicoScope %s pinned buffer." session.Serial |> log.Info
                         (buffer, GCHandle.Alloc(buffer, GCHandleType.Pinned)))
 
                 return! streaming pinnedBuffers
                 
             | _ ->
                 invalidArg "message"
-                    (sprintf "PicoScope %s received invalid message in preparing state." session.serial) message }
+                    (sprintf "PicoScope %s received invalid message in preparing state." session.Serial) message }
 
         and streaming dataBuffers = async {
             let stopAcquisition reason =
-                Api.Stop(session.handle) |> ignore
+                Api.Stop(session.Handle) |> ignore
                 dataBuffers
                 |> List.iter (fun (_, gcHandle) -> 
-                    sprintf "PicoScope %s released GC handle for buffer after %s." session.serial reason |> log.Info
+                    sprintf "PicoScope %s released GC handle for buffer after %s." session.Serial reason |> log.Info
                     gcHandle.Free())
 
-            (sprintf "(Re)entering PicoScope %s agent streaming loop." session.serial) |> log.Info
+            (sprintf "(Re)entering PicoScope %s agent streaming loop." session.Serial) |> log.Info
             
             let! message = mailbox.TryReceive 1000
             if message.IsNone then
-                let error = sprintf "PicoScope %s streaming acquisition failed due to timeout." session.serial
+                let error = sprintf "PicoScope %s streaming acquisition failed due to timeout." session.Serial
                 log.Error error
                 stopAcquisition "timeout"
                 failwith error
              
-            (sprintf "PicoScope %s received messsage %A." session.serial message) |> log.Info
+            (sprintf "PicoScope %s received messsage %A." session.Serial message) |> log.Info
 
             match message.Value with
 
             | GetStreamingLatestValues(callback, replyChannel) ->
                 try
-                    sprintf "PicoScope %s creating streaming callback." session.serial |> log.Debug
+                    sprintf "PicoScope %s creating streaming callback." session.Serial |> log.Debug
                     let picoScopeCallback = 
                         PicoScopeStreamingReady(fun _ numberOfSamples startIndex overflows triggeredAt triggered didAutoStop _ ->
                             // wrap the values in a StreamingValuesReady record and send them to the callback
-                            { numberOfSamples = numberOfSamples
-                              startIndex = startIndex
-                              voltageOverflows = 
-                                  session.inputChannels
+                            { NumberOfSamples = numberOfSamples
+                              StartIndex = startIndex
+                              VoltageOverflows = 
+                                  session.InputChannels
                                   |> Set.filter (fun channel -> ((1 <<< int channel) &&& (int overflows)) <> 0)
-                              triggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
-                              didAutoStop = didAutoStop <> 0s } |> callback)
+                              TriggerPosition = TriggerPosition.FromTriggeredAndPosition(triggered, startIndex + uint32 triggeredAt)
+                              DidAutoStop = didAutoStop <> 0s } |> callback)
 
-                    let status = Api.GetStreamingLatestValues(session.handle, picoScopeCallback, IntPtr.Zero)
-                    sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." session.serial status |> log.Debug
+                    let status = Api.GetStreamingLatestValues(session.Handle, picoScopeCallback, IntPtr.Zero)
+                    sprintf "PicoScope %s GetStreamingLatestValues API call status: %A." session.Serial status |> log.Debug
                     if status <> PicoStatus.Busy then
                         status |> checkStatus message
-                        sprintf "PicoScope %s requested latest streaming values." session.serial |> log.Info
+                        sprintf "PicoScope %s requested latest streaming values." session.Serial |> log.Info
                     else
-                        sprintf "PicoScope %s did not request latest streaming values because it is busy." session.serial |> log.Info
+                        sprintf "PicoScope %s did not request latest streaming values because it is busy." session.Serial |> log.Info
                     replyChannel.Reply()
                 with
                 | exn -> 
-                    log.Error (sprintf "PicoScope %s acquisition due to error %A." session.serial exn, exn)
+                    log.Error (sprintf "PicoScope %s acquisition due to error %A." session.Serial exn, exn)
                     stopAcquisition "error while requesting latest values"
                     raise exn
 
@@ -482,13 +482,13 @@ type PicoScope5000(session) =
 
             | StopAcquisition ->                
                 stopAcquisition "finishing stream"
-                sprintf "PicoScope %s stopped data acquisition." session.serial |> log.Info
+                sprintf "PicoScope %s stopped data acquisition." session.Serial |> log.Info
                 return! preparing []
             
             | _ ->
                 stopAcquisition "unexpected message"
                 invalidArg "message"
-                    (sprintf "PicoScope %s received invalid message in streaming acquisition state." session.serial) message }
+                    (sprintf "PicoScope %s received invalid message in streaming acquisition state." session.Serial) message }
 
         // initialise in preparing state with empty data buffer list
         preparing [])
@@ -577,7 +577,7 @@ type PicoScope5000(session) =
 
     member __.GetAdcCountToVoltageConversion(range : Range, analogueOffset) =
         let maxAdcCounts = 
-            match session.resolution with
+            match session.Resolution with
             | Resolution._8bit -> 0x8100s
             | _ -> 0x8001s
 
@@ -588,7 +588,7 @@ type PicoScope5000(session) =
 
     member __.GetVoltageToAdcCountConversion(range : Range, analogueOffset) : (float<V> -> Sample) =
         let maxAdcCounts = 
-            match session.resolution with
+            match session.Resolution with
             | Resolution._8bit -> 0x8100s
             | _ -> 0x8001s        
 

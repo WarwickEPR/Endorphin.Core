@@ -35,11 +35,11 @@ type ``Magnet controller tests with prepared state``() =
             
             magnetController.SetCurrentDirection Reverse
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Reverse, operatingParams.currentDirection)
+            Assert.AreEqual(Reverse, operatingParams.CurrentDirection)
 
             magnetController.SetCurrentDirection Forward
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Forward, operatingParams.currentDirection) }
+            Assert.AreEqual(Forward, operatingParams.CurrentDirection) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -49,11 +49,11 @@ type ``Magnet controller tests with prepared state``() =
             
             magnetController.SetLowerSetPoint 2.0<A>
             let! setPointParams = magnetController.GetSetPointParametersAsync()
-            Assert.AreEqual(2.0<A>, setPointParams.lowerSetPoint)
+            Assert.AreEqual(2.0<A>, setPointParams.LowerSetPoint)
 
             magnetController.SetLowerSetPoint 4.0<A>
             let! setPointParams = magnetController.GetSetPointParametersAsync()
-            Assert.AreEqual(4.0<A>, setPointParams.lowerSetPoint) } 
+            Assert.AreEqual(4.0<A>, setPointParams.LowerSetPoint) } 
         |> Async.RunSynchronously
 
     [<Test>]
@@ -63,11 +63,11 @@ type ``Magnet controller tests with prepared state``() =
             
             magnetController.SetUpperSetPoint 1.0<A>
             let! setPointParams = magnetController.GetSetPointParametersAsync()
-            Assert.AreEqual(1.0<A>, setPointParams.upperSetPoint)
+            Assert.AreEqual(1.0<A>, setPointParams.UpperSetPoint)
 
             magnetController.SetUpperSetPoint 3.0<A>
             let! setPointParams = magnetController.GetSetPointParametersAsync()
-            Assert.AreEqual(3.0<A>, setPointParams.upperSetPoint) }
+            Assert.AreEqual(3.0<A>, setPointParams.UpperSetPoint) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -79,14 +79,14 @@ type ``Magnet controller tests with prepared state``() =
             magnetController.SetRampTarget Lower
             do! magnetController.WaitToReachTargetAsync()
             let! currentParams = magnetController.GetCurrentParametersAsync()
-            Assert.AreEqual(Lower, currentParams.rampTarget)
-            Assert.IsTrue(currentParams.reachedTarget)
+            Assert.AreEqual(Lower, currentParams.RampTarget)
+            Assert.IsTrue(currentParams.ReachedTarget)
 
             magnetController.SetRampTarget Zero
             do! magnetController.WaitToReachTargetAsync()
             let! currentParams = magnetController.GetCurrentParametersAsync()
-            Assert.AreEqual(Zero, currentParams.rampTarget)
-            Assert.IsTrue(currentParams.reachedTarget) }
+            Assert.AreEqual(Zero, currentParams.RampTarget)
+            Assert.IsTrue(currentParams.ReachedTarget) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -98,13 +98,13 @@ type ``Magnet controller tests with prepared state``() =
             magnetController.SetRampTarget Lower
             do! magnetController.WaitToReachTargetAsync()
             let! currentParams = magnetController.GetCurrentParametersAsync()
-            Assert.AreEqual(Lower, currentParams.rampTarget)
-            Assert.IsTrue(currentParams.reachedTarget)
+            Assert.AreEqual(Lower, currentParams.RampTarget)
+            Assert.IsTrue(currentParams.ReachedTarget)
 
             do! magnetController.RampToZeroAsync()
             let! currentParams = magnetController.GetCurrentParametersAsync()
-            Assert.AreEqual(Zero, currentParams.rampTarget)
-            Assert.IsTrue(currentParams.reachedTarget) }
+            Assert.AreEqual(Zero, currentParams.RampTarget)
+            Assert.IsTrue(currentParams.ReachedTarget) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -118,16 +118,16 @@ type ``Magnet controller tests with prepared state``() =
             do! magnetController.WaitToReachTargetAsync()
             do! magnetController.RampToZeroAndSetCurrentDirectionAsync Reverse
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Reverse, operatingParams.currentDirection)
-            Assert.AreEqual(0.098<A/s>, operatingParams.rampRate)
+            Assert.AreEqual(Reverse, operatingParams.CurrentDirection)
+            Assert.AreEqual(0.098<A/s>, operatingParams.RampRate)
 
             magnetController.SetRampRate 0.048<A/s>
             magnetController.SetRampTarget Lower
             do! magnetController.WaitToReachTargetAsync()
             do! magnetController.RampToZeroAndSetCurrentDirectionAsync Forward
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Forward, operatingParams.currentDirection)
-            Assert.AreEqual(0.098<A/s>, operatingParams.rampRate) }
+            Assert.AreEqual(Forward, operatingParams.CurrentDirection)
+            Assert.AreEqual(0.098<A/s>, operatingParams.RampRate) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -143,16 +143,16 @@ type ``Magnet controller tests with prepared state``() =
             magnetController.SetRampTarget Zero
             do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync Reverse
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Reverse, operatingParams.currentDirection)
-            Assert.AreEqual(0.048<A/s>, operatingParams.rampRate)
+            Assert.AreEqual(Reverse, operatingParams.CurrentDirection)
+            Assert.AreEqual(0.048<A/s>, operatingParams.RampRate)
 
             magnetController.SetRampTarget Lower
             do! magnetController.WaitToReachTargetAsync()
             magnetController.SetRampTarget Zero
             do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync Forward
             let! operatingParams = magnetController.GetOperatingParametersAsync()
-            Assert.AreEqual(Forward, operatingParams.currentDirection)
-            Assert.AreEqual(0.048<A/s>, operatingParams.rampRate) }
+            Assert.AreEqual(Forward, operatingParams.CurrentDirection)
+            Assert.AreEqual(0.048<A/s>, operatingParams.RampRate) }
         |> Async.RunSynchronously
 
 

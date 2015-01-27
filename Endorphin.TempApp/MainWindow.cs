@@ -86,7 +86,7 @@ namespace Endorphin.TempApp
 
             experimentWorker.ScanFinished.AddHandler((sender, scan) =>
                 {
-                    SetResultText(string.Format("finished scan {0} of {1}", scan, experimentWorker.Experiment.numberOfScans));
+                    SetResultText(string.Format("finished scan {0} of {1}", scan, experimentWorker.Experiment.NumberOfScans));
                 });
 
             experimentWorker.StoppedAfterScan.AddHandler((sender, scan) =>
@@ -191,8 +191,8 @@ namespace Endorphin.TempApp
                 shuntOffset: 0.002, // volts
                 shuntCalibration: 0.400, // volts per amp
                 shuntNoise: 0.100, // volts
-                outputResolutionInBits: 16,
-                setPointDecimalPlaces: 4,
+                outputResolution: 16, // bits
+                setPointPrecision: 4, // decimal places
                 calibratedRampRates: new double[] {
                     0.00020, 0.00024, 0.00026, 0.00030, 0.00036, 0.00042, 0.00048, 0.00054, 
                     0.00064, 0.00072, 0.00084, 0.00098, 0.00110, 0.00130, 0.00150, 0.00170,
@@ -211,7 +211,7 @@ namespace Endorphin.TempApp
 
             startingField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
             startingField.Maximum = new Decimal(magnetControllerParameters.MaximumField);
-            startingField.Value = new Decimal(magnetControllerParameters.staticField);
+            startingField.Value = new Decimal(magnetControllerParameters.StaticField);
             startingField.Increment = new Decimal(magnetControllerParameters.FieldStep);
 
             finalField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
