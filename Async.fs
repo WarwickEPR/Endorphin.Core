@@ -37,7 +37,7 @@ module AsyncExtensions =
 
         /// Cancels the cancellation capability after setting the specified cancellation options. Can only be
         /// called once.
-        member this.Cancel options =
+        member __.Cancel options =
             match !cancellationOptions with
             | None ->
                 cancellationOptions := Some options
@@ -47,20 +47,20 @@ module AsyncExtensions =
 
         /// Returns the options argument specifed at cancellation. Throws an exception if cancellation has not
         /// taken place.
-        member this.Options : 'T =
+        member __.Options : 'T =
             match !cancellationOptions with
             | Some options -> options
             | None -> failwith "Cannot obtain cancellation options as cancellation has not yet been requested."
 
         /// Checks if cancellation has already been requested.
-        member this.IsCancellationRequested =
+        member __.IsCancellationRequested =
             cancellationCapability.IsCancellationRequested
 
         /// Returns the cancellation token.
-        member this.Token =
+        member __.Token =
             cancellationCapability.Token
 
         interface IDisposable with
             /// Disposes of the System.Threading.CancellationCapability object.
-            member this.Dispose() =
+            member __.Dispose() =
                 cancellationCapability.Dispose()
