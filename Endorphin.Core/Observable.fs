@@ -2,7 +2,6 @@
 
 open System
 open System.Reactive.Linq
-open System.Threading
 
 [<AutoOpen>]
 module ObservableExtensions =

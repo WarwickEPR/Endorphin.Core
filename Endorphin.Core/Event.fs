@@ -1,8 +1,5 @@
 ﻿namespace Endorphin.Core
 
-open System.Threading
-open System
-
 [<AutoOpen>]
 module Event =
     

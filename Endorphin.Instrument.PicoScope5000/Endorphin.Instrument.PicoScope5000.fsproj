@@ -59,6 +59,7 @@
     <Compile Include="PicoScope.fs" />
     <Compile Include="PicoScopeSession.fs" />
     <Compile Include="StreamWorker.fs" />
+    <Compile Include="Charting.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
