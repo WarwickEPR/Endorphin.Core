@@ -28,50 +28,50 @@ type Ramp =
         | _ -> failwith "Magnet controller direction for zero current is arbitrary."
 
     /// Gives the starting current direction for the ramp.
-    member this.StartingCurrentDirection = 
-        match (this.StartingFieldIndex, this.FinalFieldIndex) with
+    member ramp.StartingCurrentDirection = 
+        match (ramp.StartingFieldIndex, ramp.FinalFieldIndex) with
         | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
         | (0, f) -> Ramp.CurrentDirection f // use the current direction of the final field index if the starting one is zero
         | (s, _) -> Ramp.CurrentDirection s // use the current direction of the starting field index otherwise
        
     /// Gives the final current direction for the ramp.
-    member this.FinalCurrentDirection =
-        match (this.StartingFieldIndex, this.FinalFieldIndex) with
+    member ramp.FinalCurrentDirection =
+        match (ramp.StartingFieldIndex, ramp.FinalFieldIndex) with
         | (s, f) when s = f -> failwith "Ramp starting and final current are the same."
         | (s, 0) -> Ramp.CurrentDirection s // use the current direction of the starting field index if the final one is zero
         | (_, f) -> Ramp.CurrentDirection f // use the current direction of the final field index otherwise
 
     /// Gives the current index which should be set for the magnet controller upper current set point.
-    member this.UpperCurrentIndex = 
-        max (abs this.StartingFieldIndex) (abs this.FinalFieldIndex)
+    member ramp.UpperCurrentIndex = 
+        max (abs ramp.StartingFieldIndex) (abs ramp.FinalFieldIndex)
 
     /// Gives the current index which should be set for the magnet controller lower current set point.
-    member this.LowerCurrentIndex = 
-        min (abs this.StartingFieldIndex) (abs this.FinalFieldIndex)
+    member ramp.LowerCurrentIndex = 
+        min (abs ramp.StartingFieldIndex) (abs ramp.FinalFieldIndex)
 
     /// Gives the magnet controller ramp target corresponding to the starting current index.
-    member this.StartingRampTarget =
-        match (abs this.StartingFieldIndex, abs this.FinalFieldIndex) with
+    member ramp.StartingRampTarget =
+        match (abs ramp.StartingFieldIndex, abs ramp.FinalFieldIndex) with
         | (0, _) -> Zero
         | (s, f) when s <= f -> Lower
         | _ -> Upper
 
     /// Gives the magnet controller ramp target corresponding to the final current index.
-    member this.FinalRampTarget = 
-        match (abs this.StartingFieldIndex, abs this.FinalFieldIndex) with
+    member ramp.FinalRampTarget = 
+        match (abs ramp.StartingFieldIndex, abs ramp.FinalFieldIndex) with
         | (_, 0) -> Zero
         | (s, f) when f >= s -> Upper
         | _ -> Lower
 
     /// Gives an integer value of +/- 1 corresponding to the sign of the starting current for the ramp.
-    member this.StartingCurrentSign =
-        match this.StartingCurrentDirection with
+    member ramp.StartingCurrentSign =
+        match ramp.StartingCurrentDirection with
         | Forward -> 1
         | Reverse -> -1
 
     /// Gives an integer value of +/- 1 corresponding to the sign of the final current for the ramp.
-    member this.FinalCurrentSign =
-        match this.FinalCurrentDirection with
+    member ramp.FinalCurrentSign =
+        match ramp.FinalCurrentDirection with
         | Forward -> 1
         | Reverse -> -1
 
@@ -159,10 +159,10 @@ type RampWorker(magnetController : MagnetController, ramp) =
         readyToContinue.Set() |> ignore
 
     /// Initiates the magnet controller ramp and sets the ready-to-start and ready-to-contine flags.
-    member this.PrepareAndStart() =
-        this.SetReadyToStart()
-        this.SetReadyToContinue()
-        this.Prepare()
+    member rampWorker.PrepareAndStart() =
+        rampWorker.SetReadyToStart()
+        rampWorker.SetReadyToContinue()
+        rampWorker.Prepare()
 
     /// Sets the ready-to-start flag, indicating the ramp should start once it is prepared. The ready-to-continue flag will
     /// also need to be set before the ramp can finish if a current direction change occurs during the ramp.
