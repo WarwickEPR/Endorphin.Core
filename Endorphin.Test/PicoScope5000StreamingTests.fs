@@ -47,12 +47,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 5000u)
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
@@ -60,7 +60,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild 
 
@@ -89,12 +89,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 6000000u)
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
 
@@ -102,7 +102,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Canceled.Add(fun _ -> cancellingDidFire := true)
 
             let! waitForSuccess =
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild 
 
@@ -131,12 +131,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 600000000u)
                       SampleInterval = 1000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000000
             |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
 
@@ -144,7 +144,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild 
 
@@ -174,12 +174,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = ManualStop
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
 
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
@@ -191,7 +191,7 @@ type ``PicoScope 5000 series streaming tests``() =
             do! Async.Sleep 1000
 
             let! waitForSuccess =
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
 
@@ -221,12 +221,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = ManualStop
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
 
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
                           
@@ -239,7 +239,7 @@ type ``PicoScope 5000 series streaming tests``() =
             do! Async.Sleep 600000
         
             let! waitForSuccess = 
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
 
@@ -281,12 +281,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 100000u)
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ w ; x ; y ; z ] |> Map.ofList
                       MemorySegment = 0u })
                                             
-            streamWorker.SampleSlice
+            streamWorker.SampleSliceObserved
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 sample slices." |> log.Debug)
             
@@ -294,7 +294,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess = 
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
 
@@ -324,7 +324,7 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = ManualStop
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
@@ -386,12 +386,12 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 100000u)
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
                   
-            streamWorker.Sample(Channel.A, NoDownsampling)
+            streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
 
@@ -422,7 +422,7 @@ type ``PicoScope 5000 series streaming tests``() =
             failIfStatusChanged.Dispose()
 
             let! waitForSuccess = 
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
 
@@ -451,7 +451,7 @@ type ``PicoScope 5000 series streaming tests``() =
                 new StreamWorker(pico,
                     { StreamStop = AutoStop(0u, 600000u)
                       SampleInterval = 100000<ns>
-                      Downsampling = None
+                      DownsamplingRatio = None
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
@@ -471,7 +471,7 @@ type ``PicoScope 5000 series streaming tests``() =
             do! Async.Sleep 5000
 
             let! waitForSuccess =
-                streamWorker.Success
+                streamWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
 

@@ -18,47 +18,47 @@ type ``Magnet controller tests``() =
         
     [<Test>]
     member __.``Check ramp rate limit is set``() =
-        let rampRateLimit = magnetControllerSession.DeviceParameters.RampRateLimit
+        let rampRateLimit = magnetControllerSession.MagnetControllerParameters.RampRateLimit
         Assert.AreEqual(0.1<A/s>, rampRateLimit)
 
     [<Test>]
     member __.``Check trip voltage limit is set``() =
-        let tripVoltageLimit = magnetControllerSession.DeviceParameters.TripVoltageLimit
+        let tripVoltageLimit = magnetControllerSession.MagnetControllerParameters.TripVoltageLimit
         Assert.AreEqual(2.5<V>, tripVoltageLimit)
 
     [<Test>]
     member __.``Check current limit is set``() =
-        let currentLimit = magnetControllerSession.DeviceParameters.CurrentLimit
+        let currentLimit = magnetControllerSession.MagnetControllerParameters.CurrentLimit
         Assert.AreEqual(5.0<A>, currentLimit)
 
     [<Test>]
     member __.``Check static field is set``() =
-        let staticField = magnetControllerSession.DeviceParameters.StaticField
+        let staticField = magnetControllerSession.MagnetControllerParameters.StaticField
         Assert.AreEqual(14.0<T>, staticField)
 
     [<Test>]
     member __.``Check field calibration is set``() =
-        let fieldCalibration = magnetControllerSession.DeviceParameters.FieldCalibration
+        let fieldCalibration = magnetControllerSession.MagnetControllerParameters.FieldCalibration
         Assert.AreEqual(-0.003<T/A>, fieldCalibration)
 
     [<Test>]
     member __.``Check maximum current is set``() =
-        let maximumCurrent = magnetControllerSession.DeviceParameters.MaximumCurrent
+        let maximumCurrent = magnetControllerSession.MagnetControllerParameters.MaximumCurrent
         Assert.AreEqual(20.0<A>, maximumCurrent)
 
     [<Test>]
     member __.``Check shunt calibration is set``() =
-        let shuntCalibration = magnetControllerSession.DeviceParameters.ShuntCalibration
+        let shuntCalibration = magnetControllerSession.MagnetControllerParameters.ShuntCalibration
         Assert.AreEqual(0.020<V/A>, shuntCalibration)
 
     [<Test>]
     member __.``Check shunt offset is set``() =
-        let shuntOffset = magnetControllerSession.DeviceParameters.ShuntOffset
+        let shuntOffset = magnetControllerSession.MagnetControllerParameters.ShuntOffset
         Assert.AreEqual(2e-5<V>, shuntOffset)
 
     [<Test>]
     member __.``Check output resolution is set``() =
-        let outputResolution = magnetControllerSession.DeviceParameters.OutputResolution
+        let outputResolution = magnetControllerSession.MagnetControllerParameters.OutputResolution
         Assert.AreEqual(16, outputResolution)
 
     [<Test>]
@@ -142,7 +142,7 @@ type ``Magnet controller tests``() =
         let testRampRates = [ 0.00020<A/s>; 0.00150<A/s>; 0.00036<A/s> * 10.0; 0.00098<A/s> * 100.0 ]
         for testRampRate in testRampRates do
             Assert.AreEqual(Some testRampRate,
-                magnetControllerSession.DeviceParameters.AvailableCurrentRampRates
+                magnetControllerSession.MagnetControllerParameters.AvailableCurrentRampRates
                 |> Seq.tryFind ((=) testRampRate))
     
     [<Test>]
@@ -150,12 +150,12 @@ type ``Magnet controller tests``() =
         let testRampRates = [ 0.00020<A/s> * 1000.0; 0.00150<A/s> * 1000.0; 0.00048<A/s> * 1000.0 ]
         for testRampRate in testRampRates do
             Assert.AreEqual(None,
-                magnetControllerSession.DeviceParameters.AvailableCurrentRampRates
+                magnetControllerSession.MagnetControllerParameters.AvailableCurrentRampRates
                 |> Seq.tryFind ((=) testRampRate))
 
     [<Test>] 
     member __.``Available ramp rates are sorted in ascending order``() =
-        magnetControllerSession.DeviceParameters.AvailableCurrentRampRates
+        magnetControllerSession.MagnetControllerParameters.AvailableCurrentRampRates
         |> Seq.pairwise
         |> Seq.iter (fun (first, second) -> Assert.IsTrue(first < second))
 
@@ -167,7 +167,7 @@ type ``Magnet controller tests``() =
         
         for testRampRate in testRampRates do
             Assert.AreEqual(Some testRampRate, 
-                magnetControllerSession.DeviceParameters.AvailableFieldRampRates
+                magnetControllerSession.MagnetControllerParameters.AvailableFieldRampRates
                 |> Seq.tryFind ((=) testRampRate))
                 
     [<Test>]
@@ -178,12 +178,12 @@ type ``Magnet controller tests``() =
         
         for testRampRate in testRampRates do
             Assert.AreEqual(None, 
-                magnetControllerSession.DeviceParameters.AvailableFieldRampRates
+                magnetControllerSession.MagnetControllerParameters.AvailableFieldRampRates
                 |> Seq.tryFind ((=) testRampRate))
                 
     [<Test>] 
     member __.``Available ramp rates in tesla per sec are sorted in ascending order``() =
-        magnetControllerSession.DeviceParameters.AvailableFieldRampRates
+        magnetControllerSession.MagnetControllerParameters.AvailableFieldRampRates
         |> Seq.pairwise
         |> Seq.iter (fun (first, second) -> Assert.IsTrue(first < second))
         
@@ -193,36 +193,36 @@ type ``Magnet controller tests``() =
 
         Assert.AreEqual(
             1324.0 * currentStep,
-            magnetControllerSession.DeviceParameters.CurrentForIndex 1324)
+            magnetControllerSession.MagnetControllerParameters.CurrentForIndex 1324)
 
         Assert.AreEqual(
             3398.0 * currentStep,
-            magnetControllerSession.DeviceParameters.CurrentForIndex 3398)
+            magnetControllerSession.MagnetControllerParameters.CurrentForIndex 3398)
 
     [<Test>]
     member __.``Can retrieve ramp rate for index in amps per sec``() =
         Assert.AreEqual(
             0.00042<A/s>,
-            magnetControllerSession.DeviceParameters.CurrentRampRateForIndex 5)
+            magnetControllerSession.MagnetControllerParameters.CurrentRampRateForIndex 5)
 
         Assert.AreEqual(
             0.00036<A/s> * 10.0,
-            magnetControllerSession.DeviceParameters.CurrentRampRateForIndex 20)
+            magnetControllerSession.MagnetControllerParameters.CurrentRampRateForIndex 20)
 
     [<Test>]
     member __.``Can retrieve ramp rate for index in tesla per sec``() =
         Assert.AreEqual(
             0.00042<A/s> * 0.003<T/A>,
-            magnetControllerSession.DeviceParameters.FieldRampRateForIndex 5)
+            magnetControllerSession.MagnetControllerParameters.FieldRampRateForIndex 5)
 
         Assert.AreEqual(
             0.00036<A/s> * 10.0 * 0.003<T/A>,
-            magnetControllerSession.DeviceParameters.FieldRampRateForIndex 20)
+            magnetControllerSession.MagnetControllerParameters.FieldRampRateForIndex 20)
 
     [<Test>]
     member __.``Fastest available ramp rate is correct``() =
         let maximumRampRate =
-            magnetControllerSession.DeviceParameters.AvailableCurrentRampRates
+            magnetControllerSession.MagnetControllerParameters.AvailableCurrentRampRates
             |> Seq.max
         
         Assert.AreEqual(
@@ -231,18 +231,18 @@ type ``Magnet controller tests``() =
 
     [<Test>]
     member __.``Nearest digitised ramp rate in amps per sec is calculated correctly``() =
-        let digitisedRampRate = magnetControllerSession.DeviceParameters.NearestDigitisedCurrentRampRate 0.00630<A/s>
+        let digitisedRampRate = magnetControllerSession.MagnetControllerParameters.NearestCalibratedCurrentRampRate 0.00630<A/s>
         Assert.AreEqual(0.00640<A/s>, digitisedRampRate)
         
-        let digitisedRampRate = magnetControllerSession.DeviceParameters.NearestDigitisedCurrentRampRate 0.01000<A/s>
+        let digitisedRampRate = magnetControllerSession.MagnetControllerParameters.NearestCalibratedCurrentRampRate 0.01000<A/s>
         Assert.AreEqual(0.00980<A/s>, digitisedRampRate)
 
     [<Test>]
     member __.``Nearest digitised ramp rate in tesla per sec is calculated correctly``() =
-        let digitisedRampRate = magnetControllerSession.DeviceParameters.NearestDigitisedFieldRampRate (0.00630<A/s> * 0.003<T/A>)
+        let digitisedRampRate = magnetControllerSession.MagnetControllerParameters.NearestCalibratedFieldRampRate (0.00630<A/s> * 0.003<T/A>)
         Assert.AreEqual(0.00640<A/s> * 0.003<T/A>, digitisedRampRate)
         
-        let digitisedRampRate = magnetControllerSession.DeviceParameters.NearestDigitisedFieldRampRate (0.01000<A/s> * 0.003<T/A>)
+        let digitisedRampRate = magnetControllerSession.MagnetControllerParameters.NearestCalibratedFieldRampRate (0.01000<A/s> * 0.003<T/A>)
         Assert.AreEqual(0.00980<A/s> * 0.003<T/A>, digitisedRampRate)
     
     [<Test>]
@@ -345,44 +345,44 @@ type ``Magnet controller tests``() =
     member __.``Number of current steps is correct``() =
         Assert.AreEqual(
             int(2.0 ** 16.0),
-            magnetControllerSession.DeviceParameters.NumberOfCurrentSteps)
+            magnetControllerSession.MagnetControllerParameters.NumberOfCurrentSteps)
 
     [<Test>]
     member __.``Current step in amps is correct``() =
         Assert.AreEqual(
             20.0<A> / (2.0 ** 16.0 - 1.0),
-            magnetControllerSession.DeviceParameters.CurrentStep)
+            magnetControllerSession.MagnetControllerParameters.CurrentStep)
 
     [<Test>]
     member __.``Field step in tesla is correct``() =
         Assert.AreEqual(
             0.003<T/A> * 20.0<A> / (2.0 ** 16.0 - 1.0), 
-            magnetControllerSession.DeviceParameters.FieldStep)
+            magnetControllerSession.MagnetControllerParameters.FieldStep)
 
     [<Test>]
     member __.``Minimum field in tesla is correct``() =
         Assert.AreEqual(
             14.0<T> - 0.003<T/A> * 5.0<A>,
-            magnetControllerSession.DeviceParameters.MinimumField)
+            magnetControllerSession.MagnetControllerParameters.MinimumField)
     
     [<Test>]
     member __.``Maximum field in tesla is correct``() =
         Assert.AreEqual(
             14.0<T> + 0.003<T/A> * 5.0<A>,
-            magnetControllerSession.DeviceParameters.MaximumField)
+            magnetControllerSession.MagnetControllerParameters.MaximumField)
     
     [<Test>]
     member __.``Shunt step in volts is correct``() =
         let currentStep = 20.0<A> / (2.0 ** 16.0 - 1.0)
         let expectedShuntStep = 0.020<V/A> * currentStep
-        Assert.AreEqual(expectedShuntStep, magnetControllerSession.DeviceParameters.ShuntStep)
+        Assert.AreEqual(expectedShuntStep, magnetControllerSession.MagnetControllerParameters.ShuntStep)
 
     [<Test>]
     member __.``Nearest ramp rate index for amps per sec is calculated correctly``() =
-        Assert.AreEqual(3, magnetControllerSession.DeviceParameters.NearestDigitisedCurrentRampRateIndex 0.00032<A/s>)
-        Assert.AreEqual(33, magnetControllerSession.DeviceParameters.NearestDigitisedCurrentRampRateIndex 0.02300<A/s>)
+        Assert.AreEqual(3, magnetControllerSession.MagnetControllerParameters.NearestCalibratedCurrentRampRateIndex 0.00032<A/s>)
+        Assert.AreEqual(33, magnetControllerSession.MagnetControllerParameters.NearestCalibratedCurrentRampRateIndex 0.02300<A/s>)
 
     [<Test>]
     member __.``Nearest ramp rate index for tesla per sec is calculated correctly``() =
-        Assert.AreEqual(3, magnetControllerSession.DeviceParameters.NearestDigitisedFieldRampRateIndex (0.00032<A/s> * 0.003<T/A>))
-        Assert.AreEqual(33, magnetControllerSession.DeviceParameters.NearestDigitisedFieldRampRateIndex (0.02300<A/s> * 0.003<T/A>))
+        Assert.AreEqual(3, magnetControllerSession.MagnetControllerParameters.NearestCalibratedFieldRampRateIndex (0.00032<A/s> * 0.003<T/A>))
+        Assert.AreEqual(33, magnetControllerSession.MagnetControllerParameters.NearestCalibratedFieldRampRateIndex (0.02300<A/s> * 0.003<T/A>))

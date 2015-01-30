@@ -712,7 +712,7 @@ type ``Magnet ramp tests``() =
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
                    
             let! waitForSuccess =
-                rampWorker.Success
+                rampWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
             
@@ -754,7 +754,7 @@ type ``Magnet ramp tests``() =
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
-                rampWorker.Success
+                rampWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
             
@@ -814,7 +814,7 @@ type ``Magnet ramp tests``() =
             |> ignore
 
             let! waitForSuccess =
-                rampWorker.Success
+                rampWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
             
@@ -917,7 +917,7 @@ type ``Magnet ramp tests``() =
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
-                rampWorker.Success
+                rampWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
             
@@ -959,7 +959,7 @@ type ``Magnet ramp tests``() =
             rampWorker.Canceled.Add(fun _ -> canceledDidFire := true)
 
             let! waitForSuccess =
-                rampWorker.Success
+                rampWorker.Completed
                 |> Async.AwaitEvent
                 |> Async.StartChild
             

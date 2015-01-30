@@ -2,6 +2,7 @@
 
 open NUnit.Framework
 open log4net.Config
+open Endorphin.Core.Units
 open Endorphin.Instrument.TwickenhamSmc
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -33,15 +34,15 @@ let magnetControllerParameters = {
     ShuntCalibration = 0.020<V/A>
     ShuntOffset = 2e-5<V>
     ShuntNoise = 0.1<V>
-    OutputResolution = 16 
-    SetPointPrecision = 3
+    OutputResolution = 16<bits> 
     CalibratedRampRates = calibratedRampRates }
 
 let initialiseDefaultMagnetControllerState (magnetController : MagnetController) =
     magnetController.SetRampRate 0.098<A/s>
     magnetController.SetRampTarget Zero 
     magnetController.SetPause false
-    magnetController.RampToZeroAndSetCurrentDirectionAsync Forward |> Async.RunSynchronously
+    magnetController.SetMaximumRampRate()
+    magnetController.WaitToReachZeroAndSetCurrentDirectionAsync Forward |> Async.RunSynchronously
     magnetController.SetTripVoltage 2.0<V>
     magnetController.SetLowerSetPoint 0.0<A>
     magnetController.SetUpperSetPoint 5.0<A>

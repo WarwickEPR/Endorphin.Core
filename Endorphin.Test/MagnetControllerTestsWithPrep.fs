@@ -101,7 +101,8 @@ type ``Magnet controller tests with prepared state``() =
             Assert.AreEqual(Lower, currentParams.RampTarget)
             Assert.IsTrue(currentParams.ReachedTarget)
 
-            do! magnetController.RampToZeroAsync()
+            magnetController.BeginRampToZeroAtMaximumRampRate()
+            do! magnetController.WaitToReachTargetAsync()
             let! currentParams = magnetController.GetCurrentParametersAsync()
             Assert.AreEqual(Zero, currentParams.RampTarget)
             Assert.IsTrue(currentParams.ReachedTarget) }
@@ -116,7 +117,8 @@ type ``Magnet controller tests with prepared state``() =
             magnetController.SetRampTarget Lower
             magnetController.SetRampRate 0.048<A/s>
             do! magnetController.WaitToReachTargetAsync()
-            do! magnetController.RampToZeroAndSetCurrentDirectionAsync Reverse
+            magnetController.BeginRampToZeroAtMaximumRampRate()
+            do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync Reverse
             let! operatingParams = magnetController.GetOperatingParametersAsync()
             Assert.AreEqual(Reverse, operatingParams.CurrentDirection)
             Assert.AreEqual(0.098<A/s>, operatingParams.RampRate)
@@ -124,7 +126,8 @@ type ``Magnet controller tests with prepared state``() =
             magnetController.SetRampRate 0.048<A/s>
             magnetController.SetRampTarget Lower
             do! magnetController.WaitToReachTargetAsync()
-            do! magnetController.RampToZeroAndSetCurrentDirectionAsync Forward
+            magnetController.BeginRampToZeroAtMaximumRampRate()
+            do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync Forward
             let! operatingParams = magnetController.GetOperatingParametersAsync()
             Assert.AreEqual(Forward, operatingParams.CurrentDirection)
             Assert.AreEqual(0.098<A/s>, operatingParams.RampRate) }
