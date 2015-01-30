@@ -113,7 +113,7 @@ type PicoScope5000Session(initSerial, resolution) =
                 sprintf "Creating PicoScope agent for session %s." (sessionParams.SerialNumber) |> log.Info
                 
                 // create a PicoScope5000 control interface instance with the device session parameters
-                let picoScope = new PicoScope5000(sessionParams)
+                let picoScope = new PicoScope5000(sessionParams, syncContext)
 
                 // create a child workflow which will wait for the PicoScope5000 object to release the session
                 let! waitForSessionReleased =

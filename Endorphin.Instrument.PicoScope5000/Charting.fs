@@ -98,8 +98,7 @@ module ChartingExtensions =
                             yield { Channel = channel; BufferDownsampling = bufferDownsampling }
                         | Pair (bufferDownsamplingMax, bufferDownsamplingMin) ->
                             yield { Channel = channel; BufferDownsampling = bufferDownsamplingMax }
-                            yield { Channel = channel; BufferDownsampling = bufferDownsamplingMin }
-                        | _ -> invalidArg "downsamplingMode" "Invalid DownsamplingMode" downsamplingMode }
+                            yield { Channel = channel; BufferDownsampling = bufferDownsamplingMin } }
             |> Seq.map (fun channelBuffer -> 
                 // for each ChannelBuffer in the sequence
                 let chartData =
