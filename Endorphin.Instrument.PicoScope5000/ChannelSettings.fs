@@ -67,9 +67,13 @@ type BandwidthLimit =
 
 /// Defines all input settings for a given PicoScope 5000 series channel.
 type InputSettings = 
-    { Coupling : Coupling
+    { /// AC or DC input coupling.
+      Coupling : Coupling
+      /// Input voltage range.
       Range : Range
+      /// Analogue input offset in volts.
       AnalogueOffset : float<V>
+      /// Input bandwidth limit.
       BandwidthLimit : BandwidthLimit }
 
 /// Defines the possible states of a PicoScope 5000 series channel. It can either be enabled or
