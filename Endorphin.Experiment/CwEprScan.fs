@@ -13,29 +13,49 @@ open log4net
 
 /// Defines the parameters for a CW EPR scan.
 type CwEprScan =
-    { StartingFieldIndex : int
+    { /// The signed index for the starting magnet controller field in digital magnet contorller steps.
+      StartingFieldIndex : int
+      /// The signed index for the final magnet controller field in digital magnet controller steps.
       FinalFieldIndex : int
+      /// The index of the calibrated magnet controller ramp rate to be used during the scan.
       RampRateIndex : int
+      /// A flag indicating whether the magnet controller should return to zero current once the scan is completed.
       ReturnToZero : bool
-      ConversionTime : int<us>
-      Downsampling : uint32 option
-      QuadratureDetection : bool 
+      /// The time interval between PicoScope samples used to sample the magnetic field and signal during the scan.
+      SampleInterval : int<us>
+      /// An optional downsampling ratio to be used to average the magnetic field and signal channels. Set None to 
+      /// acquire all samples.
+      DownsamplingRatio : uint32 option
+      /// A flag indicating whether the quadrature channel should be sampled during the scan.
+      QuadratureDetection : bool
+      /// The input voltage range to be used for sampling the magnet controller shunt.
       ShuntVoltageRange : Range
+      /// The analogue voltage offset to be used for sampling the magnet controller shunt.
       ShuntVoltageOffset : float<V> }
 
 /// Defines a data point in a CW EPR scan.
 type CwEprSample =
-    { MagneticFieldShuntAdc : Sample
-      ReSignalAdc : Sample
-      ImSignalAdc : Sample }
+    { /// The magnetic field shunt channel ADC value for the sample.
+      MagneticFieldShuntAdc : int16
+      /// The real signal channel ADC value.
+      ReSignalAdc : int16
+      /// The imaginary singal channel ADC value.
+      ImSignalAdc : int16 }
 
-/// Defines the possible states of a CwEprScanWorker.
+/// Defines the possible status messages sent by a CwEprScanWorker.
 type CwEprScanStatus =
+    /// The CwEprScanWorker is preparing for the scan by ramping to the initial current.
     | PreparingScan
+    /// The CwEprScanWorker is ready to start the signal acquisition and begin ramping.
     | ReadyToScan
+    /// The CwEprScanWorker has started the scan.
     | Scanning
+    /// The CwEprScanWorker has finished the scan.
     | FinishedScan
+    /// The CwEprScanWorker scan has been cancelled. The returnToZero flag indicates whether the magnet controller has been
+    /// set to ramp to zero current.
     | CanceledScan of returnToZero : bool
+    /// The CwEprScanWorker has failed due to an error.
     | FailedScan
 
 /// Performs a CW EPR scan with the specified parameters using the provided Twickenham magnet controller and PicoScope.
@@ -49,9 +69,9 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
     let completed = new Event<unit>()
     let sampleObserved = new Event<CwEprSample>()
     
-    // create a handle which is used to indicate whether the scan is ready to start once it is prepared
+    // handle which is used to indicate whether the scan should start once it is prepared
     let readyToStart = new ManualResetHandle(false)
-    // create a cancellation capability which provides the cancellation token for the scan workflow
+    // cancellation capability which provides the cancellation token for the scan workflow
     let cancellationCapability = new CancellationCapability<RampCancellationOptions>()
 
     // create a magnet controller ramp with the parameters specified by the scan
@@ -63,17 +83,17 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
     
     // choose the downsampling mode for the streaming acquisition according to the specified downsampling for the scan
     let downsamplingMode =
-        match scan.Downsampling with
+        match scan.DownsamplingRatio with
         | None -> DownsamplingMode.None
         | Some _ -> DownsamplingMode.Averaged
 
     // choose the stream bufffer which will be sampled according to the specified downsampling for the scan
     let buffer =
-        match scan.Downsampling with
+        match scan.DownsamplingRatio with
         | None -> NoDownsampling
         | Some _ -> Averaged
 
-    // create the magnet controller channel stream properties (input settings and downsampling mode)
+    // define the magnet controller channel stream properties (input settings and downsampling mode)
     let magneticFieldChannelStream = {
         InputSettings = 
             { Coupling = Coupling.DC
@@ -83,7 +103,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         DownsamplingModes =
             [ downsamplingMode ] |> Set.ofList }
 
-    // create the lockin channel stream properties (input settings and downsampling mode)
+    // define the lockin channel stream properties (input settings and downsampling mode)
     let lockinSignalChannelStream = {
         InputSettings =
             { Coupling = Coupling.DC
@@ -93,23 +113,28 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         DownsamplingModes =
             [ downsamplingMode ] |> Set.ofList }
 
-    // specify the magnetic field input channel
+    // define the magnetic field input channel
     let magneticFieldChannel = (Channel.A, magneticFieldChannelStream)
     
-    // specify the lock-in signal input channels
+    // define the lock-in signal input channels
     let signalChannels =
         if scan.QuadratureDetection then
             [ (Channel.B, lockinSignalChannelStream) ; (Channel.C, lockinSignalChannelStream) ] // two if quadrature detection is set
         else
             [ (Channel.B, lockinSignalChannelStream) ] // one otherwise
 
+    // define the acquisition channel buffers
+    let magneticFieldChannelBuffer = { Channel = Channel.A ; BufferDownsampling = buffer }
+    let realSignalChannelBuffer = { Channel = Channel.B ; BufferDownsampling = buffer }
+    let imaginarySignalChannelBuffer = { Channel = Channel.C ; BufferDownsampling = buffer }
+
     // convert the conversion time to a sample interval in nanoseconds
-    let sampleInterval = scan.ConversionTime * 1000<ns/us>
+    let sampleInterval = scan.SampleInterval * 1000<ns/us>
 
     // create the stream parameters
     let stream = {
         SampleInterval = sampleInterval
-        Downsampling = scan.Downsampling
+        DownsamplingRatio = scan.DownsamplingRatio
         StreamStop = ManualStop // the scan will be stopped manually once the magnet controller reaches the ramp target
         TriggerSettings = AutoTrigger 1s<ms> // trigger automatically, with minimum delay
         ActiveChannels = (magneticFieldChannel :: signalChannels) |> Map.ofList // magnetic field channel and signal channels
@@ -157,8 +182,8 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         sprintf "Ramp parameters:\n%A" ramp |> log.Info
         sprintf "Magnetic field channel:\n%A" magneticFieldChannel |> log.Info
         sprintf "Signal channels:\n%A" signalChannels |> log.Info
-        sprintf "Conversion time: %A us." scan.ConversionTime |> log.Info
-        sprintf "Downsampling: %A." scan.Downsampling |> log.Info
+        sprintf "Conversion time: %A us." scan.SampleInterval |> log.Info
+        sprintf "Downsampling: %A." scan.DownsamplingRatio |> log.Info
         sprintf "Quadrature detection: %s" (if scan.QuadratureDetection then "yes" else "no") |> log.Info
         sprintf "Magnetic field channel stream:\n%A" magneticFieldChannelStream |> log.Info
         sprintf "Lock-in signal channel stream:\n%A" lockinSignalChannelStream |> log.Info
@@ -206,18 +231,18 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                 "Received ready-to-start signal." |> log.Info }
 
             // define a workflow which will start the streaming acquisition and add an event handler to process each sample
-            let startAcquisition (streamWorker : StreamWorker) (magneticFieldSign : int) = async {
-
+            let startAcquisition (streamWorker : StreamWorker) (magneticFieldSign : int) = async {                
                 // for every slice of samples which is observed
-                streamWorker.SampleSlice
+                streamWorker.SampleSliceObserved
                 |> Event.add (fun slice ->
                     { // the magnetic field shunt readout doesn't change sign with the current direction so multiply the
                       // channel A sample with a sign
-                      MagneticFieldShuntAdc = (int16 magneticFieldSign) * slice.[Channel.A, buffer]
+                      MagneticFieldShuntAdc = (int16 magneticFieldSign) * slice.[magneticFieldChannelBuffer]
                       // read the real part of the signal from channel B
-                      ReSignalAdc = slice.[Channel.B, buffer]
+                      ReSignalAdc = slice.[realSignalChannelBuffer]
                       // and read the imaginary part of the signal from channel C if quadrature detection is enabled
-                      ImSignalAdc = if scan.QuadratureDetection then slice.[Channel.C, buffer] else 0s }
+                      // or set the imaginary signal to zero otherwise
+                      ImSignalAdc = if scan.QuadratureDetection then slice.[imaginarySignalChannelBuffer] else 0s }
                     |> syncContext.RaiseEvent sampleObserved) // and fire the sampleObserved event with this new value
 
                 // start a child workflow, waiting for the stream worker status to indicate that acquisition has started
@@ -235,7 +260,7 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                 
                 // start a new child workflow, waiting for the stream worker status to indicate that it has completed successfully
                 let! waitForStreamFinished =
-                    streamWorker.Success
+                    streamWorker.Completed
                     |> Async.AwaitEvent
                     |> Async.StartChild
                 

@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="CwEprScan.fs" />
     <Compile Include="CwEprExperiment.fs" />
+    <Compile Include="Charting.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
