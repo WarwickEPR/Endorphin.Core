@@ -10,7 +10,7 @@ open System.Runtime.InteropServices
 open log4net
 
 /// Represents the set of messages which can be sent to a PicoScope5000 agent mailbox. This is only used internally in this assembly.
-/// The functionality is exposed by the PicoScope5000 class members which queue messages to the agent mailbox and, where appropriate
+/// The functionality is exposed by the PicoScope5000 class members which queue messages to the agent mailbox and, where appropriate,
 /// return asynchronous workflows to await the agent's response.
 type internal Message =
     | ReleaseSession
@@ -95,10 +95,11 @@ type SessionParameters = {
 /// the hardware from that object. Internally, the control interface uses a MailboxProcessor agent to send commands to the
 /// hardware one at a time. The members queue messages to the mailbox and return and, where appropriate return asynchronous 
 /// workflows to await the agent's response. 
-type PicoScope5000(sessionParams) =
+type PicoScope5000(sessionParams, eventSyncContext : System.Threading.SynchronizationContext) =
     static let log = LogManager.GetLogger typeof<PicoScope5000> // logger
 
     // events
+    let error = new Event<Exception>() // fires when an error occurs during the message processing loop
     let sessionReleased = new Event<unit>() // fires when the PicoScope5000Session is released and the agent is shut down
 
     // checks PicoStatus values returned by the PicoScope driver and raise an exception if this occurs, logging the action which
@@ -135,7 +136,7 @@ type PicoScope5000(sessionParams) =
                 yield (info, getUnitInfo info message) }
         |> Seq.toList // and return the sequence as a list
 
-    // create mailbox processor which will handle commands and requests sequentially and communicate with the PicoScope hardware
+    // start a MailboxProcessor which will handle commands and requests sequentially and communicate with the PicoScope hardware
     let agent = Agent.Start(fun mailbox ->
 
         // define the workflow for processing messages while the device is preparing for an acquisition
@@ -173,10 +174,9 @@ type PicoScope5000(sessionParams) =
                 if mailbox.CurrentQueueLength <> 0 then
                     failwithf "PicoScope %s received ReleaseSession message when message queue is non-empty." sessionParams.SerialNumber
 
-                // raise an event to indicate that the session has been released
-                sessionReleased.Trigger()
-
-                // workflow terminates here: no continuation, so no further messages will be processed
+                // raise an event to indicate that the PicoScope5000 has released the session and terminate the workflow
+                eventSyncContext.RaiseEvent sessionReleased ()
+                return () // no continuation, so no further messages will be processed
 
             // Device info requests
             
@@ -648,10 +648,15 @@ type PicoScope5000(sessionParams) =
         // initialise in preparing state with empty data buffer list
         prepare [])
 
-    /// Event indicating that an error has occured while processing a message and the MailboxProcessor agent has stopped.
-    member __.Error = agent.Error
+    do // propagate the agent error event on the specified System.Threading.SynchronizationContext.
+        agent.Error |> Event.add (fun exn -> eventSyncContext.RaiseEvent error exn)
 
-    /// Event indiciating that the PicoScope5000Session has been released.
+    /// Event indicating that an error has occured while processing a message and the MailboxProcessor agent has stopped. Events are fired
+    /// on the System.Threading.SynchronizationContext specified at initialisation.
+    member __.Error = error.Publish
+
+    /// Event indiciating that the PicoScope5000Session has been released. Events are fired on the System.Threading.SynchronizationContext
+    /// specified at initialisation.
     member __.SessionReleased = sessionReleased.Publish
 
     interface IDisposable with

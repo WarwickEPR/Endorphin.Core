@@ -184,23 +184,28 @@ type StreamWorker(pico : PicoScope5000, stream) =
     /// The stream parameters specified for the acquisition.
     member __.Stream = stream
     
-    /// Event fires when the StreamWorker status changes.
+    /// Event fires when the StreamWorker status changes. Events are fired on the System.Threading.SynchronizationContext which
+    /// initiated the workflow.
     member __.StatusChanged = statusChanged.Publish
 
     /// Event fires when the StreamWorker successfully completes the streaming acquisition, stopping either manually or automatically.
+    /// Events are fired on the System.Threading.SynchronizationContext which initiated the workflow.
     member __.Completed = completed.Publish
     
-    /// Event fires when an error occurs during the streaming acquisition workflow.
+    /// Event fires when an error occurs during the streaming acquisition workflow. Events are fired on the
+    /// System.Threading.SynchronizationContext which initiated the workflow.
     member __.Failed = failed.Publish
 
-    /// Event fires when the streaming acquisition workflow is canceled before streaming is started.
+    /// Event fires when the streaming acquisition workflow is canceled before streaming is started. Events are fired on the
+    /// System.Threading.SynchronizationContext which initiated the workflow.
     member __.Canceled = canceled.Publish
 
-    /// Event fires when a new block of samples is read from the PicoScope data buffer.
+    /// Event fires when a new block of samples is read from the PicoScope data buffer. Events are fired on the
+    /// System.Threading.SynchronizationContext which initiated the workflow.
     member __.SampleBlockObserved = sampleBlockObserved.Publish
 
     /// Event fires for every slice of samples observed during the acquisition. A sample slice contains a sample for every active channel
-    /// and respective BufferDownsampling.
+    /// and respective BufferDownsampling. Events are fired on the System.Threading.SynchronizationContext which initiated the workflow.
     member __.SampleSliceObserved =
         sampleBlockObserved.Publish // for every sample block observed
         |> Event.collectSeq (fun block -> seq { // fire once for each slice
@@ -208,14 +213,16 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 block.Samples 
                 |> Map.map (fun _ buffer -> buffer.[index]) })
     
-    /// Event fires for each sample observed on the specified channel for the particular BufferDownsampling.
+    /// Event fires for each sample observed on the specified channel for the particular BufferDownsampling. Events are fired on the
+    /// System.Threading.SynchronizationContext which initiated the workflow.
     member __.SampleObserved channelBuffer =
         sampleBlockObserved.Publish // for every sample block observed
         |> Event.collectSeq (fun block -> // fire once for every sample
             block.Samples.[channelBuffer] // for the specified channel and BufferDownsampling.
             |> Array.toSeq)
     
-    /// Event fires if a voltage overflow occurs on the specified channel.
+    /// Event fires if a voltage overflow occurs on the specified channel. Events are fired on the System.Threading.SynchronizationContext
+    /// which initiated the workflow.
     member __.VoltageOverflow channel =
         sampleBlockObserved.Publish // for every sample block observed
         |> Event.choose (fun block -> // fire if a voltage overflow occured on the specified channel
@@ -375,10 +382,14 @@ type StreamWorker(pico : PicoScope5000, stream) =
             // define a workflow which will wait for the ready-to-start flag to be set
             let awaitReadyForStream = async {
                 "Waiting for ready-to-stream signal..." |> log.Info
+                // raise an event inidcating that the StreamWorker is waiting for the ready-to-stream signal
                 syncContext.RaiseEvent statusChanged ReadyToStream
                 do! Async.AwaitWaitHandle readyToStart |> Async.Ignore }
-                
+            
+            // use the defined workflows to perform the streaming acquisition    
+
             "Preparing for stream acquisition." |> log.Info
+            // raise an event indicating that the StreamWorker has started preparing for the stream
             syncContext.RaiseEvent statusChanged PreparingStream
             
             // if cancellation occurs, discard any data buffers which may have been set
@@ -393,7 +404,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
             let! buffers = createBuffers // create and set up the data buffers
             do! awaitReadyForStream // wait for the ready-to-start flag to be set
             
-            // then start the stream workflow with the given continuation functions
+            // then start the stream workflow on the thread pool with the specified continuations
             Async.StartWithContinuations(
                 streamWorkflow buffers,
                 (fun () -> syncContext.RaiseEvent completed ()),
@@ -404,7 +415,8 @@ type StreamWorker(pico : PicoScope5000, stream) =
                     syncContext.RaiseEvent failed exn),
                 ignore) } // workflow manually checks the stopCapability so no cancellation token or cancellation continuation
         
-        // start the startup workflow which will start the acquisition workflow once the device is set up and the ready-to-start flag is set
+        // start the startup workflow on the thread pool, which will subsequently start the acquisition workflow once the device is set up and the
+        // ready-to-start flag is set
         "Starting stream workflow." |> log.Info
         Async.StartWithContinuations(
             startupWorkflow,

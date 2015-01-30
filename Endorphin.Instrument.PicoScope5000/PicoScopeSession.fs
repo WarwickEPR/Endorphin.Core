@@ -15,11 +15,15 @@ type internal SessionMessage =
 /// Represents a session to a PicoScope 5000 series device. A connection is opened upon instantiation and closed when the
 /// CloseSessionAsync workflow is run. Run the RequestControlAsync workflow to obtain control of the hardware via a PicoScope5000
 /// object. Instantiate with a specified serial to connect to a particular device or leave this unspecified to connect to the first
-/// available device. The vertical resolution of the device defaults to 8 bits if none is specified.
+/// available device. The vertical resolution of the device defaults to 8 bits if none is specified. Events are fired on the
+/// System.Threading.SynchronizationContext at initialization.
 type PicoScope5000Session(initSerial, resolution) =
     static let log = LogManager.GetLogger typeof<PicoScope5000Session> // logger
 
-    // create an agent which will process session messages
+    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
+    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
+
+    // start an agent which will process session messages
     let agent = Agent.Start(fun (mailbox : Agent<SessionMessage>) ->
         
         // define the startup workflow
@@ -88,7 +92,7 @@ type PicoScope5000Session(initSerial, resolution) =
                 sprintf "Successfully retreived model number %s for PicoScope %s." (localModelNumber.ToString()) serial |> log.Info
                 localModelNumber.ToString() // use the model numbmer returned by the PicoScope driver
 
-            // process messages with the session loop workflow using the obtained session parameters
+            // proceed to processing session messages with the loop workflow using the obtained session parameters
             return! loop {
                 Handle = handle
                 SerialNumber = serial
@@ -145,7 +149,9 @@ type PicoScope5000Session(initSerial, resolution) =
 
                 sprintf "Successfully closed connection to PicoScope %s." sessionParams.SerialNumber |> log.Info
                 replyChannel.Reply() // reply to the request to indicate that the session has been successfully closed
-                // workflow terminates here: no continuation, so no further messages will be processed
+                
+                // terminate the workflow
+                return () // no continuation, so no further messages will be processed
                 }
 
         // initialise the session agent using the startup workflow
