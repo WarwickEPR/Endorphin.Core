@@ -8,6 +8,31 @@ module ObservableExtensions =
 
     /// Some extensions to the Observable type which provide a more F#-friendly API.
     type Observable with
+    
+        /// Creates an IObservable from the supplied source event and parameters. The OnCompleted event is fired when an element
+        /// in the sequence satisfies the specified predicate. The OnError event fires if an error selector is specified and it
+        /// returns a Some value for some element in the sequence.
+        static member CreateFromEvent 
+           (source : IEvent<'T>,
+            completedPredicate : 'T -> bool,
+            ?errorSelector : 'T -> exn option) =
+
+            Observable.Create(fun (observer : IObserver<_>) ->
+                // subscribe to the source event and trigger the OnNext event when it occurs
+                let sourceSub =  
+                    source |> Observable.subscribe (fun e ->
+                        observer.OnNext e
+                        // also trigger OnCompleted or OnError if appropriate
+                        if completedPredicate e then observer.OnCompleted()
+                        elif errorSelector.IsSome then 
+                            match errorSelector.Value e with
+                            | Some exn -> observer.OnError exn
+                            | None -> ())
+                             
+                // when the IObserver is disposed, cancel the subscriptions
+                { new System.IDisposable with
+                    member __.Dispose() =
+                        sourceSub.Dispose() })
 
         /// Zips a list of n observables into a single observable where each element is of type System.Collections.Generic.IList.
         static member zipn (sources : IObservable<'a> list) =
@@ -28,3 +53,27 @@ module ObservableExtensions =
         /// Buffers an observable into elements of type System.Colllections.Generic.IList with the specified buffer size.
         static member buffer (bufferSize : int) (source : IObservable<'a>) =
             Observable.Buffer(source, bufferSize)
+    
+    type IObservable<'T> with
+        
+        /// Returns an workflow which asynchronously awaits the first element of an observable sequence.
+        member observable.AwaitFirstAsync() =
+            observable.FirstAsync()
+            |> Async.AwaitObservable
+
+        /// Returns an workflow which asynchronously awaits the first element of an observable sequence which matches the specified
+        /// predicate.
+        member observable.AwaitFirstAsync predicate =
+            observable.FirstAsync (Func<_, _> predicate)
+            |> Async.AwaitObservable
+
+        /// Returns an workflow which asynchronously awaits the last element of an observable sequence.
+        member observable.AwaitLastAsync() =
+            observable.LastAsync()
+            |> Async.AwaitObservable
+            
+        /// Returns an workflow which asynchronously awaits the last element of an observable sequence which matches the specified
+        /// predicate.
+        member observable.AwaitLastAsync predicate =
+            observable.LastAsync (Func<_, _> predicate)
+            |> Async.AwaitObservable
