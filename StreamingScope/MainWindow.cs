@@ -105,14 +105,15 @@ namespace StreamingScope
                 // run the stream worker
                 streamWorker.PrepareAndStart();
                 
-                // enable the stop button and wait for a click
-                stopButton.Enabled = true;
-                await stopButton.GetClickObservable().FirstAsync();
-                streamWorker.Stop();
-                stopButton.Enabled = false;
-
-                // wait for the stream to finish
-                await streamWorker.StatusChanged.LastAsync();
+                // enable the stop button and wait for the stream to finish (either automatically or manually)
+                using (stopButton.GetClickObservable().FirstAsync().Subscribe(
+                    stopArgs => streamWorker.Stop())) // stop the stream when the button is clicked
+                {
+                    stopButton.Enabled = true;
+                    
+                    await streamWorker.StatusChanged.LastAsync();
+                    stopButton.Enabled = false;
+                }
             }
 
             // re-enable the start button
