@@ -37,35 +37,38 @@
             // 
             // chartPanel
             // 
-            this.chartPanel.Location = new System.Drawing.Point(12, 12);
+            this.chartPanel.Location = new System.Drawing.Point(24, 23);
+            this.chartPanel.Margin = new System.Windows.Forms.Padding(6);
             this.chartPanel.Name = "chartPanel";
-            this.chartPanel.Size = new System.Drawing.Size(984, 670);
+            this.chartPanel.Size = new System.Drawing.Size(1968, 1288);
             this.chartPanel.TabIndex = 0;
             // 
             // buttonPanel
             // 
             this.buttonPanel.Controls.Add(this.stopButton);
             this.buttonPanel.Controls.Add(this.startButton);
-            this.buttonPanel.Location = new System.Drawing.Point(12, 688);
+            this.buttonPanel.Location = new System.Drawing.Point(24, 1323);
+            this.buttonPanel.Margin = new System.Windows.Forms.Padding(6);
             this.buttonPanel.Name = "buttonPanel";
-            this.buttonPanel.Size = new System.Drawing.Size(984, 29);
+            this.buttonPanel.Size = new System.Drawing.Size(1968, 56);
             this.buttonPanel.TabIndex = 1;
             // 
             // stopButton
             // 
-            this.stopButton.Location = new System.Drawing.Point(825, 3);
+            this.stopButton.Location = new System.Drawing.Point(1650, 6);
+            this.stopButton.Margin = new System.Windows.Forms.Padding(6);
             this.stopButton.Name = "stopButton";
-            this.stopButton.Size = new System.Drawing.Size(75, 23);
+            this.stopButton.Size = new System.Drawing.Size(150, 44);
             this.stopButton.TabIndex = 1;
             this.stopButton.Text = "Stop";
             this.stopButton.UseVisualStyleBackColor = true;
-            this.stopButton.Click += new System.EventHandler(this.stopButton_Click);
             // 
             // startButton
             // 
-            this.startButton.Location = new System.Drawing.Point(906, 3);
+            this.startButton.Location = new System.Drawing.Point(1812, 6);
+            this.startButton.Margin = new System.Windows.Forms.Padding(6);
             this.startButton.Name = "startButton";
-            this.startButton.Size = new System.Drawing.Size(75, 23);
+            this.startButton.Size = new System.Drawing.Size(150, 44);
             this.startButton.TabIndex = 0;
             this.startButton.Text = "Start";
             this.startButton.UseVisualStyleBackColor = true;
@@ -73,15 +76,15 @@
             // 
             // MainWindow
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1008, 729);
+            this.ClientSize = new System.Drawing.Size(2016, 1402);
             this.Controls.Add(this.buttonPanel);
             this.Controls.Add(this.chartPanel);
+            this.Margin = new System.Windows.Forms.Padding(6);
             this.Name = "MainWindow";
             this.Text = "Streaming scope";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
-            this.Load += new System.EventHandler(this.MainWindow_Load);
             this.buttonPanel.ResumeLayout(false);
             this.ResumeLayout(false);
 

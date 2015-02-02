@@ -30,7 +30,7 @@ module ChartingExtensions =
         // create an event stream which will contain the accumulated data set
         let chartData = 
            (streamWorker.SampleObserved channelBuffer // take the SampleObserved event for the specified ChannelBuffer
-            |> Event.scan (fun chartData x -> // accumulate the samples in a list
+            |> Observable.scan (fun chartData x -> // accumulate the samples in a list
                 match chartData with
                 | [] -> [(0, x)] // if the list is empty then add the first sample with index zero
                 | (lastIndex, _) :: _ -> (lastIndex + 1, x) :: chartData) List.empty) // otherwise prepend the sample, incrementing the index
@@ -59,7 +59,7 @@ module ChartingExtensions =
         // create an event stream which will contain the accumulated data set
         let chartData =
            (streamWorker.SampleBlockObserved // take each SampleBlockObserved event
-            |> Event.scan (fun chartData block ->
+            |> Observable.scan (fun chartData block ->
                 // take all pairs of XY values for each sample in the specified buffers in the block
                 let samples = seq {
                     for index in 0 .. block.Length - 1 ->
@@ -108,7 +108,7 @@ module ChartingExtensions =
             // for each ChannelBuffer in the sequence
             let chartData =
                (streamWorker.SampleObserved channelBuffer // take each SampleObserved event
-                    |> Event.scan (fun chartData x -> // accumulate the samples in a list
+                    |> Observable.scan (fun chartData x -> // accumulate the samples in a list
                         match chartData with
                         | [] -> [(0, x)] // if the list is empty then add the first sample with zero index
                         | (last, _) :: _ -> (last + 1, x) :: chartData) List.empty) // otherwise prepend the sample, incrementing the index

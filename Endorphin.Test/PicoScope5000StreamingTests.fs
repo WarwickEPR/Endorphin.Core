@@ -1,15 +1,13 @@
 ﻿namespace Endorphin.Test.PicoScope5000
 
+open Config
 open Endorphin.Core.Units
 open Endorphin.Core.ObservableExtensions
 open Endorphin.Instrument.PicoScope5000
-open NUnit.Framework
-open System
-open System.Threading
-open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-open System.Reactive.Linq
-open Config
 open log4net
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open NUnit.Framework
+open System.Reactive.Linq
 
 [<TestFixture>]
 type ``PicoScope 5000 series streaming tests``() = 
@@ -19,11 +17,11 @@ type ``PicoScope 5000 series streaming tests``() =
     let _ = log4netConfig()
 
     [<TestFixtureTearDown>]
-    member this.``Disconnect from PicoScope``() =
+    member __.``Disconnect from PicoScope``() =
         picoScopeSession.CloseSessionAsync() |> Async.RunSynchronously
 
     [<TearDown>]
-    member this.``Check response after test``() =
+    member __.``Check response after test``() =
         // if the agent crashes then this will fail
         async {
             use! pico = picoScopeSession.RequestControlAsync()
@@ -32,13 +30,10 @@ type ``PicoScope 5000 series streaming tests``() =
 
     [<Test>]
     [<Repeat(1000)>]
-    member this.``Can perform 1000 short streaming acquisitions with auto stop``() =
+    member __.``Can perform 1000 short streaming acquisitions with auto stop``() =
         async { 
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
-        
             let x = (Channel.A, { 
                 InputSettings =  { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
                 DownsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
@@ -52,35 +47,26 @@ type ``PicoScope 5000 series streaming tests``() =
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
+
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-
-            let! waitForSuccess =
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild 
-
             streamWorker.PrepareAndStart()    
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream true ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform long-running (10min) streaming acquisition with auto stop``() =
+    member __.``Can perform long-running (10min) streaming acquisition with auto stop``() =
         async { 
             use! pico = picoScopeSession.RequestControlAsync()
              
-            let streamStatusList = ref List.empty
-            let cancellingDidFire = ref false
-        
             let x = (Channel.A, {
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
                 DownsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
@@ -94,35 +80,26 @@ type ``PicoScope 5000 series streaming tests``() =
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
+
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> cancellingDidFire := true)
-
-            let! waitForSuccess =
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild 
-
             streamWorker.PrepareAndStart()    
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
-                List.rev !streamStatusList )
-            Assert.IsFalse !cancellingDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) } 
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform long-running (10min) streaming acquisition at 1 Msps``() =
+    member __.``Can perform long-running (10min) streaming acquisition at 1 Msps``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
-        
             let x = (Channel.A, { 
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
                 DownsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
@@ -136,35 +113,26 @@ type ``PicoScope 5000 series streaming tests``() =
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
         
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
+        
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000000
             |> Observable.add (fun _ -> "Processed 1000000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-
-            let! waitForSuccess =
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild 
-
             streamWorker.PrepareAndStart()    
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream true ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
     [<Repeat(1000)>]
-    member this.``Can perform 1000 short streaming acquisitions with manual stop``() =
+    member __.``Can perform 1000 short streaming acquisitions with manual stop``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
-
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
 
             let x = (Channel.A, {
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full}
@@ -178,40 +146,31 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
+        
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
 
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 1000
             |> Observable.add (fun _ -> "Processed 1000 samples." |> log.Debug)
         
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-        
             streamWorker.PrepareAndStart()
             "Waiting for 1s." |> log.Debug
             do! Async.Sleep 1000
 
-            let! waitForSuccess =
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild
-
             "Stopping acquisition stream" |> log.Debug
             streamWorker.Stop()
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform long-running (10min) streaming acquisition with manual stop``() =
+    member __.``Can perform long-running (10min) streaming acquisition with manual stop``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
-
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
         
             let x = (Channel.A, { 
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
@@ -225,42 +184,33 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
+        
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
 
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
                           
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-        
             streamWorker.PrepareAndStart()
 
             "Waiting for 10 min." |> log.Debug
             do! Async.Sleep 600000
         
-            let! waitForSuccess = 
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild
-
             "Stopping acquisition stream" |> log.Debug
             streamWorker.Stop()
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can perform stream sampling all input channels``() =
+    member __.``Can perform stream sampling all input channels``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
-        
             let w = (Channel.A, {
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
                 DownsamplingModes = [ DownsamplingMode.None ] |> Set.ofList })
@@ -285,35 +235,26 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ w ; x ; y ; z ] |> Map.ofList
                       MemorySegment = 0u })
+        
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
                                             
             streamWorker.SampleSliceObserved
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 sample slices." |> log.Debug)
             
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-
-            let! waitForSuccess = 
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild
-
             streamWorker.PrepareAndStart()
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can prepare stream and cancel without starting``() =
+    member __.``Can prepare stream and cancel without starting``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
-
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
         
             let x = 
                 (Channel.A, { 
@@ -328,24 +269,16 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
-        
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-        
-            let! waitForReady = 
-                streamWorker.StatusChanged
-                |> Event.filter ((=) ReadyToStream)
-                |> Async.AwaitEvent
-                |> Async.Ignore
-                |> Async.StartChild
-                    
+                
+            let statusReplay = streamWorker.StatusChanged.Catch(fun _ -> Observable.Empty()).Replay()
+            use _ = statusReplay.Connect()
+
             streamWorker.Prepare()
-            do! waitForReady
+            do! statusReplay.AwaitFirstAsync ((=) ReadyToStream) |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire
+                statusReplay.Take(2).ToEnumerable() |> Seq.toList)
         
             let failIfStatusChanged =
                 streamWorker.StatusChanged
@@ -355,28 +288,23 @@ type ``PicoScope 5000 series streaming tests``() =
             do! Async.Sleep 1000
             failIfStatusChanged.Dispose()
             
-            let! waitForCanceled =
-                streamWorker.Canceled
-                |> Async.AwaitEvent
-                |> Async.Ignore
-                |> Async.StartChild
-
             streamWorker.Stop()
-            do! waitForCanceled
+
+            let! finalStatus = statusReplay.AwaitLastAsync()
+            Assert.IsTrue(
+                match finalStatus with
+                | CanceledStream _ -> true
+                | _ -> false)
 
             Assert.AreEqual(
-                [ PreparingStream ; ReadyToStream ; CanceledStream ],
-                List.rev !streamStatusList)
-            Assert.IsTrue !canceledDidFire }
+                [ PreparingStream ; ReadyToStream ],
+                statusReplay.SkipLast(1).ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can prepare stream then start``() =
+    member __.``Can prepare stream then start``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
-
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
         
             let x = (Channel.A, {
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
@@ -390,28 +318,20 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
+        
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
                   
             streamWorker.SampleObserved { Channel = Channel.A; BufferDownsampling = NoDownsampling }
             |> Observable.buffer 10000
             |> Observable.add (fun _ -> "Processed 10000 samples." |> log.Debug)
 
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-
-            let! waitForReady = 
-                streamWorker.StatusChanged
-                |> Event.filter ((=) ReadyToStream)
-                |> Async.AwaitEvent
-                |> Async.Ignore
-                |> Async.StartChild
-
             streamWorker.Prepare()
-            do! waitForReady
+            do! statusReplay.AwaitFirstAsync ((=) ReadyToStream) |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire
+                statusReplay.Take(2).ToEnumerable() |> Seq.toList)
 
             let failIfStatusChanged =
                 streamWorker.StatusChanged
@@ -421,27 +341,18 @@ type ``PicoScope 5000 series streaming tests``() =
             do! Async.Sleep 3000
             failIfStatusChanged.Dispose()
 
-            let! waitForSuccess = 
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild
-
             streamWorker.SetReadyToStart()
-            do! waitForSuccess
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can manually stop auto-stop stream``() =
+    member __.``Can manually stop auto-stop stream``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
-
-            let streamStatusList = ref List.empty
-            let canceledDidFire = ref false
 
             let x = (Channel.A, {
                 InputSettings = { Coupling = Coupling.DC; Range = Range._5V; AnalogueOffset = 0.0<V>; BandwidthLimit = BandwidthLimit.Full }
@@ -455,33 +366,20 @@ type ``PicoScope 5000 series streaming tests``() =
                       TriggerSettings = AutoTrigger 200s<ms>
                       ActiveChannels = [ x ] |> Map.ofList
                       MemorySegment = 0u })
-                  
-            streamWorker.StatusChanged.Add(fun newStatus -> streamStatusList := newStatus :: !streamStatusList)
-            streamWorker.Canceled.Add(fun _ -> canceledDidFire := true)
-
-            let! waitForStreaming = 
-                streamWorker.StatusChanged
-                |> Event.filter ((=) (Streaming 100000<ns>))
-                |> Async.AwaitEvent
-                |> Async.Ignore
-                |> Async.StartChild
+        
+            let statusReplay = streamWorker.StatusChanged.Replay()
+            use _ = statusReplay.Connect()
 
             streamWorker.PrepareAndStart()
-            do! waitForStreaming
+            do! statusReplay.AwaitFirstAsync ((=) (Streaming 100000<ns>)) |> Async.Ignore
             do! Async.Sleep 5000
 
-            let! waitForSuccess =
-                streamWorker.Completed
-                |> Async.AwaitEvent
-                |> Async.StartChild
-
             streamWorker.Stop()
-            waitForSuccess |> Async.RunSynchronously
+            do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
-                List.rev !streamStatusList)
-            Assert.IsFalse !canceledDidFire }
+                statusReplay.ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     // TODO:

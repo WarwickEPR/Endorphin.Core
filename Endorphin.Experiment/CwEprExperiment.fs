@@ -1,21 +1,14 @@
 ﻿namespace Endorphin.Experiment
 
 open Endorphin.Core
-open Endorphin.Core.CSharpInterop
 open Endorphin.Core.Units
 open Endorphin.Instrument.PicoScope5000
 open Endorphin.Instrument.TwickenhamSmc
-open FSharp.Charting
-open FSharp.Charting.ChartTypes
 open log4net
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
-open System.IO
 open System.Reactive.Linq
 open System.Threading
-open System.Collections.Generic
-open System.Text
-open System.Runtime.InteropServices
 
 /// Defines the parameters for a CW EPR experiment.
 type CwEprExperiment =
@@ -115,15 +108,23 @@ type CwEprData =
                       (dataPoint.Count).ToString() ]
                     |> List.toSeq)) }
 
-/// Defines the possible states of a CW EPR experiment worker.
+/// Indicates the status of a CwEprExperimentWorker
 type CwEprExperimentStatus =
+    /// Indicates that the worker is starting the experiment.
     | StartingExperiment
+    /// Indicates that the worker is preparing for the specfied scan number.
     | PreparingExperimentScan of scan : int
+    /// Indicates that the worker has started the specified scan number.
     | StartedExperimentScan of scan : int
+    /// Indicates that the worker has finished the specified number of scans.
     | FinishedExperimentScan of scan : int
+    /// Indicates that the worker has succesfully finished the experiment.
     | FinishedExperiment
-    | FailedExperiment
-    | CanceledExperiment
+    /// Indicates that the experiment failed due to an error.
+    | FailedExperiment of exn : exn
+    /// Indicates taht the experiment was canceled while it was in progerss.
+    | CanceledExperiment of exn : OperationCanceledException
+    /// Indicates that the experiment was stopped after the specified number of scans but completed succesfully.
     | StoppedAfterScan of scan : int
 
 /// Performs a CW EPR experiment with the specified experiment parameters using the provided magnet controller and PicoScope.
@@ -132,12 +133,13 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
 
     // events
     let statusChanged = new Event<CwEprExperimentStatus>()
-    let completed = new Event<unit>()
-    let failed = new Event<Exception>()
-    let canceled = new Event<OperationCanceledException>()
     let stoppedAfterScan = new Event<int>()
     let scanFinished = new Event<int>()
-
+    let sampleObserved = new Event<CwEprSample>() // triggered by CwEprSample observations for each scan during the experiment.
+    
+    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
+    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
+    
     // create a handle which is used to indicate whether the scan is ready to start once it is prepared
     let readyToStart = new ManualResetEvent(false)
     // create a cancellation capability which provides the cancellation token for the experiment workflow
@@ -167,9 +169,6 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
     let shuntVoltageOffset =
         Math.Round(0.5 * float (minShuntVoltage + maxShuntVoltage), 1) * 1.0<V>
 
-    // create an event which will be triggered by CwEprSample observations for each scan during the experiment.
-    let sampleObserved = new Event<CwEprSample>()
-    
     // create an empty CwEprData with the shunt ADC -> magnetic field conversion function
     let emptyData =
         { ShuntAdcToField = fun adc ->
@@ -182,29 +181,32 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
     // Returns the specified experiment parameters.
     member __.Experiment = experiment
     
-    /// Event fires when the status of the experiment worker changes.
-    member __.StatusChanged = statusChanged.Publish
+    /// Event fires when the status of the experiment worker changes. Events are fired on the System.Threading.SynchronizationContext 
+    /// which instantiates the worker. 
+    member __.StatusChanged =
+        Observable.CreateFromEvent(
+            statusChanged.Publish,
+            // fire OnCompleted when the experiment finishes or is stopped after some number of scans
+            (fun status ->
+                match status with
+                | FinishedExperiment | StoppedAfterScan _ -> true
+                | _ -> false), 
+            // fire OnError when the experiment fails or is canceled
+            (fun status ->
+                match status with
+                | FailedExperiment exn -> Some exn
+                | CanceledExperiment exn -> Some (exn :> exn)
+                | _ -> None))
+            .ObserveOn(syncContext)
 
-    /// Event fires when the experiment worker completes the experiment successfully.
-    member __.Completed = completed.Publish
-
-    /// Event fires when an error occurs during the experiment.
-    member __.Failed = failed.Publish
-
-    /// Event fires when the experiment is cancelled while it is in progress.
-    member __.Canceled = canceled.Publish
-
-    /// Event fires when the experiment is stopped after a scan.
-    member __.StoppedAfterScan = stoppedAfterScan.Publish
-
-    /// Event fires after each scan finishes.
-    member __.ScanFinished = scanFinished.Publish
-    
-    /// Event fires when a new sample is added to the data.
-    member __.DataUpdated =
+    /// Event fires when a new sample is added to the data. Events are fired on the System.Threading.SynchronizationContext which
+    /// instantiates the worker. 
+    member experimentWorker.DataUpdated =
         // take all sample observations and add them to the data, starting with the empty CwEprData
-        sampleObserved.Publish
-        |> Event.scan (fun (data : CwEprData) -> data.AddSampleToData) emptyData
+       (sampleObserved.Publish
+        |> Observable.scan (fun (data : CwEprData) -> data.AddSampleToData) emptyData)
+            .TakeUntil(experimentWorker.StatusChanged.LastAsync())
+            .ObserveOn(syncContext)
 
     /// Cancels an experiment which is in progress, specifying whether the magnet controller should return to zero current or pause.
     member __.Cancel returnToZero =
@@ -235,9 +237,6 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
         sprintf "Experiment parameters:\n%A" experiment |> log.Info
         sprintf "Number of scans: %d." experiment.NumberOfScans |> log.Info
         
-        // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-        let syncContext = SynchronizationContext.CaptureCurrent()
-
         // define the experiment workflow
         let workflow =
 
@@ -245,7 +244,7 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
             let performScan scanNumber = async {
                 sprintf "CW EPR experiment performing scan (%d of %d)." scanNumber (experiment.NumberOfScans) |> log.Info
                 // fire an event indicating that the experiment worker is preparing for the n-th scan
-                syncContext.RaiseEvent statusChanged (PreparingExperimentScan scanNumber)
+                statusChanged.Trigger (PreparingExperimentScan scanNumber)
                     
                 // create a new scan worker with the experiment parameters which will perform the scan
                 let scanWorker = 
@@ -262,34 +261,38 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
 
                 // if the experiment is cancelled within this scope then cancel the scan workflow
                 use! __ = Async.OnCancel (fun () -> 
-                    sprintf "CW EPR experiment cancelling scan (%d of %d)." scanNumber (experiment.NumberOfScans) |> log.Info
+                    sprintf "CW EPR experiment cancelling scan (%d of %d)." scanNumber experiment.NumberOfScans |> log.Info
                     scanWorker.Cancel cancellationCapability.Options)
 
                 // start a child workflow which will wait for the scan to complete
                 let! waitForScanCompleted =
-                    scanWorker.Completed
-                    |> Async.AwaitEvent
+                    scanWorker.StatusChanged.LastAsync()
+                    |> Async.AwaitObservable
                     |> Async.StartChild
                    
                 // at every sample obersvation during the scan, fire the experiment's sampleObserved event
                 scanWorker.SampleObserved
-                |> Event.add (fun scanSample -> syncContext.RaiseEvent sampleObserved scanSample)
+                |> Observable.add (fun scanSample -> sampleObserved.Trigger scanSample)
                     
                 // listen for the scan worker to indicate that it has started performing the scan and fire a
                 // status-changed event indicating that the n-th scan is in progress
                 scanWorker.StatusChanged
-                |> Event.filter ((=) Scanning)
-                |> Event.add (fun _ -> syncContext.RaiseEvent statusChanged (StartedExperimentScan scanNumber))
+                |> Observable.filter ((=) Scanning)
+                |> Observable.add (fun _ -> statusChanged.Trigger (StartedExperimentScan scanNumber))
 
                 // prepare and start the scan worker
                 scanWorker.PrepareAndStart()
-                // and wait for the scan to finish
-                do! waitForScanCompleted
-                    
+                // and wait for the scan to finish, checking the result
+                let! result = waitForScanCompleted
+                if result <> FinishedScan then
+                    let message = sprintf "Scan (%d of %d) failed with status %A." scanNumber experiment.NumberOfScans result
+                    let exn = new Exception(message)
+                    log.Error(message, exn)
+
                 sprintf "CW EPR experiment finished scan (%d of %d)." scanNumber experiment.NumberOfScans |> log.Info
                 // fire events indicating that the experiment has finished the n-th scan
-                syncContext.RaiseEvent statusChanged (FinishedExperimentScan scanNumber)
-                syncContext.RaiseEvent scanFinished scanNumber }
+                statusChanged.Trigger (FinishedExperimentScan scanNumber)
+                scanFinished.Trigger scanNumber }
             
             // define a recursive workflow which will loop over all the scans
             let rec scanLoop currentScanNumber = async {
@@ -301,40 +304,33 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
                     // if the stop-after-scan flag is set, then stop the experiment
                     if stopAfterScanCapability.IsCancellationRequested then
                         sprintf "CW EPR experiment stopping after scan (%d of %d)." currentScanNumber (experiment.NumberOfScans) |> log.Info
-                        syncContext.RaiseEvent statusChanged (StoppedAfterScan currentScanNumber)
-                        syncContext.RaiseEvent stoppedAfterScan currentScanNumber
+                        statusChanged.Trigger (StoppedAfterScan currentScanNumber)
+                        stoppedAfterScan.Trigger currentScanNumber
                     // otherwise, proceed with the next scan
                     else 
                         do! scanLoop (currentScanNumber + 1) }
 
             // now use the workflows defined above to define the complete experiment workflow
             async {
-                // if cancellation occurs
-                use! __ = Async.OnCancel(fun () -> 
-                    "CW EPR experiment cancelled." |> log.Info
-                    // raise an event indicating that the experiment status has changed to canceled
-                    syncContext.RaiseEvent statusChanged CanceledExperiment)
-
                 "CW EPR experiment starting." |> log.Info
                 // raise an event indicating that the experiment is starting
-                syncContext.RaiseEvent statusChanged StartingExperiment
+                statusChanged.Trigger StartingExperiment
                 
                 // perform all scans, starting from the first
-                do! scanLoop 1
-
-                "CW EPR experiment finished successfully." |> log.Info
-                // raise an event indicating that the experiment has finished
-                syncContext.RaiseEvent statusChanged FinishedExperiment }
+                do! scanLoop 1 }
     
         // start the scan workflow with the specified continuations for success, failure and cancellation and with
         // the provided cancellation token
         "Starting experiment workflow." |> log.Info
         Async.StartWithContinuations(
             workflow,
-            (fun () -> syncContext.RaiseEvent completed ()),
+            (fun () -> 
+                "CW EPR experiment finished successfully." |> log.Info
+                statusChanged.Trigger FinishedExperiment),
             (fun exn ->
                 log.Error (sprintf "CW EPR experiment failed due to error: %A." exn, exn)
-                syncContext.RaiseEvent statusChanged FailedExperiment
-                syncContext.RaiseEvent failed exn),
-            (fun exn -> syncContext.RaiseEvent canceled exn),
+                statusChanged.Trigger (FailedExperiment exn)),
+            (fun exn ->
+                "CW EPR experiment cancelled." |> log.Info
+                statusChanged.Trigger (CanceledExperiment exn)),
             cancellationCapability.Token)

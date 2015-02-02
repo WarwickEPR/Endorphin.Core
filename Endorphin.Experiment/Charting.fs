@@ -20,12 +20,15 @@ module ChartingExtensions =
          [<Optional; DefaultParameterValue("CW EPR experiment")>] title : string,
          [<Optional; DefaultParameterValue("Magnetic field (T)")>] xTitle : string,
          [<Optional; DefaultParameterValue("")>] yTitle : string) =
-    
+        
+        // create an event which will fire at the refresh interval
+        let sampler = Observable.Interval refreshInterval
+
         // chart the real channel data
         let reData =
             (experimentWorker.DataUpdated
-                |> Event.map (fun data -> data.ReSignal()))
-                .Sample(refreshInterval)
+                .Select(fun data -> data.ReSignal()))
+                .Sample(sampler)
                 .ObserveOn(SynchronizationContext.CaptureCurrent()) // observe updates on the current synchronization context so that UI can be updated 
         let reChart = LiveChart.FastLine(reData, Name="Real signal", Title=title, XTitle=xTitle, YTitle=yTitle)
 
@@ -35,8 +38,8 @@ module ChartingExtensions =
             // otherwise also plot the imaginary part
             let imData =
                 (experimentWorker.DataUpdated
-                    |> Event.map (fun data -> data.ImSignal()))
-                    .Sample(refreshInterval)
+                    .Select(fun data -> data.ImSignal()))
+                    .Sample(sampler)
                     .ObserveOn(SynchronizationContext.CaptureCurrent())
             let imChart = LiveChart.FastLine(imData, Name="Imaginary signal", Title=title, XTitle=xTitle, YTitle=yTitle)
 

@@ -95,9 +95,9 @@ type RampStatus =
     | FinishedRamp
     /// Indicates that the RampWorker has been canceled and whether the magnet controller was set to return to zero field at
     /// the time of cancellation.
-    | CanceledRamp of returnToZero : bool
+    | CanceledRamp of exn : OperationCanceledException * returnToZero : bool
     /// Indicates that the RampWorker has failed to perform the ramp due to an error.
-    | FailedRamp
+    | FailedRamp of exn : exn
 
 /// Specifies the cancellation options given when cancelling a RampWorker ramp.
 type RampCancellationOptions =
@@ -110,10 +110,10 @@ type RampWorker(magnetController : MagnetController, ramp) =
 
     // events
     let statusChanged = new Event<RampStatus>()
-    let completed = new Event<unit>()
-    let failed = new Event<Exception>()
-    let canceled = new Event<OperationCanceledException>()
     
+    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
+    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
+
     // handle to indicate that the ramp should start once it is prepared
     let readyToStart = new ManualResetHandle(false)
     // handle to indicate that the ramp should continue after changing current polarity at zero current
@@ -126,6 +126,9 @@ type RampWorker(magnetController : MagnetController, ramp) =
     let finalCurrent = magnetController.MagnetControllerParameters.CurrentForIndex ramp.FinalFieldIndex
 
     do // sanity checks
+        // raise an exception if the ramp has zero steps
+        if ramp.StartingFieldIndex = ramp.FinalFieldIndex then
+            failwith "Ramp starting and final current are the same."
         // raise an exception if the starting current, final current or ramp rate are out of bounds
         if abs startingCurrent > magnetController.MagnetControllerParameters.CurrentLimit then
             failwith "Ramp starting current outside of magnet controller current limit."
@@ -135,20 +138,19 @@ type RampWorker(magnetController : MagnetController, ramp) =
             failwith "Ramp rate index outside of available ramp rate range."
     
     /// Event fires when the RampWorker status changes. Events are fired on the System.Threading.SynchronizationContext which
-    /// initiated the workflow.
-    member __.StatusChanged = statusChanged.Publish
-
-    /// Event fires when the RampWorker successfully completes the magnet controller ramp. Events are fired on the
-    /// System.Threading.SynchronizationContext which initiated the workflow.
-    member __.Completed = completed.Publish
-
-    /// Event fires when an error occurs during the RampWorker workflow. Events are fired on the System.Threading.SynchronizationContext
-    /// which initiated the workflow.
-    member __.Failed = failed.Publish
-
-    /// Event fires when the RampWorker is cancelled while it is performing the workflow. Events are fired on the
-    /// System.Threading.SynchronizationContext which initiated the workflow.
-    member __.Canceled = canceled.Publish
+    /// instantiated the worker.
+    member __.StatusChanged = 
+        Observable.CreateFromEvent(
+            statusChanged.Publish,
+            // fire OnCompleted when the ramp finishes
+            ((=) FinishedRamp), 
+            // fire OnError when the ramp fails or is canceled
+            (fun status ->
+                match status with
+                | FailedRamp exn -> Some exn
+                | CanceledRamp (exn, _) -> Some (exn :> exn)
+                | _ -> None))
+            .ObserveOn(syncContext)
 
     /// Cancels the magnet controller ramp, indicating whether the magnet controller should be set to return to zero current.
     member __.Cancel returnToZero =
@@ -192,9 +194,6 @@ type RampWorker(magnetController : MagnetController, ramp) =
         sprintf "Ramp rate index: %d." ramp.RampRateIndex |> log.Info
         sprintf "Return to zero: %A." ramp.ReturnToZero |> log.Info
 
-        // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-        let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
-
         // define the ramp workflow
         let workflow = async {
             
@@ -237,7 +236,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 "Preparing for ramp..." |> log.Info
 
                 // raise an event to indicate that the RampWorker is preparing
-                syncContext.RaiseEvent statusChanged PreparingRamp
+                statusChanged.Trigger PreparingRamp
                 let! initialState = magnetController.GetAllParametersAsync()
                 do! setStartingCurrentDirection initialState
                 do! setCurrentLimits initialState 
@@ -249,7 +248,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 "Waiting for ready-to-start signal..." |> log.Info
                 // raise an event to indicate that the magnet controller has prepared to the initial current and is waiting for 
                 // the ready-to-start signal to begin the ramp
-                syncContext.RaiseEvent statusChanged (ReadyToRamp ramp.StartingCurrentDirection)
+                statusChanged.Trigger (ReadyToRamp ramp.StartingCurrentDirection)
                 do! Async.AwaitWaitHandle readyToStart |> Async.Ignore
                 "Received ready-to-start signal." |> log.Info }
 
@@ -258,7 +257,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 "Waiting for ready-to-continue signal..." |> log.Info
                 // raise an event to indicate that the magnet controller has changed current direction at zero current and is
                 // waiting for the ready-to-continue signal before ramping to the final current target
-                syncContext.RaiseEvent statusChanged (ReadyToContinue ramp.FinalCurrentDirection)
+                statusChanged.Trigger (ReadyToContinue ramp.FinalCurrentDirection)
                 do! Async.AwaitWaitHandle readyToContinue |> Async.Ignore
                 "Ready ready-to-continue signal." |> log.Info }
             
@@ -272,12 +271,12 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 if ramp.StartingCurrentDirection <> ramp.FinalCurrentDirection then
                     "Ramp range goes through zero current. Ramping to zero current to change current direction." |> log.Info
                     // raise an event that the magnet controller is ramping with the starting current direction and ramp to zero
-                    syncContext.RaiseEvent statusChanged (Ramping ramp.StartingCurrentDirection)
+                    statusChanged.Trigger (Ramping ramp.StartingCurrentDirection)
                     magnetController.SetRampTarget Zero
                     do! magnetController.WaitToReachTargetAsync()
 
                     // raise an event that the magnet controller is about to change current direction and perform the change
-                    syncContext.RaiseEvent statusChanged ChangingCurrentDirection
+                    statusChanged.Trigger ChangingCurrentDirection
                     do! magnetController.WaitToReachZeroAndSetCurrentDirectionAsync ramp.FinalCurrentDirection 
                     "Reached zero current and changed current direction." |> log.Info
 
@@ -287,7 +286,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                 "Ramping to final ramp target." |> log.Info
                 // raise an event to indicate that the magnet controller is ramping with the final current direction and ramp to
                 // the final ramp target
-                syncContext.RaiseEvent statusChanged (Ramping ramp.FinalCurrentDirection)
+                statusChanged.Trigger (Ramping ramp.FinalCurrentDirection)
                 magnetController.SetRampTarget ramp.FinalRampTarget  
                 do! magnetController.WaitToReachTargetAsync() 
                 "Reached final ramp target." |> log.Info } 
@@ -301,11 +300,7 @@ type RampWorker(magnetController : MagnetController, ramp) =
                     magnetController.BeginRampToZeroAtMaximumRampRate() 
                 else 
                     "Not requested to return to zero current. Pausing magnet controller..." |> log.Info
-                    magnetController.SetPause true
-
-                "Ramp Canceled." |> log.Info
-                // raise an event to indicate that the ramp has been canceled
-                syncContext.RaiseEvent statusChanged (CanceledRamp cancellationCapability.Options.ReturnToZero))
+                    magnetController.SetPause true)
             
             // run the workflows defined above
             do! prepareForRamp
@@ -313,20 +308,19 @@ type RampWorker(magnetController : MagnetController, ramp) =
 
             // if the ramp is set to return to zero, then start ramping to zero current
             if ramp.ReturnToZero then 
-                magnetController.BeginRampToZeroAtMaximumRampRate()
-            
-            "Ramp completed successfully." |> log.Info
-            // raise an event to indicate that the ramp workflow has been completed
-            syncContext.RaiseEvent statusChanged FinishedRamp }
+                magnetController.BeginRampToZeroAtMaximumRampRate() }
         
         "Starting ramp workflow." |> log.Info
         // start the ramp workflow on the thread pool with the specified continuations
         Async.StartWithContinuations(
             workflow,
-            (fun () -> syncContext.RaiseEvent completed ()),
+            (fun () -> // success
+                "Ramp completed successfully." |> log.Info
+                statusChanged.Trigger FinishedRamp),
             (fun exn -> // error
                 log.Error (sprintf "Ramp failed due to error: %A." exn, exn)
-                syncContext.RaiseEvent statusChanged FailedRamp
-                syncContext.RaiseEvent failed exn),
-            (fun exn -> syncContext.RaiseEvent canceled exn),
+                statusChanged.Trigger (FailedRamp exn)),
+            (fun exn -> // cancellation
+                "Ramp Canceled." |> log.Info
+                statusChanged.Trigger (CanceledRamp (exn, cancellationCapability.Options.ReturnToZero))),
             cancellationCapability.Token)

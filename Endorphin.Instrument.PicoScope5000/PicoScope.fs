@@ -760,22 +760,20 @@ type PicoScope5000(sessionParams, eventSyncContext : System.Threading.Synchroniz
     member __.GetAdcCountToVoltageConversion(range : Range, analogueOffset) =
         let maxAdcCounts = // as defined on page 6 of the programming guide
             match sessionParams.Resolution with
-            | Resolution._8bit -> 0x8100s
-            | _ -> 0x8001s
+            | Resolution._8bit -> 0x7F00s
+            | _ -> 0x7FFFs
 
         let voltageRange = range.ToVolts()
-
         fun (adcCounts : int16) -> (voltageRange * (float adcCounts) / (float maxAdcCounts) + analogueOffset)
 
     /// Returns a conversion function from voltage to ADC counts for a specified voltage input range and analogue offset.
     member __.GetVoltageToAdcCountConversion(range : Range, analogueOffset) : (float<V> -> int16) =
         let maxAdcCounts = // as defined on page 6 of the programming guide
             match sessionParams.Resolution with
-            | Resolution._8bit -> 0x8100s
-            | _ -> 0x8001s        
+            | Resolution._8bit -> 0x7F00s
+            | _ -> 0x7FFFs
 
         let voltageRange = range.ToVolts() 
-
         fun voltage -> int16 (((voltage - analogueOffset) / voltageRange) * (float maxAdcCounts))
 
     // Trigger settings
