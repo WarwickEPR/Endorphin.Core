@@ -101,9 +101,6 @@ type StreamWorker(pico : PicoScope5000, stream) =
     let statusChanged = new Event<StreamStatus>()
     let sampleBlockObserved = new Event<SampleBlock>()
     
-    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
-
     // handle which is used to indicate that the stream should start once it is prepared
     let readyToStart = new ManualResetHandle(false)
     // cancellation capability which is used to cancel the stream before it begins
@@ -183,33 +180,29 @@ type StreamWorker(pico : PicoScope5000, stream) =
     /// The stream parameters specified for the acquisition.
     member __.Stream = stream
     
-    /// Event fires when the StreamWorker status changes. Events are fired on the System.Threading.SynchronizationContext which
-    /// instantiates the worker.
+    /// Event fires when the StreamWorker status changes.
     member __.StatusChanged =
-        Observable.CreateFromEvent(
-            statusChanged.Publish,
-            // fire OnCompleted when the stream finishes
+        Observable.CreateFromStatusEvent(
+            statusChanged.Publish, // listen to the status event
             (fun status -> 
+                // when the status indicates that the stream has finished, raise the OnCompleted event on the observable
                 match status with
                 | FinishedStream _ -> true
-                | _ -> false), 
-            // fire OnError when the stream fails or is canceled
-            (fun status ->
+                | _ -> false),
+            (fun status -> 
+                // if a status indicates that the stream has failed or was canceled, raise the OnError event
                 match status with
                 | FailedStream exn -> Some exn
                 | CanceledStream exn -> Some (exn :> exn)
-                | _ -> None))
-            .ObserveOn(syncContext)
+                | _ -> None ))
 
-    /// Event fires when a new block of samples is read from the PicoScope data buffer. Events are fired on the
-    /// System.Threading.SynchronizationContext which instantiated the worker.
+    /// Event fires when a new block of samples is read from the PicoScope data buffer.
     member streamWorker.SampleBlockObserved = 
         sampleBlockObserved.Publish
             .TakeUntil(streamWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
 
     /// Event fires for every slice of samples observed during the acquisition. A sample slice contains a sample for every active channel
-    /// and respective BufferDownsampling. Events are fired on the System.Threading.SynchronizationContext which instantiated the worker.
+    /// and respective BufferDownsampling.
     member streamWorker.SampleSliceObserved =
        (sampleBlockObserved.Publish // for every sample block observed
         |> Event.collectSeq (fun block -> seq { // fire once for each slice
@@ -217,26 +210,21 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 block.Samples 
                 |> Map.map (fun _ buffer -> buffer.[index]) }))
             .TakeUntil(streamWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
     
-    /// Event fires for each sample observed on the specified channel for the particular BufferDownsampling. Events are fired on the
-    /// System.Threading.SynchronizationContext which instantiated the worker.
+    /// Event fires for each sample observed on the specified channel for the particular BufferDownsampling.
     member streamWorker.SampleObserved channelBuffer =
        (sampleBlockObserved.Publish // for every sample block observed
         |> Event.collectSeq (fun block -> // fire once for every sample
             block.Samples.[channelBuffer] // for the specified channel and BufferDownsampling.
             |> Array.toSeq))
             .TakeUntil(streamWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
 
-    /// Event fires if a voltage overflow occurs on the specified channel. Events are fired on the System.Threading.SynchronizationContext
-    /// which instantiated the worker.
+    /// Event fires if a voltage overflow occurs on the specified channel
     member streamWorker.VoltageOverflow channel =
        (sampleBlockObserved.Publish // for every sample block observed
         |> Event.choose (fun block -> // fire if a voltage overflow occured on the specified channel
             if block.VoltageOverflows.Contains channel then Some () else None))
             .TakeUntil(streamWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
 
     /// Stops the streaming acquisition manually.
     member __.Stop() =
@@ -282,22 +270,21 @@ type StreamWorker(pico : PicoScope5000, stream) =
                     // if the number of samples sent by the driver is non-zero (can be zero if this is to just indicate that the
                     // stream has stopped automatically)
                     if streamingValues.NumberOfSamples <> 0 then
-                        // then define a workflow which will read the samples from the buffer into a new array
-                        let readSamples = 
-                            buffers // take the acquisition buffers
-                            |> Map.toSeq
-                            |> Seq.map (fun (channelBuffer, buffer) -> async { // and map each to an asynchronous workflow
-                                let samples = Array.zeroCreate streamingValues.NumberOfSamples // create an empty array
-                                // then copy the specified range of data from the buffer into the array and return the result
-                                Array.Copy(buffer, int streamingValues.StartIndex, samples, 0, streamingValues.NumberOfSamples)
-                                return (channelBuffer, samples) })
-                            |> Async.Parallel // compose the workflows in parallel
-
                         // define a workflow which will read the samples and raise the sampleBlockObserved event
                         async {
-                            sprintf "Received stream data block of %d samples" streamingValues.NumberOfSamples |> log.Info
-                            sprintf "Stream did %s." (if streamingValues.DidAutoStop then "auto-stop" else "not auto-stop") |> log.Info
-                            let! samples = readSamples
+                            sprintf "Received stream data block of %d samples %s auto-stop." streamingValues.NumberOfSamples 
+                                (if streamingValues.DidAutoStop then "with" else "without")
+                            |> log.Info
+                            
+                            let! samples = 
+                                buffers // take the acquisition buffers
+                                |> Map.toSeq
+                                |> Seq.map (fun (channelBuffer, buffer) -> async { // and map each to an asynchronous workflow
+                                    let samples = Array.zeroCreate streamingValues.NumberOfSamples // create an empty array
+                                    // then copy the specified range of data from the buffer into the array and return the result
+                                    Array.Copy(buffer, int streamingValues.StartIndex, samples, 0, streamingValues.NumberOfSamples)
+                                    return (channelBuffer, samples) })
+                                |> Async.Parallel // compose the workflows in parallel
 
                             // raise the event on the synchronisation context (thread pool or UI thread)
                             sampleBlockObserved.Trigger
@@ -308,12 +295,12 @@ type StreamWorker(pico : PicoScope5000, stream) =
   
             // define a workflow which will poll the PicoScope for the latest stream values until acquisition has stopped
             let rec pollLoop (acquisition : IStreamingAcquisition) = async {
-                "Polling PicoScope for stream values..." |> log.Info
-                do! acquisition.GetLatestValues dataCallback // poll the streaming acquisition and wait for the request to complete
-                do! Async.Sleep 100 // wait 100 ms before polling again
-
                 // if the streaming acquisition hasn't been stopped then continue polling
                 if not stopCapability.IsCancellationRequested then
+                    "Polling PicoScope for stream values..." |> log.Info
+                    do! acquisition.GetLatestValues dataCallback // poll the streaming acquisition and wait for the request to complete
+
+                    do! Async.Sleep 100 // wait 100 ms before polling again
                     do! pollLoop acquisition }
 
             "Initiating streaming..." |> log.Info
@@ -324,12 +311,7 @@ type StreamWorker(pico : PicoScope5000, stream) =
             statusChanged.Trigger (Streaming acquisition.SampleInterval)
 
             "Starting poll loop." |> log.Info
-            do! pollLoop acquisition // poll the PicoScope for data until acquisition stops
-            
-            let didAutoStop = stopCapability.Options.DidAutoStop
-            sprintf "Stream finished successfully %s auto-stop." (if didAutoStop then "with" else "without") |> log.Info
-            // raise the statusChanged event to indicated that streaming has finished
-            statusChanged.Trigger (FinishedStream didAutoStop) }
+            do! pollLoop acquisition } // poll the PicoScope for data until acquisition stop
 
         // define a workflow which will set up the device for the acquisition and start the acquisition workflow
         let startupWorkflow = async {
@@ -410,7 +392,10 @@ type StreamWorker(pico : PicoScope5000, stream) =
             // then start the stream workflow on the thread pool with the specified continuations
             Async.StartWithContinuations(
                 streamWorkflow buffers,
-                (ignore), // statusChanged event fired elsewhere on finish
+                (fun () -> 
+                    let didAutoStop = stopCapability.Options.DidAutoStop
+                    sprintf "Stream finished successfully %s auto-stop." (if didAutoStop then "with" else "without") |> log.Info
+                    statusChanged.Trigger (FinishedStream didAutoStop)),
                 (fun exn -> // error
                     stopCapability.Cancel { DidAutoStop = false }
                     log.Error (sprintf "Stream failed during acquisition acquisition due to error %A." exn, exn)
@@ -428,5 +413,5 @@ type StreamWorker(pico : PicoScope5000, stream) =
                 statusChanged.Trigger (FailedStream exn)),
             (fun exn -> // canceled event won't be raised unless the stream is stopped before it starts running
                 "Stream canceled before starting." |> log.Info
-                statusChanged.Trigger (CanceledStream (new OperationCanceledException("Stream canceled before starting")))), 
+                statusChanged.Trigger (CanceledStream exn)), 
                 cancellationCapability.Token)

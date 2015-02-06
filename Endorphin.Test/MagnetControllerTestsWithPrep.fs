@@ -11,13 +11,11 @@ type ``Magnet controller tests with prepared state``() =
     let magnetControllerSession = new MagnetControllerSession(magnetControllerVisaAddress, magnetControllerParameters)
     let _ = log4netConfig()
 
-    [<SetUp>]
-    member __.``Prepare magnet controller state``() = 
-        async {
-            use! magnetController = magnetControllerSession.RequestControlAsync()
-            initialiseDefaultMagnetControllerState magnetController }
+    [<TestFixtureSetUp>]
+    member __.``Connect to PicoScope``() =
+        magnetControllerSession.ConnectAsync() 
         |> Async.RunSynchronously
-
+    
     [<TestFixtureTearDown>]
     member __.``Close magnet controller session``() =
         async {
@@ -26,6 +24,13 @@ type ``Magnet controller tests with prepared state``() =
         |> Async.RunSynchronously
 
         magnetControllerSession.CloseSessionAsync() 
+        |> Async.RunSynchronously
+
+    [<SetUp>]
+    member __.``Prepare magnet controller state``() = 
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+            initialiseDefaultMagnetControllerState magnetController }
         |> Async.RunSynchronously
         
     [<Test>]

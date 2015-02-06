@@ -81,7 +81,8 @@
             this.fileToolStripMenuItem});
             this.menuStrip.Location = new System.Drawing.Point(0, 0);
             this.menuStrip.Name = "menuStrip";
-            this.menuStrip.Size = new System.Drawing.Size(1008, 24);
+            this.menuStrip.Padding = new System.Windows.Forms.Padding(12, 4, 0, 4);
+            this.menuStrip.Size = new System.Drawing.Size(1996, 46);
             this.menuStrip.TabIndex = 0;
             this.menuStrip.Text = "menuStrip1";
             // 
@@ -90,16 +91,15 @@
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuSave});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(64, 38);
             this.fileToolStripMenuItem.Text = "File";
             // 
             // menuSave
             // 
             this.menuSave.Enabled = false;
             this.menuSave.Name = "menuSave";
-            this.menuSave.Size = new System.Drawing.Size(98, 22);
+            this.menuSave.Size = new System.Drawing.Size(244, 36);
             this.menuSave.Text = "Save";
-            this.menuSave.Click += new System.EventHandler(this.menuSave_Click);
             // 
             // controls
             // 
@@ -111,67 +111,72 @@
             this.controls.Controls.Add(this.sampleNotesGroup);
             this.controls.Controls.Add(this.acquisitionGroup);
             this.controls.Controls.Add(this.magneticFieldGroup);
-            this.controls.Location = new System.Drawing.Point(0, 27);
+            this.controls.Location = new System.Drawing.Point(0, 52);
+            this.controls.Margin = new System.Windows.Forms.Padding(6);
             this.controls.Name = "controls";
-            this.controls.Size = new System.Drawing.Size(312, 690);
+            this.controls.Size = new System.Drawing.Size(624, 1327);
             this.controls.TabIndex = 1;
             // 
             // stopButton
             // 
             this.stopButton.Enabled = false;
-            this.stopButton.Location = new System.Drawing.Point(153, 629);
+            this.stopButton.Location = new System.Drawing.Point(306, 1210);
+            this.stopButton.Margin = new System.Windows.Forms.Padding(6);
             this.stopButton.Name = "stopButton";
-            this.stopButton.Size = new System.Drawing.Size(151, 23);
+            this.stopButton.Size = new System.Drawing.Size(302, 44);
             this.stopButton.TabIndex = 16;
             this.stopButton.Text = "Stop";
             this.stopButton.UseVisualStyleBackColor = true;
-            this.stopButton.Click += new System.EventHandler(this.stopButton_Click);
             // 
             // experimentNotesGroup
             // 
             this.experimentNotesGroup.Controls.Add(this.experimentNotes);
-            this.experimentNotesGroup.Location = new System.Drawing.Point(12, 481);
+            this.experimentNotesGroup.Location = new System.Drawing.Point(24, 925);
+            this.experimentNotesGroup.Margin = new System.Windows.Forms.Padding(6);
             this.experimentNotesGroup.Name = "experimentNotesGroup";
-            this.experimentNotesGroup.Size = new System.Drawing.Size(297, 133);
+            this.experimentNotesGroup.Padding = new System.Windows.Forms.Padding(6);
+            this.experimentNotesGroup.Size = new System.Drawing.Size(594, 256);
             this.experimentNotesGroup.TabIndex = 12;
             this.experimentNotesGroup.TabStop = false;
             this.experimentNotesGroup.Text = "Experiment notes";
             // 
             // experimentNotes
             // 
-            this.experimentNotes.Location = new System.Drawing.Point(9, 19);
+            this.experimentNotes.Location = new System.Drawing.Point(18, 37);
+            this.experimentNotes.Margin = new System.Windows.Forms.Padding(6);
             this.experimentNotes.Multiline = true;
             this.experimentNotes.Name = "experimentNotes";
-            this.experimentNotes.Size = new System.Drawing.Size(283, 108);
+            this.experimentNotes.Size = new System.Drawing.Size(562, 204);
             this.experimentNotes.TabIndex = 11;
             // 
             // stopToZero
             // 
             this.stopToZero.Enabled = false;
-            this.stopToZero.Location = new System.Drawing.Point(153, 658);
+            this.stopToZero.Location = new System.Drawing.Point(306, 1265);
+            this.stopToZero.Margin = new System.Windows.Forms.Padding(6);
             this.stopToZero.Name = "stopToZero";
-            this.stopToZero.Size = new System.Drawing.Size(151, 23);
+            this.stopToZero.Size = new System.Drawing.Size(302, 44);
             this.stopToZero.TabIndex = 15;
             this.stopToZero.Text = "Stop and return to zero";
             this.stopToZero.UseVisualStyleBackColor = true;
-            this.stopToZero.Click += new System.EventHandler(this.stopToZero_Click);
             // 
             // stopAfterScan
             // 
             this.stopAfterScan.Enabled = false;
-            this.stopAfterScan.Location = new System.Drawing.Point(21, 658);
+            this.stopAfterScan.Location = new System.Drawing.Point(42, 1265);
+            this.stopAfterScan.Margin = new System.Windows.Forms.Padding(6);
             this.stopAfterScan.Name = "stopAfterScan";
-            this.stopAfterScan.Size = new System.Drawing.Size(126, 23);
+            this.stopAfterScan.Size = new System.Drawing.Size(252, 44);
             this.stopAfterScan.TabIndex = 14;
             this.stopAfterScan.Text = "Stop after scan";
             this.stopAfterScan.UseVisualStyleBackColor = true;
-            this.stopAfterScan.Click += new System.EventHandler(this.stopAfterScan_Click);
             // 
             // prepareStartButton
             // 
-            this.prepareStartButton.Location = new System.Drawing.Point(21, 629);
+            this.prepareStartButton.Location = new System.Drawing.Point(42, 1210);
+            this.prepareStartButton.Margin = new System.Windows.Forms.Padding(6);
             this.prepareStartButton.Name = "prepareStartButton";
-            this.prepareStartButton.Size = new System.Drawing.Size(126, 23);
+            this.prepareStartButton.Size = new System.Drawing.Size(252, 44);
             this.prepareStartButton.TabIndex = 13;
             this.prepareStartButton.Text = "Prepare and start";
             this.prepareStartButton.UseVisualStyleBackColor = true;
@@ -180,19 +185,22 @@
             // sampleNotesGroup
             // 
             this.sampleNotesGroup.Controls.Add(this.sampleNotes);
-            this.sampleNotesGroup.Location = new System.Drawing.Point(12, 342);
+            this.sampleNotesGroup.Location = new System.Drawing.Point(24, 658);
+            this.sampleNotesGroup.Margin = new System.Windows.Forms.Padding(6);
             this.sampleNotesGroup.Name = "sampleNotesGroup";
-            this.sampleNotesGroup.Size = new System.Drawing.Size(297, 133);
+            this.sampleNotesGroup.Padding = new System.Windows.Forms.Padding(6);
+            this.sampleNotesGroup.Size = new System.Drawing.Size(594, 256);
             this.sampleNotesGroup.TabIndex = 2;
             this.sampleNotesGroup.TabStop = false;
             this.sampleNotesGroup.Text = "Sample notes";
             // 
             // sampleNotes
             // 
-            this.sampleNotes.Location = new System.Drawing.Point(9, 19);
+            this.sampleNotes.Location = new System.Drawing.Point(18, 37);
+            this.sampleNotes.Margin = new System.Windows.Forms.Padding(6);
             this.sampleNotes.Multiline = true;
             this.sampleNotes.Name = "sampleNotes";
-            this.sampleNotes.Size = new System.Drawing.Size(283, 108);
+            this.sampleNotes.Size = new System.Drawing.Size(562, 204);
             this.sampleNotes.TabIndex = 11;
             // 
             // acquisitionGroup
@@ -205,9 +213,11 @@
             this.acquisitionGroup.Controls.Add(this.downsamplingEnabled);
             this.acquisitionGroup.Controls.Add(this.sampleIntervalLabel);
             this.acquisitionGroup.Controls.Add(this.sampleInterval);
-            this.acquisitionGroup.Location = new System.Drawing.Point(12, 187);
+            this.acquisitionGroup.Location = new System.Drawing.Point(24, 360);
+            this.acquisitionGroup.Margin = new System.Windows.Forms.Padding(6);
             this.acquisitionGroup.Name = "acquisitionGroup";
-            this.acquisitionGroup.Size = new System.Drawing.Size(297, 149);
+            this.acquisitionGroup.Padding = new System.Windows.Forms.Padding(6);
+            this.acquisitionGroup.Size = new System.Drawing.Size(594, 287);
             this.acquisitionGroup.TabIndex = 1;
             this.acquisitionGroup.TabStop = false;
             this.acquisitionGroup.Text = "Acquisition";
@@ -215,24 +225,27 @@
             // estimatedTimeLabel
             // 
             this.estimatedTimeLabel.AutoSize = true;
-            this.estimatedTimeLabel.Location = new System.Drawing.Point(6, 128);
+            this.estimatedTimeLabel.Location = new System.Drawing.Point(12, 246);
+            this.estimatedTimeLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.estimatedTimeLabel.Name = "estimatedTimeLabel";
-            this.estimatedTimeLabel.Size = new System.Drawing.Size(117, 13);
+            this.estimatedTimeLabel.Size = new System.Drawing.Size(238, 25);
             this.estimatedTimeLabel.TabIndex = 7;
             this.estimatedTimeLabel.Text = "Estimated duration: 60s";
             // 
             // numberOfScansLabel
             // 
             this.numberOfScansLabel.AutoSize = true;
-            this.numberOfScansLabel.Location = new System.Drawing.Point(6, 22);
+            this.numberOfScansLabel.Location = new System.Drawing.Point(12, 42);
+            this.numberOfScansLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.numberOfScansLabel.Name = "numberOfScansLabel";
-            this.numberOfScansLabel.Size = new System.Drawing.Size(87, 13);
+            this.numberOfScansLabel.Size = new System.Drawing.Size(174, 25);
             this.numberOfScansLabel.TabIndex = 6;
             this.numberOfScansLabel.Text = "Number of scans";
             // 
             // numberOfScans
             // 
-            this.numberOfScans.Location = new System.Drawing.Point(206, 20);
+            this.numberOfScans.Location = new System.Drawing.Point(412, 38);
+            this.numberOfScans.Margin = new System.Windows.Forms.Padding(6);
             this.numberOfScans.Maximum = new decimal(new int[] {
             1024,
             0,
@@ -244,7 +257,7 @@
             0,
             0});
             this.numberOfScans.Name = "numberOfScans";
-            this.numberOfScans.Size = new System.Drawing.Size(84, 20);
+            this.numberOfScans.Size = new System.Drawing.Size(168, 31);
             this.numberOfScans.TabIndex = 6;
             this.numberOfScans.Value = new decimal(new int[] {
             1,
@@ -257,16 +270,18 @@
             this.quadratureDetection.AutoSize = true;
             this.quadratureDetection.Checked = true;
             this.quadratureDetection.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.quadratureDetection.Location = new System.Drawing.Point(9, 96);
+            this.quadratureDetection.Location = new System.Drawing.Point(18, 185);
+            this.quadratureDetection.Margin = new System.Windows.Forms.Padding(6);
             this.quadratureDetection.Name = "quadratureDetection";
-            this.quadratureDetection.Size = new System.Drawing.Size(126, 17);
+            this.quadratureDetection.Size = new System.Drawing.Size(246, 29);
             this.quadratureDetection.TabIndex = 10;
             this.quadratureDetection.Text = "Quadrature detection";
             this.quadratureDetection.UseVisualStyleBackColor = true;
             // 
             // downsamplingRatio
             // 
-            this.downsamplingRatio.Location = new System.Drawing.Point(206, 72);
+            this.downsamplingRatio.Location = new System.Drawing.Point(412, 138);
+            this.downsamplingRatio.Margin = new System.Windows.Forms.Padding(6);
             this.downsamplingRatio.Maximum = new decimal(new int[] {
             100000,
             0,
@@ -278,7 +293,7 @@
             0,
             0});
             this.downsamplingRatio.Name = "downsamplingRatio";
-            this.downsamplingRatio.Size = new System.Drawing.Size(85, 20);
+            this.downsamplingRatio.Size = new System.Drawing.Size(170, 31);
             this.downsamplingRatio.TabIndex = 9;
             this.downsamplingRatio.Value = new decimal(new int[] {
             2000,
@@ -291,9 +306,10 @@
             this.downsamplingEnabled.AutoSize = true;
             this.downsamplingEnabled.Checked = true;
             this.downsamplingEnabled.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.downsamplingEnabled.Location = new System.Drawing.Point(9, 73);
+            this.downsamplingEnabled.Location = new System.Drawing.Point(18, 140);
+            this.downsamplingEnabled.Margin = new System.Windows.Forms.Padding(6);
             this.downsamplingEnabled.Name = "downsamplingEnabled";
-            this.downsamplingEnabled.Size = new System.Drawing.Size(118, 17);
+            this.downsamplingEnabled.Size = new System.Drawing.Size(232, 29);
             this.downsamplingEnabled.TabIndex = 8;
             this.downsamplingEnabled.Text = "Downsampling ratio";
             this.downsamplingEnabled.UseVisualStyleBackColor = true;
@@ -302,15 +318,17 @@
             // sampleIntervalLabel
             // 
             this.sampleIntervalLabel.AutoSize = true;
-            this.sampleIntervalLabel.Location = new System.Drawing.Point(6, 48);
+            this.sampleIntervalLabel.Location = new System.Drawing.Point(12, 92);
+            this.sampleIntervalLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.sampleIntervalLabel.Name = "sampleIntervalLabel";
-            this.sampleIntervalLabel.Size = new System.Drawing.Size(99, 13);
+            this.sampleIntervalLabel.Size = new System.Drawing.Size(203, 25);
             this.sampleIntervalLabel.TabIndex = 1;
             this.sampleIntervalLabel.Text = "Sample interval (us)";
             // 
             // sampleInterval
             // 
-            this.sampleInterval.Location = new System.Drawing.Point(206, 46);
+            this.sampleInterval.Location = new System.Drawing.Point(412, 88);
+            this.sampleInterval.Margin = new System.Windows.Forms.Padding(6);
             this.sampleInterval.Maximum = new decimal(new int[] {
             1000000,
             0,
@@ -322,7 +340,7 @@
             0,
             0});
             this.sampleInterval.Name = "sampleInterval";
-            this.sampleInterval.Size = new System.Drawing.Size(85, 20);
+            this.sampleInterval.Size = new System.Drawing.Size(170, 31);
             this.sampleInterval.TabIndex = 7;
             this.sampleInterval.Tag = "";
             this.sampleInterval.Value = new decimal(new int[] {
@@ -343,9 +361,11 @@
             this.magneticFieldGroup.Controls.Add(this.finalField);
             this.magneticFieldGroup.Controls.Add(this.startingField);
             this.magneticFieldGroup.Controls.Add(this.staticFieldLabel);
-            this.magneticFieldGroup.Location = new System.Drawing.Point(12, 3);
+            this.magneticFieldGroup.Location = new System.Drawing.Point(24, 6);
+            this.magneticFieldGroup.Margin = new System.Windows.Forms.Padding(6);
             this.magneticFieldGroup.Name = "magneticFieldGroup";
-            this.magneticFieldGroup.Size = new System.Drawing.Size(297, 178);
+            this.magneticFieldGroup.Padding = new System.Windows.Forms.Padding(6);
+            this.magneticFieldGroup.Size = new System.Drawing.Size(594, 342);
             this.magneticFieldGroup.TabIndex = 0;
             this.magneticFieldGroup.TabStop = false;
             this.magneticFieldGroup.Text = "Magnetic field";
@@ -353,9 +373,10 @@
             // returnToZero
             // 
             this.returnToZero.AutoSize = true;
-            this.returnToZero.Location = new System.Drawing.Point(162, 125);
+            this.returnToZero.Location = new System.Drawing.Point(324, 240);
+            this.returnToZero.Margin = new System.Windows.Forms.Padding(6);
             this.returnToZero.Name = "returnToZero";
-            this.returnToZero.Size = new System.Drawing.Size(129, 17);
+            this.returnToZero.Size = new System.Drawing.Size(253, 29);
             this.returnToZero.TabIndex = 5;
             this.returnToZero.Text = "Return to zero current";
             this.returnToZero.UseVisualStyleBackColor = true;
@@ -363,102 +384,115 @@
             // currentRangeLabel
             // 
             this.currentRangeLabel.AutoSize = true;
-            this.currentRangeLabel.Location = new System.Drawing.Point(6, 157);
+            this.currentRangeLabel.Location = new System.Drawing.Point(12, 302);
+            this.currentRangeLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.currentRangeLabel.Name = "currentRangeLabel";
-            this.currentRangeLabel.Size = new System.Drawing.Size(256, 13);
+            this.currentRangeLabel.Size = new System.Drawing.Size(515, 25);
             this.currentRangeLabel.TabIndex = 9;
             this.currentRangeLabel.Text = "Magnet controller current range: 0.0000A to 1.0000A";
             // 
             // rampRate
             // 
             this.rampRate.FormattingEnabled = true;
-            this.rampRate.Location = new System.Drawing.Point(206, 98);
+            this.rampRate.Location = new System.Drawing.Point(412, 188);
+            this.rampRate.Margin = new System.Windows.Forms.Padding(6);
             this.rampRate.Name = "rampRate";
-            this.rampRate.Size = new System.Drawing.Size(86, 21);
+            this.rampRate.Size = new System.Drawing.Size(168, 33);
             this.rampRate.TabIndex = 4;
             this.rampRate.SelectedIndexChanged += new System.EventHandler(this.rampRate_SelectedIndexChanged);
             // 
             // rampRateLabel
             // 
             this.rampRateLabel.AutoSize = true;
-            this.rampRateLabel.Location = new System.Drawing.Point(6, 101);
+            this.rampRateLabel.Location = new System.Drawing.Point(12, 194);
+            this.rampRateLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.rampRateLabel.Name = "rampRateLabel";
-            this.rampRateLabel.Size = new System.Drawing.Size(82, 13);
+            this.rampRateLabel.Size = new System.Drawing.Size(162, 25);
             this.rampRateLabel.TabIndex = 7;
             this.rampRateLabel.Text = "Ramp rate (A/s)";
             // 
             // magnetControllerSteps
             // 
-            this.magnetControllerSteps.Location = new System.Drawing.Point(206, 72);
+            this.magnetControllerSteps.Location = new System.Drawing.Point(412, 138);
+            this.magnetControllerSteps.Margin = new System.Windows.Forms.Padding(6);
             this.magnetControllerSteps.Name = "magnetControllerSteps";
-            this.magnetControllerSteps.Size = new System.Drawing.Size(85, 20);
+            this.magnetControllerSteps.Size = new System.Drawing.Size(170, 31);
             this.magnetControllerSteps.TabIndex = 3;
             // 
             // magnetControllerStepsLabel
             // 
             this.magnetControllerStepsLabel.AutoSize = true;
-            this.magnetControllerStepsLabel.Location = new System.Drawing.Point(6, 74);
+            this.magnetControllerStepsLabel.Location = new System.Drawing.Point(12, 142);
+            this.magnetControllerStepsLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.magnetControllerStepsLabel.Name = "magnetControllerStepsLabel";
-            this.magnetControllerStepsLabel.Size = new System.Drawing.Size(117, 13);
+            this.magnetControllerStepsLabel.Size = new System.Drawing.Size(237, 25);
             this.magnetControllerStepsLabel.TabIndex = 4;
             this.magnetControllerStepsLabel.Text = "Magnet controller steps";
             // 
             // finalFieldLabel
             // 
             this.finalFieldLabel.AutoSize = true;
-            this.finalFieldLabel.Location = new System.Drawing.Point(6, 47);
+            this.finalFieldLabel.Location = new System.Drawing.Point(12, 90);
+            this.finalFieldLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.finalFieldLabel.Name = "finalFieldLabel";
-            this.finalFieldLabel.Size = new System.Drawing.Size(67, 13);
+            this.finalFieldLabel.Size = new System.Drawing.Size(138, 25);
             this.finalFieldLabel.TabIndex = 3;
             this.finalFieldLabel.Text = "Final field (T)";
             // 
             // finalField
             // 
             this.finalField.DecimalPlaces = 8;
-            this.finalField.Location = new System.Drawing.Point(206, 45);
+            this.finalField.Location = new System.Drawing.Point(412, 87);
+            this.finalField.Margin = new System.Windows.Forms.Padding(6);
             this.finalField.Name = "finalField";
-            this.finalField.Size = new System.Drawing.Size(85, 20);
+            this.finalField.Size = new System.Drawing.Size(170, 31);
             this.finalField.TabIndex = 2;
             // 
             // startingField
             // 
             this.startingField.DecimalPlaces = 8;
-            this.startingField.Location = new System.Drawing.Point(206, 19);
+            this.startingField.Location = new System.Drawing.Point(412, 37);
+            this.startingField.Margin = new System.Windows.Forms.Padding(6);
             this.startingField.Name = "startingField";
-            this.startingField.Size = new System.Drawing.Size(85, 20);
+            this.startingField.Size = new System.Drawing.Size(170, 31);
             this.startingField.TabIndex = 1;
             // 
             // staticFieldLabel
             // 
             this.staticFieldLabel.AutoSize = true;
-            this.staticFieldLabel.Location = new System.Drawing.Point(6, 21);
+            this.staticFieldLabel.Location = new System.Drawing.Point(12, 40);
+            this.staticFieldLabel.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.staticFieldLabel.Name = "staticFieldLabel";
-            this.staticFieldLabel.Size = new System.Drawing.Size(81, 13);
+            this.staticFieldLabel.Size = new System.Drawing.Size(165, 25);
             this.staticFieldLabel.TabIndex = 0;
             this.staticFieldLabel.Text = "Starting field (T)";
             // 
             // resultsGroup
             // 
-            this.resultsGroup.Location = new System.Drawing.Point(318, 30);
+            this.resultsGroup.Location = new System.Drawing.Point(636, 58);
+            this.resultsGroup.Margin = new System.Windows.Forms.Padding(6);
             this.resultsGroup.Name = "resultsGroup";
-            this.resultsGroup.Size = new System.Drawing.Size(678, 687);
+            this.resultsGroup.Padding = new System.Windows.Forms.Padding(6);
+            this.resultsGroup.Size = new System.Drawing.Size(1356, 1321);
             this.resultsGroup.TabIndex = 2;
             this.resultsGroup.TabStop = false;
             this.resultsGroup.Text = "CW EPR experiment (waiting)";
             // 
             // MainWindow
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1008, 729);
+            this.ClientSize = new System.Drawing.Size(1996, 1340);
             this.Controls.Add(this.resultsGroup);
             this.Controls.Add(this.controls);
             this.Controls.Add(this.menuStrip);
             this.MainMenuStrip = this.menuStrip;
-            this.MaximumSize = new System.Drawing.Size(1024, 768);
-            this.MinimumSize = new System.Drawing.Size(1024, 768);
+            this.Margin = new System.Windows.Forms.Padding(6);
+            this.MaximumSize = new System.Drawing.Size(2022, 1411);
+            this.MinimumSize = new System.Drawing.Size(2022, 1411);
             this.Name = "MainWindow";
             this.Text = "Endorphin CW EPR";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.MainWindow_FormClosed);
             this.Load += new System.EventHandler(this.MainWindow_Load);
             this.menuStrip.ResumeLayout(false);
             this.menuStrip.PerformLayout();

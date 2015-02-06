@@ -11,6 +11,11 @@ type ``Magnet controller tests``() =
     let magnetControllerSession = new MagnetControllerSession(magnetControllerVisaAddress, magnetControllerParameters)
     let _ = log4netConfig()
 
+    [<TestFixtureSetUp>]
+    member __.``Connect to PicoScope``() =
+        magnetControllerSession.ConnectAsync() 
+        |> Async.RunSynchronously
+
     [<TestFixtureTearDown>]
     member __.``Close magnet controller session``() =
         magnetControllerSession.CloseSessionAsync() 

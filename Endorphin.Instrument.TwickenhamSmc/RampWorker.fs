@@ -111,9 +111,6 @@ type RampWorker(magnetController : MagnetController, ramp) =
     // events
     let statusChanged = new Event<RampStatus>()
     
-    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
-
     // handle to indicate that the ramp should start once it is prepared
     let readyToStart = new ManualResetHandle(false)
     // handle to indicate that the ramp should continue after changing current polarity at zero current
@@ -137,20 +134,17 @@ type RampWorker(magnetController : MagnetController, ramp) =
         if ramp.RampRateIndex < 0 || ramp.RampRateIndex >= Seq.length magnetController.MagnetControllerParameters.AvailableCurrentRampRates then
             failwith "Ramp rate index outside of available ramp rate range."
     
-    /// Event fires when the RampWorker status changes. Events are fired on the System.Threading.SynchronizationContext which
-    /// instantiated the worker.
+    /// Event fires when the RampWorker status changes.
     member __.StatusChanged = 
-        Observable.CreateFromEvent(
-            statusChanged.Publish,
-            // fire OnCompleted when the ramp finishes
-            ((=) FinishedRamp), 
-            // fire OnError when the ramp fails or is canceled
-            (fun status ->
+        Observable.CreateFromStatusEvent(
+            statusChanged.Publish, // listen to the status event
+            ((=) FinishedRamp), // when the status indicates that the ramp has finished, raise the OnCompleted event on the observable
+            (fun status -> 
+                // if a status indicates that the stream has failed or was canceled, raise the OnError event
                 match status with
                 | FailedRamp exn -> Some exn
                 | CanceledRamp (exn, _) -> Some (exn :> exn)
-                | _ -> None))
-            .ObserveOn(syncContext)
+                | _ -> None ))
 
     /// Cancels the magnet controller ramp, indicating whether the magnet controller should be set to return to zero current.
     member __.Cancel returnToZero =

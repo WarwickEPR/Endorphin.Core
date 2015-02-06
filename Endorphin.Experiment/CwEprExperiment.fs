@@ -127,6 +127,18 @@ type CwEprExperimentStatus =
     /// Indicates that the experiment was stopped after the specified number of scans but completed succesfully.
     | StoppedAfterScan of scan : int
 
+    /// Returns a string describing the status.
+    member status.MessageString() =
+        match status with
+        | StartingExperiment -> "starting"
+        | PreparingExperimentScan n -> sprintf "preparing scan %d" n
+        | StartedExperimentScan n -> sprintf "performing scan %d" n
+        | FinishedExperimentScan n -> sprintf "finished scan %d" n
+        | FinishedExperiment -> "finished"
+        | FailedExperiment _ -> "failed"
+        | CanceledExperiment _ -> "canceled"
+        | StoppedAfterScan n -> sprintf "stopped after scan %d" n
+
 /// Performs a CW EPR experiment with the specified experiment parameters using the provided magnet controller and PicoScope.
 type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : MagnetController, pico : PicoScope5000) =
     static let log = LogManager.GetLogger typeof<CwEprExperimentWorker> // logger
@@ -136,9 +148,6 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
     let stoppedAfterScan = new Event<int>()
     let scanFinished = new Event<int>()
     let sampleObserved = new Event<CwEprSample>() // triggered by CwEprSample observations for each scan during the experiment.
-    
-    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
     
     // create a handle which is used to indicate whether the scan is ready to start once it is prepared
     let readyToStart = new ManualResetEvent(false)
@@ -184,7 +193,7 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
     /// Event fires when the status of the experiment worker changes. Events are fired on the System.Threading.SynchronizationContext 
     /// which instantiates the worker. 
     member __.StatusChanged =
-        Observable.CreateFromEvent(
+        Observable.CreateFromStatusEvent(
             statusChanged.Publish,
             // fire OnCompleted when the experiment finishes or is stopped after some number of scans
             (fun status ->
@@ -197,7 +206,6 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
                 | FailedExperiment exn -> Some exn
                 | CanceledExperiment exn -> Some (exn :> exn)
                 | _ -> None))
-            .ObserveOn(syncContext)
 
     /// Event fires when a new sample is added to the data. Events are fired on the System.Threading.SynchronizationContext which
     /// instantiates the worker. 
@@ -206,7 +214,6 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
        (sampleObserved.Publish
         |> Observable.scan (fun (data : CwEprData) -> data.AddSampleToData) emptyData)
             .TakeUntil(experimentWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
 
     /// Cancels an experiment which is in progress, specifying whether the magnet controller should return to zero current or pause.
     member __.Cancel returnToZero =

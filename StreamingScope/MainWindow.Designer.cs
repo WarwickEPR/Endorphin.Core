@@ -65,6 +65,7 @@
             // 
             // startButton
             // 
+            this.startButton.Enabled = false;
             this.startButton.Location = new System.Drawing.Point(1812, 6);
             this.startButton.Margin = new System.Windows.Forms.Padding(6);
             this.startButton.Name = "startButton";
@@ -85,6 +86,7 @@
             this.Name = "MainWindow";
             this.Text = "Streaming scope";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
+            this.Load += new System.EventHandler(this.MainWindow_Load);
             this.buttonPanel.ResumeLayout(false);
             this.ResumeLayout(false);
 

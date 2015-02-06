@@ -1,14 +1,12 @@
 ﻿namespace Endorphin.Instrument.TwickenhamSmc
 
 open Endorphin.Core
-open Endorphin.Core.StringUtils
-open Endorphin.Core.Units
 open log4net
 open Microsoft.FSharp.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-open log4net
 open NationalInstruments.VisaNS
 open System
+open System.Reactive.Linq
 
 /// Represents the set of messages which can be sent to a Twickenham MagnetController agent mailbox. This is only used internally in
 /// this assembly. The functionality is exposed by the MagnetController class members which queue messages to the agent mailbox and, 
@@ -31,15 +29,14 @@ type internal Message =
 /// instantiating a MagnetControllerSession object. This control interface is instantiated by requesting control of the hardware from
 /// that object. Internally, the control interface uses a MailboxProcessor agent to send commands to the hardware one at a time. The
 /// members queue messages to the mailbox and return and, where appropriate, return asynchronous workflows to await the agent's response.
-/// Events are fired on the specified System.Threading.SynchronizationContext.
 type MagnetController
    (session : MessageBasedSession, 
-    magnetControllerParams : MagnetControllerParameters,
-    eventSyncContext : System.Threading.SynchronizationContext) =
+    magnetControllerParams : MagnetControllerParameters) =
     static let log = LogManager.GetLogger typeof<MagnetController> // logger
     
     // events
-    let error = new Event<Exception>() // fires when an error occurs while the agnet is processing messages
+    let agentFailed = new Event<exn>() // fires when the agent encounters an error, incidcating that current and future messages will be failed
+    let agentFailedReplay = agentFailed.Publish.FirstAsync().Replay() // replays the error message if the agent has crashed
     let sessionReleased = new Event<unit>() // fires when the MagnetControllerSession is released and the agent is shut down
     
     // start a MailboxProcessor which will handle commands and requests sequentially and communicate with the magnet controller hardware
@@ -47,131 +44,139 @@ type MagnetController
         
         // define the message processing loop workflow
         let rec loop() = async {
-            sprintf "(Re)entering Twickenham SMC %s agent loop." session.ResourceName |> log.Info
+            try
 
-            let! message = mailbox.Receive() // read the next message in the queue or asynchronously wait for one
-            sprintf "Twickenham SMC %s received message %A." session.ResourceName message |> log.Info 
+
+                sprintf "(Re)entering Twickenham SMC %s agent loop." session.ResourceName |> log.Info
+
+                let! message = mailbox.Receive() // read the next message in the queue or asynchronously wait for one
+                sprintf "Twickenham SMC %s received message %A." session.ResourceName message |> log.Info 
             
-            // process the message according to its type
-            match message with
+                // process the message according to its type
+                match message with
                 
-            // Release the MagnetControllerSession
+                // Release the MagnetControllerSession
 
-            | ReleaseSession ->
-                sprintf "Twickenham SMC %s releasing session." session.ResourceName |> log.Info
+                | ReleaseSession ->
+                    sprintf "Twickenham SMC %s releasing session." session.ResourceName |> log.Info
 
-                // if there are unprocessed messages in the queue, raise an exception
-                if mailbox.CurrentQueueLength <> 0 then
-                    failwithf "Twickenham SMC %s received ReleaseSession message when message queue is non-empty." session.ResourceName
+                    // if there are unprocessed messages in the queue, raise an exception
+                    if mailbox.CurrentQueueLength <> 0 then
+                        failwithf "Twickenham SMC %s received ReleaseSession message when message queue is non-empty." session.ResourceName
 
-                // raise an event to indicate that the MagnetController has released the session and terminate the workflow
-                eventSyncContext.RaiseEvent sessionReleased ()
-                return () // no continuation, so no further messages will be processed
+                    // raise an event to indicate that the MagnetController has released the session and terminate the workflow
+                    sessionReleased.Trigger ()
+                    return () // no continuation, so no further messages will be processed
 
-            // Requests
+                // Requests
 
-            | GetOutputParameters replyChannel ->
-                // query the hardware with the appropriate command string and wait for a response asynchronously
-                sprintf "Twickenham SMC %s query hardware output parameters." session.ResourceName |> log.Info
-                let! response = session.QuerryAsync "G\r\n" 
-                sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
-                let outputParameters = OutputParameters.Parse response // parse the response
+                | GetOutputParameters replyChannel ->
+                    // query the hardware with the appropriate command string and wait for a response asynchronously
+                    sprintf "Twickenham SMC %s query hardware output parameters." session.ResourceName |> log.Info
+                    let! response = session.QuerryAsync "G\r\n" 
+                    sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
+                    let outputParameters = OutputParameters.Parse response // parse the response
 
-                sprintf "Twickenham SMC %s replying to output parameter request with\n%A." session.ResourceName outputParameters |> log.Info
-                outputParameters |> replyChannel.Reply // reply to the request
+                    sprintf "Twickenham SMC %s replying to output parameter request with\n%A." session.ResourceName outputParameters |> log.Info
+                    outputParameters |> replyChannel.Reply // reply to the request
 
-            | GetCurrentParameters replyChannel ->
-                // query the hardware with the appropriate command string and wait for a response asynchronously
-                sprintf "Twickenham SMC %s query hardware current parameters." session.ResourceName |> log.Info
-                let! response = session.QuerryAsync "K\r\n"
-                sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
-                let currentParameters = CurrentParameters.Parse response // parse the response
+                | GetCurrentParameters replyChannel ->
+                    // query the hardware with the appropriate command string and wait for a response asynchronously
+                    sprintf "Twickenham SMC %s query hardware current parameters." session.ResourceName |> log.Info
+                    let! response = session.QuerryAsync "K\r\n"
+                    sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
+                    let currentParameters = CurrentParameters.Parse response // parse the response
                 
-                sprintf "Twickenham SMC %s replying to currenet parameter request with\n%A." session.ResourceName currentParameters |> log.Info
-                currentParameters |> replyChannel.Reply // reply to the request
+                    sprintf "Twickenham SMC %s replying to currenet parameter request with\n%A." session.ResourceName currentParameters |> log.Info
+                    currentParameters |> replyChannel.Reply // reply to the request
 
-            | GetOperatingParameters replyChannel ->
-                // query the hardware with the appropriate command string and wait for a response asynchronously
-                sprintf "Twickenham SMC %s query hardware operating parameters." session.ResourceName |> log.Info
-                let! response = session.QuerryAsync "O\r\n"
-                sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
-                let operatingParameters = OperatingParameters.Parse response // parse the response
+                | GetOperatingParameters replyChannel ->
+                    // query the hardware with the appropriate command string and wait for a response asynchronously
+                    sprintf "Twickenham SMC %s query hardware operating parameters." session.ResourceName |> log.Info
+                    let! response = session.QuerryAsync "O\r\n"
+                    sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
+                    let operatingParameters = OperatingParameters.Parse response // parse the response
 
-                sprintf "Twickenham SMC %s replying to operating parameter request with\n%A." session.ResourceName operatingParameters |> log.Info
-                operatingParameters |> replyChannel.Reply // reply to the request
+                    sprintf "Twickenham SMC %s replying to operating parameter request with\n%A." session.ResourceName operatingParameters |> log.Info
+                    operatingParameters |> replyChannel.Reply // reply to the request
 
-            | GetSetPointParameters replyChannel ->
-                // query the hardware with the appropriate command string and wait for a response asynchronously
-                sprintf "Twickenham SMC %s query hardware set point parameters." session.ResourceName |> log.Info
-                let! response = session.QuerryAsync "S\r\n"
-                sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
-                let setPointParameters = SetPointParameters.Parse response // parse the response
+                | GetSetPointParameters replyChannel ->
+                    // query the hardware with the appropriate command string and wait for a response asynchronously
+                    sprintf "Twickenham SMC %s query hardware set point parameters." session.ResourceName |> log.Info
+                    let! response = session.QuerryAsync "S\r\n"
+                    sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
+                    let setPointParameters = SetPointParameters.Parse response // parse the response
 
-                sprintf "Twickenham SMC %s replying to set-point parameter request with\n%A." session.ResourceName setPointParameters |> log.Info
-                setPointParameters |> replyChannel.Reply // reply to the request
+                    sprintf "Twickenham SMC %s replying to set-point parameter request with\n%A." session.ResourceName setPointParameters |> log.Info
+                    setPointParameters |> replyChannel.Reply // reply to the request
                 
-            // Commands
+                // Commands
 
-            | SetRampRate rampRate -> 
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting ramp rate to %08.5f A/s." session.ResourceName (float rampRate) |> log.Info
-                do! session.WriteAsync (sprintf "A%08.5f" (float rampRate))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetRampRate rampRate -> 
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting ramp rate to %08.5f A/s." session.ResourceName (float rampRate) |> log.Info
+                    do! session.WriteAsync (sprintf "A%08.5f" (float rampRate))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
 
-            | SetTripVoltage tripVoltage -> 
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting trip voltage to %04.1f V." session.ResourceName (float tripVoltage) |> log.Info
-                do! session.WriteAsync (sprintf "Y%04.1f" (float tripVoltage))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetTripVoltage tripVoltage -> 
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting trip voltage to %04.1f V." session.ResourceName (float tripVoltage) |> log.Info
+                    do! session.WriteAsync (sprintf "Y%04.1f" (float tripVoltage))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
 
-            | SetCurrentDirection currentDirection -> 
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting current direction %A." session.ResourceName currentDirection |> log.Info
-                do! session.WriteAsync (sprintf "D%s" (currentDirection.CommandString()))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetCurrentDirection currentDirection -> 
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting current direction %A." session.ResourceName currentDirection |> log.Info
+                    do! session.WriteAsync (sprintf "D%s" (currentDirection.CommandString()))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
                     
-            | SetLowerSetPoint lowerSetPoint ->
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting lower set point to %08.4f." session.ResourceName (float lowerSetPoint) |> log.Info
-                do! session.WriteAsync (sprintf "L%s" (magnetControllerParams.FormatSetPoint lowerSetPoint))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetLowerSetPoint lowerSetPoint ->
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting lower set point to %08.4f." session.ResourceName (float lowerSetPoint) |> log.Info
+                    do! session.WriteAsync (sprintf "L%s" (magnetControllerParams.FormatSetPoint lowerSetPoint))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
 
-            | SetUpperSetPoint upperSetPoint -> 
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting upper set point to %08.4f." session.ResourceName (float upperSetPoint) |> log.Info
-                do! session.WriteAsync (sprintf "U%s" (magnetControllerParams.FormatSetPoint upperSetPoint))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetUpperSetPoint upperSetPoint -> 
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting upper set point to %08.4f." session.ResourceName (float upperSetPoint) |> log.Info
+                    do! session.WriteAsync (sprintf "U%s" (magnetControllerParams.FormatSetPoint upperSetPoint))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
 
-            | SetRampTarget rampTarget -> 
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting ramp target to %A current limit." session.ResourceName rampTarget |> log.Info
-                do! session.WriteAsync (sprintf "R%s" (rampTarget.CommandString()))
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetRampTarget rampTarget -> 
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting ramp target to %A current limit." session.ResourceName rampTarget |> log.Info
+                    do! session.WriteAsync (sprintf "R%s" (rampTarget.CommandString()))
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
 
-            | SetPause pause ->
-                // format the ramp rate appropriately and write it to the hardware
-                sprintf "Twickenham SMC %s setting pause %s." session.ResourceName (if pause then "on" else "off") |> log.Info 
-                do! session.WriteAsync (if pause then "P1" else "P0")
-                do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
+                | SetPause pause ->
+                    // format the ramp rate appropriately and write it to the hardware
+                    sprintf "Twickenham SMC %s setting pause %s." session.ResourceName (if pause then "on" else "off") |> log.Info 
+                    do! session.WriteAsync (if pause then "P1" else "P0")
+                    do! Async.Sleep 1000 // sleep for 1000 ms as the magnet controller firmware crashes if commands are sent too quickly
             
-            // continue processing messages
-            return! loop () } 
+                // continue processing messages
+                return! loop ()
+            
+            with
+                | exn -> // if an error occurs, trigger the failed event and terminate the agent
+                    log.Error (sprintf "Twickenham SMC %s failed due to error %A." session.ResourceName exn, exn)
+                    agentFailed.Trigger exn } 
 
+        // conenct agentFailedReplay to the underlying observable
+        agentFailedReplay.Connect() |> ignore
         // initialse the agent message processing loop
         loop())
-    
-    do // propagate the agent error event on the specified System.Threading.SynchronizationContext.
-        agent.Error |> Event.add (fun exn -> eventSyncContext.RaiseEvent error exn)
 
-    // Events
+    /// Event indiciating that the MagnetControllerSession has been released. 
+    member __.SessionReleased =
+        Observable.Create(fun (observer : IObserver<unit>) ->
+            let completedSub = sessionReleased.Publish.Subscribe(fun () -> observer.OnNext() ; observer.OnCompleted())
+            let failedSub = agentFailedReplay.Subscribe(fun exn -> observer.OnError exn)
 
-    /// Event indicating that an error has occured while processing a message and the MailboxProcessor agent has stopped. Events are fired
-    /// on the System.Threading.SynchronizationContext specified at initialisation.
-    member __.Error = error.Publish
-    
-    /// Event indiciating that the MagnetControllerSession has been released. Events are fired on the System.Threading.SynchronizationContext
-    /// specified at initialisation.
-    member __.SessionReleased = sessionReleased.Publish
+            { new IDisposable with
+                member __.Dispose() = 
+                    completedSub.Dispose()
+                    failedSub.Dispose() })
 
     /// Magnet controller hardware parameters. Provides various utility functions for determining the field in terms of current, 
     /// readout shunt voltage in terms of current, etc.
@@ -187,22 +192,22 @@ type MagnetController
     /// Asynchronously requests the magnet controller output parameters.
     member __.GetOutputParametersAsync () =
         GetOutputParameters
-        |> agent.PostAndAsyncReply
+        |> agent.PostAndAsyncReplyFailable agentFailedReplay
 
     /// Asynchronously requests the magnet controller current parameters.
     member __.GetCurrentParametersAsync () =
         GetCurrentParameters
-        |> agent.PostAndAsyncReply
+        |> agent.PostAndAsyncReplyFailable agentFailedReplay
 
     /// Asynchronously requests the magnet controller operating parameters.
     member __.GetOperatingParametersAsync () =
         GetOperatingParameters
-        |> agent.PostAndAsyncReply
+        |> agent.PostAndAsyncReplyFailable agentFailedReplay
 
     /// Asynchronously requests the magnet controller set point parameters.
     member __.GetSetPointParametersAsync () =
         GetSetPointParameters
-        |> agent.PostAndAsyncReply
+        |> agent.PostAndAsyncReplyFailable agentFailedReplay
 
     /// Posts a message to the magnet controller to set the nearset available calibrated ramp rate to the requested value in amps
     /// per second. If the ramp rate exceeds the magnet controller ramp rate limit, then the largest available value will be set. 

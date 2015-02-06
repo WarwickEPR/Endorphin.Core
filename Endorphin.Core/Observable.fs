@@ -12,7 +12,7 @@ module ObservableExtensions =
         /// Creates an IObservable from the supplied source event and parameters. The OnCompleted event is fired when an element
         /// in the sequence satisfies the specified predicate. The OnError event fires if an error selector is specified and it
         /// returns a Some value for some element in the sequence.
-        static member CreateFromEvent 
+        static member CreateFromStatusEvent 
            (source : IEvent<'T>,
             completedPredicate : 'T -> bool,
             ?errorSelector : 'T -> exn option) =
@@ -22,13 +22,12 @@ module ObservableExtensions =
                 let sourceSub =  
                     source |> Observable.subscribe (fun e ->
                         observer.OnNext e
-                        // also trigger OnCompleted or OnError if appropriate
                         if completedPredicate e then observer.OnCompleted()
                         elif errorSelector.IsSome then 
                             match errorSelector.Value e with
                             | Some exn -> observer.OnError exn
                             | None -> ())
-                             
+
                 // when the IObserver is disposed, cancel the subscriptions
                 { new System.IDisposable with
                     member __.Dispose() =

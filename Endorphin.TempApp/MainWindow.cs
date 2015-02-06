@@ -16,116 +16,126 @@ using Microsoft.FSharp.Core;
 using System.Reactive.Linq;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using FSharp.Charting;
+using System.Reactive.Disposables;
 
 namespace Endorphin.TempApp
 {
     public partial class MainWindow : Form
     {
-        SynchronizationContext syncContext;
+        // TODO: move this into a configuration file
 
-        MagnetControllerParameters magnetControllerParameters;
-        MagnetControllerSession magnetControllerSession;
-        PicoScope5000Session picoSession;
-        MagnetController magnetController;
-        PicoScope5000 pico;
+        MagnetControllerSession magnetControllerSession = 
+            new MagnetControllerSession("GPIB0::4",
+                new MagnetControllerParameters(
+                    staticField: 14.146, // tesla
+                    fieldCalibration: -0.002845, // tesla per amp
+                    rampRateLimit: 0.1, // amps per second
+                    tripVoltageLimit: 2.5, // volts
+                    maximumCurrent: 20.0, // amps
+                    currentLimit: 17.5, // amps
+                    shuntOffset: 0.002, // volts
+                    shuntCalibration: 0.400, // volts per amp
+                    shuntNoise: 0.100, // volts
+                    outputResolution: 16, // bits
+                    calibratedRampRates: new double[] {
+                        0.00020, 0.00024, 0.00026, 0.00030, 0.00036, 0.00042, 0.00048, 0.00054, 
+                        0.00064, 0.00072, 0.00084, 0.00098, 0.00110, 0.00130, 0.00150, 0.00170,
+                        0.0020, 0.0024, 0.0026, 0.0030, 0.0036, 0.0042, 0.0048, 0.0054, 
+                        0.0064, 0.0072, 0.0084, 0.0098, 0.0110, 0.0130, 0.0150, 0.0170,
+                        0.020, 0.024, 0.026, 0.030, 0.036, 0.042, 0.048, 0.054, 
+                        0.064, 0.072, 0.084, 0.098, 0.110, 0.130, 0.150, 0.170,
+                        0.20, 0.24, 0.26, 0.30, 0.36, 0.42, 0.48, 0.54, 
+                        0.64, 0.72, 0.84, 0.98, 1.10, 1.30, 1.50, 1.70, 
+                        2.0 }));
+
+        PicoScope5000Session picoSession =
+            new PicoScope5000Session("CW336/061", Resolution._14bit);
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private async void MainWindow_Load(object sender, EventArgs e)
+        {
+            await magnetControllerSession.ConnectAsync().StartAsTask();
+            await picoSession.ConnectAsync().StartAsTask();
+
+            var magnetControllerParameters = magnetControllerSession.MagnetControllerParameters;
+
+            foreach (var availableRampRate in magnetControllerParameters.AvailableCurrentRampRates)
+            {
+                rampRate.Items.Add(availableRampRate);
+            }
+            rampRate.SelectedIndex = 32;
+
+            startingField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
+            startingField.Maximum = new Decimal(magnetControllerParameters.MaximumField);
+            startingField.Value = new Decimal(magnetControllerParameters.StaticField);
+            startingField.Increment = new Decimal(magnetControllerParameters.FieldStep);
+
+            finalField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
+            finalField.Maximum = new Decimal(magnetControllerParameters.MaximumField);
+            finalField.Value = new Decimal(magnetControllerParameters.FieldForIndex(1023));
+            finalField.Increment = new Decimal(magnetControllerParameters.FieldStep);
+
+            magnetControllerSteps.Minimum = new Decimal(-2 * (magnetControllerParameters.NumberOfCurrentSteps - 1));
+            magnetControllerSteps.Maximum = new Decimal(+2 * (magnetControllerParameters.NumberOfCurrentSteps - 1));
+            magnetControllerSteps.Value = new Decimal(1023);
+
+            currentRangeLabel.Text =
+                string.Format("Magnet controller current range: {0:0.0000} to {1:0.0000} A.",
+                    magnetControllerParameters.CurrentForIndex(0),
+                    magnetControllerParameters.CurrentForIndex(1023));
+
+            estimatedTimeLabel.Text =
+                string.Format("Estimated duration: {0:0.0} s.",
+                    (Decimal.ToInt32(numberOfScans.Value)
+                        * Math.Abs(magnetControllerParameters.CurrentForIndex(1023) - magnetControllerParameters.CurrentForIndex(0))
+                        / magnetControllerParameters.CurrentRampRateForIndex(rampRate.SelectedIndex)));
+
+            startingField.ValueChanged += this.fieldRange_ValueChanged;
+            finalField.ValueChanged += this.fieldRange_ValueChanged;
+            magnetControllerSteps.ValueChanged += this.fieldRange_ValueChanged;
+        }
+
+        private IDisposable SetWorkerCallbacks(CwEprExperimentWorker experimentWorker)
+        {
+            var statusChangedSub = experimentWorker.StatusChanged.ObserveOn(SynchronizationContext.Current)
+                .Subscribe(status =>
+                {
+                    resultsGroup.Text = string.Format("CW EPR Experiment ({0})", status.MessageString());
+                    resultsGroup.Update();
+                });
+
+            var stopButtonSub = stopButton.GetClickObservable().Subscribe(args => experimentWorker.Cancel(new RampCancellationOptions(false)));
+            var stopToZeroSub = stopToZero.GetClickObservable().Subscribe(args => experimentWorker.Cancel(new RampCancellationOptions(true)));
+            var stopAfterScanSub = stopAfterScan.GetClickObservable().Subscribe(args => experimentWorker.StopAfterScan());
+
+            return Disposable.Create(() =>
+                {
+                    statusChangedSub.Dispose();
+                    stopButtonSub.Dispose();
+                    stopToZeroSub.Dispose();
+                    stopAfterScanSub.Dispose();
+                });
+        }
+
+        private void SetStatusText(string resultText) {
+            
+        }
         
-        CwEprExperimentWorker experimentWorker;
-        CwEprData experimentResult;
-
-        private async Task<PicoScope5000> RequestPicoSessionControl()
+        private void SetChart(CwEprExperimentWorker experimentWorker)
         {
-            var requestPicoControl = picoSession.RequestControlAsync().StartAsTask();
-            var pico = await requestPicoControl;
-            return pico;
-        }
-
-        private async Task<MagnetController> RequestMagnetControllerSessionControl()
-        {
-            var requestMagnetControllerControl = magnetControllerSession.RequestControlAsync().StartAsTask();
-            var magnetController = await requestMagnetControllerControl;
-            return magnetController;
-        }
-
-        private async Task PrepareAndStartExperiment()
-        {
-            pico = await RequestPicoSessionControl();
-            magnetController = await RequestMagnetControllerSessionControl();
-
-            var experiment = new CwEprExperiment(
-                startingFieldIndex: magnetControllerParameters.IndexForField(Decimal.ToDouble(startingField.Value)),
-                finalFieldIndex: magnetControllerParameters.IndexForField(Decimal.ToDouble(finalField.Value)),
-                rampRateIndex: rampRate.SelectedIndex,
-                returnToZero: returnToZero.Checked,
-                conversionTime: Decimal.ToInt32(sampleInterval.Value),
-                downsampling: downsamplingEnabled.Checked
-                    ? FSharpOption<UInt32>.Some(Decimal.ToUInt32(downsamplingRatio.Value))
-                    : FSharpOption<UInt32>.None,
-                quadratureDetection: quadratureDetection.Checked,
-                numberOfScans: Decimal.ToInt32(numberOfScans.Value));
-
-
-            experimentWorker = new CwEprExperimentWorker(experiment, magnetController, pico);
-            experimentResult = null;
-
-            experimentWorker.PrepareAndStart();
-        }
-
-        private void SetWorkerCallbacks()
-        {
-            experimentWorker.Canceled.AddHandler((sender, args) =>
-                {
-                    SetUiFinished("canceled");
-                    ReleaseInstruments();
-                });
-
-            experimentWorker.Error.AddHandler((sender, args) =>
-                {
-                    SetUiFinished("failed");
-                    ReleaseInstruments();
-                });
-
-            experimentWorker.ScanFinished.AddHandler((sender, scan) =>
-                {
-                    SetResultText(string.Format("finished scan {0} of {1}", scan, experimentWorker.Experiment.NumberOfScans));
-                });
-
-            experimentWorker.StoppedAfterScan.AddHandler((sender, scan) =>
-                {
-                    SetResultText(string.Format("stopped after {0} scans", scan));
-                });
-
-            experimentWorker.Success.AddHandler((sender, args) =>
-                {
-                    SetUiFinished("finished experiment");
-                    ReleaseInstruments();
-                });
-
-            var canceledOrFinished =
-                experimentWorker.Canceled
-                    .Select(new Func<OperationCanceledException, Unit>(ex => null))
-                    .Amb(experimentWorker.Success);
-
-            experimentWorker.DataUpdated
-                .TakeUntil(canceledOrFinished)
-                .LastAsync()
-                .Subscribe((data) => experimentResult = data);
-        }
-
-        private void ReleaseInstruments()
-        {
-            (experimentWorker.PicoScope as IDisposable).Dispose();
-            (experimentWorker.MagnetController as IDisposable).Dispose();
-        }
-
-        private void SetResultText(string resultText) {
-            resultsGroup.Text = string.Format("CW EPR Experiment ({0})", resultText);
-            resultsGroup.Update();
+            var liveChart = new ChartTypes.ChartControl(experimentWorker.LiveChartExperiment(TimeSpan.FromSeconds(1)));
+            resultsGroup.Controls.Clear();
+            resultsGroup.Controls.Add(liveChart);
+            liveChart.Dock = DockStyle.Fill;
         }
 
         private void SetUiRunning()
         {
-            SetResultText("running");
-
             startingField.Enabled = false;
             finalField.Enabled = false;
             magnetControllerSteps.Enabled = false;
@@ -143,17 +153,10 @@ namespace Endorphin.TempApp
             stopAfterScan.Enabled = true;
 
             menuSave.Enabled = false;
-
-            var liveChart = experimentWorker.LiveChart(TimeSpan.FromSeconds(1));
-            resultsGroup.Controls.Clear();
-            resultsGroup.Controls.Add(liveChart);
-            liveChart.Dock = DockStyle.Fill;
         }
 
-        private void SetUiFinished(string resultText)
+        private void SetUiFinished()
         {
-            SetResultText(resultText);
-
             startingField.Enabled = true;
             finalField.Enabled = true;
             magnetControllerSteps.Enabled = true;
@@ -173,101 +176,34 @@ namespace Endorphin.TempApp
             menuSave.Enabled = true;
         }
 
-        public MainWindow()
-        {
-            InitializeComponent();
-            syncContext = SynchronizationContext.Current;
-        }
-
-        private void MainWindow_Load(object sender, EventArgs e)
-        {
-            magnetControllerParameters = new MagnetControllerParameters(
-                staticField: 14.146, // tesla
-                fieldCalibration: -0.002845, // tesla per amp
-                rampRateLimit: 0.1, // amps per second
-                tripVoltageLimit: 2.5, // volts
-                maximumCurrent: 20.0, // amps
-                currentLimit: 17.5, // amps
-                shuntOffset: 0.002, // volts
-                shuntCalibration: 0.400, // volts per amp
-                shuntNoise: 0.100, // volts
-                outputResolution: 16, // bits
-                setPointPrecision: 4, // decimal places
-                calibratedRampRates: new double[] {
-                    0.00020, 0.00024, 0.00026, 0.00030, 0.00036, 0.00042, 0.00048, 0.00054, 
-                    0.00064, 0.00072, 0.00084, 0.00098, 0.00110, 0.00130, 0.00150, 0.00170,
-                    0.0020, 0.0024, 0.0026, 0.0030, 0.0036, 0.0042, 0.0048, 0.0054, 
-                    0.0064, 0.0072, 0.0084, 0.0098, 0.0110, 0.0130, 0.0150, 0.0170,
-                    0.020, 0.024, 0.026, 0.030, 0.036, 0.042, 0.048, 0.054, 
-                    0.064, 0.072, 0.084, 0.098, 0.110, 0.130, 0.150, 0.170,
-                    0.20, 0.24, 0.26, 0.30, 0.36, 0.42, 0.48, 0.54, 
-                    0.64, 0.72, 0.84, 0.98, 1.10, 1.30, 1.50, 1.70, 
-                    2.0 });
-
-            foreach (var availableRampRate in magnetControllerParameters.AvailableCurrentRampRates) {
-                rampRate.Items.Add(availableRampRate);
-            }
-            rampRate.SelectedIndex = 32;
-
-            startingField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
-            startingField.Maximum = new Decimal(magnetControllerParameters.MaximumField);
-            startingField.Value = new Decimal(magnetControllerParameters.StaticField);
-            startingField.Increment = new Decimal(magnetControllerParameters.FieldStep);
-
-            finalField.Minimum = new Decimal(magnetControllerParameters.MinimumField);
-            finalField.Maximum = new Decimal(magnetControllerParameters.MaximumField);
-            finalField.Value = new Decimal(magnetControllerParameters.FieldForIndex(1023));
-            finalField.Increment = new Decimal(magnetControllerParameters.FieldStep);
-
-            magnetControllerSteps.Minimum = new Decimal(- 2 * (magnetControllerParameters.NumberOfCurrentSteps - 1));
-            magnetControllerSteps.Maximum = new Decimal(+ 2 * (magnetControllerParameters.NumberOfCurrentSteps - 1));
-            magnetControllerSteps.Value = new Decimal(1023);
-
-            currentRangeLabel.Text =
-                string.Format("Magnet controller current range: {0:0.0000} to {1:0.0000} A.",
-                    magnetControllerParameters.CurrentForIndex(0),
-                    magnetControllerParameters.CurrentForIndex(1023));
-
-            estimatedTimeLabel.Text =
-                string.Format("Estimated duration: {0:0.0} s.",
-                    (Decimal.ToInt32(numberOfScans.Value)
-                        * Math.Abs(magnetControllerParameters.CurrentForIndex(1023) - magnetControllerParameters.CurrentForIndex(0))
-                        / magnetControllerParameters.CurrentRampRateForIndex(rampRate.SelectedIndex)));
-
-            startingField.ValueChanged += this.fieldRange_ValueChanged;
-            finalField.ValueChanged += this.fieldRange_ValueChanged;
-            magnetControllerSteps.ValueChanged += this.fieldRange_ValueChanged;
-
-            picoSession = new PicoScope5000Session("CW336/061", Resolution._14bit);
-            magnetControllerSession = new MagnetControllerSession("GPIB0::4", magnetControllerParameters);
-        }
-
         private void fieldRange_ValueChanged(object sender, EventArgs e)
         {
             startingField.ValueChanged -= this.fieldRange_ValueChanged;
             finalField.ValueChanged -= this.fieldRange_ValueChanged;
             magnetControllerSteps.ValueChanged -= this.fieldRange_ValueChanged;
 
-            var startingFieldIndex = magnetControllerParameters.IndexForField(Decimal.ToDouble(startingField.Value));
+            var smcParams = magnetControllerSession.MagnetControllerParameters;
+
+            var startingFieldIndex = smcParams.OutputIndexForField(Decimal.ToDouble(startingField.Value));
             var finalFieldIndex = 
                 sender == magnetControllerSteps
                 ? startingFieldIndex + Decimal.ToInt32(magnetControllerSteps.Value)
-                : magnetControllerParameters.IndexForField(Decimal.ToDouble(finalField.Value));
+                : smcParams.OutputIndexForField(Decimal.ToDouble(finalField.Value));
             
-            startingField.Value = new Decimal(magnetControllerParameters.FieldForIndex(startingFieldIndex));
-            finalField.Value = new Decimal(magnetControllerParameters.FieldForIndex(finalFieldIndex));
+            startingField.Value = new Decimal(smcParams.FieldForIndex(startingFieldIndex));
+            finalField.Value = new Decimal(smcParams.FieldForIndex(finalFieldIndex));
             magnetControllerSteps.Value = new Decimal(finalFieldIndex - startingFieldIndex);
 
             currentRangeLabel.Text =
                 string.Format("Magnet controller current range: {0:0.0000} to {1:0.0000} A.",
-                    magnetControllerParameters.CurrentForIndex(startingFieldIndex),
-                    magnetControllerParameters.CurrentForIndex(finalFieldIndex));
+                    smcParams.CurrentForIndex(startingFieldIndex),
+                    smcParams.CurrentForIndex(finalFieldIndex));
             
             estimatedTimeLabel.Text =
                 string.Format("Estimated duration: {0:0.0} s.",
                     (Decimal.ToInt32(numberOfScans.Value)
-                        * Math.Abs(magnetControllerParameters.CurrentForIndex(1023) - magnetControllerParameters.CurrentForIndex(0))
-                        / magnetControllerParameters.CurrentRampRateForIndex(rampRate.SelectedIndex)));
+                        * Math.Abs(smcParams.FieldForIndex(finalFieldIndex) - smcParams.FieldForIndex(startingFieldIndex))
+                        / smcParams.FieldRampRateForIndex(rampRate.SelectedIndex)));
 
             startingField.ValueChanged += this.fieldRange_ValueChanged;
             finalField.ValueChanged += this.fieldRange_ValueChanged;
@@ -276,11 +212,12 @@ namespace Endorphin.TempApp
 
         private void rampRate_SelectedIndexChanged(object sender, EventArgs e)
         {
+            var smcParams = magnetControllerSession.MagnetControllerParameters;
             estimatedTimeLabel.Text =
                 string.Format("Estimated duration: {0:0.0} s.",
                     (Decimal.ToInt32(numberOfScans.Value)
-                        * Math.Abs(magnetControllerParameters.CurrentForIndex(1023) - magnetControllerParameters.CurrentForIndex(0))
-                        / magnetControllerParameters.CurrentRampRateForIndex(rampRate.SelectedIndex)));
+                        * Math.Abs(smcParams.CurrentForIndex(1023) - smcParams.CurrentForIndex(0))
+                        / smcParams.CurrentRampRateForIndex(rampRate.SelectedIndex)));
         }
 
         private void downsamplingEnabled_CheckedChanged(object sender, EventArgs e)
@@ -303,27 +240,52 @@ namespace Endorphin.TempApp
                 MessageBox.Show("Must have a non-zero number of magnet controller steps.");
                 return;
             }
-            await PrepareAndStartExperiment();
-            SetWorkerCallbacks();
-            SetUiRunning();
+            
+            var magnetControllerParameters = magnetControllerSession.MagnetControllerParameters;
+            using (var pico = await picoSession.RequestControlAsync().StartAsTask())
+            using (var magnetController = await magnetControllerSession.RequestControlAsync().StartAsTask())
+            {
+                var experiment = new CwEprExperiment(
+                    startingFieldIndex: magnetControllerParameters.OutputIndexForField(Decimal.ToDouble(startingField.Value)),
+                    finalFieldIndex: magnetControllerParameters.OutputIndexForField(Decimal.ToDouble(finalField.Value)),
+                    rampRateIndex: rampRate.SelectedIndex,
+                    returnToZero: returnToZero.Checked,
+                    sampleInterval: Decimal.ToInt32(sampleInterval.Value),
+                    downsamplingRatio: downsamplingEnabled.Checked
+                        ? FSharpOption<UInt32>.Some(Decimal.ToUInt32(downsamplingRatio.Value))
+                        : FSharpOption<UInt32>.None,
+                    quadratureDetection: quadratureDetection.Checked,
+                    numberOfScans: Decimal.ToInt32(numberOfScans.Value));
+
+                var experimentWorker = new CwEprExperimentWorker(experiment, magnetController, pico);
+                using (var workerSubs = SetWorkerCallbacks(experimentWorker))
+                {
+                    SetUiRunning();
+                    SetChart(experimentWorker);
+                    experimentWorker.PrepareAndStart();
+                    try
+                    {
+                        var result = await experimentWorker.DataUpdated
+                            .Catch<CwEprData, OperationCanceledException>(ex => Observable.Empty<CwEprData>())
+                            .LastAsync();
+                            
+                        menuSave.GetClickObservable()
+                            .TakeUntil(prepareStartButton.GetClickObservable())
+                            .Subscribe(args => ShowSaveDialog(experiment, result));
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(string.Format("Experiment failed due to error: {0}.", ex.Message));
+                        Close();
+                    }
+                }
+
+                SetUiFinished();
+            }
+
         }
 
-        private void stopButton_Click(object sender, EventArgs e)
-        {
-            experimentWorker.Cancel(new RampCancellationOptions(false));
-        }
-
-        private void stopToZero_Click(object sender, EventArgs e)
-        {
-            experimentWorker.Cancel(new RampCancellationOptions(true));
-        }
-
-        private void stopAfterScan_Click(object sender, EventArgs e)
-        {
-            experimentWorker.StopAfterScan();
-        }
-
-        private void menuSave_Click(object sender, EventArgs e)
+        private void ShowSaveDialog(CwEprExperiment experiment, CwEprData experimentResult)
         {
             SaveFileDialog saveDialog = new SaveFileDialog();
             saveDialog.Filter = "Comma-separated value files (*.csv)|*.csv";
@@ -336,7 +298,7 @@ namespace Endorphin.TempApp
                 {
                     using (var writer = new StreamWriter(dataFileStream))
                     {
-                        foreach (var line in experimentResult.CsvData())
+                        foreach (var line in experimentResult.CsvRows())
                         {
                             writer.WriteLine(line);
                         }
@@ -351,7 +313,7 @@ namespace Endorphin.TempApp
                     {
                         var json = JObject.FromObject(new
                             {
-                                experimentParameters = experimentWorker.Experiment,
+                                experimentParameters = experiment,
                                 sampleNotes = sampleNotes.Text,
                                 experimentNotes = experimentNotes.Text
                             });
@@ -360,6 +322,12 @@ namespace Endorphin.TempApp
                 }
 
             }
+        }
+
+        private async void MainWindow_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            await magnetControllerSession.CloseSessionAsync().StartAsTask();
+            await picoSession.CloseSessionAsync().StartAsTask();
         }
     }
 }

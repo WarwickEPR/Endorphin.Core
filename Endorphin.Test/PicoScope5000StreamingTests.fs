@@ -15,6 +15,10 @@ type ``PicoScope 5000 series streaming tests``() =
 
     let picoScopeSession = new PicoScope5000Session(picoScope5000serial)
     let _ = log4netConfig()
+        
+    [<TestFixtureSetUp>]
+    member __.``Connect to PicoScope``() =
+        picoScopeSession.ConnectAsync() |> Async.RunSynchronously
 
     [<TestFixtureTearDown>]
     member __.``Disconnect from PicoScope``() =
@@ -57,6 +61,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()    
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns>; FinishedStream true ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -90,6 +95,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()    
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
                 statusReplay.ToEnumerable() |> Seq.toList) } 
@@ -122,7 +128,8 @@ type ``PicoScope 5000 series streaming tests``() =
 
             streamWorker.PrepareAndStart()    
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
-
+            
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 1000<ns> ; FinishedStream true ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -162,6 +169,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -201,6 +209,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -246,6 +255,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.PrepareAndStart()
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -276,6 +286,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Prepare()
             do! statusReplay.AwaitFirstAsync ((=) ReadyToStream) |> Async.Ignore
 
+            sprintf "Status list before : %A" (statusReplay.Take(2).ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ],
                 statusReplay.Take(2).ToEnumerable() |> Seq.toList)
@@ -291,11 +302,13 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
 
             let! finalStatus = statusReplay.AwaitLastAsync()
+
             Assert.IsTrue(
                 match finalStatus with
                 | CanceledStream _ -> true
                 | _ -> false)
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ],
                 statusReplay.SkipLast(1).ToEnumerable() |> Seq.toList) }
@@ -329,6 +342,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Prepare()
             do! statusReplay.AwaitFirstAsync ((=) ReadyToStream) |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.Take(2).ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ],
                 statusReplay.Take(2).ToEnumerable() |> Seq.toList)
@@ -344,6 +358,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.SetReadyToStart()
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream true ],
                 statusReplay.ToEnumerable() |> Seq.toList) }
@@ -377,6 +392,7 @@ type ``PicoScope 5000 series streaming tests``() =
             streamWorker.Stop()
             do! statusReplay.AwaitLastAsync() |> Async.Ignore
 
+            sprintf "Status list: %A" (statusReplay.ToEnumerable() |> Seq.toList) |> log.Debug
             Assert.AreEqual(
                 [ PreparingStream ; ReadyToStream ; Streaming 100000<ns> ; FinishedStream false ],
                 statusReplay.ToEnumerable() |> Seq.toList) }

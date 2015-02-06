@@ -1,26 +1,28 @@
 ﻿namespace Endorphin.Test.PicoScope5000
 
+open Config
 open Endorphin.Core.StringUtils
 open Endorphin.Core.Units
 open Endorphin.Instrument.PicoScope5000
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open NUnit.Framework
 open System
-open System.Threading
-open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-open System.Reactive.Linq
-open Config
 
 [<TestFixture>]
 type ``PicoScope 5000 series tests``() = 
     let picoScopeSession = new PicoScope5000Session(picoScope5000serial)
     let _ = log4netConfig()
     
+    [<TestFixtureSetUp>]
+    member __.``Connect to PicoScope``() =
+        picoScopeSession.ConnectAsync() |> Async.RunSynchronously
+
     [<TestFixtureTearDown>]
-    member this.``Disconnect from PicoScope``() =
+    member __.``Disconnect from PicoScope``() =
         picoScopeSession.CloseSessionAsync() |> Async.RunSynchronously
 
     [<TearDown>]
-    member this.``Check response after test``() =
+    member __.``Check response after test``() =
         // if the agent crashes then this will fail
         async {
             use! pico = picoScopeSession.RequestControlAsync()
@@ -28,7 +30,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit driver version``() =
+    member __.``Can get unit driver version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! driverVersion = pico.GetUnitDriverVersionAsync() 
@@ -43,7 +45,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit USB version``() =
+    member __.``Can get unit USB version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! usbVersion = pico.GetUnitUsbVersionAsync() 
@@ -58,7 +60,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit hardware version``() =
+    member __.``Can get unit hardware version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! hardwareVersion = pico.GetUnitHardwareVersionAsync() 
@@ -73,7 +75,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit model number``() =
+    member __.``Can get unit model number``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! modelNumber = pico.GetUnitModelNumberAsync() 
@@ -88,7 +90,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit serial number``() =
+    member __.``Can get unit serial number``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! serial = pico.GetUnitSerialAsync() 
@@ -103,7 +105,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit calibration date``() =
+    member __.``Can get unit calibration date``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! calibrationDate = pico.GetUnitCalibrationDateAsync() 
@@ -114,7 +116,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit kernel version``() =
+    member __.``Can get unit kernel version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! kernelVersion = pico.GetUnitKernelVersionAsync() 
@@ -129,7 +131,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit digital hardware version``() =
+    member __.``Can get unit digital hardware version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! digitalHardwareVersion = pico.GetUnitDigitalHardwareVersionAsync()
@@ -144,7 +146,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit analogue hardware version``() =
+    member __.``Can get unit analogue hardware version``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! analogueHardwareVersion = pico.GetUnitAnalogueHardwareVersionAsync()
@@ -159,7 +161,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
     
     [<Test>]
-    member this.``Can get unit firmware version 1``() =
+    member __.``Can get unit firmware version 1``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! firmwareVersion1 = pico.GetUnitFirmwareVersion1Async()
@@ -174,7 +176,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get unit firmware version 2``() =
+    member __.``Can get unit firmware version 2``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             let! firmwareVersion2 = pico.GetUnitFirmwareVersion2Async()
@@ -189,7 +191,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get all unit info as list``() =
+    member __.``Can get all unit info as list``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
@@ -224,7 +226,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
         
     [<Test>]
-    member this.``Can flash LED``() =
+    member __.``Can flash LED``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
@@ -238,7 +240,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get analogue offset limits``() =
+    member __.``Can get analogue offset limits``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
@@ -259,7 +261,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can set channel settings``() =
+    member __.``Can set channel settings``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
@@ -274,7 +276,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can set simple or automatic trigger``() =
+    member __.``Can set simple or automatic trigger``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 
@@ -291,7 +293,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get voltage to ADC conversion function``() =
+    member __.``Can get voltage to ADC conversion function``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
@@ -309,7 +311,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``Can get ADC to voltage conversion function``() =
+    member __.``Can get ADC to voltage conversion function``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
             
@@ -327,7 +329,7 @@ type ``PicoScope 5000 series tests``() =
         |> Async.RunSynchronously
 
     [<Test>]
-    member this.``ADC to volts and volts to ADC are inverse``() =
+    member __.``ADC to volts and volts to ADC are inverse``() =
         async {
             use! pico = picoScopeSession.RequestControlAsync()
 

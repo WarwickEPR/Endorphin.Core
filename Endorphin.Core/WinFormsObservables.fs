@@ -12,3 +12,8 @@ type WinFormsExtensions() =
     [<Extension>]
     static member GetClickObservable (control : Control) =
         Observable.FromEventPattern<EventArgs>(control, "Click")
+
+    [<Extension>]
+    /// Helper extension method giving an observable sequence for a ToolStripMenuItem Click event.
+    static member GetClickObservable (toolStripMenuItem : ToolStripMenuItem) =
+        Observable.FromEventPattern<EventArgs>(toolStripMenuItem, "Click")

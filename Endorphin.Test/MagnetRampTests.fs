@@ -13,11 +13,9 @@ type ``Magnet ramp tests``() =
     let magnetControllerSession = new MagnetControllerSession(magnetControllerVisaAddress, magnetControllerParameters)
     let _ = log4netConfig()
 
-    [<SetUp>]
-    member __.``Prepare magnet controller state``() = 
-        async {
-            use! magnetController = magnetControllerSession.RequestControlAsync()
-            initialiseDefaultMagnetControllerState magnetController }
+    [<TestFixtureSetUp>]
+    member __.``Connect to PicoScope``() =
+        magnetControllerSession.ConnectAsync() 
         |> Async.RunSynchronously
 
     [<TestFixtureTearDown>]
@@ -29,7 +27,14 @@ type ``Magnet ramp tests``() =
 
         magnetControllerSession.CloseSessionAsync() 
         |> Async.RunSynchronously
-        
+      
+    [<SetUp>]
+    member __.``Prepare magnet controller state``() = 
+        async {
+            use! magnetController = magnetControllerSession.RequestControlAsync()
+            initialiseDefaultMagnetControllerState magnetController }
+        |> Async.RunSynchronously
+
     [<Test>]
     member __.``Ramp rate out of range causes exception``() =
         use magnetController =
@@ -183,7 +188,7 @@ type ``Magnet ramp tests``() =
             
             Assert.AreEqual( 
                 [ PreparingRamp ], 
-                statusReplay.ToEnumerable() |> Seq.toList) }
+                statusReplay.SkipLast(1).ToEnumerable() |> Seq.toList) }
         |> Async.RunSynchronously
 
     [<Test>]
@@ -721,7 +726,7 @@ type ``Magnet ramp tests``() =
             
             Assert.AreEqual(
                 [ PreparingRamp ; ReadyToRamp Reverse ],
-                statusReplay.Skip(1).ToEnumerable() |> Seq.toList)
+                statusReplay.SkipLast(1).ToEnumerable() |> Seq.toList)
 
             let! parameters = magnetController.GetAllParametersAsync()
             Assert.AreEqual(Lower, parameters.OutputParameters.RampTarget)

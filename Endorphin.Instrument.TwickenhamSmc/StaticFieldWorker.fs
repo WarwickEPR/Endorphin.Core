@@ -14,9 +14,9 @@ type SetFieldStatus =
     | FinishedSettingField
     /// Indicates that the SetFieldWorker workflow has been cancelled and whether the magnet controller was set to return to zero 
     /// current at the time of cancellation.
-    | CanceledSettingField of returnToZero : bool
+    | CanceledSettingField of exn : OperationCanceledException * returnToZero : bool
     /// Indicates that the SetFieldWorker has failed to set the requested field due to an error.
-    | FailedSettingField
+    | FailedSettingField of exn : exn
 
 /// Specifies the cancellation options for a SetFieldWorker.
 type SetFieldCancellationOptions =
@@ -31,36 +31,27 @@ type SetFieldWorker(magnetController : MagnetController, targetFieldIndex) =
 
     // events
     let statusChanged = new Event<SetFieldStatus>()
-    let completed = new Event<unit>()
-    let failed = new Event<Exception>()
-    let canceled = new Event<OperationCanceledException>()
     
     // cancellation capability which is used to ramping the magnet controller to the target current
     let cancellationCapability = new CancellationCapability<SetFieldCancellationOptions>()
     
-    // compute the target current in amps from its magnet controller output index
-    let targetCurrent = magnetController.MagnetControllerParameters.CurrentForIndex targetFieldIndex
-
     do // sanity checks
         // if the target current exceeds the magnet controller current limit, raise an excpetion
-        if abs targetCurrent > magnetController.MagnetControllerParameters.CurrentLimit then
+        if abs (magnetController.MagnetControllerParameters.CurrentForIndex targetFieldIndex) 
+                > magnetController.MagnetControllerParameters.CurrentLimit then
             failwith "Target current outside of magnet controller current limit."
     
-    /// Event fires when the SetFieldWorker status changes. Events are fired on the System.Threading.SynchronizationContext which
-    /// initiated the workflow.
-    member __.StatusChanged = statusChanged.Publish
-
-    /// Event fires when the SetFieldWorker successfully sets the target field. Events are fired on the
-    /// System.Threading.SynchronizationContext which initiated the workflow.
-    member __.Completed = completed.Publish
-
-    /// Event fires when the SetFieldWorker fails to set the target field due to an error. Events are fired on the
-    /// System.Threading.SynchronizationContext which initiated the workflow.
-    member __.Failed = failed.Publish
-
-    /// Event fires when the SetFieldWorker is canceled while ramping to the target field. Events are fired on the
-    /// System.Threading.SynchronizationContext which initiated the workflow.
-    member __.Canceled = canceled.Publish
+    /// Event fires when the SetFieldWorker status changes.
+    member __.StatusChanged =
+        Observable.CreateFromStatusEvent(
+            statusChanged.Publish, // listen to the status event
+            ((=) FinishedSettingField), // when the status indicates that the ramp has finished, raise the OnCompleted event on the observable
+            (fun status -> 
+                // if a status indicates that the stream has failed or was canceled, raise the OnError event
+                match status with
+                | FailedSettingField exn -> Some exn
+                | CanceledSettingField (exn, _) -> Some (exn :> exn)
+                | _ -> None ))
 
     /// Cancels setting the magnet controller to the target value with the specified cancellation options.
     member __.Cancel returnToZero =
@@ -75,9 +66,6 @@ type SetFieldWorker(magnetController : MagnetController, targetFieldIndex) =
         "Static field worker preparing..." |> log.Info
         sprintf "Target field index: %d." targetFieldIndex |> log.Info
 
-        // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-        let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
-
         // define the workflow to set the required output index
         let workflow = async {
 
@@ -86,7 +74,7 @@ type SetFieldWorker(magnetController : MagnetController, targetFieldIndex) =
             let setStartingCurrentDirection = async {
                 "Setting target current direction." |> log.Info
                 // fire an event indicating that the SetFieldWorker is setting the magnet controller output index
-                syncContext.RaiseEvent statusChanged SettingField
+                statusChanged.Trigger SettingField
                 let! operatingParameters = magnetController.GetOperatingParametersAsync()
                 if targetFieldIndex <> 0 then
                     let targetCurrentDirection = if targetFieldIndex > 0 then Forward else Reverse
@@ -121,30 +109,24 @@ type SetFieldWorker(magnetController : MagnetController, targetFieldIndex) =
                     magnetController.BeginRampToZeroAtMaximumRampRate()
                 else 
                     "Not requested to return to zero current. Pausing magnet controller..." |> log.Info
-                    magnetController.SetPause true
-
-                "Canceled setting field." |> log.Info
-                // raise an event indicate that the SetFieldWorker has been canceled
-                syncContext.RaiseEvent statusChanged (CanceledSettingField cancellationCapability.Options.ReturnToZero))
+                    magnetController.SetPause true)
             
             // run the workflows defined above
             do! setStartingCurrentDirection
             do! setCurrentLimits
-            do! rampToTarget
-            
-            "Successfully reached target field." |> log.Info
-            // raise an event to indicate that the SetFieldWorker has succesfully set the target output field to the magnet
-            // controller
-            syncContext.RaiseEvent statusChanged FinishedSettingField }
+            do! rampToTarget }
         
         "Starting set field workflow." |> log.Info
         // start the workflow on the thread pool with the specified continuations
         Async.StartWithContinuations(
             workflow,
-            (fun () -> syncContext.RaiseEvent completed ()),
+            (fun () -> // success
+                "Successfully reached target field." |> log.Info
+                statusChanged.Trigger FinishedSettingField),
             (fun exn -> // error
                 log.Error (sprintf "Failed to set field due to error: %A." exn, exn)
-                syncContext.RaiseEvent statusChanged FailedSettingField
-                syncContext.RaiseEvent failed exn),
-            (fun exn -> syncContext.RaiseEvent canceled exn),
+                statusChanged.Trigger (FailedSettingField exn)),
+            (fun exn -> // cancellation
+                "Canceled setting field." |> log.Info
+                statusChanged.Trigger (CanceledSettingField (exn, cancellationCapability.Options.ReturnToZero))),
             cancellationCapability.Token)

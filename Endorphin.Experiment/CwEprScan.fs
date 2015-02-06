@@ -65,9 +65,6 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
     let statusChanged = new Event<CwEprScanStatus>()
     let sampleObserved = new Event<CwEprSample>()
 
-    // capture the current synchronisation context so that events can be fired on the UI thread or thread pool accordingly
-    let syncContext = System.Threading.SynchronizationContext.CaptureCurrent()
-
     // handle which is used to indicate whether the scan should start once it is prepared
     let readyToStart = new ManualResetHandle(false)
     // cancellation capability which provides the cancellation token for the scan workflow
@@ -139,10 +136,9 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
         ActiveChannels = (magneticFieldChannel :: signalChannels) |> Map.ofList // magnetic field channel and signal channels
         MemorySegment = 0u }
 
-    /// Event fires when the status of the scan worker changes. Events are fired on the System.Threading.SynchronizationContext which
-    /// instantiates the worker. 
+    /// Event fires when the status of the scan worker changes.
     member __.StatusChanged =
-        Observable.CreateFromEvent(
+        Observable.CreateFromStatusEvent(
             statusChanged.Publish,
             // fire OnCompleted when the scan finishes
             ((=) FinishedScan), 
@@ -152,14 +148,11 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                 | FailedScan exn -> Some exn
                 | CanceledScan (exn, _) -> Some (exn :> exn)
                 | _ -> None))
-            .ObserveOn(syncContext)
 
-    /// Event fires when a CwEprSample is observed. Events are fired on the System.Threading.SynchronizationContext which 
-    /// instantiates the worker.
+    /// Event fires when a CwEprSample is observed.
     member scanWorker.SampleObserved =
         sampleObserved.Publish
             .TakeUntil(scanWorker.StatusChanged.LastAsync())
-            .ObserveOn(syncContext)
 
     /// Cancels a scan which is in progress, specifying whether the magnet controller should return to zero current or pause.
     member __.Cancel returnToZero =
@@ -376,15 +369,10 @@ type CwEprScanWorker(magnetController : MagnetController, pico : PicoScope5000, 
                    
                     // cancel the ramp worker and return to zero if specified
                     rampWorker.Cancel cancellationCapability.Options.ReturnToZero)
-
-                // prepare the magnet controller ramp to zero current
-                do! prepareRamp
-
-                // wait for the ready-to-start flag to be set
-                do! awaitReadyToStart
-
-                // and perform the scan
-                do! performScan }
+                
+                do! prepareRamp // prepare the magnet controller ramp to zero current
+                do! awaitReadyToStart // wait for the ready-to-start flag to be set
+                do! performScan } // and perform the scan
 
         // start the scan workflow with the specified continuations for success, failure and cancellation and with
         // the provided cancellation token
