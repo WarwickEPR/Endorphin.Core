@@ -101,7 +101,6 @@ type PicoScope5000(sessionParams) =
     // events
     let sessionReleased = new Event<unit>() // fires when the PicoScope5000Session is released and the agent is shut down
     let agentFailed = new Event<exn>() // fires when the agent encounters an error, incidcating that current and future messages will be failed
-    let agentFailedReplay = agentFailed.Publish.FirstAsync().Replay() // replays the error message if the agent has crashed
 
     // checks PicoStatus values returned by the PicoScope driver and raise an exception if this occurs, logging the action which
     // caused it
@@ -565,10 +564,9 @@ type PicoScope5000(sessionParams) =
                     invalidArg "message" // raise an exception
                         (sprintf "PicoScope %s received invalid message in preparing state." sessionParams.SerialNumber) message
             
-            with // if an error occurs, trigger the failed event and terminate the agent
-                | exn -> 
-                    log.Error (sprintf "PicoScope %s preparation loop failed due to error %A." sessionParams.SerialNumber exn, exn)
-                    agentFailed.Trigger exn }
+            with exn -> // if an error occurs, trigger the failed event and go into the failed state
+                log.Error (sprintf "PicoScope %s preparation loop failed due to error %A." sessionParams.SerialNumber exn, exn)
+                return! failed exn }
         
         // define the workflow for processing messages while streaming data
         and stream dataBuffers = async {
@@ -637,14 +635,18 @@ type PicoScope5000(sessionParams) =
                     stopAcquisition "unexpected message" // stop the acquisition 
                     invalidArg "message" // and raise an exception
                         (sprintf "PicoScope %s received invalid message in streaming acquisition state." sessionParams.SerialNumber) message
-            with
-                | exn -> // if an error occurs, stop the acquisition, trigger the failed event and terminate the agent
-                    log.Error (sprintf "PicoScope %s streaming acquisition failed due to error %A." sessionParams.SerialNumber exn, exn)
-                    stopAcquisition "error while requesting latest values" // stop the acquisition and unpin the buffers
-                    agentFailed.Trigger exn }
 
-        // conenct agentFailedReplay to the underlying observable
-        agentFailedReplay.Connect() |> ignore
+            with exn -> // if an error occurs, stop the acquisition, trigger the failed event and go into the failed state
+                log.Error (sprintf "PicoScope %s streaming acquisition failed due to error %A." sessionParams.SerialNumber exn, exn)
+                stopAcquisition "error while requesting latest values" // stop the acquisition and unpin the buffers
+                return! failed exn }
+
+        // trigger the agentFailed event whenever new messages arrive
+        and failed exn = async {
+            agentFailed.Trigger exn
+            let! __ = mailbox.Receive()
+            return! failed exn }
+
         // initialise in preparing state with empty data buffer list
         prepare [])
 
@@ -652,7 +654,7 @@ type PicoScope5000(sessionParams) =
     member __.SessionReleased =
         Observable.Create(fun (observer : IObserver<unit>) ->
             let completedSub = sessionReleased.Publish.Subscribe(fun () -> observer.OnNext() ; observer.OnCompleted())
-            let failedSub = agentFailedReplay.Subscribe(fun exn -> observer.OnError exn)
+            let failedSub = agentFailed.Publish.FirstAsync().Subscribe(fun exn -> observer.OnError exn)
 
             { new IDisposable with
                 member __.Dispose() = 
@@ -669,69 +671,69 @@ type PicoScope5000(sessionParams) =
     /// Asynchronously requests the PicoScope driver version.
     member __.GetUnitDriverVersionAsync() =
         GetUnitDriverVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device USB version used for the connection.
     member __.GetUnitUsbVersionAsync() =
         GetUnitUsbVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
        
     /// Asynchronously requests the PicoScope device hardware version.
     member __.GetUnitHardwareVersionAsync() =
         GetUnitHardwareVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
        
     /// Asynchronously requests the PicoScope device model number.
     member __.GetUnitModelNumberAsync() =
         GetUnitModelNumber
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device serial number.
     member __.GetUnitSerialAsync() =
         GetUnitSerial
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device calibration date.
     member __.GetUnitCalibrationDateAsync() =
         GetUnitCalibrationDate
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device kernel version.
     member __.GetUnitKernelVersionAsync() =
         GetUnitKernelVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
     
     /// Asynchronously requests the PicoScope device digital hardware version.
     member __.GetUnitDigitalHardwareVersionAsync() =
         GetUnitDigitalHardwareVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device analogue hardware version.
     member __.GetUnitAnalogueHardwareVersionAsync() =
         GetUnitAnalogueHardwareVersion
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device firmware version (part 1).
     member __.GetUnitFirmwareVersion1Async() =
         GetUnitFirmwareVersion1
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the PicoScope device firmware version (part 2).
     member __.GetUnitFirmwareVersion2Async() =
         GetUnitFirmwareVersion2
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests all PicoScope device information.
     member __.GetAllUnitInfoAsync() =
         GetAllUnitInfo 
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     // Device resolution settings
        
     /// Asynchronously requests the PicoScope's current vertical resolution.
     member __.GetDeviceResolutionAsync() =
         GetDeviceResolution
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     // Channel settings
 
@@ -739,17 +741,17 @@ type PicoScope5000(sessionParams) =
     /// the currently set vertical resolution.
     member __.GetAvailableChannelsAsync() =
         GetAvailableChannels
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
     
     /// Asynchronously requests the available voltage input range settings for the specified channel.
     member __.GetAvailableChannelRangesAsync channel =
         fun replyChannel -> GetAvailableChannelRanges(channel, replyChannel)
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
     
     /// Asynchronously requests the analogue voltage offset limits for the specified voltage range and input copupling.
     member __.GetAnalogueOffsetLimitsAsync(range, coupling) =
         fun replyChannel -> GetAnalogueOffsetLimits(range, coupling, replyChannel)
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
        
     /// Posts a message to the PicoScope agent to set the specified channel settings to a channel.
     member __.SetChannelSettings(channel, channelSettings) =
@@ -781,7 +783,7 @@ type PicoScope5000(sessionParams) =
     /// Asynchronously checkes whether a trigger is currently enabled on the PicoScope.
     member __.IsTriggerEnabledAsync() =
         IsTriggerEnabled
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
     
     /// Post a message to the PicoScope agent to set the specified trigger settings.
     member __.SetTrigger triggerSettings =
@@ -799,18 +801,18 @@ type PicoScope5000(sessionParams) =
     /// memory segment. Depends on the currently set device resolution.
     member __.GetTimebaseIntervalAndMaxSamplesAsync(timebase, memorySegment) =
         fun replyChannel -> GetTimebaseInterval(timebase, memorySegment, replyChannel)
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the largest available downsampling ratio for a specified sample count, downsampling mode and memory
     /// segment. 
     member __.GetMaximumDownsamplingRatioAsync(unprocessedSampleCount, downsampling, memorySegment) =
         fun replyChannel -> GetMaximumDownsamplingRatio(unprocessedSampleCount, downsampling, memorySegment, replyChannel)
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the maximum number of memory segments which can be set on the device.
     member __.GetMaximumNumberOfSegmentsAsync() =
         GetMaximumNumberOfSegments
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Posts a message to the PicoScope agent to set the specified number of memory segments on the device.
     member __.SetNumberOfMemorySegments memorySegments =
@@ -843,7 +845,7 @@ type PicoScope5000(sessionParams) =
     /// Asynchronously pings the device.
     member __.PingAsync() =
         Ping
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Posts a message to the PicoScope agent to set the front panel LED to flash or stop flashing.
     member __.SetLedFlash ledFlash =
@@ -859,4 +861,4 @@ type PicoScope5000(sessionParams) =
     /// clock rate. The actual sample interval can be obtained via IStreamingAcquisition.
     member __.RunStreamingAsync streamingParameters =
         fun replyChannel -> RunStreaming(streamingParameters, replyChannel)
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)

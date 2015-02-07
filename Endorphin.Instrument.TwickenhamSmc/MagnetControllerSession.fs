@@ -22,7 +22,6 @@ type MagnetControllerSession(visaAddress, magnetControllerParams : MagnetControl
 
      // events
     let agentFailed = new Event<exn>() // fires when the agent encounters an error, incidcating that current and future messages will be failed
-    let agentFailedReplay = agentFailed.Publish.FirstAsync().Replay() // replays the error message if the agent has crashed
 
     // start an agent which will process session messages
     let agent = Agent.Start(fun (mailbox : Agent<SessionCommand>) ->
@@ -109,13 +108,16 @@ type MagnetControllerSession(visaAddress, magnetControllerParams : MagnetControl
                     // raise an exception to indicate that an error occured
                     failwithf  "Closed Twickenham SMC %s session with %d pending requests as an attempt was made to connect after a connection was already established."
                         visaAddress mailbox.CurrentQueueLength
-            with
-                | exn -> // if an error occurs, log it and raise an exception
-                    log.Error(sprintf "Twickenham SMC %s session agent failed during startup due to error: %s." visaAddress exn.Message, exn)
-                    agentFailed.Trigger exn }
+            with exn -> // if an error occurs, log it and go into the failed state
+                log.Error(sprintf "Twickenham SMC %s session agent failed during startup due to error: %s." visaAddress exn.Message, exn)
+                return! failed exn }
         
-        // conenct agentFailedReplay to the underlying observable
-        agentFailedReplay.Connect() |> ignore
+        // trigger the agentFailed event whenever new messages arrive
+        and failed exn = async {
+            agentFailed.Trigger exn
+            let! __ = mailbox.Receive()
+            return! failed exn }
+        
         // initialise the session agent using the startup workflow
         start())
     
@@ -123,7 +125,7 @@ type MagnetControllerSession(visaAddress, magnetControllerParams : MagnetControl
     /// the sesion.
     member __.ConnectAsync() =
         Connect
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
     
     /// Magnet controller hardware parameters. Provides various utility functions for determining the field in terms of current, 
     /// readout shunt voltage in terms of current, etc.

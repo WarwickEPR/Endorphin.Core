@@ -22,7 +22,6 @@ type PicoScope5000Session(initSerial, resolution) =
 
     // events
     let agentFailed = new Event<exn>() // fires when the agent encounters an error, incidcating that current and future messages will be failed
-    let agentFailedReplay = agentFailed.Publish.FirstAsync().Replay() // replays the error message if the agent has crashed
 
     // start an agent which will process session messages
     let agent = Agent.Start(fun (mailbox : Agent<SessionMessage>) ->
@@ -165,13 +164,17 @@ type PicoScope5000Session(initSerial, resolution) =
                     // raise an exception to indicate that an error occured
                     failwithf  "Closed PicoScope %s session with %d pending requests as an attempt was made to connect after a connection was already established."
                         sessionParams.SerialNumber mailbox.CurrentQueueLength
-            with
-                | exn -> // if an error occurs, trigger the failed event and terminate the agent
-                    log.Error((sprintf "PicoScope %s session failed during startup due to error: %s" initSerial exn.Message), exn)
-                    agentFailed.Trigger exn }
 
-        // conenct agentFailedReplay to the underlying observable
-        agentFailedReplay.Connect() |> ignore
+            with exn -> // if an error occurs, trigger the failed event and go to the failed state
+                log.Error((sprintf "PicoScope %s session failed during startup due to error: %s" initSerial exn.Message), exn)
+                return! failed exn }
+
+        // trigger the agentFailed event whenever new messages arrive
+        and failed exn = async {
+            agentFailed.Trigger exn
+            let! __ = mailbox.Receive()
+            return! failed exn }
+
         // initialise the session agent using the startup workflow
         start())
 
@@ -187,20 +190,20 @@ type PicoScope5000Session(initSerial, resolution) =
     /// Asynchronously establish a connection to the PicoScope hardware. This should be performed before reqeuesting control of the sesion.
     member __.ConnectAsync() =
         Connect
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously request control of the session to the hardware. If the session is already in use, the request will only complete
     /// once the PicoScope5000 object releases the session by calling IDisposable.Dispose.
     member __.RequestControlAsync() =
         RequestControl
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously causes the connection to the hardware to be closed. If the session is already in use, the request will only complete
     /// once the PicoScope5000 object releases the session by calling IDisposable.Dispose. The workflow will complete once the session has
     /// been closed.
     member __.CloseSessionAsync() =
         CloseSession
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Returns a sequence of serial numbers for connected PicoScope 5000 series devices.
     static member GetConnectedDeviceSerials() =

@@ -36,7 +36,6 @@ type MagnetController
     
     // events
     let agentFailed = new Event<exn>() // fires when the agent encounters an error, incidcating that current and future messages will be failed
-    let agentFailedReplay = agentFailed.Publish.FirstAsync().Replay() // replays the error message if the agent has crashed
     let sessionReleased = new Event<unit>() // fires when the MagnetControllerSession is released and the agent is shut down
     
     // start a MailboxProcessor which will handle commands and requests sequentially and communicate with the magnet controller hardware
@@ -45,8 +44,6 @@ type MagnetController
         // define the message processing loop workflow
         let rec loop() = async {
             try
-
-
                 sprintf "(Re)entering Twickenham SMC %s agent loop." session.ResourceName |> log.Info
 
                 let! message = mailbox.Receive() // read the next message in the queue or asynchronously wait for one
@@ -157,13 +154,16 @@ type MagnetController
                 // continue processing messages
                 return! loop ()
             
-            with
-                | exn -> // if an error occurs, trigger the failed event and terminate the agent
-                    log.Error (sprintf "Twickenham SMC %s failed due to error %A." session.ResourceName exn, exn)
-                    agentFailed.Trigger exn } 
+            with exn -> // if an error occurs, trigger the failed event and go into the failed state
+                log.Error (sprintf "Twickenham SMC %s failed due to error %A." session.ResourceName exn, exn)
+                return! failed exn } 
 
-        // conenct agentFailedReplay to the underlying observable
-        agentFailedReplay.Connect() |> ignore
+        // if a failure occurs trigger the agentFailed event whenever new messages arrive
+        and failed exn = async {
+            agentFailed.Trigger exn
+            let! __ = mailbox.Receive()
+            return! failed exn }
+
         // initialse the agent message processing loop
         loop())
 
@@ -171,7 +171,7 @@ type MagnetController
     member __.SessionReleased =
         Observable.Create(fun (observer : IObserver<unit>) ->
             let completedSub = sessionReleased.Publish.Subscribe(fun () -> observer.OnNext() ; observer.OnCompleted())
-            let failedSub = agentFailedReplay.Subscribe(fun exn -> observer.OnError exn)
+            let failedSub = agentFailed.Publish.FirstAsync().Subscribe(fun exn -> observer.OnError exn)
 
             { new IDisposable with
                 member __.Dispose() = 
@@ -192,22 +192,22 @@ type MagnetController
     /// Asynchronously requests the magnet controller output parameters.
     member __.GetOutputParametersAsync () =
         GetOutputParameters
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the magnet controller current parameters.
     member __.GetCurrentParametersAsync () =
         GetCurrentParameters
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the magnet controller operating parameters.
     member __.GetOperatingParametersAsync () =
         GetOperatingParameters
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Asynchronously requests the magnet controller set point parameters.
     member __.GetSetPointParametersAsync () =
         GetSetPointParameters
-        |> agent.PostAndAsyncReplyFailable agentFailedReplay
+        |> agent.PostAndAsyncReplyFailable (agentFailed.Publish)
 
     /// Posts a message to the magnet controller to set the nearset available calibrated ramp rate to the requested value in amps
     /// per second. If the ramp rate exceeds the magnet controller ramp rate limit, then the largest available value will be set. 
