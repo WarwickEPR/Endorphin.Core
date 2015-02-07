@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30110.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.PicoScope5000", "Endorphin.Instrument.PicoScope5000\Endorphin.Instrument.PicoScope5000.fsproj", "{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}"
 EndProject
@@ -13,9 +13,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Experiment", "End
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Test", "Endorphin.Test\Endorphin.Test.fsproj", "{6A614A63-4F95-4382-A8D3-9E5F8E6327A9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Endorphin.TempApp", "Endorphin.TempApp\Endorphin.TempApp.csproj", "{B6E6643F-6463-40C1-A16E-FD63979B1753}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamingScope", "StreamingScope\StreamingScope.csproj", "{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Endorphin.HighFieldEpr", "Endorphin.HighFieldEpr\Endorphin.HighFieldEpr.csproj", "{B6E6643F-6463-40C1-A16E-FD63979B1753}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -77,16 +77,6 @@ Global
 		{6A614A63-4F95-4382-A8D3-9E5F8E6327A9}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{6A614A63-4F95-4382-A8D3-9E5F8E6327A9}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{6A614A63-4F95-4382-A8D3-9E5F8E6327A9}.Release|Win32.ActiveCfg = Release|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Win32.ActiveCfg = Debug|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Win32.ActiveCfg = Release|Any CPU
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
@@ -97,6 +87,16 @@ Global
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{9D2C8B65-8F28-4AC8-BDBC-C1F81C9C4253}.Release|Win32.ActiveCfg = Release|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{B6E6643F-6463-40C1-A16E-FD63979B1753}.Release|Win32.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
