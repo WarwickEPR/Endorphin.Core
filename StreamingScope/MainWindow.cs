@@ -46,17 +46,17 @@ namespace StreamingScope
                     analogueOffset: 0.0, // volts 
                     bandwidthLimit: BandwidthLimit._20MHz);
 
-                var downsamplingModes =
-                    new FSharpSet<DownsamplingMode>(new[] { 
+                var downsamplingModes = (new[] { 
                         DownsamplingMode.Aggregate, 
                         DownsamplingMode.Averaged 
-                    });
+                    }).AsFSharpSet();
 
-                return new FSharpMap<Channel, ChannelStream>(new[] { 
-            // add more channels with their respective settings to enable them here.
-            // note that combining DownsamplingMode.None with other downsampling modes will result in an error
-                    Tuple.Create(Channel.A, new ChannelStream(inputSettings, downsamplingModes))
-                });
+                return (new Dictionary<Channel, ChannelStream>()
+                {
+                    // add more channels with their respective settings to enable them here.
+                    // note that combining DownsamplingMode.None with other downsampling modes will result in an error
+                    { Channel.A, new ChannelStream(inputSettings, downsamplingModes) }
+                }).AsFSharpMap();
             }
         }
 
