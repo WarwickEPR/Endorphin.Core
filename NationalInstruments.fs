@@ -29,11 +29,11 @@ module NationalInstruments =
 
         /// Returns an asynchronous computation which first writes a string message to an NI
         /// VISA device session and then awaits a response to that message.
-        member session.QuerryAsync message =
+        member session.QueryAsync message =
             async {
                 // The cancellation handler ensures that no outstanding asynchronous reads or writes
                 // are still on-going when a query is cancelled and that the device buffers are cleared.
-                use! cancellationHandler = Async.OnCancel(fun() -> 
+                use! __ = Async.OnCancel(fun() -> 
                     session.Terminate()
                     session.Clear())
                 do! session.WriteAsync message
