@@ -70,7 +70,7 @@ type MagnetController
                 | GetOutputParameters replyChannel ->
                     // query the hardware with the appropriate command string and wait for a response asynchronously
                     sprintf "Twickenham SMC %s query hardware output parameters." session.ResourceName |> log.Info
-                    let! response = session.QuerryAsync "G\r\n" 
+                    let! response = session.QueryAsync "G\r\n" 
                     sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
                     let outputParameters = OutputParameters.Parse response // parse the response
 
@@ -80,7 +80,7 @@ type MagnetController
                 | GetCurrentParameters replyChannel ->
                     // query the hardware with the appropriate command string and wait for a response asynchronously
                     sprintf "Twickenham SMC %s query hardware current parameters." session.ResourceName |> log.Info
-                    let! response = session.QuerryAsync "K\r\n"
+                    let! response = session.QueryAsync "K\r\n"
                     sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
                     let currentParameters = CurrentParameters.Parse response // parse the response
                 
@@ -90,7 +90,7 @@ type MagnetController
                 | GetOperatingParameters replyChannel ->
                     // query the hardware with the appropriate command string and wait for a response asynchronously
                     sprintf "Twickenham SMC %s query hardware operating parameters." session.ResourceName |> log.Info
-                    let! response = session.QuerryAsync "O\r\n"
+                    let! response = session.QueryAsync "O\r\n"
                     sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
                     let operatingParameters = OperatingParameters.Parse response // parse the response
 
@@ -100,7 +100,7 @@ type MagnetController
                 | GetSetPointParameters replyChannel ->
                     // query the hardware with the appropriate command string and wait for a response asynchronously
                     sprintf "Twickenham SMC %s query hardware set point parameters." session.ResourceName |> log.Info
-                    let! response = session.QuerryAsync "S\r\n"
+                    let! response = session.QueryAsync "S\r\n"
                     sprintf "Twickenham SMC %s received response from hardware: %s." session.ResourceName response |> log.Info
                     let setPointParameters = SetPointParameters.Parse response // parse the response
 
