@@ -1,8 +1,9 @@
 ﻿namespace Endorphin.Core
 
 open NationalInstruments.VisaNS
+open log4net
 
-[<AutoOpen>]
+/// VISA access to instruments with asynchronous messaging
 module NationalInstruments =
 
     /// Extensions for NationalInstruments.VisaNS.MessageBasedSession which wrap Begin-End pattern
@@ -38,3 +39,82 @@ module NationalInstruments =
                     session.Clear())
                 do! session.WriteAsync message
                 return! session.ReadAsync() }
+    
+    type private VisaMessage =
+        | ReadString of replyChannel : AsyncReplyChannel<string>
+        | WriteString of visaCommand : string
+        | QueryString of visaCommand : string * replyChannel : AsyncReplyChannel<string>
+        | CloseSession of replyChannel : AsyncReplyChannel<unit>
+
+    /// Public interface to VISA instruments
+    type VisaInstrument = 
+        abstract member Query : string -> Async<string>
+        abstract member Write : string -> unit
+        abstract member Read : unit -> Async<string>
+        abstract member Close : unit -> Async<unit> 
+
+    /// Asynchronously handles requests to 
+    let private createAgent visaAddress =
+        Agent.Start(fun mailbox ->
+            let log = LogManager.GetLogger (sprintf "VISA Instrument %s" visaAddress)
+
+            let rec loop (instrument : MessageBasedSession) =
+                async {
+                    let! message = mailbox.Receive()
+                    
+                    match message with
+                    
+                    | ReadString replyChannel ->
+                        "Reading string." |> log.Debug
+                        let! response = instrument.ReadAsync()
+                        let trimmedResponse = response.TrimEnd [|'\n' ; '\r'|]
+                        sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
+                        trimmedResponse |> replyChannel.Reply
+                        return! loop instrument
+
+                    | WriteString visaCommand -> 
+                        sprintf "Writing string: \"%s\"" visaCommand |> log.Debug
+                        do! instrument.WriteAsync visaCommand
+                        return! loop instrument
+
+                    | QueryString (visaCommand, replyChannel) ->
+                        sprintf "Query with string: \"%s\"" visaCommand |> log.Debug
+                        let! response = instrument.QueryAsync visaCommand
+                        let trimmedResponse = response.TrimEnd [|'\n' ; '\r'|]
+                        sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
+                        trimmedResponse |> replyChannel.Reply
+                        return! loop instrument
+
+                    | CloseSession replyChannel -> 
+                        "Closing session." |> log.Info
+                        if mailbox.CurrentQueueLength <> 0 then
+                            sprintf "%d messages remaining in mailbox queue." |> log.Error
+                        replyChannel.Reply ()
+
+                        return () }
+                     
+            // startup
+            async {
+                sprintf "Opening instrument \"%s\"" visaAddress |> log.Info
+                use instrument = ResourceManager.GetLocalManager().Open visaAddress :?> MessageBasedSession
+                return! loop instrument })
+
+    let private query (agent : Agent<VisaMessage>) visaCommand =
+        agent.PostAndAsyncReply(fun replyChannel -> QueryString(visaCommand, replyChannel))
+        
+    let private read (agent : Agent<VisaMessage>) =
+        agent.PostAndAsyncReply ReadString
+
+    let private write (agent : Agent<VisaMessage>) visaCommand =
+        agent.Post (WriteString visaCommand)
+
+    let private close (agent : Agent<VisaMessage>) =
+        agent.PostAndAsyncReply CloseSession
+
+    let openInstrument visaAddress =
+        let agent = createAgent visaAddress
+        { new VisaInstrument with
+            member instrument.Query visaCommand = query agent visaCommand
+            member instrument.Write visaCommand = write agent visaCommand
+            member instrument.Read() = read agent
+            member instrument.Close() = close agent }
