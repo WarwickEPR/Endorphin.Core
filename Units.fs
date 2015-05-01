@@ -24,3 +24,6 @@ module Units =
 
     /// dBm i.e. decibels w.r.t 1 mW
     [<Measure>] type dBm
+
+    /// Hz (cycles per second)
+    [<Measure>] type Hz
