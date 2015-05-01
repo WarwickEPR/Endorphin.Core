@@ -51,6 +51,8 @@
   <ItemGroup>
     <None Include="Demo.fsx" />
     <None Include="packages.config" />
+    <None Include="KeysightDemo.fsx" />
+    <Compile Include="RfSource.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">
