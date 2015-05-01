@@ -1,7 +1,7 @@
 ﻿namespace Endorphin.Core
 
 module Units =
-    // Note: only use these for instruments which have parameters which are in discrete setps of the unit.
+    // Note: only use these for instruments which have parameters which are in discrete steps of the unit.
     // Otherwise, use the SI units in Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
     
     /// Nanoseconds.
@@ -21,3 +21,6 @@ module Units =
 
     /// Significant figures.
     [<Measure>] type sf
+
+    /// dBm i.e. decibels w.r.t 1 mW
+    [<Measure>] type dBm
