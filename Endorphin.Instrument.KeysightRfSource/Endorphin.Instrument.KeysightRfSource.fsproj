@@ -53,6 +53,7 @@
     <None Include="packages.config" />
     <None Include="KeysightDemo.fsx" />
     <Compile Include="RfSource.fs" />
+    <None Include="RfSourceDaemon.py" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">
