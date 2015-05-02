@@ -25,17 +25,17 @@ module RfSource =
         | LIST
     let private parseFrequencyMode str =
         match str with
-          | "CW" | "FIX" -> FIX
-          | "LIST" -> LIST
+          | "CW" | "FIX" -> FrequencyMode.FIX
+          | "LIST" -> FrequencyMode.LIST
 
     type PowerMode =
         private
         | FIX
         | LIST
-    let private parseFrequencyMode str =
+    let private parsePowerMode str =
         match str with
-          | "CW" | "FIX" -> FIX
-          | "LIST" -> LIST
+          | "CW" | "FIX" -> PowerMode.FIX
+          | "LIST" -> PowerMode.LIST
 
     let private parseBoolean str =
         // TODO: Handle error case with Result<>
