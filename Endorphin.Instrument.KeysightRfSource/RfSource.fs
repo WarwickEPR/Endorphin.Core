@@ -13,11 +13,29 @@ module RfSource =
 
     type Power = private PowerInDbm of float<dBm>
     let powerInDbm power = PowerInDbm (power * 1.0<dBm>)
-    let parsePowerInDbm str = powerInDbm <| float str 
+    let private parsePowerInDbm str = powerInDbm <| float str 
 
     type Frequency = private FrequencyInHz of float<Hz>
     let frequencyInHz frequency = FrequencyInHz (frequency * 1.0<Hz>)
-    let parseFrequencyInHz str = frequencyInHz <| float str
+    let private parseFrequencyInHz str = frequencyInHz <| float str
+
+    type FrequencyMode =
+        private
+        | FIX
+        | LIST
+    let private parseFrequencyMode str =
+        match str with
+          | "CW" | "FIX" -> FIX
+          | "LIST" -> LIST
+
+    type PowerMode =
+        private
+        | FIX
+        | LIST
+    let private parseFrequencyMode str =
+        match str with
+          | "CW" | "FIX" -> FIX
+          | "LIST" -> LIST
 
     let private parseBoolean str =
         // TODO: Handle error case with Result<>
@@ -42,6 +60,12 @@ module RfSource =
         abstract member getPower : unit -> Async<Power>
         abstract member setFrequency : Frequency -> unit
         abstract member getFrequency : unit -> Async<Frequency>
+        abstract member setStartFrequency : Frequency -> unit
+        abstract member getStartFrequency : unit -> Async<Frequency>
+        abstract member setEndFrequency : Frequency -> unit
+        abstract member getEndFrequency : unit -> Async<Frequency>
+        abstract member setFrequencyMode : FrequencyMode -> unit
+        abstract member getFrequencyMode : unit -> Async<FrequencyMode>
 
     let private identify (rfSource : VI) =
         rfSource.Query "*IDN?"
@@ -99,6 +123,42 @@ module RfSource =
         let! response = ":FREQ?" |> rfSource.Query 
         return parseFrequencyInHz <| response }
 
+    // Set start frequency in Hz
+    // TODO: Add other units
+    let private setStartFrequency (rfSource : VI) (FrequencyInHz frequency : Frequency) =
+        sprintf ":FREQ:START %eHz" (float frequency) |> rfSource.Write
+
+    // Get current start frequency
+    // TODO: Handle other units/errors
+    let private getStartFrequency (rfSource : VI) = async {
+        let! response = ":FREQ:START?" |> rfSource.Query 
+        return parseFrequencyInHz <| response }
+
+    // Set end frequency in Hz
+    // TODO: Add other units
+    let private setEndFrequency (rfSource : VI) (FrequencyInHz frequency : Frequency) =
+        sprintf ":FREQ:END %eHz" (float frequency) |> rfSource.Write
+
+    // Get current end frequency
+    // TODO: Handle other units/errors
+    let private getEndFrequency (rfSource : VI) = async {
+        let! response = ":FREQ:END?" |> rfSource.Query 
+        return parseFrequencyInHz <| response }
+
+    let private setFrequencyMode (rfSource : VI) (fm : FrequencyMode) =
+        let modestr = match fm with
+                        | FrequencyMode.FIX -> "FIX"
+                        | FrequencyMode.LIST -> "LIST"
+        sprintf ":FREQ:MODE %s" modestr |> rfSource.Write
+
+    let private getFrequencyMode (rfSource : VI) = async {
+        let! response = ":FREQ:MODE?" |> rfSource.Query
+        // TODO: cover error case
+        // LIST seems to cover sweep also
+        return parseFrequencyMode response
+        }
+
+
     // TODO Handle failure to connect gracefully
     // Happens even when connected on occasion
     let openRfInstrument visaAddress =
@@ -119,6 +179,12 @@ module RfSource =
             member instrument.getPower() = getPower rfSource
             member instrument.setFrequency value = setFrequency rfSource value
             member instrument.getFrequency() = getFrequency rfSource
+            member instrument.setStartFrequency value = setStartFrequency rfSource value
+            member instrument.getStartFrequency() = getStartFrequency rfSource
+            member instrument.setEndFrequency value = setEndFrequency rfSource value
+            member instrument.getEndFrequency() = getEndFrequency rfSource
+            member instrument.setFrequencyMode value = setFrequencyMode rfSource value
+            member instrument.getFrequencyMode() = getFrequencyMode rfSource
         }
 
 // Commands used in Python implementation
@@ -133,8 +199,6 @@ module RfSource =
 //FM:SOUR
 //FM:STAT
 //FREQ:MODE
-//FREQ:STAR
-//FREQ:STOP
 //INIT:CONT
 //INIT
 //LIST:DWEL:TYPE
