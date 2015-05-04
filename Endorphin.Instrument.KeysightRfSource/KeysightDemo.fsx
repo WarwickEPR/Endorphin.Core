@@ -11,7 +11,7 @@ open Endorphin.Core.Units
 
 BasicConfigurator.Configure()
 
-let rfInst = openRfInstrument "TCPIP0::192.168.1.2"
+let rfInst = openRfInstrument <| visaInstrument("TCPIP0::192.168.1.2")
 async {
     let! id = rfInst.identify()
     printfn "ID: %A" id
