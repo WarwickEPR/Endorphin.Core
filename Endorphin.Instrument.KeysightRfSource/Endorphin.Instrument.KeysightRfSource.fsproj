@@ -49,10 +49,10 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <None Include="Demo.fsx" />
     <None Include="packages.config" />
-    <None Include="KeysightDemo.fsx" />
     <Compile Include="RfSource.fs" />
+    <None Include="KeysightDemo.fsx" />
+    <None Include="Demo.fsx" />
     <None Include="RfSourceDaemon.py" />
   </ItemGroup>
   <ItemGroup>
