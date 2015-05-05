@@ -1,5 +1,7 @@
 ﻿namespace Endorphin.Core
 
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+
 module Units =
     // Note: only use these for instruments which have parameters which are in discrete steps of the unit.
     // Otherwise, use the SI units in Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
@@ -29,4 +31,4 @@ module Units =
     [<Measure>] type dB
 
     /// Hz (cycles per second)
-    [<Measure>] type Hz
+    [<Measure>] type Hz = 1/s
