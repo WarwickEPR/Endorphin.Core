@@ -25,6 +25,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Test.Instrument.K
 		{AF4768C9-1581-4950-A053-2ECCD0A9E3A8} = {AF4768C9-1581-4950-A053-2ECCD0A9E3A8}
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VisaTimeoutTest", "VisaTimeoutTest\VisaTimeoutTest.fsproj", "{6A28880A-5C28-4812-88E8-1B66278024D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,16 @@ Global
 		{5999528A-BD05-4D4E-A82B-A28BC4E88382}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{5999528A-BD05-4D4E-A82B-A28BC4E88382}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{5999528A-BD05-4D4E-A82B-A28BC4E88382}.Release|Win32.ActiveCfg = Release|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Win32.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
