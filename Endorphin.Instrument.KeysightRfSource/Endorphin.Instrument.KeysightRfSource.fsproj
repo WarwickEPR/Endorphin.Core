@@ -50,10 +50,11 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <None Include="packages.config" />
+    <Compile Include="Model.fs" />
+    <Compile Include="IO.fs" />
     <Compile Include="RfSource.fs" />
-    <None Include="KeysightDemo.fsx" />
     <None Include="Demo.fsx" />
-    <None Include="RfSourceDaemon.py" />
+    <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">
