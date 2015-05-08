@@ -15,18 +15,30 @@ module NationalInstruments =
         member session.ReadAsync() =
             // Creates an asynchronous computation from the begin/end asynchronous pattern.
             // See the documentation for Async.FromBeginEnd for details.
-            Async.FromBeginEnd(
-                (fun (callback, state) -> session.BeginRead(session.DefaultBufferSize, callback, state)),
-                session.EndReadString)
+            let asyncRead = 
+                Async.FromBeginEnd(
+                    (fun (callback, state) -> session.BeginRead(session.DefaultBufferSize, callback, state)),
+                    session.EndReadString)
+            async {
+                try
+                    let! result = asyncRead
+                    return Choice1Of2 result
+                with exn -> return Choice2Of2 exn.Message }
 
         /// Returns an asynchronous computation which writes a string message to an NI VISA
         /// device session.
         member session.WriteAsync message = 
             // Creates an asynchronous computation from the begin/end asynchronous pattern.
             // See the documentation for Async.FromBeginEnd for details.
-            Async.FromBeginEnd(
+            let asyncWrite = Async.FromBeginEnd(
                 (fun (callback, state) -> session.BeginWrite(message, callback, state)),
-                session.EndWrite)
+                 session.EndWrite)
+            async {
+                try
+                    do! asyncWrite
+                    return Choice1Of2 ()
+                with
+                    exn -> return Choice2Of2 exn.Message }
 
         /// Returns an asynchronous computation which first writes a string message to an NI
         /// VISA device session and then awaits a response to that message.
@@ -37,14 +49,16 @@ module NationalInstruments =
                 use! __ = Async.OnCancel(fun() -> 
                     session.Terminate()
                     session.Clear())
-                do! session.WriteAsync message
-                return! session.ReadAsync() }
-    
+                let! response = session.WriteAsync message
+                match response with
+                   | Choice1Of2 result -> return! session.ReadAsync()
+                   | Choice2Of2 error -> return Choice2Of2 error }
+                     
     type private VisaMessage =
-        | ReadString of replyChannel : AsyncReplyChannel<string>
+        | ReadString of replyChannel : AsyncReplyChannel<Choice<string,string>>
         | WriteString of visaCommand : string
-        | QueryString of visaCommand : string * replyChannel : AsyncReplyChannel<string>
-        | CloseSession of replyChannel : AsyncReplyChannel<unit>
+        | QueryString of visaCommand : string * replyChannel : AsyncReplyChannel<Choice<string,string>>
+        | CloseSession of replyChannel : AsyncReplyChannel<Choice<unit,string>>
 
     /// Public interface to VISA instruments
     type VisaInstrument = 
@@ -67,36 +81,45 @@ module NationalInstruments =
                     | ReadString replyChannel ->
                         "Reading string." |> log.Debug
                         let! response = instrument.ReadAsync()
-                        let trimmedResponse = response.TrimEnd [|'\n' ; '\r'|]
-                        sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
-                        trimmedResponse |> replyChannel.Reply
-                        return! loop instrument
+                        match response with
+                        | Choice2Of2 exn -> return Choice2Of2 exn
+                        | Choice1Of2 rsp ->
+                            let trimmedResponse = rsp.TrimEnd [|'\n' ; '\r'|]
+                            sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
+                            Choice1Of2 trimmedResponse |> replyChannel.Reply
+                            return! loop instrument
 
                     | WriteString visaCommand -> 
                         sprintf "Writing string: \"%s\"" visaCommand |> log.Debug
-                        do! instrument.WriteAsync visaCommand
-                        return! loop instrument
+                        let! response = instrument.WriteAsync visaCommand
+                        match response with
+                        | Choice2Of2 exn -> return Choice2Of2 exn
+                        | Choice1Of2 rsp -> return! loop instrument
 
                     | QueryString (visaCommand, replyChannel) ->
                         sprintf "Query with string: \"%s\"" visaCommand |> log.Debug
                         let! response = instrument.QueryAsync visaCommand
-                        let trimmedResponse = response.TrimEnd [|'\n' ; '\r'|]
-                        sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
-                        trimmedResponse |> replyChannel.Reply
-                        return! loop instrument
+                        match response with
+                        | Choice2Of2 exn -> return Choice2Of2 exn
+                        | Choice1Of2 rsp -> 
+                            let trimmedResponse = rsp.TrimEnd [|'\n' ; '\r'|]
+                            sprintf "Received string: \"%s\"" trimmedResponse |> log.Debug
+                            Choice1Of2 trimmedResponse |> replyChannel.Reply
+                            return! loop instrument
 
                     | CloseSession replyChannel -> 
                         "Closing session." |> log.Info
                         if mailbox.CurrentQueueLength <> 0 then
                             sprintf "%d messages remaining in mailbox queue." |> log.Error
-                        replyChannel.Reply ()
+                        Choice1Of2 () |> replyChannel.Reply 
 
-                        return () }
+                        return Choice1Of2 () }
                      
             // startup
             async {
                 sprintf "Opening instrument \"%s\"" visaAddress |> log.Info
-                use instrument = ResourceManager.GetLocalManager().Open visaAddress :?> MessageBasedSession
+                use instrument = ResourceManager.GetLocalManager().Open(visaAddress,AccessModes.NoLock,100) :?> MessageBasedSession
+                instrument.Timeout <- 1000
                 return! loop instrument })
 
     let private query (agent : Agent<VisaMessage>) visaCommand =
