@@ -1,14 +1,21 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open ExtCore.Control
+open Endorphin.Core.NationalInstruments
 
 [<RequireQualifiedAccess>]
 module RfSource =
-    let openInstrument visaAddress = RfSource <| Endorphin.Core.NationalInstruments.openInstrument visaAddress // TODO: Add some identity checks here?
-    let closeInstrument (RfSource rfSource) = rfSource.Close()
+    let openInstrument visaAddress timeout = asyncChoice { 
+        let rfSource = RfSource <| Visa.openInstrument visaAddress timeout 
+        do! IO.verifyIdentiy rfSource
+        let! __ = IO.queryErrorQueue rfSource // clear the error queue before doing anything
+        return rfSource }
 
-    let private identityKey = "*IDN"
-    let queryIdentity = IO.queryDeviceId identityKey
+    let closeInstrument (RfSource rfSource) = Visa.closeInstrument rfSource
+
+    let queryIdentity = IO.queryIdentity
+    let queryNextErrorInQueue = IO.queryNextErrorInQueue
+    let queryErrorQueue = IO.queryErrorQueue
 
     let private outputStateKey = ":OUTPUT:STATE"
     let setOutputState = IO.setOnOffState outputStateKey

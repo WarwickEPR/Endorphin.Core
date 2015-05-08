@@ -1,27 +1,47 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open System
+open ExtCore.Control
 open Endorphin.Core.StringUtils
 open Endorphin.Core.NationalInstruments
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 [<AutoOpen>]
 module Model =
-    type RfSource = internal RfSource of VisaInstrument
+    type RfSource = internal RfSource of Visa.Instrument
 
     type DeviceId =
         { Manufacturer : string
           ModelNumber : string
           SerialNumber : string
           Version : string }
+
+    let internal tryParseDeviceId (str : string) =
+        let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
+        let parts = str.Split [|','|]
+        if Array.length parts <> 4 then fail <| sprintf "Unexpected device ID string: %s." str
+        else succeed <|
+                { Manufacturer = parts.[0] |> trimWhiteSpace
+                  ModelNumber = parts.[1] |> trimWhiteSpace
+                  SerialNumber = parts.[2] |> trimWhiteSpace
+                  Version = parts.[3] |> trimWhiteSpace }
           
     let internal parseDeviceId (str : string) =
+        match tryParseDeviceId str with
+        | Success id    -> id
+        | Failure error -> failwith error
+
+    type Error = { Code : int ; Message : string }
+   
+    let internal parseError (str : string) =
         let parts = str.Split [|','|]
-        if Array.length parts <> 4 then failwithf "Unexpected device ID string: %s." str
-        { Manufacturer = parts.[0]
-          ModelNumber = parts.[1]
-          SerialNumber = parts.[2]
-          Version = parts.[3] }
+        if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
+        
+        match parts.[0] with
+        | ParseInteger code -> { Code = code ; Message = parts.[1] }
+        | _                 -> failwithf "Unexpected error code string: %s." parts.[0]
+
+    let internal errorString error = sprintf "%d: %s" error.Code error.Message
 
     let internal parseCsvSeq parseFunc (str :string) = (str.Split [|','|]) |> Array.toSeq |> Seq.map parseFunc
     let internal csvSeqString stringFunc seq = String.Join(",", Seq.map stringFunc seq)

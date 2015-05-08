@@ -1,25 +1,67 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
+open ExtCore.Control
 open Endorphin.Core.NationalInstruments
 
 [<RequireQualifiedAccess>]
 module internal IO =
-    let postCommand key (RfSource rfSource) = rfSource.Write key
+    let postCommand key (RfSource rfSource) = Visa.writeString rfSource key
 
-    let private setValue stringFunc key (RfSource rfSource) value = 
-        sprintf "%s %s" key (stringFunc value) |> rfSource.Write
-
-    let private queryValue parseFunc key (RfSource rfSource) = async {
-        let! response = rfSource.Query (sprintf "%s?" key)
+    let private queryValue parseFunc key (RfSource rfSource) = asyncChoice {
+        let! response = sprintf "%s?" key |> Visa.queryInstrument rfSource
         return parseFunc response }
 
-    let setValueForModulationPath (setFunc : string -> RfSource -> 'a -> unit) (keyFunc : ModulationPath -> string) rfSource path =
+    let private tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
+        let! response = queryValue id key rfSource 
+        return! tryParseFunc response }
+
+    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
+    let queryDeviceId = queryValue parseDeviceId
+
+    let queryError = queryValue parseError
+
+    let private identityKey = "*IDN"
+    let queryIdentity = queryDeviceId identityKey
+    let tryQueryIdentity = tryQueryDeviceId identityKey
+
+    let private nextErrorInQueueKey = ":SYSTEM:ERROR"
+    let queryNextErrorInQueue = queryError nextErrorInQueueKey
+
+    let queryErrorQueue rfSource = 
+        let rec errorQueueLoop errorList = asyncChoice {
+            let! nextError = queryNextErrorInQueue rfSource
+            if nextError.Code <> 0 then return! errorQueueLoop (nextError :: errorList)
+            else return Seq.ofList <| List.rev errorList  }
+
+        errorQueueLoop List.empty
+
+    let verifyModelNumber =
+        function
+        | "N5172B" -> succeed ()
+        | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
+
+    let verifyIdentiy rfSource = asyncChoice {
+        let! identity = tryQueryIdentity rfSource
+        do! verifyModelNumber (identity.ModelNumber) }
+
+    let private checkErrorQueueIsEmpty errors =
+        if Seq.length errors <> 0 then
+            errors
+            |> Seq.map errorString
+            |> String.concat "\n" 
+            |> fail 
+        else succeed ()
+
+    let private setValue stringFunc key (RfSource rfSource) value = asyncChoice {
+        sprintf "%s %s" key (stringFunc value) |> Visa.writeString rfSource
+        let! errors = queryErrorQueue (RfSource rfSource)
+        do! checkErrorQueueIsEmpty errors }
+
+    let setValueForModulationPath (setFunc : string -> RfSource -> 'a -> AsyncChoice<unit, string>) (keyFunc : ModulationPath -> string) rfSource path =
         setFunc (keyFunc path) rfSource
 
     let queryValueForModulationPath (queryFunc : string -> RfSource -> 'a) (keyFunc : ModulationPath -> string) rfSource path =
         queryFunc (keyFunc path) rfSource            
-
-    let queryDeviceId = queryValue parseDeviceId
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
@@ -31,16 +73,16 @@ module internal IO =
 
     let setAmplitude = setValue amplitudeString
     // TODO: Handle other units?
-    let queryAmplitude key (RfSource rfSource) = async {
+    let queryAmplitude key (RfSource rfSource) = asyncChoice {
         // Leaves units in original state
-        let! powerUnit = rfSource.Query ":UNIT:POW?"
-        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> rfSource.Query 
+        let! powerUnit = ":UNIT:POW?" |> Visa.queryInstrument rfSource
+        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryInstrument rfSource 
         return parseAmplitudeInDbm response }
 
     let setAmplitudeSeq key = setValue (csvSeqString amplitudeString) key 
-    let queryAmplitudeSeq key (RfSource rfSource) = async {
-        let! powerUnit = rfSource.Query ":UNIT:POW?"
-        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> rfSource.Query
+    let queryAmplitudeSeq key (RfSource rfSource) = asyncChoice {
+        let! powerUnit = ":UNIT:POW?" |> Visa.queryInstrument rfSource
+        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryInstrument rfSource
         return parseCsvSeq parseAmplitudeInDbm <| response }
 
     let setDuration = setValue durationString 
@@ -106,4 +148,3 @@ module internal IO =
     let queryWaveform = queryValue parseWaveformId
     let setWaveformSeq key = setValue (csvSeqString waveformIdString) key
     let queryWaveformSeq = queryValue (parseCsvSeq parseWaveformId)
-
