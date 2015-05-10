@@ -40,7 +40,7 @@ module internal IO =
         | "N5172B" -> succeed ()
         | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
 
-    let verifyIdentiy rfSource = asyncChoice {
+    let verifyIdentity rfSource = asyncChoice {
         let! identity = tryQueryIdentity rfSource
         do! verifyModelNumber (identity.ModelNumber) }
 

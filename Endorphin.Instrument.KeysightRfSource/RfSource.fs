@@ -7,7 +7,7 @@ open Endorphin.Core.NationalInstruments
 module RfSource =
     let openInstrument visaAddress timeout = asyncChoice { 
         let rfSource = RfSource <| Visa.openInstrument visaAddress timeout 
-        do! IO.verifyIdentiy rfSource
+        do! IO.verifyIdentity rfSource
         let! __ = IO.queryErrorQueue rfSource // clear the error queue before doing anything
         return rfSource }
 
