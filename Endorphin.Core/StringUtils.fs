@@ -35,3 +35,7 @@ module StringUtils =
         | "0" -> Some false
         | "1" -> Some true
         | _ -> None
+
+    let upperCase (str : string) = str.ToUpper() 
+    let parseCsvSeq parseFunc (str :string) = (str.Split [|','|]) |> Array.toSeq |> Seq.map parseFunc
+    let csvSeqString stringFunc seq = String.Join(",", Seq.map stringFunc seq)

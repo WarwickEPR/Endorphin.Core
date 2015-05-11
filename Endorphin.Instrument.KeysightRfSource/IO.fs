@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open ExtCore.Control
+open Endorphin.Core.StringUtils
 open Endorphin.Core.NationalInstruments
 
 [<RequireQualifiedAccess>]

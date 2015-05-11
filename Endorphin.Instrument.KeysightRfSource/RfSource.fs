@@ -226,18 +226,41 @@ module RfSource =
             let queryWaveformsCount = IO.queryInt waveformsCountKey
 
         module Trigger =
-            let private sourceTypeKey = ":LIST:TRIGGER:SOURCE"
+            let private immediateKey = ":TRIGGER"
+            let immediate = IO.postCommand immediateKey
+
+            let private sourceTypeKey = ":TRIGGER:SOURCE"
             let setSourceType = IO.setTriggerSourceType sourceTypeKey
             let querySourceType = IO.queryTriggerSourceType sourceTypeKey
 
-            let private externalSourceKey = ":LIST:EXTERNAL:TRIGGER:SOURCE"
+            let private externalSourceKey = ":TRIGGER:EXTERNAL:SOURCE"
             let setExternalSource = IO.setExternalTriggerSource externalSourceKey
             let queryExternalSource = IO.queryExternalTriggerSource externalSourceKey
 
-            let private externalSlopePolarityKey = ":LIST:TRIGGER:SLOPE"
+            let private externalSlopePolarityKey = ":TRIGGER:SLOPE"
             let setExternalSlopePolarity = IO.setPolarity externalSlopePolarityKey
             let queryExternalSlopePolarity = IO.queryPolarity externalSlopePolarityKey
 
-            let private internalSourceKey = ":LIST:INTERNAL:TRIGGER:SOURCE"
+            let private internalSourceKey = ":TRIGGER:INTERNAL:SOURCE"
             let setInternalSource = IO.setInternalTriggerSource internalSourceKey
             let queryInternalSource = IO.queryInternalTriggerSource internalSourceKey
+
+            let private timerPeriodKey = ":TRIGGER:TIMER"
+            let setTimerPeriod = IO.setDuration timerPeriodKey
+            let queryTimerPeriod = IO.queryDuration timerPeriodKey
+
+            let setTriggerSource triggerSource rfSource = asyncChoice {
+                match triggerSource with
+                | Immediate  -> do! setSourceType rfSource ImmediateType
+                | TriggerKey -> do! setSourceType rfSource TriggerKeyType
+                | Bus        -> do! setSourceType rfSource BusType
+                | External (source, polarity) ->
+                    do! setSourceType rfSource ExternalType
+                    do! setExternalSource rfSource source
+                    do! setExternalSlopePolarity rfSource polarity
+                | Internal source ->
+                    do! setSourceType rfSource InternalType
+                    do! setInternalSource rfSource source
+                | Timer period ->
+                    do! setSourceType rfSource TimerType
+                    do! setTimerPeriod rfSource period }
