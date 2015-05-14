@@ -27,81 +27,81 @@ module RfSource =
         
     module AmplitudeModulation =
         let private stateKey path = sprintf ":AM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForModulationPath IO.setOnOffState stateKey
-        let queryState = IO.queryValueForModulationPath IO.queryOnOffState stateKey
+        let setState = IO.setValueForDerivedPath IO.setOnOffState stateKey
+        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
 
         let private typeKey path = sprintf ":AM%s:TYPE" (modulationPathString path)
-        let setType = IO.setValueForModulationPath IO.setAmplitudeModulationType typeKey
-        let queryType = IO.queryValueForModulationPath IO.queryAmplitudeModulationType typeKey
+        let setType = IO.setValueForDerivedPath IO.setAmplitudeModulationType typeKey
+        let queryType = IO.queryValueForDerivedPath IO.queryAmplitudeModulationType typeKey
 
         let private depthLinearKey path = sprintf ":AM%s:DEPTH" (modulationPathString path)
-        let setDepthLinear = IO.setValueForModulationPath IO.setPercentage depthLinearKey
-        let queryDepthLinear = IO.queryValueForModulationPath IO.queryPercentage depthLinearKey
+        let setDepthLinear = IO.setValueForDerivedPath IO.setPercentage depthLinearKey
+        let queryDepthLinear = IO.queryValueForDerivedPath IO.queryPercentage depthLinearKey
 
         let private depthExponentialKey path = sprintf ":AM%s:DEPTH:EXPONENTIAL" (modulationPathString path)
-        let setDepthExponential = IO.setValueForModulationPath IO.setDecibelRatio depthExponentialKey
-        let queryDepthExponential = IO.queryValueForModulationPath IO.queryDecibelRatio depthExponentialKey
+        let setDepthExponential = IO.setValueForDerivedPath IO.setDecibelRatio depthExponentialKey
+        let queryDepthExponential = IO.queryValueForDerivedPath IO.queryDecibelRatio depthExponentialKey
 
         let private sourceKey path = sprintf ":AM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForModulationPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForModulationPath IO.queryModulationSource sourceKey
+        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
+        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
 
         module External =
             let private couplingKey path = sprintf ":AM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForModulationPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForModulationPath IO.queryCoupling couplingKey
+            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
+            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
 
             let private impedanceKey path = sprintf ":AM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForModulationPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForModulationPath IO.queryImpedance impedanceKey
+            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
+            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
 
         module Internal =
             let private frequencyKey path = sprintf ":AM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForModulationPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForModulationPath IO.queryFrequency frequencyKey
+            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
+            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
 
             let private functionShapeKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForModulationPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForModulationPath IO.queryFunctionShape functionShapeKey
+            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
+            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
 
             let private rampPolarityKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForModulationPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForModulationPath IO.queryPolarity rampPolarityKey
+            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
+            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
 
     module FrequencyModulation =
         let private stateKey path = sprintf ":FM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForModulationPath  IO.setOnOffState stateKey
-        let queryState = IO.queryValueForModulationPath IO.queryOnOffState stateKey
+        let setState = IO.setValueForDerivedPath  IO.setOnOffState stateKey
+        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
 
         let private sourceKey path = sprintf ":FM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForModulationPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForModulationPath IO.queryModulationSource sourceKey
+        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
+        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
 
         let private deviationKey path = sprintf ":FM%s:DEVIATION" (modulationPathString path)
-        let setDeviation = IO.setValueForModulationPath IO.setFrequency deviationKey
-        let queryDeviation = IO.queryValueForModulationPath IO.queryFrequency deviationKey
+        let setDeviation = IO.setValueForDerivedPath IO.setFrequency deviationKey
+        let queryDeviation = IO.queryValueForDerivedPath IO.queryFrequency deviationKey
 
         module External =
             let private couplingKey path = sprintf ":FM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForModulationPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForModulationPath IO.queryCoupling couplingKey
+            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
+            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
 
             let private impedanceKey path = sprintf ":FM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForModulationPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForModulationPath IO.queryImpedance impedanceKey
+            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
+            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
 
         module Internal =
             let private frequencyKey path = sprintf ":FM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForModulationPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForModulationPath IO.queryFrequency frequencyKey
+            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
+            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
 
             let private functionShapeKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForModulationPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForModulationPath IO.queryFunctionShape functionShapeKey
+            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
+            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
 
             let private rampPolarityKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForModulationPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForModulationPath IO.queryPolarity rampPolarityKey
+            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
+            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
 
     module Frequency =
         let private cwFrequencyKey = ":FREQUENCY"

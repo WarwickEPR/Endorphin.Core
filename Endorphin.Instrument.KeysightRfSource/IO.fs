@@ -58,11 +58,11 @@ module internal IO =
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
 
-    let setValueForModulationPath (setFunc : string -> RfSource -> 'a -> AsyncChoice<unit, string>) (keyFunc : ModulationPath -> string) rfSource path =
+    let setValueForDerivedPath (setFunc : string -> RfSource -> 'a -> AsyncChoice<unit, string>) (keyFunc : 'b -> string) rfSource path =
         setFunc (keyFunc path) rfSource
 
-    let queryValueForModulationPath (queryFunc : string -> RfSource -> 'a) (keyFunc : ModulationPath -> string) rfSource path =
-        queryFunc (keyFunc path) rfSource            
+    let queryValueForDerivedPath (queryFunc : string -> RfSource -> 'a) (keyFunc : 'b -> string) rfSource path =
+        queryFunc (keyFunc path) rfSource
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
