@@ -249,7 +249,7 @@ module RfSource =
             let setTimerPeriod = IO.setDuration timerPeriodKey
             let queryTimerPeriod = IO.queryDuration timerPeriodKey
 
-            let setTriggerSource triggerSource rfSource = asyncChoice {
+            let setTriggerSource rfSource triggerSource = asyncChoice {
                 match triggerSource with
                 | Immediate  -> do! setSourceType rfSource ImmediateType
                 | TriggerKey -> do! setSourceType rfSource TriggerKeyType
