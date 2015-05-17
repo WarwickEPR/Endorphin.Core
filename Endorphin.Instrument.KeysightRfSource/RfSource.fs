@@ -170,6 +170,40 @@ module RfSource =
         let setPointsCount = IO.setInt pointsCountKey
         let queryPointsCount = IO.queryInt pointsCountKey
 
+        let private stepSizeLinearKey = ":SWEEP:FREQUENCY:STEP:LINEAR"
+        let private stepSizeLogarithmicKey = ":SWEEP:FREQUENCY:STEP:LOGARITHMIC"
+        let setStepSize rfSource stepSize = asyncChoice {
+            match stepSize with
+            | LinearStep size ->
+                do! setStepSpacing rfSource LinearStepSpacing
+                do! IO.setFrequency stepSizeLinearKey rfSource size
+            | LogarithmicStep size ->
+                do! setStepSpacing rfSource LogarithmicStepSpacing
+                do! IO.setPercentage stepSizeLogarithmicKey rfSource size }
+        let queryStepSize rfSource = asyncChoice {
+            let! spacing = queryStepSpacing rfSource
+            match spacing with
+            | LinearStepSpacing ->
+               let! size = IO.queryFrequency stepSizeLinearKey rfSource
+               return LinearStep size
+            | LogarithmicStepSpacing ->
+               let! size = IO.queryPercentage stepSizeLogarithmicKey rfSource
+               return LogarithmicStep size }
+
+        let setFrequencySweep rfSource frequencySweep = asyncChoice {
+            match frequencySweep with
+            | FixedFrequency f -> do! Frequency.setCwFrequency rfSource f
+            | FrequencySweep sweep ->
+                do! Frequency.setStartFrequency rfSource sweep.Begin
+                do! Frequency.setStopFrequency rfSource sweep.End }
+
+        let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
+            match amplitudeSweep with
+            | FixedAmplitude a -> do! Amplitude.setCwAmplitude rfSource a
+            | AmplitudeSweep sweep ->
+                do! Amplitude.setStartAmplitude rfSource sweep.Begin
+                do! Amplitude.setStopAmplitude rfSource sweep.End }
+
         let private continuousModeKey = ":INITIATE:CONTINUOUS"
         let setContinousMode = IO.setOnOffState continuousModeKey
         let queryContinuousMode = IO.queryOnOffState continuousModeKey
@@ -179,6 +213,46 @@ module RfSource =
 
         let private rearmSingleKey = ":INITIATE"
         let rearmSingle = IO.postCommand rearmSingleKey
+
+        module Trigger =
+            let private immediateKey = ":TRIGGER"
+            let immediate = IO.postCommand immediateKey
+
+            let private sourceTypeKey trigger = sprintf "%s:TRIGGER:SOURCE" (triggerTypePrefix trigger)
+            let setSourceType = IO.setValueForDerivedPath IO.setTriggerSourceType sourceTypeKey
+            let querySourceType = IO.queryValueForDerivedPath IO.queryTriggerSourceType sourceTypeKey
+
+            let private externalSourceKey trigger = sprintf "%s:TRIGGER:EXTERNAL:SOURCE" (triggerTypePrefix trigger)
+            let setExternalSource = IO.setValueForDerivedPath IO.setExternalTriggerSource externalSourceKey
+            let queryExternalSource = IO.queryValueForDerivedPath IO.queryExternalTriggerSource externalSourceKey
+
+            let private externalSlopePolarityKey trigger = sprintf "%s:TRIGGER:SLOPE" (triggerTypePrefix trigger)
+            let setExternalSlopePolarity = IO.setValueForDerivedPath IO.setPolarity externalSlopePolarityKey
+            let queryExternalSlopePolarity = IO.queryValueForDerivedPath IO.queryPolarity externalSlopePolarityKey
+
+            let private internalSourceKey trigger = sprintf "%s:TRIGGER:INTERNAL:SOURCE" (triggerTypePrefix trigger)
+            let setInternalSource = IO.setValueForDerivedPath IO.setInternalTriggerSource internalSourceKey
+            let queryInternalSource = IO.queryValueForDerivedPath IO.queryInternalTriggerSource internalSourceKey
+
+            let private timerPeriodKey trigger = sprintf "%s:TRIGGER:TIMER" (triggerTypePrefix trigger)
+            let setTimerPeriod = IO.setValueForDerivedPath IO.setDuration timerPeriodKey
+            let queryTimerPeriod = IO.queryValueForDerivedPath IO.queryDuration timerPeriodKey
+
+            let setTriggerSource rfSource trigger triggerSource = asyncChoice {
+                match triggerSource with
+                | Immediate  -> do! setSourceType rfSource trigger ImmediateType
+                | TriggerKey -> do! setSourceType rfSource trigger TriggerKeyType
+                | Bus        -> do! setSourceType rfSource trigger BusType
+                | External (source, polarity) ->
+                    do! setSourceType rfSource trigger ExternalType
+                    do! setExternalSource rfSource trigger source
+                    do! setExternalSlopePolarity rfSource trigger polarity
+                | Internal source ->
+                    do! setSourceType rfSource trigger InternalType
+                    do! setInternalSource rfSource trigger source
+                | Timer period ->
+                    do! setSourceType rfSource trigger TimerType
+                    do! setTimerPeriod rfSource trigger period }
 
         module List =
             let private typeKey = ":LIST:TYPE"
@@ -225,42 +299,20 @@ module RfSource =
             let private waveformsCountKey = ":LIST:WAVEFORM:POINTS"
             let queryWaveformsCount = IO.queryInt waveformsCountKey
 
-        module Trigger =
-            let private immediateKey = ":TRIGGER"
-            let immediate = IO.postCommand immediateKey
+        let setSweepOptions rfSource options = asyncChoice {
+            do! setDirection rfSource options.Direction
+            do! Trigger.setTriggerSource rfSource StepTrigger options.StepTrigger
+            do! Trigger.setTriggerSource rfSource ListTrigger options.ListTrigger
+            match options.DwellTime with
+             | Some t -> do! setDwellTime rfSource t
+             | None   -> if options.ListTrigger == Immediate
+                         then return! fail "Dwell time required for free-running, immediate trigger sweep through a list of points"
+        }
 
-            let private sourceTypeKey = ":TRIGGER:SOURCE"
-            let setSourceType = IO.setTriggerSourceType sourceTypeKey
-            let querySourceType = IO.queryTriggerSourceType sourceTypeKey
+        let setStepSweep rfSource (stepSweep : StepSweep) = asyncChoice {
+            do! setFrequencySweep rfSource stepSweep.Frequency
+            do! setAmplitudeSweep rfSource stepSweep.Amplitude
+            do! setPointsCount rfSource stepSweep.Points
+            do! setStepSpacing rfSource stepSweep.Spacing
+            do! setSweepOptions rfSource stepSweep.Options}
 
-            let private externalSourceKey = ":TRIGGER:EXTERNAL:SOURCE"
-            let setExternalSource = IO.setExternalTriggerSource externalSourceKey
-            let queryExternalSource = IO.queryExternalTriggerSource externalSourceKey
-
-            let private externalSlopePolarityKey = ":TRIGGER:SLOPE"
-            let setExternalSlopePolarity = IO.setPolarity externalSlopePolarityKey
-            let queryExternalSlopePolarity = IO.queryPolarity externalSlopePolarityKey
-
-            let private internalSourceKey = ":TRIGGER:INTERNAL:SOURCE"
-            let setInternalSource = IO.setInternalTriggerSource internalSourceKey
-            let queryInternalSource = IO.queryInternalTriggerSource internalSourceKey
-
-            let private timerPeriodKey = ":TRIGGER:TIMER"
-            let setTimerPeriod = IO.setDuration timerPeriodKey
-            let queryTimerPeriod = IO.queryDuration timerPeriodKey
-
-            let setTriggerSource rfSource triggerSource = asyncChoice {
-                match triggerSource with
-                | Immediate  -> do! setSourceType rfSource ImmediateType
-                | TriggerKey -> do! setSourceType rfSource TriggerKeyType
-                | Bus        -> do! setSourceType rfSource BusType
-                | External (source, polarity) ->
-                    do! setSourceType rfSource ExternalType
-                    do! setExternalSource rfSource source
-                    do! setExternalSlopePolarity rfSource polarity
-                | Internal source ->
-                    do! setSourceType rfSource InternalType
-                    do! setInternalSource rfSource source
-                | Timer period ->
-                    do! setSourceType rfSource TimerType
-                    do! setTimerPeriod rfSource period }

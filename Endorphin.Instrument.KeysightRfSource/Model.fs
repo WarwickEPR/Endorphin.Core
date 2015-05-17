@@ -231,6 +231,11 @@ module Model =
             | Internal of source : InternalTriggerSource
             | Timer of period : Duration
 
+    type TriggerType = StepTrigger | ListTrigger
+    let triggerTypePrefix = function
+        | StepTrigger -> ""
+        | ListTrigger -> ":LIST"
+
     [<AutoOpen>]
     module Modulation =
         type FunctionShapeType =
@@ -341,18 +346,22 @@ module Model =
             | Fixed -> "FIX"
             | Swept -> "LIST"
 
-        type StepSpacing = LinearStep | LogarithmicStep
+        type StepSpacing = LinearStepSpacing | LogarithmicStepSpacing
 
         let internal parseStepSpacing str =
             match upperCase str with
-            | "LIN" | "LINEAR"      -> LinearStep
-            | "LOG" | "LOGARITHMIC" -> LogarithmicStep
+            | "LIN" | "LINEAR"      -> LinearStepSpacing
+            | "LOG" | "LOGARITHMIC" -> LogarithmicStepSpacing
             | _                     -> failwithf "Unexpected step spacing string: %s." str
     
         let internal stepSpacingString =
             function
-            | LinearStep      -> "LIN"
-            | LogarithmicStep -> "LOG"
+            | LinearStepSpacing      -> "LIN"
+            | LogarithmicStepSpacing -> "LOG"
+
+        type StepSize =
+        | LinearStep of size : Frequency
+        | LogarithmicStep of size : Percentage
 
         type SweepType = List | Step
 
@@ -366,3 +375,69 @@ module Model =
             function
             | List -> "LIST"
             | Step -> "STEP"
+
+        type Range<'T> = { Begin : 'T; End : 'T }
+        let internal range a b =
+           if (a <= b) then { Range.Begin=a ; End=b }
+                       else { Range.Begin=b ; End=a }
+        let internal directionOfRange a b = if (a <= b) then Up else Down
+
+        type FrequencySweep =
+            | FrequencySweep of range : Range<Frequency>
+            | FixedFrequency of frequency : Frequency
+
+        type AmplitudeSweep =
+            | AmplitudeSweep of range : Range<Amplitude>
+            | FixedAmplitude of amplitude : Amplitude
+
+        type SweepOptions = {
+            Direction : Direction
+            StepTrigger : TriggerSource
+            ListTrigger : TriggerSource
+            DwellTime : Duration option
+            Retrace : OnOffState
+            AttentuationProtection : OnOffState }
+
+        type StepSweep = {
+            Frequency : FrequencySweep
+            Amplitude : AmplitudeSweep
+            Points : int
+            Spacing : StepSpacing
+            Options : SweepOptions }
+
+        let fixedPowerInDbm power = FixedAmplitude <| PowerInDbm power
+        let fixedFrequencyInHz frequency = FixedFrequency <| FrequencyInHz frequency
+        let frequencySweepInHz a b = FrequencySweep <| range (FrequencyInHz a) (FrequencyInHz b)
+        let powerSweepInDbm a b = AmplitudeSweep <| range (PowerInDbm a) (PowerInDbm b)
+
+        // Taking defaults from the documented *RST values
+        let defaultStepSweep = { Frequency = fixedFrequencyInHz 1e9<Hz>
+                                 Amplitude = fixedPowerInDbm -110.0<dBm>
+                                 Points = 101
+                                 Spacing = LinearStepSpacing
+                                 Options = { Direction = Up
+                                             StepTrigger = Immediate
+                                             ListTrigger = Immediate
+                                             DwellTime = Some ( DurationInSec 2e-3<s> )
+                                             Retrace = On
+                                             AttentuationProtection = On}}
+
+        let withPoints points config = { config with Points = points }
+        let withSpacing spacing config = { config with Spacing = spacing }
+        let withDirection direction config = { config with Options = { config.Options with Direction = direction } }
+        let withDwellTime time config = { config with Options = { config.Options with DwellTime = time } }
+        let withStepTrigger trigger config = { config with Options = { config.Options with StepTrigger = trigger } }
+        let withListTrigger trigger config = { config with Options = { config.Options with ListTrigger = trigger } }
+        let withRetrace state config = { config with Options = { config.Options with Retrace = state } }
+        let withAttenuationProtection state config = { config with Options = { config.Options with AttentuationProtection = state } }        
+
+        let frequencyStepSweepInHz start finish points dwellTime =
+            { defaultStepSweep with Points = points; Frequency = frequencySweepInHz start finish }
+            |> withDwellTime (Some (DurationInSec dwellTime))
+            |> withDirection (directionOfRange start finish)
+
+        let powerStepSweepInDbm start finish points dwellTime =
+            { defaultStepSweep with Points = points; Amplitude = powerSweepInDbm start finish }
+            |> withDwellTime (Some (DurationInSec dwellTime))
+            |> withDirection (directionOfRange start finish)
+
