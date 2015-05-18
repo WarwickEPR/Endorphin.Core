@@ -231,10 +231,10 @@ module Model =
             | Internal of source : InternalTriggerSource
             | Timer of period : Duration
 
-    type TriggerType = StepTrigger | ListTrigger
-    let triggerTypePrefix = function
-        | StepTrigger -> ""
-        | ListTrigger -> ":LIST"
+        type TriggerType = StepTrigger | ListTrigger
+        let triggerTypePrefix = function
+            | StepTrigger -> ""
+            | ListTrigger -> ":LIST"
 
     [<AutoOpen>]
     module Modulation =
