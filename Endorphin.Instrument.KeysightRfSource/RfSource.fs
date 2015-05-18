@@ -178,15 +178,15 @@ module RfSource =
             match frequencySweep with
             | FixedFrequency f -> do! Frequency.setCwFrequency rfSource f
             | FrequencySweep sweep ->
-                do! Frequency.setStartFrequency rfSource sweep.Begin
-                do! Frequency.setStopFrequency rfSource sweep.End }
+                do! Frequency.setStartFrequency rfSource sweep.Start
+                do! Frequency.setStopFrequency rfSource sweep.Stop }
 
         let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
             match amplitudeSweep with
             | FixedAmplitude a -> do! Amplitude.setCwAmplitude rfSource a
             | AmplitudeSweep sweep ->
-                do! Amplitude.setStartAmplitude rfSource sweep.Begin
-                do! Amplitude.setStopAmplitude rfSource sweep.End }
+                do! Amplitude.setStartAmplitude rfSource sweep.Start
+                do! Amplitude.setStopAmplitude rfSource sweep.Stop }
 
         let private continuousModeKey = ":INITIATE:CONTINUOUS"
         let setContinousMode = IO.setOnOffState continuousModeKey

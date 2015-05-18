@@ -372,11 +372,9 @@ module Model =
             | List -> "LIST"
             | Step -> "STEP"
 
-        type Range<'T> = { Begin : 'T; End : 'T }
-        let internal range a b =
-           if (a <= b) then { Range.Begin=a ; End=b }
-                       else { Range.Begin=b ; End=a }
-        let internal directionOfRange a b = if (a <= b) then Up else Down
+        // Sweep ranges can be in both directions. Direction toggles whether start or end comes first.
+        type Range<'T> = { Start : 'T; Stop : 'T }
+        let range a b = { Range.Start=a ; Range.Stop=b }
 
         type FrequencySweep =
             | FrequencySweep of range : Range<Frequency>
@@ -430,10 +428,8 @@ module Model =
         let frequencyStepSweepInHz start finish points dwellTime =
             { defaultStepSweep with Points = points; Frequency = frequencySweepInHz start finish }
             |> withDwellTime (Some (DurationInSec dwellTime))
-            |> withDirection (directionOfRange start finish)
 
         let powerStepSweepInDbm start finish points dwellTime =
             { defaultStepSweep with Points = points; Amplitude = powerSweepInDbm start finish }
             |> withDwellTime (Some (DurationInSec dwellTime))
-            |> withDirection (directionOfRange start finish)
 
