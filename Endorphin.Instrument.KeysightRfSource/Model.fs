@@ -359,10 +359,6 @@ module Model =
             | LinearStepSpacing      -> "LIN"
             | LogarithmicStepSpacing -> "LOG"
 
-        type StepSize =
-        | LinearStep of size : Frequency
-        | LogarithmicStep of size : Percentage
-
         type SweepType = List | Step
 
         let internal parseSweepType str =

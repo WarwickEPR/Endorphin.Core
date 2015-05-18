@@ -174,26 +174,6 @@ module RfSource =
         let setAttenuationProtection = IO.setOnOffState attenuationProtectionKey
         let queryAttenuationProtection = IO.queryOnOffState attenuationProtectionKey
 
-        let private stepSizeLinearKey = ":SWEEP:FREQUENCY:STEP:LINEAR"
-        let private stepSizeLogarithmicKey = ":SWEEP:FREQUENCY:STEP:LOGARITHMIC"
-        let setStepSize rfSource stepSize = asyncChoice {
-            match stepSize with
-            | LinearStep size ->
-                do! setStepSpacing rfSource LinearStepSpacing
-                do! IO.setFrequency stepSizeLinearKey rfSource size
-            | LogarithmicStep size ->
-                do! setStepSpacing rfSource LogarithmicStepSpacing
-                do! IO.setPercentage stepSizeLogarithmicKey rfSource size }
-        let queryStepSize rfSource = asyncChoice {
-            let! spacing = queryStepSpacing rfSource
-            match spacing with
-            | LinearStepSpacing ->
-               let! size = IO.queryFrequency stepSizeLinearKey rfSource
-               return LinearStep size
-            | LogarithmicStepSpacing ->
-               let! size = IO.queryPercentage stepSizeLogarithmicKey rfSource
-               return LogarithmicStep size }
-
         let setFrequencySweep rfSource frequencySweep = asyncChoice {
             match frequencySweep with
             | FixedFrequency f -> do! Frequency.setCwFrequency rfSource f
