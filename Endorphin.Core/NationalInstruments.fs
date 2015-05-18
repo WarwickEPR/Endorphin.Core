@@ -111,8 +111,9 @@ module NationalInstruments =
                     | ReadString replyChannel ->
                         "Reading string." |> log.Debug
                         let! response = instrument.ReadAsync()
-                        Choice.map trimEnd response |> replyChannel.Reply
-                        sprintf "Received string response: \"%A\"" response |> log.Debug
+                        let trimmedResponse = Choice.map trimEnd response
+                        trimmedResponse |> replyChannel.Reply
+                        sprintf "Received string response: \"%A\"" trimmedResponse |> log.Debug
                     
                         match response with
                         | Success _     -> return! loop instrument
@@ -129,8 +130,9 @@ module NationalInstruments =
                     | QueryString (visaCommand, replyChannel) ->
                         sprintf "Query with string: \"%s\"" visaCommand |> log.Debug
                         let! response = instrument.QueryAsync visaCommand
-                        Choice.map trimEnd response |> replyChannel.Reply
-                        sprintf "Received string response: \"%A\"" response |> log.Debug
+                        let trimmedResponse = Choice.map trimEnd response
+                        trimmedResponse |> replyChannel.Reply
+                        sprintf "Received string response: \"%A\"" trimmedResponse |> log.Debug
                     
                         match response with
                         | Success _     -> return! loop instrument
