@@ -170,6 +170,10 @@ module RfSource =
         let setPointsCount = IO.setInt pointsCountKey
         let queryPointsCount = IO.queryInt pointsCountKey
 
+        let private attenuationProtectionKey = ":SWEEP:ATTEN:PROTECTION"
+        let setAttenuationProtection = IO.setOnOffState attenuationProtectionKey
+        let queryAttenuationProtection = IO.queryOnOffState attenuationProtectionKey
+
         let private stepSizeLinearKey = ":SWEEP:FREQUENCY:STEP:LINEAR"
         let private stepSizeLogarithmicKey = ":SWEEP:FREQUENCY:STEP:LOGARITHMIC"
         let setStepSize rfSource stepSize = asyncChoice {
@@ -299,7 +303,7 @@ module RfSource =
             let private waveformsCountKey = ":LIST:WAVEFORM:POINTS"
             let queryWaveformsCount = IO.queryInt waveformsCountKey
 
-        let setSweepOptions rfSource options = asyncChoice {
+        let private setSweepOptions rfSource options = asyncChoice {
             do! setDirection rfSource options.Direction
             do! Trigger.setTriggerSource rfSource StepTrigger options.StepTrigger
             do! Trigger.setTriggerSource rfSource ListTrigger options.ListTrigger
@@ -307,7 +311,8 @@ module RfSource =
              | Some t -> do! setDwellTime rfSource t
              | None   -> if options.ListTrigger == Immediate
                          then return! fail "Dwell time required for free-running, immediate trigger sweep through a list of points"
-        }
+            do! List.setRetrace rfSource options.Retrace 
+            do! setAttenuationProtection rfSource options.AttentuationProtection }
 
         let setStepSweep rfSource (stepSweep : StepSweep) = asyncChoice {
             do! setFrequencySweep rfSource stepSweep.Frequency
@@ -315,4 +320,3 @@ module RfSource =
             do! setPointsCount rfSource stepSweep.Points
             do! setStepSpacing rfSource stepSweep.Spacing
             do! setSweepOptions rfSource stepSweep.Options}
-
