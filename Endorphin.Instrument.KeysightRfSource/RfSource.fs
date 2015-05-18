@@ -248,7 +248,7 @@ module RfSource =
             let queryDwellTimes = IO.queryDurationSeq dwellTimesKey
 
             let private dwellTimesCountKey = ":LIST:DWELL:POINTS"
-            let queryDweelTimesCount = IO.queryInt dwellTimesCountKey
+            let queryDwellTimesCount = IO.queryInt dwellTimesCountKey
 
             let private dwellTypeKey = ":LIST:DWELL:TYPE"
             let setDwellType = IO.setSweepMode dwellTypeKey
