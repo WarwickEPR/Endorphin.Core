@@ -390,7 +390,8 @@ module Model =
             ListTrigger : TriggerSource
             DwellTime : Duration option
             Retrace : OnOffState
-            AttentuationProtection : OnOffState }
+            AttentuationProtection : OnOffState
+            Mode : AutoManualState }
 
         type StepSweep = {
             Frequency : FrequencySweep
@@ -414,7 +415,8 @@ module Model =
                                              ListTrigger = Immediate
                                              DwellTime = Some ( DurationInSec 2e-3<s> )
                                              Retrace = On
-                                             AttentuationProtection = On}}
+                                             AttentuationProtection = On
+                                             Mode = Auto }}
 
         let withPoints points config = { config with Points = points }
         let withSpacing spacing config = { config with Spacing = spacing }
@@ -423,13 +425,10 @@ module Model =
         let withStepTrigger trigger config = { config with Options = { config.Options with StepTrigger = trigger } }
         let withListTrigger trigger config = { config with Options = { config.Options with ListTrigger = trigger } }
         let withRetrace state config = { config with Options = { config.Options with Retrace = state } }
-        let withAttenuationProtection state config = { config with Options = { config.Options with AttentuationProtection = state } }        
+        let withAttenuationProtection state config = { config with Options = { config.Options with AttentuationProtection = state } }
+        let withFixedPowerInDbm power config = { config with StepSweep.Amplitude = fixedPowerInDbm power }
+        let withFixedFrequencyInHz frequency config = { config with StepSweep.Frequency = fixedFrequencyInHz frequency }
 
-        let frequencyStepSweepInHz start finish points dwellTime =
-            { defaultStepSweep with Points = points; Frequency = frequencySweepInHz start finish }
-            |> withDwellTime (Some (DurationInSec dwellTime))
-
-        let powerStepSweepInDbm start finish points dwellTime =
-            { defaultStepSweep with Points = points; Amplitude = powerSweepInDbm start finish }
-            |> withDwellTime (Some (DurationInSec dwellTime))
+        let frequencyStepSweepInHz start finish = { defaultStepSweep with Frequency = frequencySweepInHz start finish }
+        let powerStepSweepInDbm start finish = { defaultStepSweep with Amplitude = powerSweepInDbm start finish }
 
