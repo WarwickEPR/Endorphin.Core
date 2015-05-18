@@ -27,81 +27,81 @@ module RfSource =
         
     module AmplitudeModulation =
         let private stateKey path = sprintf ":AM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForModulationPath IO.setOnOffState stateKey
-        let queryState = IO.queryValueForModulationPath IO.queryOnOffState stateKey
+        let setState = IO.setValueForDerivedPath IO.setOnOffState stateKey
+        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
 
         let private typeKey path = sprintf ":AM%s:TYPE" (modulationPathString path)
-        let setType = IO.setValueForModulationPath IO.setAmplitudeModulationType typeKey
-        let queryType = IO.queryValueForModulationPath IO.queryAmplitudeModulationType typeKey
+        let setType = IO.setValueForDerivedPath IO.setAmplitudeModulationType typeKey
+        let queryType = IO.queryValueForDerivedPath IO.queryAmplitudeModulationType typeKey
 
         let private depthLinearKey path = sprintf ":AM%s:DEPTH" (modulationPathString path)
-        let setDepthLinear = IO.setValueForModulationPath IO.setPercentage depthLinearKey
-        let queryDepthLinear = IO.queryValueForModulationPath IO.queryPercentage depthLinearKey
+        let setDepthLinear = IO.setValueForDerivedPath IO.setPercentage depthLinearKey
+        let queryDepthLinear = IO.queryValueForDerivedPath IO.queryPercentage depthLinearKey
 
         let private depthExponentialKey path = sprintf ":AM%s:DEPTH:EXPONENTIAL" (modulationPathString path)
-        let setDepthExponential = IO.setValueForModulationPath IO.setDecibelRatio depthExponentialKey
-        let queryDepthExponential = IO.queryValueForModulationPath IO.queryDecibelRatio depthExponentialKey
+        let setDepthExponential = IO.setValueForDerivedPath IO.setDecibelRatio depthExponentialKey
+        let queryDepthExponential = IO.queryValueForDerivedPath IO.queryDecibelRatio depthExponentialKey
 
         let private sourceKey path = sprintf ":AM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForModulationPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForModulationPath IO.queryModulationSource sourceKey
+        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
+        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
 
         module External =
             let private couplingKey path = sprintf ":AM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForModulationPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForModulationPath IO.queryCoupling couplingKey
+            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
+            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
 
             let private impedanceKey path = sprintf ":AM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForModulationPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForModulationPath IO.queryImpedance impedanceKey
+            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
+            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
 
         module Internal =
             let private frequencyKey path = sprintf ":AM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForModulationPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForModulationPath IO.queryFrequency frequencyKey
+            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
+            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
 
             let private functionShapeKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForModulationPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForModulationPath IO.queryFunctionShape functionShapeKey
+            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
+            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
 
             let private rampPolarityKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForModulationPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForModulationPath IO.queryPolarity rampPolarityKey
+            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
+            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
 
     module FrequencyModulation =
         let private stateKey path = sprintf ":FM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForModulationPath  IO.setOnOffState stateKey
-        let queryState = IO.queryValueForModulationPath IO.queryOnOffState stateKey
+        let setState = IO.setValueForDerivedPath  IO.setOnOffState stateKey
+        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
 
         let private sourceKey path = sprintf ":FM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForModulationPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForModulationPath IO.queryModulationSource sourceKey
+        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
+        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
 
         let private deviationKey path = sprintf ":FM%s:DEVIATION" (modulationPathString path)
-        let setDeviation = IO.setValueForModulationPath IO.setFrequency deviationKey
-        let queryDeviation = IO.queryValueForModulationPath IO.queryFrequency deviationKey
+        let setDeviation = IO.setValueForDerivedPath IO.setFrequency deviationKey
+        let queryDeviation = IO.queryValueForDerivedPath IO.queryFrequency deviationKey
 
         module External =
             let private couplingKey path = sprintf ":FM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForModulationPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForModulationPath IO.queryCoupling couplingKey
+            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
+            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
 
             let private impedanceKey path = sprintf ":FM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForModulationPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForModulationPath IO.queryImpedance impedanceKey
+            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
+            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
 
         module Internal =
             let private frequencyKey path = sprintf ":FM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForModulationPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForModulationPath IO.queryFrequency frequencyKey
+            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
+            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
 
             let private functionShapeKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForModulationPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForModulationPath IO.queryFunctionShape functionShapeKey
+            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
+            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
 
             let private rampPolarityKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForModulationPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForModulationPath IO.queryPolarity rampPolarityKey
+            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
+            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
 
     module Frequency =
         let private cwFrequencyKey = ":FREQUENCY"
@@ -145,52 +145,140 @@ module RfSource =
         let setSweepMode = IO.setSweepMode sweepModeKey
         let querySweepMode = IO.querySweepMode sweepModeKey
 
+    module Trigger =
+        let private sourceTypeKey trigger = sprintf "%s:TRIGGER:SOURCE" (triggerTypePrefix trigger)
+        let setSourceType = IO.setValueForDerivedPath IO.setTriggerSourceType sourceTypeKey
+        let querySourceType = IO.queryValueForDerivedPath IO.queryTriggerSourceType sourceTypeKey
+
+        let private externalSourceKey trigger = sprintf "%s:TRIGGER:EXTERNAL:SOURCE" (triggerTypePrefix trigger)
+        let setExternalSource = IO.setValueForDerivedPath IO.setExternalTriggerSource externalSourceKey
+        let queryExternalSource = IO.queryValueForDerivedPath IO.queryExternalTriggerSource externalSourceKey
+
+        let private externalSlopePolarityKey trigger = sprintf "%s:TRIGGER:SLOPE" (triggerTypePrefix trigger)
+        let setExternalSlopePolarity = IO.setValueForDerivedPath IO.setPolarity externalSlopePolarityKey
+        let queryExternalSlopePolarity = IO.queryValueForDerivedPath IO.queryPolarity externalSlopePolarityKey
+
+        let private internalSourceKey trigger = sprintf "%s:TRIGGER:INTERNAL:SOURCE" (triggerTypePrefix trigger)
+        let setInternalSource = IO.setValueForDerivedPath IO.setInternalTriggerSource internalSourceKey
+        let queryInternalSource = IO.queryValueForDerivedPath IO.queryInternalTriggerSource internalSourceKey
+
+        let private timerPeriodKey trigger = sprintf "%s:TRIGGER:TIMER" (triggerTypePrefix trigger)
+        let setTimerPeriod = IO.setValueForDerivedPath IO.setDuration timerPeriodKey
+        let queryTimerPeriod = IO.queryValueForDerivedPath IO.queryDuration timerPeriodKey
+
+        let setTriggerSource rfSource trigger triggerSource = asyncChoice {
+            match triggerSource with
+            | Immediate  -> do! setSourceType rfSource trigger ImmediateType
+            | TriggerKey -> do! setSourceType rfSource trigger TriggerKeyType
+            | Bus        -> do! setSourceType rfSource trigger BusType
+            | External (source, polarity) ->
+                do! setSourceType rfSource trigger ExternalType
+                do! setExternalSource rfSource trigger source
+                do! setExternalSlopePolarity rfSource trigger polarity
+            | Internal source ->
+                do! setSourceType rfSource trigger InternalType
+                do! setInternalSource rfSource trigger source
+            | Timer period ->
+                do! setSourceType rfSource trigger TimerType
+                do! setTimerPeriod rfSource trigger period }
+
     module Sweep =
-        let private currentPointKey = ":SWEEP:CPOINT"
-        let setCurrentPoint = IO.setInt currentPointKey
-        let queryCurrentPoint = IO.queryInt currentPointKey
+        let private typeKey = ":LIST:TYPE"
+        /// set List or Step sweep
+        let setSweepType = IO.setSweepType typeKey
+        let querySweepType = IO.querySweepType typeKey
 
         let private directionKey = ":LIST:DIRECTION"
+        /// Set direction of sweep from start -> stop for Up and stop -> start for Down
         let setDirection = IO.setDirection directionKey
         let queryDirection = IO.queryDirection directionKey
 
+        let private continuousModeKey = ":INITIATE:CONTINUOUS"
+        /// If On, rearms after each sweep. With immediate triggering, runs continuously
+        let setContinousMode = IO.setOnOffState continuousModeKey
+        let queryContinuousMode = IO.queryOnOffState continuousModeKey
+
         let private modeKey = ":LIST:MODE"
+        /// Sets manual or automatic mode for progressing through points of a sweep
         let setMode = IO.setAutoManualState modeKey
         let queryMode = IO.queryAutoManualState modeKey
 
         let private dwellTimeKey = ":SWEEP:DWELL"
+        /// Sets time to stay at a point once output has settled
         let setDwellTime = IO.setDuration dwellTimeKey
         let queryDwellTime = IO.queryDuration dwellTimeKey
 
-        let private stepSpacingKey = ":SWEEP:SPACING"
-        let setStepSpacing = IO.setStepSpacing stepSpacingKey
-        let queryStepSpacing = IO.queryStepSpacing stepSpacingKey
+        let private attenuationProtectionKey = ":SWEEP:ATTEN:PROTECTION"
+        /// Turns on Atten Hold during sweeps. Off applies a minimum dwell time, but can apply ALC at each point  
+        let setAttenuationProtection = IO.setOnOffState attenuationProtectionKey
+        let queryAttenuationProtection = IO.queryOnOffState attenuationProtectionKey
 
-        let private pointsCountKey = ":SWEEP:POINTS"
-        let setPointsCount = IO.setInt pointsCountKey
-        let queryPointsCount = IO.queryInt pointsCountKey
+        let private retraceKey = ":LIST:RETRACE"
+        /// sets whether to fly back to start at the end of a single sweep
+        let setRetrace = IO.setOnOffState retraceKey
+        let queryRetrace = IO.queryOnOffState retraceKey
 
-        let private continuousModeKey = ":INITIATE:CONTINUOUS"
-        let setContinousMode = IO.setOnOffState continuousModeKey
-        let queryContinuousMode = IO.queryOnOffState continuousModeKey
+        let private setSweepOptions rfSource options = asyncChoice {
+            do! setDirection rfSource options.Direction
+            do! Trigger.setTriggerSource rfSource StepTrigger options.StepTrigger
+            do! Trigger.setTriggerSource rfSource ListTrigger options.ListTrigger
+            match options.DwellTime with
+             | Some t -> do! setDwellTime rfSource t
+             | None   -> if options.ListTrigger == Immediate
+                         then return! fail "Dwell time required for free-running, immediate trigger sweep through a list of points"
+            do! setRetrace rfSource options.Retrace 
+            do! setAttenuationProtection rfSource options.AttentuationProtection
+            do! setMode rfSource options.Mode }
 
-        let private abortKey = ":ABORT"
-        let abort = IO.postCommand abortKey
+        module Step =
+            let private stepSpacingKey = ":SWEEP:SPACING"
+            /// Choose linear or logarithmic spacing for regular step sweep
+            let setStepSpacing = IO.setStepSpacing stepSpacingKey
+            let queryStepSpacing = IO.queryStepSpacing stepSpacingKey
 
-        let private rearmSingleKey = ":INITIATE"
-        let rearmSingle = IO.postCommand rearmSingleKey
+            let private pointsCountKey = ":SWEEP:POINTS"
+            /// Set number of points to have in sweep. 2 to 65535
+            let setPointsCount = IO.setInt pointsCountKey
+            let queryPointsCount = IO.queryInt pointsCountKey
+
+            /// set frequency / frequency range for sweep
+            let setFrequencySweep rfSource frequencySweep = asyncChoice {
+                match frequencySweep with
+                | FixedFrequency f ->
+                    do! Frequency.setCwFrequency rfSource f
+                    do! Frequency.setSweepMode rfSource Fixed
+                | FrequencySweep sweep ->
+                    do! Frequency.setStartFrequency rfSource sweep.Start
+                    do! Frequency.setStopFrequency rfSource sweep.Stop
+                    do! Frequency.setSweepMode rfSource Swept }
+
+            /// set amplitude / amplitude range for sweep
+            let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
+                match amplitudeSweep with
+                | FixedAmplitude a ->
+                    do! Amplitude.setCwAmplitude rfSource a
+                    do! Amplitude.setSweepMode rfSource Fixed
+                | AmplitudeSweep sweep ->
+                    do! Amplitude.setStartAmplitude rfSource sweep.Start
+                    do! Amplitude.setStopAmplitude rfSource sweep.Stop
+                    do! Amplitude.setSweepMode rfSource Swept }
+
+            /// Set up an RF step sweep from a model
+            let setup rfSource (stepSweep : StepSweep) = asyncChoice {
+                do! setFrequencySweep rfSource stepSweep.Frequency
+                do! setAmplitudeSweep rfSource stepSweep.Amplitude
+                do! setPointsCount rfSource stepSweep.Points
+                do! setStepSpacing rfSource stepSweep.Spacing
+                do! setSweepOptions rfSource stepSweep.Options
+                do! setSweepType rfSource Step }
 
         module List =
-            let private typeKey = ":LIST:TYPE"
-            let setType = IO.setSweepType typeKey
-            let queryType = IO.querySweepType typeKey
-
             let private dwellTimesKey = ":LIST:DWELL"
             let setDwellTimes key = IO.setDurationSeq dwellTimesKey key
             let queryDwellTimes = IO.queryDurationSeq dwellTimesKey
 
             let private dwellTimesCountKey = ":LIST:DWELL:POINTS"
-            let queryDweelTimesCount = IO.queryInt dwellTimesCountKey
+            let queryDwellTimesCount = IO.queryInt dwellTimesCountKey
 
             let private dwellTypeKey = ":LIST:DWELL:TYPE"
             let setDwellType = IO.setSweepMode dwellTypeKey
@@ -202,10 +290,6 @@ module RfSource =
 
             let private powersCountKey = ":LIST:POWER:POINTS"
             let queryPowersCount = IO.queryInt powersCountKey
-
-            let private retraceKey = ":LIST:RETRACE"
-            let setRetrace = IO.setOnOffState retraceKey
-            let queryRetrace = IO.queryOnOffState retraceKey
 
             let private frequenciesKey = ":LIST:FREQUENCY"
             let setFrequencies key = IO.setFrequencySeq frequenciesKey key
@@ -225,42 +309,27 @@ module RfSource =
             let private waveformsCountKey = ":LIST:WAVEFORM:POINTS"
             let queryWaveformsCount = IO.queryInt waveformsCountKey
 
-        module Trigger =
+        /// Commands used to control running sweeps
+        module Run = 
+            /// Starts an armed sweep waiting on Bus triggering
+            let busTrigger = IO.postCommand "*TRG"
+            
             let private immediateKey = ":TRIGGER"
+            /// Starts an armed sweep immediately without waiting for selected trigger event
             let immediate = IO.postCommand immediateKey
 
-            let private sourceTypeKey = ":TRIGGER:SOURCE"
-            let setSourceType = IO.setTriggerSourceType sourceTypeKey
-            let querySourceType = IO.queryTriggerSourceType sourceTypeKey
+            let private currentPointKey = ":SWEEP:CPOINT"
+            /// Reports current point in List/Step sequence
+            let queryCurrentPoint = IO.queryInt currentPointKey
 
-            let private externalSourceKey = ":TRIGGER:EXTERNAL:SOURCE"
-            let setExternalSource = IO.setExternalTriggerSource externalSourceKey
-            let queryExternalSource = IO.queryExternalTriggerSource externalSourceKey
+            /// Abort current sweep. In continous mode, arms a new sweep
+            let private abortKey = ":ABORT"
+            let abort = IO.postCommand abortKey
 
-            let private externalSlopePolarityKey = ":TRIGGER:SLOPE"
-            let setExternalSlopePolarity = IO.setPolarity externalSlopePolarityKey
-            let queryExternalSlopePolarity = IO.queryPolarity externalSlopePolarityKey
+            /// Aborts current sweep and rearms. With immediate triggering starts a new sweep
+            let abortAndRearmSingle = IO.postCommand ":TSWEEP"
 
-            let private internalSourceKey = ":TRIGGER:INTERNAL:SOURCE"
-            let setInternalSource = IO.setInternalTriggerSource internalSourceKey
-            let queryInternalSource = IO.queryInternalTriggerSource internalSourceKey
+            let private rearmSingleKey = ":INITIATE"
+            /// Arms a single sweep. In immediate mode, starts immediately
+            let rearmSingle = IO.postCommand rearmSingleKey
 
-            let private timerPeriodKey = ":TRIGGER:TIMER"
-            let setTimerPeriod = IO.setDuration timerPeriodKey
-            let queryTimerPeriod = IO.queryDuration timerPeriodKey
-
-            let setTriggerSource triggerSource rfSource = asyncChoice {
-                match triggerSource with
-                | Immediate  -> do! setSourceType rfSource ImmediateType
-                | TriggerKey -> do! setSourceType rfSource TriggerKeyType
-                | Bus        -> do! setSourceType rfSource BusType
-                | External (source, polarity) ->
-                    do! setSourceType rfSource ExternalType
-                    do! setExternalSource rfSource source
-                    do! setExternalSlopePolarity rfSource polarity
-                | Internal source ->
-                    do! setSourceType rfSource InternalType
-                    do! setInternalSource rfSource source
-                | Timer period ->
-                    do! setSourceType rfSource TimerType
-                    do! setTimerPeriod rfSource period }

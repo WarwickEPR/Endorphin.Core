@@ -20,17 +20,29 @@ let printResult =
     | Success ()    -> printfn "Successfully did things."
     | Failure error -> printfn "Bad things happened: %s" error
 
-asyncChoice {
-    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
-    let! identity = RfSource.queryIdentity keysight
-    printf "%A" identity
+let sweepExperiment startFrequency stopFrequency =
+    asyncChoice {
+        let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
+        let! identity = RfSource.queryIdentity keysight
+        printf "%A" identity
+
+        let sweepSettings =
+            frequencyStepSweepInHz startFrequency stopFrequency
+            |> withPoints 200
+            |> withFixedPowerInDbm -3.0<dBm>
+            |> withDwellTime (Some (DurationInSec 1e-2<s>))   
+
+        printfn "\nSetting up experiment:\n%A" sweepSettings
+        do! RfSource.Sweep.Step.setup keysight sweepSettings
     
-    do! RfSource.setModulationState keysight Off
-    do! RfSource.Frequency.setCwFrequency keysight (FrequencyInHz 1.0e9<Hz>)
-    let! amplitude = RfSource.Amplitude.queryCwAmplitude keysight
-    printfn "%A" amplitude 
+    //    do! RfSource.setModulationState keysight Off
+    //    do! RfSource.Frequency.setCwFrequency keysight (FrequencyInHz 1.0e9<Hz>)
+        let! amplitude = RfSource.Amplitude.queryCwAmplitude keysight
+        printfn "%A" amplitude 
     
-    do! RfSource.closeInstrument keysight }
+        do! RfSource.closeInstrument keysight }
+
+sweepExperiment 1.0e9<Hz> 2.0e9<Hz>
 |> Async.RunSynchronously
 |> printResult
 
