@@ -1,7 +1,9 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+// TODO: update stream worker code 
+
+(*
 open Endorphin.Core
-open Endorphin.Core.Units
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open log4net
@@ -414,4 +416,4 @@ type StreamWorker(pico : PicoScope5000, stream) =
             (fun exn -> // canceled event won't be raised unless the stream is stopped before it starts running
                 "Stream canceled before starting." |> log.Info
                 statusChanged.Trigger (CanceledStream exn)), 
-                cancellationCapability.Token)
+                cancellationCapability.Token) *)

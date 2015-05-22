@@ -8,6 +8,7 @@ open FSharp.Charting
 open Endorphin.Core
 open System.Runtime.CompilerServices
 
+(*
 [<Extension>]
 /// Provides charting extension members for PicoScope 5000 series acquisition workflows.
 /// TODO: convert samples to voltage vs. time and voltage vs. voltage respectively.
@@ -118,4 +119,4 @@ module ChartingExtensions =
             // and create the corresponding live chart
             if showNames then LiveChart.FastLine(chartData, Name=channelBuffer.ToString(), Title=title, XTitle=xTitle, YTitle=yTitle)
             else LiveChart.FastLine(chartData, Title=title, XTitle=xTitle, YTitle=yTitle))
-        |> Chart.Combine // then combine all the charts
+        |> Chart.Combine // then combine all the charts *)
