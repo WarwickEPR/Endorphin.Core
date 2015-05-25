@@ -49,20 +49,24 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="StatusCodes.fs" />
+    <Compile Include="Device.fs" />
+    <Compile Include="Quantities.fs" />
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="TriggerSettings.fs" />
     <Compile Include="SignalGenerator.fs" />
     <Compile Include="AcquisitionAndCallbacks.fs" />
-    <Compile Include="Errors.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="ApiImport.fs" />
+    <Compile Include="NativeApi.fs" />
     <Compile Include="PicoScope.fs" />
-    <Compile Include="PicoScopeSession.fs" />
     <Compile Include="StreamWorker.fs" />
     <Compile Include="Charting.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="ExtCore">
+      <HintPath>..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FSharp.Charting">
       <HintPath>..\packages\FSharp.Charting.0.90.9\lib\net40\FSharp.Charting.dll</HintPath>
       <Private>True</Private>
