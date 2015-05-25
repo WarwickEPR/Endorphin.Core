@@ -161,6 +161,33 @@ module Model =
             | Positive -> "POS"
             | Negative -> "NEG"
 
+        type FunctionShape =
+            | Sine
+            | Triangle
+            | Square
+            | Ramp of polarity : Polarity
+
+        type internal FunctionShapeType =
+            | SineType
+            | TriangleType
+            | SquareType
+            | RampType
+
+        let internal functionShapeString =
+            function
+            | Sine     -> "SINE"
+            | Triangle -> "TRI"
+            | Square   -> "SQU"
+            | Ramp _   -> "RAMP"
+        
+        let internal parseFunctionShapeType str =
+            match upperCase str with
+            | "SINE"             -> SineType
+            | "TRI" | "TRIANGLE" -> TriangleType
+            | "SQU" | "SQUARE"   -> SquareType
+            | "RAMP"             -> RampType
+            | _                  -> failwithf "Unexpected function shape type string: %s" str
+
     [<AutoOpen>]
     module Triggering =
         type ExternalTriggerSource =
@@ -238,89 +265,104 @@ module Model =
 
     [<AutoOpen>]
     module Modulation =
-        type FunctionShapeType =
-            | SineType
-            | TriangleType
-            | SquareType
-            | RampType
-        
-        let internal parseFunctionShapeType str =
-            match upperCase str with
-            | "SINE"             -> SineType
-            | "TRI" | "TRIANGLE" -> TriangleType
-            | "SQU" | "SQUARE"   -> SquareType
-            | "RAMP"             -> RampType
-            | _                  -> failwithf "Unexpected function shape type string: %s" str
+        // Unique Sources
+        type ExternalInput = EXT1 | EXT2
+        type FunctionGenerator = Function1
 
-        let internal functionShapeString =
+        // Modulation paths
+        type ``AM Path`` = AM1 | AM2
+        type ``FM Path`` = FM1 | FM2
+
+        let ``AM Path String`` =
             function
-            | SineType     -> "SINE"
-            | TriangleType -> "TRI"
-            | SquareType   -> "SQU"
-            | RampType     -> "RAMP"
+            | AM1 -> "AM1"
+            | AM2 -> "AM2"
 
-        type ModulationSource = FunctionGenerator | External1 | External2
-    
-        let internal parseModulationSource str =
-            match upperCase str with
-            | "FUNCTION1" | "FUNCTION" -> FunctionGenerator
-            | "EXT" | "EXT1"           -> External1
-            | "EXT2"                   -> External2
-            | str                      -> failwithf "Unexpected modulation source string: %s." str
-
-        let internal modulationSourceString =
+        let ``FM Path String`` =
             function
-            | FunctionGenerator  -> "FUNCTION1"
-            | External1 -> "EXT1"
-            | External2 -> "EXT2"
+            | FM1 -> "FM1"
+            | FM2 -> "FM2"
 
-        type AmplitudeModulationType = LinearType | ExponentialType
-
-        let internal parseAmplitudeModulationType str =
-            match upperCase str with
-            | "LIN" | "LINEAR"      -> LinearType
-            | "EXP" | "EXPONENTIAL" -> ExponentialType
-            | _                     -> failwithf "Unexpected amplitude modulation type string: %s" str
-
-        let internal amplitudeModulationTypeString =
-            function
-            | LinearType      -> "LIN"
-            | ExponentialType -> "EXP"
-
-        type ModulationPath = Path1 | Path2
-
-        let internal modulationPathString =
-            function
-            | Path1 -> "1"
-            | Path2 -> "2"
-
-        type FunctionShape =
-            | Sine
-            | Triangle
-            | Square
-            | Ramp of polarity : Polarity
-
-        type FunctionGeneratorWaveform =
-            { Shape : FunctionShape
-              Frequency : Frequency }
-
-        type AmplitudeModulationDepth =
+        // Modulation Settings
+        type ``FM Settings`` = { Deviation : Frequency }
+ 
+        type internal DepthType = LinearType | ExponentialType
+        type Depth =
             | Linear of depth : Percentage
             | Exponential of depth : DecibelRatio
 
-        type AmplitudeModulation =
-            { Depth : AmplitudeModulationDepth
-              Source : ModulationSource }
+        let internal parseDepthType str =
+            match upperCase str with
+            | "LIN" | "LINEAR" -> LinearType
+            | "EXP" | "EXPONENTIAL" -> ExponentialType
+            | str -> failwithf "Unexpected depth type: %s" str
 
-        type FrequencyModulation =
-            { Deviation : Frequency
-              Source : ModulationSource }
+        let internal depthTypeString =
+            function
+            | Linear _ -> "LIN"
+            | Exponential _ -> "EXP"
+
+        type ``AM Settings`` = { Depth : Depth }
+
+        // Source Settings
+        type ExternalSettings =
+            { Coupling : Coupling
+              Impedance : float }
+
+        type FunctionSettings =
+            { Shape : FunctionShape
+              Frequency : Frequency
+              PhaseOffset : Phase }
+        
+        type Source = 
+            | External of port : ExternalInput * settings : ExternalSettings
+            | Function of generator : FunctionGenerator * settings : FunctionSettings
+
+        // Modulations have a set path, settings and source which will have its own settings
 
         type Modulation =
-            { FrequencyModulation1 : FrequencyModulation option
-              FrequencyModulation2 : FrequencyModulation option
-              AmplitudeModulation1 : AmplitudeModulation option
-              AmplitudeModulation2 : AmplitudeModulation option }
+            | AM of path : ``AM Path`` * settings : ``AM Settings`` * source : Source
+            | FM of path : ``FM Path`` * settings : ``FM Settings`` * source : Source
+
+        type ModulationSettings = Modulation list
+ 
+         // Extract just the modulation channel from a Modulation
+        type ModulationChannel =
+            | ``AM Channel`` of path : ``AM Path``
+            | ``FM Channel`` of path : ``FM Path``
+   
+        let modulationChannel =
+            function
+            | AM (path, _, _) -> ``AM Channel`` path
+            | FM (path, _, _) -> ``FM Channel`` path
+
+        // Extract just the signal source
+        type SourceProvider =
+            | ExternalSource of port : ExternalInput
+            | InternalSource of generator : FunctionGenerator
+
+        let modulationSource =
+            function
+            | AM (_, _, source)
+            | FM (_, _, source) -> source
+
+        let sourceProvider =
+            function
+            | External (port,_) -> ExternalSource port
+            | Function (generator,_) -> InternalSource generator
+
+        let sourceString =
+            function
+            | ExternalSource EXT1 -> "EXT1"
+            | ExternalSource EXT2 -> "EXT2"
+            | InternalSource Function1 -> "FUNCTION1"
+
+        let parseSource str =
+            match upperCase str with
+            | "EXT1" -> ExternalSource EXT1
+            | "EXT2" -> ExternalSource EXT2
+            | "FUNCTION1" -> InternalSource Function1
+            | str -> failwithf "Unexpected source: %s" str
 
     [<AutoOpen>]
     module Waveforms =

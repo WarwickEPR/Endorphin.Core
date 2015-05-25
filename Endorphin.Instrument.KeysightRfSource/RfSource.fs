@@ -24,84 +24,131 @@ module RfSource =
     let private modulationStateKey = ":OUTPUT:MODULATION"
     let setModulationState = IO.setOnOffState modulationStateKey
     let queryModulationState = IO.queryOnOffState modulationStateKey
-        
-    module AmplitudeModulation =
-        let private stateKey path = sprintf ":AM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForDerivedPath IO.setOnOffState stateKey
-        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
 
-        let private typeKey path = sprintf ":AM%s:TYPE" (modulationPathString path)
-        let setType = IO.setValueForDerivedPath IO.setAmplitudeModulationType typeKey
-        let queryType = IO.queryValueForDerivedPath IO.queryAmplitudeModulationType typeKey
+    module Source =
+        let private sourceKey key prefix src = sprintf "%s:%s:%s" prefix src key
 
-        let private depthLinearKey path = sprintf ":AM%s:DEPTH" (modulationPathString path)
-        let setDepthLinear = IO.setValueForDerivedPath IO.setPercentage depthLinearKey
-        let queryDepthLinear = IO.queryValueForDerivedPath IO.queryPercentage depthLinearKey
+        module Function =
+            let private functionKey key prefix fg = sourceKey key prefix (sourceString fg)
 
-        let private depthExponentialKey path = sprintf ":AM%s:DEPTH:EXPONENTIAL" (modulationPathString path)
-        let setDepthExponential = IO.setValueForDerivedPath IO.setDecibelRatio depthExponentialKey
-        let queryDepthExponential = IO.queryValueForDerivedPath IO.queryDecibelRatio depthExponentialKey
+            let private shapeKey = ":SHAPE"
+            let private setFunctionShapeType prefix fg = IO.setFunctionShape (functionKey shapeKey prefix fg)
+            let private queryFunctionShapeType prefix fg = IO.queryFunctionShape (functionKey shapeKey prefix fg)
 
-        let private sourceKey path = sprintf ":AM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
+            let private rampPolarityKey = ":SHAPE:RAMP"
+            let private setRampPolarity prefix fg = IO.setPolarity (functionKey rampPolarityKey prefix fg)
+            let private queryRampPolarity prefix fg = IO.queryPolarity (functionKey rampPolarityKey prefix fg)
 
-        module External =
-            let private couplingKey path = sprintf ":AM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
+            let internal setFunctionShape prefix fg rfSource (shape : FunctionShape) = asyncChoice {
+                do! setFunctionShapeType prefix fg rfSource shape
+                match shape with
+                    | Ramp polarity ->
+                            do! setRampPolarity prefix fg rfSource polarity
+                    | _ -> () }
 
-            let private impedanceKey path = sprintf ":AM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
+            let internal queryFunctionShape prefix fg rfSource = asyncChoice {
+                let! shapeT = queryFunctionShapeType prefix fg rfSource
+                match shapeT with
+                    | SineType -> return Sine
+                    | TriangleType -> return Triangle
+                    | SquareType -> return Square
+                    | RampType ->
+                    let! polarity = queryRampPolarity prefix fg rfSource
+                    return (Ramp polarity) }
 
-        module Internal =
-            let private frequencyKey path = sprintf ":AM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
-
-            let private functionShapeKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
-
-            let private rampPolarityKey path = sprintf ":AM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
-
-    module FrequencyModulation =
-        let private stateKey path = sprintf ":FM%s:STATE" (modulationPathString path)
-        let setState = IO.setValueForDerivedPath  IO.setOnOffState stateKey
-        let queryState = IO.queryValueForDerivedPath IO.queryOnOffState stateKey
-
-        let private sourceKey path = sprintf ":FM%s:SOURCE" (modulationPathString path)
-        let setSource = IO.setValueForDerivedPath IO.setModulationSource sourceKey
-        let querySource = IO.queryValueForDerivedPath IO.queryModulationSource sourceKey
-
-        let private deviationKey path = sprintf ":FM%s:DEVIATION" (modulationPathString path)
-        let setDeviation = IO.setValueForDerivedPath IO.setFrequency deviationKey
-        let queryDeviation = IO.queryValueForDerivedPath IO.queryFrequency deviationKey
+            let private frequencyKey = ":FREQUENCY"
+            let internal setFrequency prefix fg = IO.setFrequency (functionKey frequencyKey prefix fg)
+            let internal queryFrequency prefix fg = IO.queryFrequency (functionKey frequencyKey prefix fg)
 
         module External =
-            let private couplingKey path = sprintf ":FM%s:EXTERNAL:COUPLING" (modulationPathString path)
-            let setCoupling = IO.setValueForDerivedPath IO.setCoupling couplingKey
-            let queryCoupling = IO.queryValueForDerivedPath IO.queryCoupling couplingKey
+            let private externalKey key prefix src = sourceKey key prefix (sourceString src)
 
-            let private impedanceKey path = sprintf ":FM%s:EXTERNAL:IMPEDANCE" (modulationPathString path)
-            let setImpedance = IO.setValueForDerivedPath IO.setImpedance impedanceKey
-            let queryImpedance = IO.queryValueForDerivedPath IO.queryImpedance impedanceKey
+            let private couplingKey = ":COUPLING"
+            let internal setCoupling prefix src = IO.setCoupling (externalKey couplingKey prefix src)
+            let internal queryCoupling prefix src = IO.queryCoupling (externalKey couplingKey prefix src)
 
-        module Internal =
-            let private frequencyKey path = sprintf ":FM%s:INTERNAL:FREQUENCY" (modulationPathString path)
-            let setFrequency = IO.setValueForDerivedPath IO.setFrequency frequencyKey
-            let queryFrequency = IO.queryValueForDerivedPath IO.queryFrequency frequencyKey
+            let private impedanceKey = ":IMPEDANCE"
+            let internal setImpedance prefix src = IO.setImpedance (externalKey impedanceKey prefix src)
+            let internal queryImpedance prefix src = IO.queryImpedance (externalKey impedanceKey prefix src)
 
-            let private functionShapeKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE" (modulationPathString path)
-            let setFunctionShape = IO.setValueForDerivedPath IO.setFunctionShape functionShapeKey
-            let queryFunctionShape = IO.queryValueForDerivedPath IO.queryFunctionShape functionShapeKey
 
-            let private rampPolarityKey path = sprintf ":FM%s:INTERNAL:FUNCTION:SHAPE:RAMP" (modulationPathString path)
-            let setRampPolarity = IO.setValueForDerivedPath IO.setPolarity rampPolarityKey
-            let queryRampPolarity = IO.queryValueForDerivedPath IO.queryPolarity rampPolarityKey
+    module Modulation =
+        let private prefixMap pathStringMapping path = sprintf ":%s:%s" (pathStringMapping path)
+
+        module Amplitude =
+            let private modulationPrefix path key = sprintf ":%s:%s" (``AM Path String`` path) key
+
+            let private stateKey path = modulationPrefix path ":STATE"
+            let setState path = IO.setOnOffState (stateKey path)
+            let queryState path = IO.queryOnOffState (stateKey path)
+
+            let private sourceKey path = modulationPrefix path ":SOURCE" 
+            let setSource path = IO.setModulationSource (sourceKey path)
+            let internal querySource path = IO.queryModulationSource (sourceKey path)
+
+            let private typeKey path = modulationPrefix path ":TYPE"
+            let internal setType path = IO.setAmplitudeModulationType (typeKey path)
+            let internal queryType path = IO.queryAmplitudeModulationType (typeKey path)
+
+            let private depthLinearKey path = modulationPrefix path ":DEPTH"
+            let setDepthLinear path = IO.setPercentage (depthLinearKey path)
+            let queryDepthLinear path = IO.queryPercentage (depthLinearKey path)
+
+            let private depthExponentialKey path = modulationPrefix path ":DEPTH:EXPONENTIAL"
+            let setDepthExponential path = IO.setDecibelRatio (depthExponentialKey path)
+            let queryDepthExponential path = IO.queryDecibelRatio (depthExponentialKey path)
+
+            module External =
+                let private externalPrefix path = modulationPrefix path ":EXTERNAL"
+
+                let setCoupling path src = Source.External.setCoupling (externalPrefix path) src
+                let queryCoupling path src = Source.External.queryCoupling (externalPrefix path) src
+
+                let setImpedance path src = Source.External.setImpedance (externalPrefix path) src
+                let queryImpedance path src = Source.External.queryImpedance (externalPrefix path) src
+
+            module Internal =
+                let private internalPrefix path = modulationPrefix path ":INTERNAL"
+
+                let setFunctionShape path fg = Source.Function.setFunctionShape (internalPrefix path) fg
+                let queryFunctionShape path fg = Source.Function.queryFunctionShape (internalPrefix path) fg
+
+                let setFunctionFrequency path fg = Source.Function.setFrequency (internalPrefix path) fg
+                let queryFunctionFrequency path fg = Source.Function.queryFrequency (internalPrefix path) fg
+
+        module Frequency =
+
+            let private modulationPrefix path key = sprintf ":%s:%s" (``FM Path String`` path) key
+
+            let private stateKey path = modulationPrefix path ":STATE"
+            let setState path = IO.setOnOffState (stateKey path)
+            let queryState path = IO.queryOnOffState (stateKey path)
+
+            let private sourceKey path = modulationPrefix path ":SOURCE" 
+            let setSource path = IO.setModulationSource (sourceKey path)
+            let internal querySource path = IO.queryModulationSource (sourceKey path)
+
+            let private deviationKey path = modulationPrefix path ":DEVIATION"
+            let setDepthLinear path = IO.setFrequency (deviationKey path)
+            let queryDepthLinear path = IO.queryFrequency (deviationKey path)
+
+            module External =
+                let private externalPrefix path = modulationPrefix path ":EXTERNAL"
+
+                let setCoupling path src = Source.External.setCoupling (externalPrefix path) src
+                let queryCoupling path src = Source.External.queryCoupling (externalPrefix path) src
+
+                let setImpedance path src = Source.External.setImpedance (externalPrefix path) src
+                let queryImpedance path src = Source.External.queryImpedance (externalPrefix path) src
+
+            module Internal =
+                let private internalPrefix path = modulationPrefix path ":INTERNAL"
+
+                let setFunctionShape path fg = Source.Function.setFunctionShape (internalPrefix path) fg
+                let queryFunctionShape path fg = Source.Function.queryFunctionShape (internalPrefix path) fg
+
+                let setFunctionFrequency path fg = Source.Function.setFrequency (internalPrefix path) fg
+                let queryFunctionFrequency path fg = Source.Function.queryFrequency (internalPrefix path) fg
 
     module Frequency =
         let private cwFrequencyKey = ":FREQUENCY"
@@ -145,42 +192,42 @@ module RfSource =
         let setSweepMode = IO.setSweepMode sweepModeKey
         let querySweepMode = IO.querySweepMode sweepModeKey
 
-    module Trigger =
+    module Triggering =
         let private sourceTypeKey trigger = sprintf "%s:TRIGGER:SOURCE" (triggerTypePrefix trigger)
-        let setSourceType = IO.setValueForDerivedPath IO.setTriggerSourceType sourceTypeKey
-        let querySourceType = IO.queryValueForDerivedPath IO.queryTriggerSourceType sourceTypeKey
+        let setSourceType trigger = IO.setTriggerSourceType (sourceTypeKey trigger)
+        let querySourceType trigger = IO.queryTriggerSourceType (sourceTypeKey trigger)
 
         let private externalSourceKey trigger = sprintf "%s:TRIGGER:EXTERNAL:SOURCE" (triggerTypePrefix trigger)
-        let setExternalSource = IO.setValueForDerivedPath IO.setExternalTriggerSource externalSourceKey
-        let queryExternalSource = IO.queryValueForDerivedPath IO.queryExternalTriggerSource externalSourceKey
+        let setExternalSource trigger = IO.setExternalTriggerSource (externalSourceKey trigger)
+        let queryExternalSource trigger = IO.queryExternalTriggerSource (externalSourceKey trigger)
 
         let private externalSlopePolarityKey trigger = sprintf "%s:TRIGGER:SLOPE" (triggerTypePrefix trigger)
-        let setExternalSlopePolarity = IO.setValueForDerivedPath IO.setPolarity externalSlopePolarityKey
-        let queryExternalSlopePolarity = IO.queryValueForDerivedPath IO.queryPolarity externalSlopePolarityKey
+        let setExternalSlopePolarity trigger = IO.setPolarity (externalSlopePolarityKey trigger)
+        let queryExternalSlopePolarity trigger = IO.queryPolarity (externalSlopePolarityKey trigger)
 
         let private internalSourceKey trigger = sprintf "%s:TRIGGER:INTERNAL:SOURCE" (triggerTypePrefix trigger)
-        let setInternalSource = IO.setValueForDerivedPath IO.setInternalTriggerSource internalSourceKey
-        let queryInternalSource = IO.queryValueForDerivedPath IO.queryInternalTriggerSource internalSourceKey
+        let setInternalSource trigger = IO.setInternalTriggerSource (internalSourceKey trigger)
+        let queryInternalSource trigger = IO.queryInternalTriggerSource (internalSourceKey trigger)
 
         let private timerPeriodKey trigger = sprintf "%s:TRIGGER:TIMER" (triggerTypePrefix trigger)
-        let setTimerPeriod = IO.setValueForDerivedPath IO.setDuration timerPeriodKey
-        let queryTimerPeriod = IO.queryValueForDerivedPath IO.queryDuration timerPeriodKey
+        let setTimerPeriod trigger = IO.setDuration (timerPeriodKey trigger)
+        let queryTimerPeriod trigger = IO.queryDuration (timerPeriodKey trigger)
 
-        let setTriggerSource rfSource trigger triggerSource = asyncChoice {
+        let setTriggerSource trigger rfSource triggerSource = asyncChoice {
             match triggerSource with
-            | Immediate  -> do! setSourceType rfSource trigger ImmediateType
-            | TriggerKey -> do! setSourceType rfSource trigger TriggerKeyType
-            | Bus        -> do! setSourceType rfSource trigger BusType
-            | External (source, polarity) ->
-                do! setSourceType rfSource trigger ExternalType
-                do! setExternalSource rfSource trigger source
-                do! setExternalSlopePolarity rfSource trigger polarity
+            | Immediate  -> do! setSourceType trigger rfSource ImmediateType
+            | TriggerKey -> do! setSourceType trigger rfSource TriggerKeyType
+            | Bus        -> do! setSourceType trigger rfSource BusType
+            | TriggerSource.External (source, polarity) ->
+                do! setSourceType trigger rfSource ExternalType
+                do! setExternalSource trigger rfSource source
+                do! setExternalSlopePolarity trigger rfSource polarity
             | Internal source ->
-                do! setSourceType rfSource trigger InternalType
-                do! setInternalSource rfSource trigger source
+                do! setSourceType trigger rfSource InternalType
+                do! setInternalSource trigger rfSource source
             | Timer period ->
-                do! setSourceType rfSource trigger TimerType
-                do! setTimerPeriod rfSource trigger period }
+                do! setSourceType trigger rfSource TimerType
+                do! setTimerPeriod trigger rfSource period }
 
     module Sweep =
         let private typeKey = ":LIST:TYPE"
@@ -220,8 +267,8 @@ module RfSource =
 
         let private setSweepOptions rfSource options = asyncChoice {
             do! setDirection rfSource options.Direction
-            do! Trigger.setTriggerSource rfSource StepTrigger options.StepTrigger
-            do! Trigger.setTriggerSource rfSource ListTrigger options.ListTrigger
+            do! Triggering.setTriggerSource StepTrigger rfSource options.StepTrigger
+            do! Triggering.setTriggerSource ListTrigger rfSource options.ListTrigger
             match options.DwellTime with
              | Some t -> do! setDwellTime rfSource t
              | None   -> if options.ListTrigger == Immediate

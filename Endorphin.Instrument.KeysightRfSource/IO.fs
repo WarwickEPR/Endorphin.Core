@@ -16,14 +16,7 @@ module internal IO =
         let! response = queryValue id key rfSource 
         return! tryParseFunc response }
 
-    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
-    let queryDeviceId = queryValue parseDeviceId
-
     let queryError = queryValue parseError
-
-    let private identityKey = "*IDN"
-    let queryIdentity = queryDeviceId identityKey
-    let tryQueryIdentity = tryQueryDeviceId identityKey
 
     let private nextErrorInQueueKey = ":SYSTEM:ERROR"
     let queryNextErrorInQueue = queryError nextErrorInQueueKey
@@ -33,17 +26,7 @@ module internal IO =
             let! nextError = queryNextErrorInQueue rfSource
             if nextError.Code <> 0 then return! errorQueueLoop (nextError :: errorList)
             else return Seq.ofList <| List.rev errorList  }
-
         errorQueueLoop List.empty
-
-    let verifyModelNumber =
-        function
-        | "N5172B" -> succeed ()
-        | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
-
-    let verifyIdentity rfSource = asyncChoice {
-        let! identity = tryQueryIdentity rfSource
-        do! verifyModelNumber (identity.ModelNumber) }
 
     let private checkErrorQueueIsEmpty errors =
         if Seq.length errors <> 0 then
@@ -53,16 +36,27 @@ module internal IO =
             |> fail 
         else succeed ()
 
-    let private setValue stringFunc key (RfSource rfSource) value = asyncChoice {
-        sprintf "%s %s" key (stringFunc value) |> Visa.writeString rfSource
+    let private setValue (valueMap : 'v -> string) key (RfSource rfSource) (value : 'v) = asyncChoice {
+        sprintf "%s %s" key (valueMap value) |> Visa.writeString rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
 
-    let setValueForDerivedPath (setFunc : string -> RfSource -> 'a -> AsyncChoice<unit, string>) (keyFunc : 'b -> string) rfSource path =
-        setFunc (keyFunc path) rfSource
+    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
+    let queryDeviceId = queryValue parseDeviceId
 
-    let queryValueForDerivedPath (queryFunc : string -> RfSource -> 'a) (keyFunc : 'b -> string) rfSource path =
-        queryFunc (keyFunc path) rfSource
+    let private identityKey = "*IDN"
+    let queryIdentity = queryDeviceId identityKey
+    let tryQueryIdentity = tryQueryDeviceId identityKey
+
+
+    let verifyModelNumber =
+        function
+        | "N5172B" -> succeed ()
+        | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
+
+    let verifyIdentity rfSource = asyncChoice {
+        let! identity = tryQueryIdentity rfSource
+        do! verifyModelNumber (identity.ModelNumber) }
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
@@ -112,11 +106,11 @@ module internal IO =
     let setDecibelRatio = setValue decibelRatioString
     let queryDecibelRatio = queryValue parseDecibelRatio
 
-    let setModulationSource = setValue modulationSourceString
-    let queryModulationSource = queryValue parseModulationSource
+    let setModulationSource = setValue sourceString
+    let queryModulationSource = queryValue parseSource
 
-    let setAmplitudeModulationType = setValue amplitudeModulationTypeString
-    let queryAmplitudeModulationType = queryValue parseAmplitudeModulationType
+    let internal setAmplitudeModulationType = setValue depthTypeString
+    let internal queryAmplitudeModulationType = queryValue parseDepthType
 
     let setFunctionShape = setValue functionShapeString
     let queryFunctionShape = queryValue parseFunctionShapeType
