@@ -283,9 +283,7 @@ module Model =
             | FM1 -> "FM1"
             | FM2 -> "FM2"
 
-        // Modulation Settings
-        type ``FM Settings`` = { Deviation : Frequency }
- 
+        // Modulation Settings 
         type internal DepthType = LinearType | ExponentialType
         type Depth =
             | Linear of depth : Percentage
@@ -302,12 +300,16 @@ module Model =
             | Linear _ -> "LIN"
             | Exponential _ -> "EXP"
 
+        let depthInPercentage (depth : Percentage) = Linear depth
+        let depthInDecibels (depth : DecibelRatio) = Exponential depth
+
         type ``AM Settings`` = { Depth : Depth }
+        type ``FM Settings`` = { Deviation : Frequency }
 
         // Source Settings
         type ExternalSettings =
             { Coupling : Coupling
-              Impedance : float }
+              Impedance : Impedance }
 
         type FunctionSettings =
             { Shape : FunctionShape
@@ -315,14 +317,26 @@ module Model =
               PhaseOffset : Phase }
         
         type Source = 
-            | External of port : ExternalInput * settings : ExternalSettings
-            | Function of generator : FunctionGenerator * settings : FunctionSettings
+            | ExternalSource of port : ExternalInput * settings : ExternalSettings
+            | InternalSource of generator : FunctionGenerator * settings : FunctionSettings
+
+        // Prepare function settings
+        let basicFunctionSettings = { Shape = Sine
+                                      Frequency = FrequencyInHz 1.0e3<Hz>
+                                      PhaseOffset = PhaseInRad 0.0<rad> }
+        let withShape shape (settings : FunctionSettings) =
+            { settings with Shape = shape }
+        let withFrequencyInHz frequency (settings : FunctionSettings) =
+            { settings with Frequency = FrequencyInHz frequency }
+        let withPhaseOffsetInRadians phase (settings : FunctionSettings) =
+            { settings with PhaseOffset = PhaseInRad phase }
+
 
         // Modulations have a set path, settings and source which will have its own settings
 
         type Modulation =
-            | AM of path : ``AM Path`` * settings : ``AM Settings`` * source : Source
-            | FM of path : ``FM Path`` * settings : ``FM Settings`` * source : Source
+            | AmplitudeModulation of path : ``AM Path`` * settings : ``AM Settings`` * source : Source
+            | FrequencyModulation of path : ``FM Path`` * settings : ``FM Settings`` * source : Source
 
         type ModulationSettings = Modulation list
  
@@ -333,36 +347,67 @@ module Model =
    
         let modulationChannel =
             function
-            | AM (path, _, _) -> ``AM Channel`` path
-            | FM (path, _, _) -> ``FM Channel`` path
+            | AmplitudeModulation (path, _, _) -> ``AM Channel`` path
+            | FrequencyModulation (path, _, _) -> ``FM Channel`` path
 
         // Extract just the signal source
         type SourceProvider =
-            | ExternalSource of port : ExternalInput
-            | InternalSource of generator : FunctionGenerator
+            | ExternalPort of port : ExternalInput
+            | InternalGenerator of generator : FunctionGenerator
 
         let modulationSource =
             function
-            | AM (_, _, source)
-            | FM (_, _, source) -> source
+            | AmplitudeModulation (_, _, source)
+            | FrequencyModulation (_, _, source) -> source
 
         let sourceProvider =
             function
-            | External (port,_) -> ExternalSource port
-            | Function (generator,_) -> InternalSource generator
+            | ExternalSource (port,_) -> ExternalPort port
+            | InternalSource (generator,_) -> InternalGenerator generator
 
         let sourceString =
             function
-            | ExternalSource EXT1 -> "EXT1"
-            | ExternalSource EXT2 -> "EXT2"
-            | InternalSource Function1 -> "FUNCTION1"
+            | ExternalPort EXT1 -> "EXT1"
+            | ExternalPort EXT2 -> "EXT2"
+            | InternalGenerator Function1 -> "FUNCTION1"
 
         let parseSource str =
             match upperCase str with
-            | "EXT1" -> ExternalSource EXT1
-            | "EXT2" -> ExternalSource EXT2
-            | "FUNCTION1" -> InternalSource Function1
+            | "EXT1" -> ExternalPort EXT1
+            | "EXT2" -> ExternalPort EXT2
+            | "FUNCTION1" -> InternalGenerator Function1
             | str -> failwithf "Unexpected source: %s" str
+
+        let internalSineSourceInHz frequency =
+            InternalSource (Function1, basicFunctionSettings |> withFrequencyInHz frequency )
+
+        let internalGeneralSourceInHz frequency shape phase =
+            let settings = basicFunctionSettings
+                           |> withShape shape
+                           |> withFrequencyInHz frequency
+                           |> withPhaseOffsetInRadians phase
+            InternalSource (Function1, settings)
+
+
+        let consistentModulationSettings settings =
+            // When PM is added, PM and FM paths are exclusive
+            let rec consistentList settings (sources : Set<SourceProvider>) (channels : Set<ModulationChannel>) =
+                match settings with
+                | [] -> true
+                | modulation :: rest ->
+                    let modulationChannel = modulationChannel modulation
+                    let modulationSource = sourceProvider (modulationSource modulation)
+                    if sources.Contains modulationSource then
+                        failwithf "Repeated modulation source: %s" (sourceString modulationSource)
+                        false
+                    else if channels.Contains modulationChannel then
+                        failwithf "Repeated modulation source: %s" (sourceString modulationSource)
+                        false
+                    else
+                        consistentList rest (sources.Add modulationSource) (channels.Add modulationChannel)
+            consistentList settings Set.empty Set.empty
+
+
 
     [<AutoOpen>]
     module Waveforms =
