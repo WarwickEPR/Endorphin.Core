@@ -2,6 +2,7 @@
 
 open ExtCore.Control
 open Endorphin.Core.StringUtils
+open Endorphin.Core.CollectionUtils
 open Endorphin.Core.NationalInstruments
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -390,24 +391,30 @@ module Model =
 
 
         let consistentModulationSettings settings =
-            // When PM is added, PM and FM paths are exclusive
-            let rec consistentList settings (sources : Set<SourceProvider>) (channels : Set<ModulationChannel>) =
-                match settings with
-                | [] -> true
-                | modulation :: rest ->
-                    let modulationChannel = modulationChannel modulation
-                    let modulationSource = sourceProvider (modulationSource modulation)
-                    if sources.Contains modulationSource then
-                        failwithf "Repeated modulation source: %s" (sourceString modulationSource)
-                        false
-                    else if channels.Contains modulationChannel then
-                        failwithf "Repeated modulation source: %s" (sourceString modulationSource)
-                        false
-                    else
-                        consistentList rest (sources.Add modulationSource) (channels.Add modulationChannel)
-            consistentList settings Set.empty Set.empty
+            
+            let duplicateChannels = settings |> List.map modulationChannel |> duplicates
+            let duplicateSources  = settings |> List.map modulationSource |> duplicates
+            // When PM is added, check that PM and FM paths are exclusive
 
+            if not duplicateChannels.IsEmpty then
+                let duplicateAM = List.filter (function (``AM Channel`` c) -> true | _ -> false) duplicateChannels
+                let duplicateFM = List.filter (function (``FM Channel`` c) -> true | _ -> false) duplicateChannels
 
+                if not (List.isEmpty duplicateAM) then
+                    failwith << sprintf "Repeated AM channel: %s" << prettyPrintList
+                             << List.map (fun (``AM Channel`` c) -> ``AM Path String`` c)
+                             <| duplicateAM 
+
+                if not (List.isEmpty duplicateFM) then
+                    failwith << sprintf "Repeated FM channel: %s" << prettyPrintList
+                             << List.map (fun (``FM Channel`` c) -> ``FM Path String`` c)
+                             <| duplicateFM
+             
+            if not duplicateSources.IsEmpty then
+                failwith << sprintf "Modulation sources used more than once: %s" << prettyPrintList
+                         << List.map (sourceProvider >> sourceString) <| duplicateSources
+
+            succeed settings
 
     [<AutoOpen>]
     module Waveforms =

@@ -150,6 +150,14 @@ module RfSource =
                 let setFunctionFrequency path fg = Source.Function.setFrequency (internalPrefix path) fg
                 let queryFunctionFrequency path fg = Source.Function.queryFrequency (internalPrefix path) fg
 
+        let applyModulationSetting _ = succeed ()
+
+        let setup (settings : ModulationSettings) =
+            choice {
+                let! modulationSettings = consistentModulationSettings settings
+                for settings in modulationSettings do
+                    do! applyModulationSetting settings }
+
     module Frequency =
         let private cwFrequencyKey = ":FREQUENCY"
         let setCwFrequency = IO.setFrequency cwFrequencyKey
