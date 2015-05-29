@@ -60,6 +60,7 @@
     <Compile Include="WinFormsObservables.fs" />
     <None Include="packages.config" />
     <None Include="app.config" />
+    <Compile Include="CollectionUtils.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
