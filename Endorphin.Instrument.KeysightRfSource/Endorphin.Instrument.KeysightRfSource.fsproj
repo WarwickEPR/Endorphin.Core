@@ -51,10 +51,12 @@
   <ItemGroup>
     <None Include="packages.config" />
     <Compile Include="Model.fs" />
+    <Compile Include="Translate.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Demo.fsx" />
     <None Include="app.config" />
+    <Compile Include="Setup.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">

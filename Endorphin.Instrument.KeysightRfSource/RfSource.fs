@@ -2,12 +2,32 @@
 
 open ExtCore.Control
 open Endorphin.Core.NationalInstruments
+open Endorphin.Instrument.Keysight.Translate
+
+// Command set of the Keysight RF instrument
+// Implements functions to modify & query configuration
+// Organised by subsystem mirroring the Keysight configuration
 
 [<RequireQualifiedAccess>]
 module RfSource =
+
+    type ModelNumber = N5172B
+
+    module Verify =
+
+        let verifyModelNumber =
+            function
+            | "N5172B" -> succeed N5172B
+            | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
+
+        let verifyIdentity rfSource = asyncChoice {
+            let! identity = IO.tryQueryIdentity rfSource
+            return verifyModelNumber (identity.ModelNumber) }
+
+
     let openInstrument visaAddress timeout = asyncChoice { 
         let rfSource = RfSource <| Visa.openInstrument visaAddress timeout 
-        do! IO.verifyIdentity rfSource
+        let! modelNumber = Verify.verifyIdentity rfSource
         let! __ = IO.queryErrorQueue rfSource // clear the error queue before doing anything
         return rfSource }
 
@@ -150,13 +170,6 @@ module RfSource =
                 let setFunctionFrequency path fg = Source.Function.setFrequency (internalPrefix path) fg
                 let queryFunctionFrequency path fg = Source.Function.queryFrequency (internalPrefix path) fg
 
-        let applyModulationSetting _ = succeed ()
-
-        let setup (settings : ModulationSettings) =
-            choice {
-                let! modulationSettings = consistentModulationSettings settings
-                for settings in modulationSettings do
-                    do! applyModulationSetting settings }
 
     module Frequency =
         let private cwFrequencyKey = ":FREQUENCY"

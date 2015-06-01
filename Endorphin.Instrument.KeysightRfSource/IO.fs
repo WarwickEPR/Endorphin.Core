@@ -3,9 +3,15 @@
 open ExtCore.Control
 open Endorphin.Core.StringUtils
 open Endorphin.Core.NationalInstruments
+open Endorphin.Instrument.Keysight.Translate
+
+// Common functions to set/query values of a VISA Keysight instrument
+// Includes functions to access values such as numbers, frequencies etc
+// which are common to different subsystems
 
 [<RequireQualifiedAccess>]
 module internal IO =
+
     let postCommand key (RfSource rfSource) = Visa.writeString rfSource key
 
     let private queryValue parseFunc key (RfSource rfSource) = asyncChoice {
@@ -15,6 +21,13 @@ module internal IO =
     let private tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
         let! response = queryValue id key rfSource 
         return! tryParseFunc response }
+
+    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
+    let queryDeviceId = queryValue parseDeviceId
+
+    let private identityKey = "*IDN"
+    let queryIdentity = queryDeviceId identityKey
+    let tryQueryIdentity = tryQueryDeviceId identityKey
 
     let queryError = queryValue parseError
 
@@ -36,27 +49,12 @@ module internal IO =
             |> fail 
         else succeed ()
 
+
+
     let private setValue (valueMap : 'v -> string) key (RfSource rfSource) (value : 'v) = asyncChoice {
         sprintf "%s %s" key (valueMap value) |> Visa.writeString rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
-
-    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
-    let queryDeviceId = queryValue parseDeviceId
-
-    let private identityKey = "*IDN"
-    let queryIdentity = queryDeviceId identityKey
-    let tryQueryIdentity = tryQueryDeviceId identityKey
-
-
-    let verifyModelNumber =
-        function
-        | "N5172B" -> succeed ()
-        | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
-
-    let verifyIdentity rfSource = asyncChoice {
-        let! identity = tryQueryIdentity rfSource
-        do! verifyModelNumber (identity.ModelNumber) }
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
@@ -97,6 +95,7 @@ module internal IO =
     let setDirection = setValue directionString
     let queryDirection = queryValue parseDirection
 
+    open Endorphin.Instrument.Keysight.Translate.Sweep
     let setStepSpacing = setValue stepSpacingString
     let queryStepSpacing = queryValue parseStepSpacing
 
