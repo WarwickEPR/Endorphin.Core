@@ -18,4 +18,4 @@ module CollectionUtils =
         | [] -> ""
         | head::[] -> sprintf "%A" head
         | head::(tail::[]) -> sprintf "%A & %A" head tail
-        | head::tail -> sprintf "%A, %A" head (prettyPrintList tail)
+        | head::tail -> sprintf "%A, %s" head (prettyPrintList tail)
