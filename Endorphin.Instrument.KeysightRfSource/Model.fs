@@ -20,6 +20,8 @@ module Model =
               SerialNumber : string
               Version : string }
 
+        type ModelNumber = N5172B
+
         type Error = { Code : int ; Message : string }
    
     [<AutoOpen>]

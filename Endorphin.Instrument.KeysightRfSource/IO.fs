@@ -3,7 +3,6 @@
 open ExtCore.Control
 open Endorphin.Core.StringUtils
 open Endorphin.Core.NationalInstruments
-open Endorphin.Instrument.Keysight.Translate
 
 // Common functions to set/query values of a VISA Keysight instrument
 // Includes functions to access values such as numbers, frequencies etc
@@ -14,47 +13,94 @@ module internal IO =
 
     let postCommand key (RfSource rfSource) = Visa.writeString rfSource key
 
-    let private queryValue parseFunc key (RfSource rfSource) = asyncChoice {
+    let internal queryValue parseFunc key (RfSource rfSource) = asyncChoice {
         let! response = sprintf "%s?" key |> Visa.queryInstrument rfSource
         return parseFunc response }
 
-    let private tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
+    let internal tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
         let! response = queryValue id key rfSource 
         return! tryParseFunc response }
 
-    let tryQueryDeviceId = tryQueryValue tryParseDeviceId
-    let queryDeviceId = queryValue parseDeviceId
+    [<AutoOpen>]
+    module Error =
 
-    let private identityKey = "*IDN"
-    let queryIdentity = queryDeviceId identityKey
-    let tryQueryIdentity = tryQueryDeviceId identityKey
+        let internal parseError (str : string) =
+            let parts = str.Split [|','|]
+            if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
+        
+            match parts.[0] with
+            | ParseInteger code -> { Code = code ; Message = parts.[1] }
+            | _                 -> failwithf "Unexpected error code string: %s." parts.[0]
 
-    let queryError = queryValue parseError
+        let internal errorString error = sprintf "%d: %s" error.Code error.Message
 
-    let private nextErrorInQueueKey = ":SYSTEM:ERROR"
-    let queryNextErrorInQueue = queryError nextErrorInQueueKey
+        let queryError = queryValue parseError
 
-    let queryErrorQueue rfSource = 
-        let rec errorQueueLoop errorList = asyncChoice {
-            let! nextError = queryNextErrorInQueue rfSource
-            if nextError.Code <> 0 then return! errorQueueLoop (nextError :: errorList)
-            else return Seq.ofList <| List.rev errorList  }
-        errorQueueLoop List.empty
+        let private nextErrorInQueueKey = ":SYSTEM:ERROR"
+        let queryNextErrorInQueue = queryError nextErrorInQueueKey
 
-    let private checkErrorQueueIsEmpty errors =
-        if Seq.length errors <> 0 then
-            errors
-            |> Seq.map errorString
-            |> String.concat "\n" 
-            |> fail 
-        else succeed ()
+        let queryErrorQueue rfSource = 
+            let rec errorQueueLoop errorList = asyncChoice {
+                let! nextError = queryNextErrorInQueue rfSource
+                if nextError.Code <> 0 then return! errorQueueLoop (nextError :: errorList)
+                else return Seq.ofList <| List.rev errorList  }
+            errorQueueLoop List.empty
 
+        let internal checkErrorQueueIsEmpty errors =
+            if Seq.length errors <> 0 then
+                errors
+                |> Seq.map errorString
+                |> String.concat "\n" 
+                |> fail 
+            else succeed ()
 
-
-    let private setValue (valueMap : 'v -> string) key (RfSource rfSource) (value : 'v) = asyncChoice {
+    let internal setValue (valueMap : 'v -> string) key (RfSource rfSource) (value : 'v) = asyncChoice {
         sprintf "%s %s" key (valueMap value) |> Visa.writeString rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
+ 
+    module Identify =
+
+        let internal tryParseDeviceId (str : string) =
+            let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
+            let parts = str.Split [|','|]
+            if Array.length parts <> 4 then fail <| sprintf "Unexpected device ID string: %s." str
+            else succeed <| { Manufacturer = parts.[0] |> trimWhiteSpace
+                              ModelNumber = parts.[1] |> trimWhiteSpace
+                              SerialNumber = parts.[2] |> trimWhiteSpace
+                              Version = parts.[3] |> trimWhiteSpace }
+          
+        let internal parseDeviceId (str : string) =
+            match tryParseDeviceId str with
+            | Success id    -> id
+            | Failure error -> failwith error
+
+        let private identityKey = "*IDN"
+        let queryIdentity = queryValue parseDeviceId identityKey
+        let tryQueryIdentity = tryQueryValue tryParseDeviceId identityKey
+
+        let private checkModelNumber =
+            function
+            | "N5172B" -> succeed N5172B
+            | serial   -> fail <| sprintf "Unexpected RF source serial number: %s." serial
+
+        let identity rfSource = asyncChoice {
+            let! identity = tryQueryIdentity rfSource
+            return checkModelNumber (identity.ModelNumber) }
+
+
+    [<AutoOpen>]
+    module Connect =
+
+        let openInstrument visaAddress timeout = asyncChoice { 
+            let rfSource = RfSource <| Visa.openInstrument visaAddress timeout 
+            let! modelNumber = Identify.identity rfSource
+            let! __ = Error.queryErrorQueue rfSource // clear the error queue before doing anything
+            return rfSource }
+
+        let closeInstrument (RfSource rfSource) = Visa.closeInstrument rfSource
+
+ 
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
@@ -95,48 +141,14 @@ module internal IO =
     let setDirection = setValue directionString
     let queryDirection = queryValue parseDirection
 
-    open Endorphin.Instrument.Keysight.Translate.Sweep
-    let setStepSpacing = setValue stepSpacingString
-    let queryStepSpacing = queryValue parseStepSpacing
-
     let setPercentage = setValue percentageString
     let queryPercentage = queryValue parsePercentage
 
     let setDecibelRatio = setValue decibelRatioString
     let queryDecibelRatio = queryValue parseDecibelRatio
-
-    let setModulationSource = setValue sourceString
-    let queryModulationSource = queryValue parseSource
-
-    let internal setAmplitudeModulationType = setValue depthTypeString
-    let internal queryAmplitudeModulationType = queryValue parseDepthType
-
-    let setFunctionShape = setValue functionShapeString
-    let queryFunctionShape = queryValue parseFunctionShapeType
-
+    
     let setPolarity = setValue polarityString
     let queryPolarity = queryValue parsePolarity
-
-    let setCoupling = setValue couplingString
-    let queryCoupling = queryValue parseCoupling
-
-    let setImpedance = setValue impedanceString
-    let queryImpedance = queryValue parseImpedance
-
-    let setSweepMode = setValue sweepModeString
-    let querySweepMode = queryValue parseSweepMode
-
-    let setSweepType = setValue sweepTypeString
-    let querySweepType = queryValue parseSweepType
-
-    let setTriggerSourceType = setValue triggerSourceTypeString
-    let queryTriggerSourceType = queryValue parseTriggerSourceType
-
-    let setExternalTriggerSource = setValue externalTriggerSourceString
-    let queryExternalTriggerSource = queryValue parseExternalTriggerSource
-
-    let setInternalTriggerSource = setValue internalTriggerSourceString
-    let queryInternalTriggerSource = queryValue parseInternalTriggerSource
 
     let setWaveform = setValue waveformIdString
     let queryWaveform = queryValue parseWaveformId
