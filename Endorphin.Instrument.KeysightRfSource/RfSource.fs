@@ -14,10 +14,7 @@ module RfSource =
     let private outputStateKey = ":OUTPUT:STATE"
     let setOutputState = IO.setOnOffState outputStateKey
     let queryOutputState = IO.queryOnOffState outputStateKey
-        
-    let private modulationStateKey = ":OUTPUT:MODULATION"
-    let setModulationState = IO.setOnOffState modulationStateKey
-    let queryModulationState = IO.queryOnOffState modulationStateKey
+
 
 module Frequency =
     let private cwFrequencyKey = ":FREQUENCY"

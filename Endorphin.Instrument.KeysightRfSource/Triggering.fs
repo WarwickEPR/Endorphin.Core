@@ -3,35 +3,35 @@
 open ExtCore.Control
 
 module Triggering =
-    module Translate =
+    module internal Translate =
         open Endorphin.Core.StringUtils
 
-        let internal parseExternalTriggerSource str =
+        let parseExternalTriggerSource str =
             match upperCase str with
             | "TRIG1" | "TRIGGER1" -> Trigger1
             | "TRIG2" | "TRIGGER2" -> Trigger2
             | "PULS" | "PULSE"     -> Pulse
             | _                    -> failwithf "Unexpected external trigger source string: %s" str
 
-        let internal externalTriggerSourceString =
+        let externalTriggerSourceString =
             function
             | Trigger1 -> "TRIG1"
             | Trigger2 -> "TRIG2"
             | Pulse    -> "PULS"
 
   
-        let internal parseInternalTriggerSource str =
+        let parseInternalTriggerSource str =
             match upperCase str with
             | "PVID" | "PVIDEO" -> PulseVideo
             | "PSYN" | "PSYNC"  -> PulseSync
-            | _                 -> failwithf "Unexpected internal trigger source string: %s" str
+            | _                 -> failwithf "Unexpected trigger source string: %s" str
 
-        let internal internalTriggerSourceString =
+        let internalTriggerSourceString =
             function
             | PulseVideo -> "PVID"
             | PulseSync  -> "PSYN"
 
-        let internal parseTriggerSourceType str =
+        let parseTriggerSourceType str =
             match upperCase str with
             | "IMM" | "IMMEDIATE" -> ImmediateType
             | "KEY"               -> TriggerKeyType
@@ -41,7 +41,7 @@ module Triggering =
             | "TIM" | "TIMER"     -> TimerType
             | _                   -> failwithf "Unexpected trigger source type string: %s." str
 
-        let internal triggerSourceTypeString =
+        let triggerSourceTypeString =
             function
             | ImmediateType  -> "IMM"
             | TriggerKeyType -> "KEY"
@@ -54,7 +54,9 @@ module Triggering =
             | StepTrigger -> ""
             | ListTrigger -> ":LIST"
 
-    module Action =
+    module Control =
+        open Translate
+
         let private sourceTypeKey trigger = sprintf "%s:TRIGGER:SOURCE" (triggerTypePrefix trigger)
         let setSourceType trigger = IO.setValue triggerSourceTypeString (sourceTypeKey trigger)
         let querySourceType trigger = IO.queryValue parseTriggerSourceType (sourceTypeKey trigger)

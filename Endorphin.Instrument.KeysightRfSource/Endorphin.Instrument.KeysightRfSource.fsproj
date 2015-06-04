@@ -60,7 +60,6 @@
     <Compile Include="Modulation.fs" />
     <Compile Include="RfSource.fs" />
     <Compile Include="Sweep.fs" />
-    <Compile Include="Setup.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">

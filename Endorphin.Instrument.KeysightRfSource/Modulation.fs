@@ -4,7 +4,7 @@ open ExtCore.Control
 open Source
 
 module Modulation =
-    module Translate =
+    module internal Translate =
         open Endorphin.Core.StringUtils
 
         let ``AM Path String`` =
@@ -18,34 +18,23 @@ module Modulation =
             | FM2 -> "FM2"
 
         // Modulation Settings 
-        type internal DepthType = LinearType | ExponentialType
+        type DepthType = LinearType | ExponentialType
 
-        let internal parseDepthType str =
+        let parseDepthType str =
             match upperCase str with
             | "LIN" | "LINEAR" -> LinearType
             | "EXP" | "EXPONENTIAL" -> ExponentialType
             | str -> failwithf "Unexpected depth type: %s" str
 
-        let internal depthTypeString =
+        let depthTypeString =
             function
             | Linear _ -> "LIN"
             | Exponential _ -> "EXP"
 
-        let sourceString =
-            function
-            | ExternalPort EXT1 -> "EXT1"
-            | ExternalPort EXT2 -> "EXT2"
-            | InternalGenerator Function1 -> "FUNCTION1"
-
-        let parseSource str =
-            match upperCase str with
-            | "EXT1" -> ExternalPort EXT1
-            | "EXT2" -> ExternalPort EXT2
-            | "FUNCTION1" -> InternalGenerator Function1
-            | str -> failwithf "Unexpected source: %s" str
-
-    module Act =
+    module Control =
         open Translate
+        open Source.Translate
+        open Source.Control
         
         let private stateKey = ":STATE"
         let private sourceKey = ":SOURCE"
@@ -76,20 +65,20 @@ module Modulation =
             module External =
                 let private prefix path = prefix path ":EXTERNAL"
 
-                let setCoupling path = Source.External.setCoupling (prefix path)
-                let queryCoupling path = Source.External.queryCoupling (prefix path)
+                let setCoupling path = External.setCoupling (prefix path)
+                let queryCoupling path = External.queryCoupling (prefix path)
 
-                let setImpedance path = Source.External.setImpedance (prefix path)
-                let queryImpedance path = Source.External.queryImpedance (prefix path)
+                let setImpedance path = External.setImpedance (prefix path)
+                let queryImpedance path = External.queryImpedance (prefix path)
 
             module Internal =
                 let private prefix path = prefix path ":INTERNAL"
 
-                let setFunctionShape path = Source.Function.setShape (prefix path)
-                let queryFunctionShape path = Source.Function.queryShape (prefix path)
+                let setFunctionShape path = Function.setShape (prefix path)
+                let queryFunctionShape path = Function.queryShape (prefix path)
 
-                let setFunctionFrequency path = Source.Function.setFrequency (prefix path)
-                let queryFunctionFrequency path = Source.Function.queryFrequency (prefix path)
+                let setFunctionFrequency path = Function.setFrequency (prefix path)
+                let queryFunctionFrequency path = Function.queryFrequency (prefix path)
 
         module Frequency =
             let private prefix path key = sprintf ":%s:%s" (``FM Path String`` path) key
@@ -107,20 +96,25 @@ module Modulation =
             module External =
                 let private prefix path = prefix path ":EXTERNAL"
 
-                let setCoupling path = Source.External.setCoupling (prefix path)
-                let queryCoupling path = Source.External.queryCoupling (prefix path)
+                let setCoupling path = External.setCoupling (prefix path)
+                let queryCoupling path = External.queryCoupling (prefix path)
 
-                let setImpedance path = Source.External.setImpedance (prefix path)
-                let queryImpedance path = Source.External.queryImpedance (prefix path)
+                let setImpedance path = External.setImpedance (prefix path)
+                let queryImpedance path = External.queryImpedance (prefix path)
 
             module Internal =
                 let private prefix path = prefix path ":INTERNAL"
 
-                let setFunctionShape path = Source.Function.setShape (prefix path)
-                let queryFunctionShape path = Source.Function.queryShape (prefix path)
+                let setFunctionShape path = Function.setShape (prefix path)
+                let queryFunctionShape path = Function.queryShape (prefix path)
 
-                let setFunctionFrequency path = Source.Function.setFrequency (prefix path)
-                let queryFunctionFrequency path = Source.Function.queryFrequency (prefix path)
+                let setFunctionFrequency path = Function.setFrequency (prefix path)
+                let queryFunctionFrequency path = Function.queryFrequency (prefix path)
+
+    module Runtime =
+        let private modulationStateKey = ":OUTPUT:MODULATION"
+        let setModulationState = IO.setOnOffState modulationStateKey
+        let queryModulationState = IO.queryOnOffState modulationStateKey
 
     module Configure =
         open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols

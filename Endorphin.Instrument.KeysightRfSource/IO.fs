@@ -100,8 +100,6 @@ module internal IO =
 
         let closeInstrument (RfSource rfSource) = Visa.closeInstrument rfSource
 
- 
-
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
 

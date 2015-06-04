@@ -3,10 +3,10 @@
 open ExtCore.Control
 
 module Sweep =
-    module Translate =
+    module internal Translate =
         open Endorphin.Core.StringUtils
 
-        let internal parseSweepMode str =
+        let parseSweepMode str =
             match upperCase str with
             | "CW"
             | "FIX"
@@ -14,34 +14,34 @@ module Sweep =
             | "LIST"  -> Swept
             | str     -> failwithf "Unexpected sweep mode string: %s." str
 
-        let internal sweepModeString =
+        let sweepModeString =
             function
             | Fixed -> "FIX"
             | Swept -> "LIST"
 
-        let internal parseStepSpacing str =
+        let parseStepSpacing str =
             match upperCase str with
             | "LIN" | "LINEAR"      -> LinearStepSpacing
             | "LOG" | "LOGARITHMIC" -> LogarithmicStepSpacing
             | _                     -> failwithf "Unexpected step spacing string: %s." str
     
-        let internal stepSpacingString =
+        let stepSpacingString =
             function
             | LinearStepSpacing      -> "LIN"
             | LogarithmicStepSpacing -> "LOG"
 
-        let internal parseSweepType str =
+        let parseSweepType str =
             match upperCase str with
             | "LIST" -> List
             | "STEP" -> Step
             | _      -> failwithf "Unexpected sweep type string: %s." str
 
-        let internal sweepTypeString =
+        let sweepTypeString =
             function
             | List -> "LIST"
             | Step -> "STEP"
 
-    module Action =
+    module Control =
         open Translate
 
         let private frequencySweepModeKey = ":FREQUENCY:MODE"
@@ -89,8 +89,8 @@ module Sweep =
 
         let internal setSweepOptions rfSource options = asyncChoice {
             do! setDirection rfSource options.Direction
-            do! Triggering.Action.setTriggerSource StepTrigger rfSource options.StepTrigger
-            do! Triggering.Action.setTriggerSource ListTrigger rfSource options.ListTrigger
+            do! Triggering.Control.setTriggerSource StepTrigger rfSource options.StepTrigger
+            do! Triggering.Control.setTriggerSource ListTrigger rfSource options.ListTrigger
             match options.DwellTime with
                 | Some t -> do! setDwellTime rfSource t
                 | None   -> if options.ListTrigger == Immediate
@@ -237,7 +237,7 @@ module Sweep =
 
     // Apply a configuration
     module Apply =
-        open Action
+        open Control
         /// Set up an RF step sweep from a model
         let stepSweep rfSource (stepSweep : StepSweep) = asyncChoice {
             do! Step.setFrequencySweep rfSource stepSweep.Frequency
