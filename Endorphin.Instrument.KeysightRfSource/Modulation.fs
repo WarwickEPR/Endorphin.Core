@@ -17,6 +17,11 @@ module Modulation =
             | FM1 -> "FM1"
             | FM2 -> "FM2"
 
+        let modulationChannelString =
+            function
+            | ``AM Channel`` path -> ``AM Path String`` path
+            | ``FM Channel`` path -> ``FM Path String`` path
+
         // Modulation Settings 
         type DepthType = LinearType | ExponentialType
 
@@ -149,18 +154,10 @@ module Modulation =
             // When PM is added, check that PM and FM paths are exclusive
 
             if not duplicateChannels.IsEmpty then
-                let duplicateAM = List.filter (function (``AM Channel`` c) -> true | _ -> false) duplicateChannels
-                let duplicateFM = List.filter (function (``FM Channel`` c) -> true | _ -> false) duplicateChannels
-
-                if not (List.isEmpty duplicateAM) then
-                    failwith << sprintf "Repeated AM channel: %s" << prettyPrintList
-                             << List.map (fun (``AM Channel`` c) -> ``AM Path String`` c)
-                             <| duplicateAM 
-
-                if not (List.isEmpty duplicateFM) then
-                    failwith << sprintf "Repeated FM channel: %s" << prettyPrintList
-                             << List.map (fun (``FM Channel`` c) -> ``FM Path String`` c)
-                             <| duplicateFM
+                failwith << sprintf "Repeated modulation channels: %s"
+                         << prettyPrintList
+                         << List.map (fun channel -> modulationChannelString channel)
+                         <| duplicateChannels
              
             if not duplicateSources.IsEmpty then
                 failwith << sprintf "Modulation sources used more than once: %s" << prettyPrintList
