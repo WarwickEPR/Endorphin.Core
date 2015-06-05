@@ -22,6 +22,7 @@ module Modulation =
             | ``AM Channel`` path -> ``AM Path String`` path
             | ``FM Channel`` path -> ``FM Path String`` path
 
+
         // Modulation Settings 
         type DepthType = LinearType | ExponentialType
 
@@ -60,12 +61,17 @@ module Modulation =
             let internal queryType path = IO.queryValue parseDepthType (typeKey path)
 
             let private depthLinearKey path = prefix path ":DEPTH"
-            let setDepthLinear path = IO.setPercentage (depthLinearKey path)
-            let queryDepthLinear path = IO.queryPercentage (depthLinearKey path)
+            let private setDepthLinear path = IO.setPercentage (depthLinearKey path)
+            let private queryDepthLinear path = IO.queryPercentage (depthLinearKey path)
 
             let private depthExponentialKey path = prefix path ":DEPTH:EXPONENTIAL"
-            let setDepthExponential path = IO.setDecibelRatio (depthExponentialKey path)
-            let queryDepthExponential path = IO.queryDecibelRatio (depthExponentialKey path)
+            let private setDepthExponential path = IO.setDecibelRatio (depthExponentialKey path)
+            let private queryDepthExponential path = IO.queryDecibelRatio (depthExponentialKey path)
+
+            let setDepth path rfSource depth =
+                match depth with
+                | Linear v -> setDepthLinear path rfSource v
+                | Exponential v -> setDepthExponential path rfSource v
 
             module External =
                 let private prefix path = prefix path ":EXTERNAL"
@@ -95,8 +101,8 @@ module Modulation =
             let querySource path = querySource (prefix path sourceKey)
 
             let private deviationKey path = prefix path ":DEVIATION"
-            let setDepthLinear path = IO.setFrequency (deviationKey path)
-            let queryDepthLinear path = IO.queryFrequency (deviationKey path)
+            let setDeviation path = IO.setFrequency (deviationKey path)
+            let queryDeviation path = IO.queryFrequency (deviationKey path)
 
             module External =
                 let private prefix path = prefix path ":EXTERNAL"
@@ -123,7 +129,6 @@ module Modulation =
 
     module Configure =
         open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-        open Endorphin.Core.CollectionUtils
         open Translate
 
         // Prepare function settings
@@ -147,6 +152,11 @@ module Modulation =
                            |> withPhaseOffsetInRadians phase
             InternalSource (Function1, settings)
 
+    
+    module Apply =
+        open Control
+        open Translate
+        open Endorphin.Core.CollectionUtils
 
         let consistentModulationSettings settings =
             let duplicateChannels = settings |> List.map modulationChannel |> duplicates
@@ -164,3 +174,25 @@ module Modulation =
                          << List.map (sourceProvider >> sourceString) <| duplicateSources
 
             succeed settings
+
+        let private applyModulation modulation rfSource = asyncChoice {
+            match modulation with
+            | AmplitudeModulation (path,settings,source) ->
+                let prefix = sprintf ":%s" <| ``AM Path String`` path
+                do! Amplitude.setDepth path rfSource settings.Depth
+                do! Source.Apply.setup prefix source rfSource
+                do! Amplitude.setSource path rfSource (sourceProvider source)
+
+            | FrequencyModulation (path,settings,source) ->
+                let prefix = sprintf ":%s" <| ``FM Path String`` path
+                do! Frequency.setDeviation path rfSource settings.Deviation
+                do! Frequency.setSource path rfSource (sourceProvider source)
+                do! Source.Apply.setup prefix source rfSource
+                do! Frequency.setSource path rfSource (sourceProvider source)
+        }
+
+
+        let modulationSettings settings rfSource = choice {
+            let! consistentSettings = consistentModulationSettings settings
+            for modulation in consistentSettings do
+                applyModulation modulation rfSource |> ignore }

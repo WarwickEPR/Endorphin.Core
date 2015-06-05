@@ -62,3 +62,19 @@ module Source =
             let private impedanceKey = ":IMPEDANCE"
             let internal setImpedance prefix src = IO.setValue impedanceString (externalKey impedanceKey prefix src)
             let internal queryImpedance prefix src = IO.queryValue parseImpedance (externalKey impedanceKey prefix src)
+
+    module Apply =
+        open Control
+
+        let internal setup prefix source rfSource = asyncChoice {
+            let sourceProvider = sourceProvider source
+            match source with
+            | ExternalSource (port,settings) ->
+                do! External.setCoupling prefix sourceProvider rfSource settings.Coupling
+                do! External.setImpedance prefix sourceProvider rfSource settings.Impedance
+                
+            | InternalSource (generator,settings) ->
+                let functionGenerator = Translate.sourceString sourceProvider
+                do! Function.setShape prefix sourceProvider rfSource settings.Shape
+                do! Function.setFrequency prefix sourceProvider rfSource settings.Frequency
+        }

@@ -44,13 +44,38 @@ module Sweep =
     module Control =
         open Translate
 
-        let private frequencySweepModeKey = ":FREQUENCY:MODE"
-        let setFrequencySweepMode = IO.setValue sweepModeString frequencySweepModeKey
-        let queryFrequencySweepMode = IO.queryValue parseSweepMode frequencySweepModeKey
+        [<AutoOpen>]
+        module Frequency =
+            let private frequencySweepModeKey = ":FREQUENCY:MODE"
+            let setFrequencySweepMode = IO.setValue sweepModeString frequencySweepModeKey
+            let queryFrequencySweepMode = IO.queryValue parseSweepMode frequencySweepModeKey
 
-        let private amplitudeSweepModeKey = ":POWER:MODE"
-        let setAmplitudeSweepMode = IO.setValue sweepModeString amplitudeSweepModeKey
-        let queryAmplitudeSweepMode = IO.queryValue parseSweepMode amplitudeSweepModeKey
+            let private startFrequencyKey = ":FREQUENCY:START"
+            let setStartFrequency = IO.setFrequency startFrequencyKey
+            let queryStartFrequncy = IO.queryFrequency startFrequencyKey
+
+            let private stopFrequencyKey = ":FREQUENCY:STOP"
+            let setStopFrequency = IO.setFrequency stopFrequencyKey
+            let queryStopFrequency = IO.queryFrequency stopFrequencyKey
+
+            let private frequencySpanKey = ":FREQUENCY:SPAN"
+            let setFrequencySpan = IO.setFrequency frequencySpanKey
+            let queryFrequencySpan = IO.queryFrequency frequencySpanKey
+
+        [<AutoOpen>]
+        module Amplitude =
+            let private amplitudeSweepModeKey = ":POWER:MODE"
+            let setAmplitudeSweepMode = IO.setValue sweepModeString amplitudeSweepModeKey
+            let queryAmplitudeSweepMode = IO.queryValue parseSweepMode amplitudeSweepModeKey
+
+            let private startAmplitudeKey = ":POWER:START"
+            let setStartAmplitude = IO.setAmplitude startAmplitudeKey
+            let queryStartAmplitude = IO.queryAmplitude startAmplitudeKey
+
+            let private stopAmplitudeKey = ":POWER:STOP"
+            let setStopAmplitude = IO.setAmplitude stopAmplitudeKey
+            let queryStopAmplitude = IO.queryAmplitude stopAmplitudeKey
+
 
         let private typeKey = ":LIST:TYPE"
         /// set List or Step sweep
@@ -115,7 +140,7 @@ module Sweep =
             let setFrequencySweep rfSource frequencySweep = asyncChoice {
                 match frequencySweep with
                 | FixedFrequency f ->
-                    do! Frequency.setCwFrequency rfSource f
+                    do! setCwFrequency rfSource f
                     do! setFrequencySweepMode rfSource Fixed
                 | FrequencySweep sweep ->
                     do! Frequency.setStartFrequency rfSource sweep.Start
@@ -126,7 +151,7 @@ module Sweep =
             let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
                 match amplitudeSweep with
                 | FixedAmplitude a ->
-                    do! Amplitude.setCwAmplitude rfSource a
+                    do! setCwAmplitude rfSource a
                     do! setAmplitudeSweepMode rfSource Fixed
                 | AmplitudeSweep sweep ->
                     do! Amplitude.setStartAmplitude rfSource sweep.Start

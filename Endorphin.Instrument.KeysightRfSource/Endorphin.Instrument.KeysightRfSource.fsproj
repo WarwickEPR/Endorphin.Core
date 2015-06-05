@@ -53,13 +53,14 @@
     <Compile Include="Model.fs" />
     <Compile Include="Quantities.fs" />
     <Compile Include="IO.fs" />
-    <None Include="Demo.fsx" />
     <None Include="app.config" />
+    <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
     <Compile Include="Modulation.fs" />
-    <Compile Include="RfSource.fs" />
     <Compile Include="Sweep.fs" />
+    <Compile Include="RfSource.fs" />
+    <None Include="Demo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
