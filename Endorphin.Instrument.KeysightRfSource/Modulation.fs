@@ -175,7 +175,7 @@ module Modulation =
 
             succeed settings
 
-        let private applyModulation modulation rfSource = asyncChoice {
+        let private applyModulation rfSource modulation = asyncChoice {
             match modulation with
             | AmplitudeModulation (path,settings,source) ->
                 let prefix = sprintf ":%s" <| ``AM Path String`` path
@@ -192,7 +192,7 @@ module Modulation =
         }
 
 
-        let modulationSettings settings rfSource = choice {
+        let modulationSettings rfSource settings = choice {
             let! consistentSettings = consistentModulationSettings settings
             for modulation in consistentSettings do
-                applyModulation modulation rfSource |> ignore }
+                applyModulation rfSource modulation |> ignore }

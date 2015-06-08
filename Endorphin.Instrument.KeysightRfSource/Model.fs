@@ -197,3 +197,10 @@ module Model =
             Spacing : StepSpacing
             Options : SweepOptions }
 
+        type Sweep =
+            | NoSweep of frequency : Frequency * amplitude : Amplitude
+            | StepSweep of sweep : StepSweep
+
+    type KeysightRfSettings = {
+        Sweep : Sweep
+        Modulation : Modulation list }
