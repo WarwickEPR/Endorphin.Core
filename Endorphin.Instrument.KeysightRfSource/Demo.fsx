@@ -35,16 +35,18 @@ let functionSource frequency = InternalSource ( Function1,
                                                   Frequency = frequency
                                                   PhaseOffset = PhaseInRad 0.0<rad> } )
 
+let test = { Depth = depthInPercentage (Percentage 50.0<pct>) }
+ 
 let am = AmplitudeModulation (AM1, { Depth = depthInPercentage (Percentage 50.0<pct>) }, ext1)
 let fm = FrequencyModulation (FM2, { Deviation = FrequencyInHz 2.0e3<Hz> }, fun2)
 
 let modulationSettings = [ am ; fm ]
 
-let sweepExperiment startFrequency stopFrequency =
-    
-    asyncChoice {
 
+let sweepExperiment startFrequency stopFrequency =
+    asyncChoice {
         let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
+        //let keysight = Dummy.openDumbInstrument
         let! identity = RfSource.queryIdentity keysight
         printf "%A" identity
 
@@ -55,15 +57,24 @@ let sweepExperiment startFrequency stopFrequency =
             |> withDwellTime (Some (DurationInSec 1e-2<s>))   
 
         printfn "\nSetting up experiment:\n%A" sweepSettings
-        do! Sweep.Apply.stepSweep keysight sweepSettings
-    
+//        do! Sweep.Apply.stepSweep keysight sweepSettings
+
+        let keysightRfSettings1 = { Sweep = (StepSweep sweepSettings)
+                                    Modulation = modulationSettings }
+        let keysightRfSettings2 = { Sweep = NoSweep <| ((FrequencyInHz 1.2e9<Hz>),(PowerInDbm 0.1<dBm>))
+                                    Modulation = [] }
+
     //    do! RfSource.setModulationState keysight Off
     //    do! RfSource.Frequency.setCwFrequency keysight (FrequencyInHz 1.0e9<Hz>)
-        let! amplitude = queryCwAmplitude keysight
-        printfn "%A" amplitude 
-    
-        do! RfSource.closeInstrument keysight }
 
-sweepExperiment 1.0e9<Hz> 2.0e9<Hz>
-|> Async.RunSynchronously
-|> printResult
+        do! RfSource.applySettings keysight keysightRfSettings1
+
+        //let! amplitude = queryCwAmplitude keysight
+        //printfn "%A" amplitude 
+        
+        do RfSource.closeInstrument keysight |> ignore }
+
+
+let out = sweepExperiment 1.0e9<Hz> 2.0e9<Hz>
+           |> Async.RunSynchronously
+out |> printResult

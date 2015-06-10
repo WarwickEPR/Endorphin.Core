@@ -20,14 +20,15 @@ module Source =
 
     module Control =
         open Translate
-        let private sourceKey key prefix src = sprintf "%s:%s:%s" prefix src key
+        let private sourceKey key prefix src = sprintf "%s:%s%s" prefix src key
 
         module Function =
             let private functionKey key prefix fg = sourceKey key prefix (sourceString fg)
 
-            let private shapeKey = ":SHAPE"   
+            let private shapeKey = ":SHAPE"
+            let private rampKey =  ":SHAPE:RAMP"
             let internal queryShape prefix fg rfSource str =
-                let getRamp = asyncChoice { let rkey = functionKey ":SHAPE:RAMP" prefix fg
+                let getRamp = asyncChoice { let rkey = functionKey rampKey prefix fg
                                             let! polarity = IO.queryPolarity rkey rfSource
                                             return Ramp polarity }
                 let key = functionKey shapeKey prefix fg
@@ -42,10 +43,11 @@ module Source =
 
             let internal setShape prefix fg rfSource (shape : FunctionShape) = 
                 let key = functionKey shapeKey prefix fg
+                let rkey = functionKey rampKey prefix fg 
                 asyncChoice {
                     do! IO.setValue functionShapeString key rfSource shape
                     match shape with
-                    | Ramp polarity -> do! IO.setPolarity key rfSource polarity
+                    | Ramp polarity -> do! IO.setPolarity rkey rfSource polarity
                     | _ -> () }
 
             let private frequencyKey = ":FREQUENCY"

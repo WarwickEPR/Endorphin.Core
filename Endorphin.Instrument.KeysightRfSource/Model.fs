@@ -12,7 +12,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 module Model =
     [<AutoOpen>]
     module Instrument =
-        type RfSource = internal RfSource of Visa.Instrument
+        type RfSource = internal RfSource of Visa.IVisa
 
         type DeviceId =
             { Manufacturer : string
@@ -91,8 +91,8 @@ module Model =
         type FunctionGenerator = Function1
 
         // Modulation paths
-        type ``AM Path`` = AM1 | AM2
-        type ``FM Path`` = FM1 | FM2
+        type AmPath = AM1 | AM2
+        type FmPath = FM1 | FM2
 
         type Depth =
             | Linear of depth : Percentage
@@ -101,8 +101,8 @@ module Model =
         let depthInPercentage (depth : Percentage) = Linear depth
         let depthInDecibels (depth : DecibelRatio) = Exponential depth
 
-        type ``AM Settings`` = { Depth : Depth }
-        type ``FM Settings`` = { Deviation : Frequency }
+        type AmSettings = { Depth : Depth }
+        type FmSettings = { Deviation : Frequency }
 
         // Source Settings
         type ExternalSettings =
@@ -118,25 +118,23 @@ module Model =
             | ExternalSource of port : ExternalInput * settings : ExternalSettings
             | InternalSource of generator : FunctionGenerator * settings : FunctionSettings
 
-
-
         // Modulations have a set path, settings and source which will have its own settings
 
         type Modulation =
-            | AmplitudeModulation of path : ``AM Path`` * settings : ``AM Settings`` * source : Source
-            | FrequencyModulation of path : ``FM Path`` * settings : ``FM Settings`` * source : Source
+            | AmplitudeModulation of path : AmPath * settings : AmSettings * source : Source
+            | FrequencyModulation of path : FmPath * settings : FmSettings * source : Source
 
         type ModulationSettings = Modulation list
  
          // Extract just the modulation channel from a Modulation
         type ModulationChannel =
-            | ``AM Channel`` of path : ``AM Path``
-            | ``FM Channel`` of path : ``FM Path``
+            | AmChannel of path : AmPath
+            | FmChannel of path : FmPath
    
         let modulationChannel =
             function
-            | AmplitudeModulation (path, _, _) -> ``AM Channel`` path
-            | FrequencyModulation (path, _, _) -> ``FM Channel`` path
+            | AmplitudeModulation (path, _, _) -> AmChannel path
+            | FrequencyModulation (path, _, _) -> FmChannel path
 
         // Extract just the signal source
         type SourceProvider =

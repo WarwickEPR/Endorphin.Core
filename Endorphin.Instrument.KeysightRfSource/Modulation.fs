@@ -7,23 +7,21 @@ module Modulation =
     module internal Translate =
         open Endorphin.Core.StringUtils
 
-        let ``AM Path String`` =
+        let AmPathString =
             function
             | AM1 -> "AM1"
             | AM2 -> "AM2"
 
-        let ``FM Path String`` =
+        let FmPathString =
             function
             | FM1 -> "FM1"
             | FM2 -> "FM2"
 
         let modulationChannelString =
             function
-            | ``AM Channel`` path -> ``AM Path String`` path
-            | ``FM Channel`` path -> ``FM Path String`` path
+            | AmChannel path -> AmPathString path
+            | FmChannel path -> FmPathString path
 
-
-        // Modulation Settings 
         type DepthType = LinearType | ExponentialType
 
         let parseDepthType str =
@@ -37,6 +35,11 @@ module Modulation =
             | Linear _ -> "LIN"
             | Exponential _ -> "EXP"
 
+        let modulationSourceInfix =
+            function
+            | ExternalSource _ -> ""
+            | InternalSource _ -> ":INTERNAL"
+
     module Control =
         open Translate
         open Source.Translate
@@ -48,7 +51,7 @@ module Modulation =
         let private querySource = IO.queryValue parseSource
 
         module Amplitude =
-            let private prefix path key = sprintf ":%s%s" (``AM Path String`` path) key
+            let private prefix path key = sprintf ":%s%s" (AmPathString path) key
 
             let setState path = IO.setOnOffState (prefix path stateKey)
             let queryState path = IO.queryOnOffState (prefix path stateKey)
@@ -73,26 +76,8 @@ module Modulation =
                 | Linear v -> setDepthLinear path rfSource v
                 | Exponential v -> setDepthExponential path rfSource v
 
-            module External =
-                let private prefix path = prefix path ":EXTERNAL"
-
-                let setCoupling path = External.setCoupling (prefix path)
-                let queryCoupling path = External.queryCoupling (prefix path)
-
-                let setImpedance path = External.setImpedance (prefix path)
-                let queryImpedance path = External.queryImpedance (prefix path)
-
-            module Internal =
-                let private prefix path = prefix path ":INTERNAL"
-
-                let setFunctionShape path = Function.setShape (prefix path)
-                let queryFunctionShape path = Function.queryShape (prefix path)
-
-                let setFunctionFrequency path = Function.setFrequency (prefix path)
-                let queryFunctionFrequency path = Function.queryFrequency (prefix path)
-
         module Frequency =
-            let private prefix path key = sprintf ":%s:%s" (``FM Path String`` path) key
+            let private prefix path key = sprintf ":%s%s" (FmPathString path) key
 
             let setState path = IO.setOnOffState (prefix path stateKey)
             let queryState path = IO.queryOnOffState (prefix path stateKey)
@@ -103,24 +88,6 @@ module Modulation =
             let private deviationKey path = prefix path ":DEVIATION"
             let setDeviation path = IO.setFrequency (deviationKey path)
             let queryDeviation path = IO.queryFrequency (deviationKey path)
-
-            module External =
-                let private prefix path = prefix path ":EXTERNAL"
-
-                let setCoupling path = External.setCoupling (prefix path)
-                let queryCoupling path = External.queryCoupling (prefix path)
-
-                let setImpedance path = External.setImpedance (prefix path)
-                let queryImpedance path = External.queryImpedance (prefix path)
-
-            module Internal =
-                let private prefix path = prefix path ":INTERNAL"
-
-                let setFunctionShape path = Function.setShape (prefix path)
-                let queryFunctionShape path = Function.queryShape (prefix path)
-
-                let setFunctionFrequency path = Function.setFrequency (prefix path)
-                let queryFunctionFrequency path = Function.queryFrequency (prefix path)
 
     module Runtime =
         let private modulationStateKey = ":OUTPUT:MODULATION"
@@ -176,23 +143,26 @@ module Modulation =
             succeed settings
 
         let private applyModulation rfSource modulation = asyncChoice {
+            printfn "applyModulation: %A" modulation
             match modulation with
             | AmplitudeModulation (path,settings,source) ->
-                let prefix = sprintf ":%s" <| ``AM Path String`` path
+                let prefix = sprintf ":%s" <| AmPathString path
+                let sourcePrefix = prefix + modulationSourceInfix source
                 do! Amplitude.setDepth path rfSource settings.Depth
-                do! Source.Apply.setup prefix source rfSource
+                do! Source.Apply.setup sourcePrefix source rfSource
                 do! Amplitude.setSource path rfSource (sourceProvider source)
 
             | FrequencyModulation (path,settings,source) ->
-                let prefix = sprintf ":%s" <| ``FM Path String`` path
+                let prefix = sprintf ":%s" <| FmPathString path
+                let sourcePrefix = prefix + modulationSourceInfix source
                 do! Frequency.setDeviation path rfSource settings.Deviation
-                do! Frequency.setSource path rfSource (sourceProvider source)
-                do! Source.Apply.setup prefix source rfSource
+                do! Source.Apply.setup sourcePrefix source rfSource
                 do! Frequency.setSource path rfSource (sourceProvider source)
         }
 
 
-        let modulationSettings rfSource settings = choice {
+        let modulationSettings rfSource settings = asyncChoice {
             let! consistentSettings = consistentModulationSettings settings
             for modulation in consistentSettings do
-                applyModulation rfSource modulation |> ignore }
+                printfn "About to apply modulation %A" modulation
+                do! applyModulation rfSource modulation }
