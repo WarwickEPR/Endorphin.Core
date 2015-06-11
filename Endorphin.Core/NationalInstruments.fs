@@ -56,7 +56,7 @@ module NationalInstruments =
     
     [<RequireQualifiedAccess>]
     module Visa =
-       
+
         type private VisaMessage =
             | ReadString of replyChannel : AsyncChoiceReplyChannel<string,string>
             | WriteString of visaCommand : string
@@ -167,3 +167,20 @@ module NationalInstruments =
 
         let openInstrument visaAddress timeout =
             createAgent visaAddress timeout |> Instrument
+
+        // Access the instrument through an interface to allow it to
+        // be mocked easily for simple offline tests
+
+        type IVisa =
+            abstract member queryInstrument : string -> Async<Choice<string,string>>
+            abstract member writeString     : string -> unit
+            abstract member readString      : unit   -> Async<Choice<string,string>>
+            abstract member closeInstrument : unit -> Async<Choice<unit,string>>
+
+        type VisaInstrument (visaAddress,timeout) =
+            let agent = openInstrument visaAddress timeout
+            interface IVisa with
+                member __.queryInstrument (str) = queryInstrument agent str
+                member __.writeString (str) = writeString agent str
+                member __.readString () = readString agent
+                member __.closeInstrument () = closeInstrument agent

@@ -51,12 +51,19 @@
   <ItemGroup>
     <None Include="packages.config" />
     <Compile Include="Model.fs" />
-    <Compile Include="Translate.fs" />
+    <Compile Include="Quantities.fs" />
     <Compile Include="IO.fs" />
+    <None Include="app.config" />
+    <Compile Include="Basic.fs" />
+    <Compile Include="Triggering.fs" />
+    <Compile Include="Source.fs" />
+    <Compile Include="Modulation.fs" />
+    <Compile Include="Sweep.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Demo.fsx" />
-    <None Include="app.config" />
-    <Compile Include="Setup.fs" />
+    <Compile Include="DummyInstrument.fs" />
+    <None Include="Scripts\load-references.fsx" />
+    <None Include="Scripts\load-project.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
