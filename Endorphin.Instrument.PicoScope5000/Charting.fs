@@ -1,4 +1,5 @@
-﻿namespace Endorphin.Instrument.PicoScope5000
+﻿(*
+namespace Endorphin.Instrument.PicoScope5000
 
 open System
 open System.Runtime.InteropServices
@@ -8,7 +9,6 @@ open FSharp.Charting
 open Endorphin.Core
 open System.Runtime.CompilerServices
 
-(*
 [<Extension>]
 /// Provides charting extension members for PicoScope 5000 series acquisition workflows.
 /// TODO: convert samples to voltage vs. time and voltage vs. voltage respectively.

@@ -50,15 +50,17 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="StatusCodes.fs" />
-    <Compile Include="Device.fs" />
+    <Compile Include="NativeModel.fs" />
+    <Compile Include="NativeApi.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="Parsing.fs" />
     <Compile Include="Quantities.fs" />
+    <Compile Include="Device.fs" />
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="TriggerSettings.fs" />
-    <Compile Include="SignalGenerator.fs" />
-    <Compile Include="AcquisitionAndCallbacks.fs" />
-    <Compile Include="NativeApi.fs" />
+    <Compile Include="Acquisition.fs" />
     <Compile Include="PicoScope.fs" />
-    <Compile Include="StreamWorker.fs" />
+    <Compile Include="Streaming.fs" />
     <Compile Include="Charting.fs" />
     <None Include="packages.config" />
   </ItemGroup>

@@ -2,6 +2,8 @@
 
 open System.Text
 open System.Runtime.InteropServices
+open NativeModel
+open StatusCodes
 
 /// Holds the PicoScope driver functions imported from ps5000a.dll which can only be accessed internally in this assembly. Function
 /// descriptions are copied from the PicoScope 5000 series programming guide. See the guide for argument description details.

@@ -1,11 +1,8 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
-open ExtCore.Control
-
-[<AutoOpen>]
-module StatusCodes =
+module internal StatusCodes =
     /// Lists the PicoScope 5000 series driver status codes
-    type internal StatusCode = 
+    type StatusCode = 
         | Ok                                   = 0x0000
         | MaximumUnitsOpened                   = 0x0001
         | MemoryFailure                        = 0x0002
@@ -133,7 +130,7 @@ module StatusCodes =
         | ChannelDisabledDueToUsbPower         = 0x0122
 
     /// Provides a message string describing the StatusCode.
-    let internal statusMessage = 
+    let statusMessage = 
         function
         | StatusCode.Ok -> "OK"
         | StatusCode.MaximumUnitsOpened -> "An attempt has been made to open more than PS5000A_MAX_UNITS"
@@ -255,31 +252,3 @@ module StatusCodes =
             "The number of channels which can be enabled is limited in 15 and 16-bit modes"
         | StatusCode.ChannelDisabledDueToUsbPower -> "USB Power not sufficient to power all channels"
         | status -> sprintf "Failed with unexpected StatusCode value: %A" status
-
-    let internal (|Ok|Error|) =
-        function
-        | StatusCode.Ok -> Ok
-        | error         -> Error (statusMessage error)
-
-    let internal checkStatus =
-        function
-        | Ok            -> succeed ()
-        | Error message -> fail message
-
-    let internal checkStatusAndReturn value status = choice {
-        do! checkStatus status
-        return value }
-
-    type Availability = Available | Busy
-
-    let internal (|AvailabilityStatus|_|) =
-        function
-        | StatusCode.Ok   -> Some (AvailabilityStatus Available)
-        | StatusCode.Busy -> Some (AvailabilityStatus Busy)
-        | _               -> None
-
-    let internal (|Found|_|) =
-        function
-        | StatusCode.Ok       -> Some (Found true)
-        | StatusCode.NotFound -> Some (Found false)
-        | _                   -> None
