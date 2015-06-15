@@ -1,6 +1,6 @@
-﻿(*
-namespace Endorphin.Instrument.PicoScope5000
+﻿namespace Endorphin.Instrument.PicoScope5000
 
+(* 
 open System
 open System.Runtime.InteropServices
 open System.Reactive.Linq

@@ -191,13 +191,14 @@ module Model =
                 | AutoStop of maxPreTriggerSamples : SampleIndex * maxPostTriggerSamples : SampleIndex
 
             type StreamingParameters = 
-                internal { SampleInterval    : Interval
-                           StreamStop        : StreamStop
-                           DownsamplingRatio : DownsamplingRatio option
+                internal { Resolution        : Resolution
+                           SampleInterval    : Interval
                            BufferLength      : SampleIndex
                            MemorySegment     : MemorySegment
-                           Inputs            : AcquisitionInputs
-                           TriggerSettings   : TriggerSettings }
+                           TriggerSettings   : TriggerSettings
+                           StreamStop        : StreamStop
+                           DownsamplingRatio : DownsamplingRatio option
+                           Inputs            : AcquisitionInputs }
             
             type internal StreamingValuesReady = 
                 { NumberOfSamples  : SampleCount

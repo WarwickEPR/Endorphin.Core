@@ -14,4 +14,5 @@ module Interval =
 
 [<RequireQualifiedAccess>]
 module Voltage =
-    let fromVolts = VoltageInVolts     
+    let fromVolts = VoltageInVolts
+    let zero = VoltageInVolts 0.0f<V>
