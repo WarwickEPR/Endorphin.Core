@@ -48,9 +48,11 @@ module NationalInstruments =
             asyncChoice {
                 // The cancellation handler ensures that no outstanding asynchronous reads or writes
                 // are still on-going when a query is cancelled and that the device buffers are cleared.
-                use! __ = Async.OnCancel(fun() -> 
-                    session.Terminate()
-                    session.Clear())
+                use! __ = 
+                    AsyncChoice.liftAsync 
+                    <| Async.OnCancel(fun() -> 
+                        session.Terminate()
+                        session.Clear())
                 do! session.WriteAsync message
                 return! session.ReadAsync() }
     
