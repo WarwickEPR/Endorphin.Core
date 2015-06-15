@@ -58,9 +58,9 @@
     <Compile Include="NationalInstruments.fs" />
     <Compile Include="CSharpInterop.fs" />
     <Compile Include="WinFormsObservables.fs" />
+    <Compile Include="Collections.fs" />
     <None Include="packages.config" />
     <None Include="app.config" />
-    <Compile Include="CollectionUtils.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
