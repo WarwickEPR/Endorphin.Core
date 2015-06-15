@@ -26,16 +26,11 @@ module ErrorHandling =
                 | Success s -> return! binder s
                 | Failure f -> return fail f }
 
-        /// Binds an expression of type Async<'T>.
-        member __.Bind (asyncValue : Async<'T>, binder : 'T -> AsyncChoice<'U, 'Error>) =
-            async {
-                let! value = asyncValue
-                return! binder value }
-
         /// Returns from an expression of type Choice<'T, 'Error>.
         member __.ReturnFrom (choice : Choice<'T, 'Error>) =
             choice |> async.Return
-            
-        /// Returns from an expression of type Async<'T>.
-        member __.ReturnFrom (asyncValue : Async<'T>) =
-            asyncValue |> Async.map succeed
+
+[<AutoOpen>]
+module AsyncChoice =
+    let liftAsync comp = comp |> Async.map succeed
+    let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
