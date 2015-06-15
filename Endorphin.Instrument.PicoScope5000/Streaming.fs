@@ -26,8 +26,9 @@ module StreamingAcquisition =
                   DataBuffers          : AcquisitionBuffers
                   StopCapability       : CancellationCapability<StreamStopOptions>
                   StatusChanged        : Event<StreamStatus>
-                  SampleBlockObserved  : Event<SampleBlock>
-                  mutable WaitToFinish : AsyncChoice<unit, string> option }
+                  SampleBlockObserved  : Event<SampleBlock> }
+
+    type StreamingAcquisitionHandle = private StreamingAcquisitionHandle of acquisition : StreamingAcquisition * waitToFinish : AsyncChoice<unit, string>
 
     let createParameters resolution sampleInterval bufferLength =
         { Resolution        = resolution
@@ -73,8 +74,7 @@ module StreamingAcquisition =
             <| streamingParameters.Inputs
           StopCapability         = new CancellationCapability<StreamStopOptions>()
           StatusChanged          = new Event<StreamStatus>()
-          SampleBlockObserved    = new Event<SampleBlock>()
-          WaitToFinish           = None }
+          SampleBlockObserved    = new Event<SampleBlock>() }
 
     let statusChanged acquisition =
         Observable.CreateFromStatusEvent(
@@ -189,16 +189,12 @@ module StreamingAcquisition =
 
         asyncChoice {
             let! waitToFinish = acquisitionWorkflow |> Async.StartChild |> AsyncChoice.liftAsync 
-            acquisition.WaitToFinish <- Some waitToFinish }
+            return StreamingAcquisitionHandle (acquisition, waitToFinish) }
                       
-    let stop picoScope acquisition =
-        match acquisition.WaitToFinish with
-        | Some waitToFinish ->
-            if not acquisition.StopCapability.IsCancellationRequested then
-                acquisition.StopCapability.Cancel (DidAutoStop false)
+    let stop picoScope (StreamingAcquisitionHandle (acquisition, waitToFinish)) =
+        if not acquisition.StopCapability.IsCancellationRequested then
+            acquisition.StopCapability.Cancel (DidAutoStop false)
 
-            async {
-                let! acquisitionResult = waitToFinish
-                return! finishAcquisition picoScope acquisition acquisitionResult }
-        
-        | None -> failwith "Cannot stop an acquisition which has not been started."
+        async {
+            let! acquisitionResult = waitToFinish
+            return! finishAcquisition picoScope acquisition acquisitionResult }       

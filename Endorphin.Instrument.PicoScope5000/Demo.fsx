@@ -31,10 +31,9 @@ asyncChoice {
     StreamingAcquisition.statusChanged acquisition
     |> Observable.add (printfn "%A")
     
-    do! StreamingAcquisition.start picoScope acquisition
+    let! acquisitionHandle = StreamingAcquisition.start picoScope acquisition
     
     do! Async.Sleep 30000 |> AsyncChoice.liftAsync
-    do! StreamingAcquisition.stop picoScope acquisition }
+    do! StreamingAcquisition.stop picoScope acquisitionHandle }
 |> Async.RunSynchronously
 |> printfn "%A"
-

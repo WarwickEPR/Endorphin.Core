@@ -325,7 +325,6 @@ module PicoScope =
             asyncChoice {
                 let requiredChannels   = Map.keys acquisition.InputSettings
                 let! availableChannels = queryAvailableChannels picoScope
-                printfn "%A" availableChannels
                 if not (Set.isSubset requiredChannels availableChannels) then
                     return! fail "The specified acquisition inputs require input channels which are not available on the current device." 
                 for channel in availableChannels do
