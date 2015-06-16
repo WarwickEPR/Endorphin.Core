@@ -10,14 +10,13 @@ open System
 let defer f = { new IDisposable with member __.Dispose() = f () }
 
 let parameters = 
-    let setupChannels =
+    let acquisitionInputs =
         Acquisition.empty
-        |> Acquisition.enableChannel ChannelA DC Range_200mV Voltage.zero FullBandwidth
+        |> Acquisition.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
         |> Acquisition.sampleChannel ChannelA NoDownsampling
-        |> StreamingAcquisition.withNoDownsampling
     
     StreamingAcquisition.createParameters Resolution_14bit (Interval.fromMilliseconds 20<ms>) (1024u * 1024u)
-    |> setupChannels
+    |> StreamingAcquisition.withNoDownsampling acquisitionInputs
 
 asyncChoice {
     let! picoScope = PicoScope.openFirst Resolution_8bit
@@ -33,7 +32,7 @@ asyncChoice {
     
     let! acquisitionHandle = StreamingAcquisition.start picoScope acquisition
     
-    do! Async.Sleep 30000 |> AsyncChoice.liftAsync
+    do! Async.Sleep 10000 |> AsyncChoice.liftAsync
     do! StreamingAcquisition.stop picoScope acquisitionHandle }
 |> Async.RunSynchronously
 |> printfn "%A"
