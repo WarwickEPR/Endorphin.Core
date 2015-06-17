@@ -766,7 +766,7 @@ type PicoScope5000(sessionParams) =
             | _ -> 0x7FFFs
 
         let voltageRange = range.ToVolts()
-        fun (adcCounts : int16) -> (voltageRange * (float adcCounts) / (float maxAdcCounts) + analogueOffset)
+        fun (adcCounts : int16) -> (voltageRange * (float adcCounts) / (float maxAdcCounts) - analogueOffset)
 
     /// Returns a conversion function from voltage to ADC counts for a specified voltage input range and analogue offset.
     member __.GetVoltageToAdcCountConversion(range : Range, analogueOffset) : (float<V> -> int16) =
@@ -776,7 +776,7 @@ type PicoScope5000(sessionParams) =
             | _ -> 0x7FFFs
 
         let voltageRange = range.ToVolts() 
-        fun voltage -> int16 (((voltage - analogueOffset) / voltageRange) * (float maxAdcCounts))
+        fun voltage -> int16 (((voltage + analogueOffset) / voltageRange) * (float maxAdcCounts))
 
     // Trigger settings
     
