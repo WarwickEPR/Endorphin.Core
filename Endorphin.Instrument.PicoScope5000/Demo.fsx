@@ -1,38 +1,83 @@
 ﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
 #r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"
 #r "bin/Debug/ExtCore.dll"
+#r "../packages/FSharp.Charting.0.90.9/lib/net40/FSharp.Charting.dll"
+#r "System.Windows.Forms.DataVisualization.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open Endorphin.Core
 open Endorphin.Instrument.PicoScope5000
 open ExtCore.Control
 open System
+open System.Threading
+open System.Windows.Forms
+open FSharp.Charting
 
-let defer f = { new IDisposable with member __.Dispose() = f () }
+let form = new Form(Visible = true, TopMost = true, Width = 800, Height = 600)
+let ctx = SynchronizationContext.Current
 
-let parameters = 
+let streamingParameters = 
     let acquisitionInputs =
-        Acquisition.empty
+        Acquisition.empty // define acquisition inputs by adding the required channels and specifying downsampling
         |> Acquisition.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
-        |> Acquisition.sampleChannel ChannelA NoDownsampling
-    
-    StreamingAcquisition.createParameters Resolution_14bit (Interval.fromMilliseconds 20<ms>) (1024u * 1024u)
-    |> StreamingAcquisition.withNoDownsampling acquisitionInputs
+        |> Acquisition.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
+        |> Acquisition.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
 
-asyncChoice {
-    let! picoScope = PicoScope.openFirst Resolution_8bit
-    use connection = defer (fun () -> PicoScope.closeInstrument picoScope |> ignore)
-    
-    let acquisition = StreamingAcquisition.createAcquisition parameters
-    
-    StreamingAcquisition.sampleObserved ChannelA NoDownsamplingBuffer acquisition
-    |> Observable.add (printfn "%d")
+    // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
+    Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
+    |> Streaming.Parameters.withNoDownsampling acquisitionInputs // use the previously defined inputs
 
-    StreamingAcquisition.statusChanged acquisition
-    |> Observable.add (printfn "%A")
+let showTimeChart acquisition = async {
+    do! Async.SwitchToContext ctx
+        
+    let chart = 
+        Chart.Combine [ 
+            Streaming.Signals.sampleByTime (ChannelA, NoDownsamplingBuffer) acquisition
+            |> Observable.observeOn ctx
+            |> LiveChart.FastLineIncremental
+
+            Streaming.Signals.sampleByTime (ChannelB, NoDownsamplingBuffer) acquisition
+            |> Observable.observeOn ctx
+            |> LiveChart.FastLineIncremental ]
+        |> Chart.WithXAxis(Title = "Time")
+        |> Chart.WithYAxis(Title = "ADC coounts")
+
+    new ChartTypes.ChartControl(chart, Dock = DockStyle.Fill)
+    |> form.Controls.Add
+
+    do! Async.SwitchToThreadPool() } |> AsyncChoice.liftAsync
+
+let showChartXY acquisition = async {
+    do! Async.SwitchToContext ctx
+
+    let chartXY =
+        Streaming.Signals.sampleXY (ChannelA, NoDownsamplingBuffer) (ChannelB, NoDownsamplingBuffer) acquisition
+        |> Observable.observeOn ctx
+        |> LiveChart.FastLineIncremental
+        |> Chart.WithXAxis(Title = "Channel A ADC counts")
+        |> Chart.WithYAxis(Title = "Channel B ADC counts")
+
+    new ChartTypes.ChartControl(chartXY, Dock = DockStyle.Fill)
+    |> form.Controls.Add
+
+    do! Async.SwitchToThreadPool () } |> AsyncChoice.liftAsync
+
+let printStatusUpdates acquisition =
+    Streaming.Acquisition.status acquisition
+    |> Observable.add (printfn "%A") // print stream status updates (preparing, streaming, finished...)
+
+let experiment = asyncChoice {
+    let! picoScope = PicoScope.openFirst() // open the first avaiable PicoScope
+    use conn = defer (fun () -> PicoScope.closeInstrument picoScope |> ignore) // close the connection when finished
     
-    let! acquisitionHandle = StreamingAcquisition.start picoScope acquisition
+    // create an acquisition with the previously defined parameters and start it after subscribing to its events
+    let acquisition = Streaming.Acquisition.create picoScope streamingParameters
+    do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
+    printStatusUpdates acquisition
+    let! acquisitionHandle = Streaming.Acquisition.start acquisition
     
+    // run the acquisition for 1s and then stop manually
     do! Async.Sleep 10000 |> AsyncChoice.liftAsync
-    do! StreamingAcquisition.stop picoScope acquisitionHandle }
-|> Async.RunSynchronously
-|> printfn "%A"
+    do! Streaming.Acquisition.stopAndFinish acquisitionHandle }
+
+Async.StartWithContinuations(experiment, printfn "%A", ignore, ignore)

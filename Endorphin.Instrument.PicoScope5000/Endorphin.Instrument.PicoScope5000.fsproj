@@ -61,7 +61,6 @@
     <Compile Include="Acquisition.fs" />
     <Compile Include="PicoScope.fs" />
     <Compile Include="Streaming.fs" />
-    <Compile Include="Charting.fs" />
     <None Include="packages.config" />
     <None Include="Demo.fsx" />
   </ItemGroup>

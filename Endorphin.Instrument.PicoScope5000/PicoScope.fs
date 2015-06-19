@@ -41,12 +41,12 @@ module PicoScope =
 
     let private handle (PicoScope5000 h) = h
 
-    let openInstrument serial resolution =
-        if serial <> null then sprintf "Opening instrument %s with resolution: %A." serial resolution |> logOp
-        else sprintf "Opening first available instrument with resolution: %A." resolution |> logOp
+    let openInstrument serial =
+        if serial <> null then sprintf "Opening instrument %s with resolution: %A." serial Resolution_8bit |> logOp
+        else sprintf "Opening first available instrument with resolution: %A." Resolution_8bit |> logOp
         
         let mutable handle = 0s 
-        let status = NativeApi.OpenUnit (&handle, serial, resolutionEnum resolution)
+        let status = NativeApi.OpenUnit (&handle, serial, resolutionEnum Resolution_8bit)
         
         match status with
         | PowerSourceStatus powerSource -> logOp <| sprintf "Opened instrument with power source: %A." powerSource
@@ -58,7 +58,7 @@ module PicoScope =
             (sprintf "Failed to open instrument: %s.")
         |> AsyncChoice.liftChoice
 
-    let openFirst = openInstrument null
+    let openFirst () = openInstrument null
 
     let pingInstrument picoScope =
         logDeviceOp picoScope "Pinging instrument."

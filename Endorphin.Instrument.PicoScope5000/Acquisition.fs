@@ -87,6 +87,7 @@ module Acquisition =
                                               Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) acquisition.Buffers) 
 
         let allocateAcquisitionBuffers memorySegment (SampleIndex bufferLength) acquisition =
+            GC.Collect() // force garbage collection before allocating
             acquisition.InputSampling
             |> Set.toSeq 
             |> Seq.collect (allocateBuffers <| int bufferLength)
@@ -96,8 +97,9 @@ module Acquisition =
         let private allocateGCHandle obj = GCHandle.Alloc(obj, GCHandleType.Pinned)
         let private disposableForGCHandles (gcHandles : GCHandle seq) =
             { new IDisposable with 
-                member __.Dispose() = gcHandles |> Seq.iter (fun handle -> handle.Free()) }
-                // TODO run GC before and afer
+                member __.Dispose() = 
+                    gcHandles |> Seq.iter (fun handle -> handle.Free())
+                    GC.Collect() } // force garbage collection immediately after freeing the buffers
 
         let pinningHandle acquisitionBuffers =
             bufferMap acquisitionBuffers
