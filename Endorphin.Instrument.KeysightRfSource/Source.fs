@@ -20,6 +20,15 @@ module Source =
 
     module Control =
         open Translate
+
+        // Keys are e.g. :AM1:INTERNAL:FUNCTION1:SHAPE
+        //           or  :FM2:EXT1:COUPLING
+        //           or  :FUNCTION1:SHAPE
+        // Treated as :AM1:INTERNAL + :FUNCTION1 + :SHAPE
+        //         or :FM2 + :EXT1 + :COUPLING
+        //         or "" + "FUNCTION1 + :SHAPE
+        // Sources can be used directly (low frequency oscillator) or by modulations
+
         let private sourceKey key prefix src = sprintf "%s:%s%s" prefix src key
 
         module Function =
