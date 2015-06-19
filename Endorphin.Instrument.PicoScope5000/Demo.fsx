@@ -17,18 +17,18 @@ let form = new Form(Visible = true, TopMost = true, Width = 800, Height = 600)
 let ctx = SynchronizationContext.Current
 
 let streamingParameters = 
-    let acquisitionInputs =
-        Acquisition.empty // define acquisition inputs by adding the required channels and specifying downsampling
-        |> Acquisition.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
-        |> Acquisition.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
-        |> Acquisition.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
+    let inputs =
+        Inputs.empty // define acquisition inputs by adding the required channels and specifying downsampling
+        |> Inputs.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
+        |> Inputs.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
+        |> Inputs.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
 
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
     Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
-    |> Streaming.Parameters.withNoDownsampling acquisitionInputs // use the previously defined inputs
+    |> Streaming.Parameters.withNoDownsampling inputs // use the previously defined inputs
 
 let showTimeChart acquisition = async {
-    do! Async.SwitchToContext ctx
+    do! Async.SwitchToContext ctx // add the chart to the form using the UI thread context
         
     let chart = 
         Chart.Combine [ 
@@ -44,11 +44,12 @@ let showTimeChart acquisition = async {
 
     new ChartTypes.ChartControl(chart, Dock = DockStyle.Fill)
     |> form.Controls.Add
-
+    
+    // return to the thread pool context
     do! Async.SwitchToThreadPool() } |> AsyncChoice.liftAsync
 
 let showChartXY acquisition = async {
-    do! Async.SwitchToContext ctx
+    do! Async.SwitchToContext ctx // add the chart to the form using the UI thread context
 
     let chartXY =
         Streaming.Signals.sampleXY (ChannelA, NoDownsamplingBuffer) (ChannelB, NoDownsamplingBuffer) acquisition
@@ -60,6 +61,7 @@ let showChartXY acquisition = async {
     new ChartTypes.ChartControl(chartXY, Dock = DockStyle.Fill)
     |> form.Controls.Add
 
+    // return to the thread pool context
     do! Async.SwitchToThreadPool () } |> AsyncChoice.liftAsync
 
 let printStatusUpdates acquisition =

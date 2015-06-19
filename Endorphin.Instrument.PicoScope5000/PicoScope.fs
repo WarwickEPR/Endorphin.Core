@@ -328,7 +328,7 @@ module PicoScope =
                 if not (Set.isSubset requiredChannels availableChannels) then
                     return! fail "The specified acquisition inputs require input channels which are not available on the current device." 
                 for channel in availableChannels do
-                    do! Acquisition.settingsForChannel channel acquisition
+                    do! Inputs.settingsForChannel channel acquisition
                         |> setChannelSettings picoScope channel }
             |> (Async.map <| 
                 logDeviceOpResult picoScope

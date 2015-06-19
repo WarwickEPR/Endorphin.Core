@@ -58,7 +58,7 @@
     <Compile Include="Device.fs" />
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="TriggerSettings.fs" />
-    <Compile Include="Acquisition.fs" />
+    <Compile Include="Inputs.fs" />
     <Compile Include="PicoScope.fs" />
     <Compile Include="Streaming.fs" />
     <None Include="packages.config" />

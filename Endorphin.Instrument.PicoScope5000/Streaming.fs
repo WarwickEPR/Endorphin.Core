@@ -40,7 +40,7 @@ module Streaming =
               TriggerSettings   = Trigger.auto 1s<ms>
               StreamStop        = ManualStop
               DownsamplingRatio = None
-              Inputs            = Acquisition.empty }
+              Inputs            = Inputs.empty }
 
         let withResolution resolution (parameters : StreamingParameters) = { parameters with Resolution = resolution }
         let withSampleInterval sampleInterval (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
@@ -52,7 +52,7 @@ module Streaming =
         let withAutoStop maxPreTriggerSamples maxPostTriggerSamples (parameters : StreamingParameters) = { parameters with StreamStop = AutoStop(maxPreTriggerSamples, maxPostTriggerSamples) }
     
         let withDownsampling downsamplingRatio inputs (parameters : StreamingParameters) =
-            if not (Acquisition.hasDownsampling inputs) then
+            if not (Inputs.hasDownsampling inputs) then
                 failwith "Cannot specifiy a downsampling ratio for an acquisition which has no downsampled inputs."
 
             { parameters with
@@ -60,7 +60,7 @@ module Streaming =
                 Inputs = inputs }
 
         let withNoDownsampling inputs (parameters : StreamingParameters) =
-            if Acquisition.hasDownsampling inputs then
+            if Inputs.hasDownsampling inputs then
                 failwith "Cannot specify downsampled inputs without specifying a downsampling ratio."
 
             { parameters with
@@ -72,7 +72,7 @@ module Streaming =
             { Parameters  = streamingParameters
               PicoScope   = picoScope
               DataBuffers = 
-                Acquisition.Buffers.allocateAcquisitionBuffers 
+                Inputs.Buffers.allocateAcquisitionBuffers 
                 <| streamingParameters.MemorySegment
                 <| streamingParameters.BufferLength
                 <| streamingParameters.Inputs
@@ -101,7 +101,7 @@ module Streaming =
 
                 for inputSampling in acquisition.Parameters.Inputs.InputSampling do
                     do! PicoScope.DataBuffers.setDataBuffer acquisition.PicoScope inputSampling.InputChannel inputSampling.DownsamplingMode acquisition.Parameters.MemorySegment
-                        <| Acquisition.Buffers.findByInputSampling inputSampling acquisition.DataBuffers }
+                        <| Inputs.Buffers.findByInputSampling inputSampling acquisition.DataBuffers }
 
         let private startStreaming acquisition = asyncChoice {
             let! sampleInterval = PicoScope.Acquisition.startStreaming acquisition.PicoScope acquisition.Parameters
@@ -166,7 +166,7 @@ module Streaming =
                 failwith "Cannot start an acquisition which has already been stopped."
         
             let acquisitionWorkflow = asyncChoice {
-                use __ = Acquisition.Buffers.pinningHandle acquisition.DataBuffers
+                use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
                 do! prepareDevice acquisition
                 do! startStreaming acquisition
                 do! pollUntilFinished acquisition }

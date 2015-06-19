@@ -7,11 +7,11 @@ open ExtCore.Control
 open Parsing
 
 [<RequireQualifiedAccess>]
-module Acquisition =
-    let enabledChannels acquisition = Map.keys acquisition.InputSettings
+module Inputs =
+    let enabledChannels inputs = Map.keys inputs.InputSettings
     
-    let hasDownsampling acquisition = 
-        acquisition.InputSampling
+    let hasDownsampling inputs = 
+        inputs.InputSampling
         |> Set.exists (fun sampling -> sampling.DownsamplingMode <> NoDownsampling) 
 
     let settingsForChannel inputChannel acquisition = 
@@ -19,36 +19,36 @@ module Acquisition =
         | Some inputSettings -> EnabledChannel inputSettings
         | None               -> DisabledChannel
 
-    let inputSampling acquisition = 
-        acquisition.InputSampling |> Set.toSeq
+    let inputSampling inputs = 
+        inputs.InputSampling |> Set.toSeq
 
-    let private enableChannelSet inputChannels coupling range voltageOffset bandwidth acquisition =
-        let repeatedInputs = Set.intersect inputChannels (enabledChannels acquisition)
+    let private enableChannelSet inputChannels coupling range voltageOffset bandwidth inputs =
+        let repeatedInputs = Set.intersect inputChannels (enabledChannels inputs)
         if not (repeatedInputs |> Set.isEmpty) then
             failwith "Cannot enable the following inputs which are already enabled: %A" repeatedInputs
 
-        { acquisition with
+        { inputs with
             InputSettings =
                 inputChannels
                 |> Set.toSeq
                 |> Seq.map (fun inputChannel ->
                     (inputChannel, { Coupling = coupling ; Range = range ; AnalogueOffset = voltageOffset ; BandwidthLimit = bandwidth }))
                 |> Map.ofSeq
-                |> Map.union acquisition.InputSettings }
+                |> Map.union inputs.InputSettings }
 
-    let private sampleChannelSet inputChannels downsamplingMode acquisition =
-        if not (Set.isSubset inputChannels (enabledChannels acquisition)) then
+    let private sampleChannelSet inputChannels downsamplingMode inputs =
+        if not (Set.isSubset inputChannels (enabledChannels inputs)) then
             failwith "Cannot acquire an input which has no specified input settings."
 
-        if    (downsamplingMode =  Acquisition.NoDownsampling &&      hasDownsampling acquisition)
-           || (downsamplingMode <> Acquisition.NoDownsampling && not (hasDownsampling acquisition)) then
+        if    (downsamplingMode =  Acquisition.NoDownsampling &&      hasDownsampling inputs)
+           || (downsamplingMode <> Acquisition.NoDownsampling && not (hasDownsampling inputs)) then
             failwith "Cannot combine inputs with downsampling and no downsampling in the same acquisition."
 
-        { acquisition with
+        { inputs with
             InputSampling = 
                 inputChannels
                 |> Set.map (fun channel -> { InputChannel = channel ; DownsamplingMode = downsamplingMode })
-                |> Set.union acquisition.InputSampling }
+                |> Set.union inputs.InputSampling }
         
     let empty = { InputSampling = Set.empty ; InputSettings = Map.empty }
 
@@ -58,8 +58,8 @@ module Acquisition =
     let sampleChannel  channel  downsamplingMode = sampleChannelSet (Set.singleton channel) downsamplingMode 
     let sampleChannels channels downsamplingMode = sampleChannelSet (Set.ofList channels)   downsamplingMode 
 
-    let internal downsamplingMode acquisition =
-        acquisition.InputSampling
+    let internal downsamplingMode inputs =
+        inputs.InputSampling
         |> Set.map (fun sampling -> sampling.DownsamplingMode)
         |> downsamplingModeEnumForSet
 
@@ -78,17 +78,17 @@ module Acquisition =
             | Aggregate      -> [ AggregateBuffer Maximum ; AggregateBuffer Minimum ]
             |> List.map (fun buffer -> (inputSampling.InputChannel, buffer), Array.zeroCreate<AdcCount> bufferLength)
 
-        let findByInputSampling inputSampling acquisition =
+        let findByInputSampling inputSampling inputs =
             match inputSampling.DownsamplingMode with
-            | NoDownsampling -> SingleBuffer (Map.find (inputSampling.InputChannel, NoDownsamplingBuffer)    acquisition.Buffers)
-            | Averaged       -> SingleBuffer (Map.find (inputSampling.InputChannel, AveragedBuffer)          acquisition.Buffers)
-            | Decimated      -> SingleBuffer (Map.find (inputSampling.InputChannel, DecimatedBuffer)         acquisition.Buffers)
-            | Aggregate      -> BufferPair   (Map.find (inputSampling.InputChannel, AggregateBuffer Maximum) acquisition.Buffers,
-                                              Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) acquisition.Buffers) 
+            | NoDownsampling -> SingleBuffer (Map.find (inputSampling.InputChannel, NoDownsamplingBuffer)    inputs.Buffers)
+            | Averaged       -> SingleBuffer (Map.find (inputSampling.InputChannel, AveragedBuffer)          inputs.Buffers)
+            | Decimated      -> SingleBuffer (Map.find (inputSampling.InputChannel, DecimatedBuffer)         inputs.Buffers)
+            | Aggregate      -> BufferPair   (Map.find (inputSampling.InputChannel, AggregateBuffer Maximum) inputs.Buffers,
+                                              Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) inputs.Buffers) 
 
-        let allocateAcquisitionBuffers memorySegment (SampleIndex bufferLength) acquisition =
+        let allocateAcquisitionBuffers memorySegment (SampleIndex bufferLength) inputs =
             GC.Collect() // force garbage collection before allocating
-            acquisition.InputSampling
+            inputs.InputSampling
             |> Set.toSeq 
             |> Seq.collect (allocateBuffers <| int bufferLength)
             |> Map.ofSeq
