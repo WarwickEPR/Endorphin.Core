@@ -31,6 +31,10 @@ module ErrorHandling =
             choice |> async.Return
 
 [<AutoOpen>]
+module Utils =
+    let defer f = { new System.IDisposable with member __.Dispose() = f () }
+
 module AsyncChoice =
     let liftAsync comp = comp |> Async.map succeed
     let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
+    let guard cond err = if cond then succeed () else fail err

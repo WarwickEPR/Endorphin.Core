@@ -3,55 +3,56 @@
 open System
 open System.Reactive.Linq
 
-[<AutoOpen>]
-module ObservableExtensions =
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Observable =
+    open System.Threading
 
-    /// Some extensions to the Observable type which provide a more F#-friendly API.
-    type Observable with
-    
-        /// Creates an IObservable from the supplied source event and parameters. The OnCompleted event is fired when an element
-        /// in the sequence satisfies the specified predicate. The OnError event fires if an error selector is specified and it
-        /// returns a Some value for some element in the sequence.
-        static member CreateFromStatusEvent 
-           (source : IEvent<'T>,
-            completedPredicate : 'T -> bool,
-            ?errorSelector : 'T -> exn option) =
+    /// Creates an IObservable from the supplied source event and parameters. The OnCompleted event is fired when an element
+    /// in the sequence satisfies the specified predicate. The OnError event fires if an error selector is specified and it
+    /// returns a Some value for some element in the sequence.
+    let createFromStatusEvent 
+        (source : IEvent<'T>,
+         completedPredicate : 'T -> bool,
+         errorSelector : 'T -> exn option ) =
 
-            Observable.Create(fun (observer : IObserver<_>) ->
-                // subscribe to the source event and trigger the OnNext event when it occurs
-                let sourceSub =  
-                    source |> Observable.subscribe (fun e ->
-                        observer.OnNext e
-                        if completedPredicate e then observer.OnCompleted()
-                        elif errorSelector.IsSome then 
-                            match errorSelector.Value e with
-                            | Some exn -> observer.OnError exn
-                            | None -> ())
+        Observable.Create(fun (observer : IObserver<_>) ->
+            // subscribe to the source event and trigger the OnNext event when it occurs
+            let sourceSub =  
+                source |> Observable.subscribe (fun e ->
+                    observer.OnNext e
+                    if completedPredicate e then observer.OnCompleted()
+                    else 
+                        match errorSelector e with
+                        | Some exn -> observer.OnError exn
+                        | None -> ())
 
-                // when the IObserver is disposed, cancel the subscriptions
-                { new System.IDisposable with
-                    member __.Dispose() =
-                        sourceSub.Dispose() })
+            // when the IObserver is disposed, cancel the subscriptions
+            { new System.IDisposable with
+                member __.Dispose() =
+                    sourceSub.Dispose() })
 
-        /// Zips a list of n observables into a single observable where each element is of type System.Collections.Generic.IList.
-        static member zipn (sources : IObservable<'a> list) =
-            Observable.Zip(List.toSeq sources)
+    /// Zips a list of n observables into a single observable where each element is of type System.Collections.Generic.IList.
+    let zipn (sources : IObservable<'a> list) =
+        Observable.Zip(List.toSeq sources)
 
-        /// Zips a pair of observables into a single observable where each element is a tuple.
-        static member zip2 (source1 : IObservable<'a>, source2 : IObservable<'b>) =
-            Observable.Zip(source1, source2, fun item1 item2 -> (item1, item2))
+    /// Zips a pair of observables into a single observable where each element is a tuple.
+    let zip2 (source1 : IObservable<'a>, source2 : IObservable<'b>) =
+        Observable.Zip(source1, source2, fun item1 item2 -> (item1, item2))
 
-        /// Zips three observables into a single observable where each element is a tuple.
-        static member zip3 (source1 : IObservable<'a>, source2 : IObservable<'b>, source3 : IObservable<'c>) =
-            Observable.Zip(source1, source2, source3, fun item1 item2 item3 -> (item1, item2, item3))
+    /// Zips three observables into a single observable where each element is a tuple.
+    let zip3 (source1 : IObservable<'a>, source2 : IObservable<'b>, source3 : IObservable<'c>) =
+        Observable.Zip(source1, source2, source3, fun item1 item2 item3 -> (item1, item2, item3))
             
-        /// Zips four observables into a single observable where each element is a tuple.
-        static member zip4 (source1 : IObservable<'a>, source2 : IObservable<'b>, source3 : IObservable<'c>, source4 : IObservable<'d>) =
-            Observable.Zip(source1, source2, source3, source4, fun item1 item2 item3 item4 -> (item1, item2, item3, item4))
+    /// Zips four observables into a single observable where each element is a tuple.
+    let zip4 (source1 : IObservable<'a>, source2 : IObservable<'b>, source3 : IObservable<'c>, source4 : IObservable<'d>) =
+        Observable.Zip(source1, source2, source3, source4, fun item1 item2 item3 item4 -> (item1, item2, item3, item4))
 
-        /// Buffers an observable into elements of type System.Colllections.Generic.IList with the specified buffer size.
-        static member buffer (bufferSize : int) (source : IObservable<'a>) =
-            Observable.Buffer(source, bufferSize)
+    /// Buffers an observable into elements of type System.Colllections.Generic.IList with the specified buffer size.
+    let buffer (bufferSize : int) (source : IObservable<'a>) =
+        Observable.Buffer(source, bufferSize)
+
+    let observeOn (ctx : SynchronizationContext) (source : IObservable<'a>) =
+        source.ObserveOn(ctx)
     
     type IObservable<'T> with
         
