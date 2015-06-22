@@ -2,6 +2,7 @@
 
 open ExtCore.Control
 open Source
+open Microsoft.FSharp.Collections.CollectionExtensions
 
 module Modulation =
     module internal Translate =
@@ -123,21 +124,20 @@ module Modulation =
     module Apply =
         open Control
         open Translate
-        open Endorphin.Core.CollectionUtils
 
         let consistentModulationSettings settings =
-            let duplicateChannels = settings |> List.map modulationChannel |> duplicates
-            let duplicateSources  = settings |> List.map modulationSource |> duplicates
+            let duplicateChannels = settings |> List.map modulationChannel |> List.duplicates
+            let duplicateSources  = settings |> List.map modulationSource |> List.duplicates
             // When PM is added, check that PM and FM paths are exclusive
 
             if not duplicateChannels.IsEmpty then
                 failwith << sprintf "Repeated modulation channels: %s"
-                         << prettyPrintList
+                         << List.prettyPrintList
                          << List.map (fun channel -> modulationChannelString channel)
                          <| duplicateChannels
              
             if not duplicateSources.IsEmpty then
-                failwith << sprintf "Modulation sources used more than once: %s" << prettyPrintList
+                failwith << sprintf "Modulation sources used more than once: %s" << List.prettyPrintList
                          << List.map (sourceProvider >> sourceString) <| duplicateSources
 
             succeed settings

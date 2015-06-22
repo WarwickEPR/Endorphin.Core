@@ -2,7 +2,6 @@
 
 open ExtCore.Control
 open Endorphin.Core.StringUtils
-open Endorphin.Core.CollectionUtils
 open Endorphin.Core.NationalInstruments
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
