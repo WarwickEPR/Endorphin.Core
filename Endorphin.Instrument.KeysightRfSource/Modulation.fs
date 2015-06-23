@@ -132,12 +132,12 @@ module Modulation =
 
             if not duplicateChannels.IsEmpty then
                 failwith << sprintf "Repeated modulation channels: %s"
-                         << List.prettyPrintList
+                         << List.prettyPrint
                          << List.map (fun channel -> modulationChannelString channel)
                          <| duplicateChannels
              
             if not duplicateSources.IsEmpty then
-                failwith << sprintf "Modulation sources used more than once: %s" << List.prettyPrintList
+                failwith << sprintf "Modulation sources used more than once: %s" << List.prettyPrint
                          << List.map (sourceProvider >> sourceString) <| duplicateSources
 
             succeed settings
