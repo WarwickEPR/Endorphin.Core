@@ -154,4 +154,8 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+
+# Jake's external libraries
 external-libs/
+Endorphin.Instrument.KeysightRfSource/NationalInstruments.Common.dll
+Endorphin.Instrument.KeysightRfSource/NationalInstruments.VisaNS.dll
