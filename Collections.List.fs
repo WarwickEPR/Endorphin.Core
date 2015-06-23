@@ -9,9 +9,9 @@ module Endorphin.Core.List
 
         findDuplicates Set.empty list
 
-    let rec prettyPrintList =
+    let rec prettyPrint =
         function
         | []               -> ""
         | head::[]         -> sprintf "%A" head
         | head::(tail::[]) -> sprintf "%A & %A" head tail
-        | head::tail       -> sprintf "%A, %s" head (prettyPrintList tail)
+        | head::tail       -> sprintf "%A, %s" head (prettyPrint tail)
