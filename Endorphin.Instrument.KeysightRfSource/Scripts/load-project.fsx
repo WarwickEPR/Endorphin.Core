@@ -11,3 +11,4 @@
       @"..\Sweep.fs"
       @"..\RfSource.fs"
       @"..\DummyInstrument.fs"
+      @"..\Endian.fs"
