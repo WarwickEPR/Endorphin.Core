@@ -12,3 +12,4 @@
       @"..\RfSource.fs"
       @"..\DummyInstrument.fs"
       @"..\Endian.fs"
+      @"..\IQData.fs"
