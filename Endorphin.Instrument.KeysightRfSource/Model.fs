@@ -198,6 +198,37 @@ module Model =
             | NoSweep of frequency : Frequency * amplitude : Amplitude
             | StepSweep of sweep : StepSweep
 
+    [<AutoOpen>]
+    module IQData =
+        type Endianness = | LittleEndian | BigEndian
+
+        type Point = internal {
+            I : int16
+            Q : int16
+            Marker1 : bool
+            Marker2 : bool
+            Marker3 : bool
+            Marker4 : bool
+            Order : Endianness } // Included the order field so we don't introduce problems by assuming the host is a certain order
+
+        // Segment doesn't need name associated with it because it should always be in a sequence
+        type Segment = Point array
+
+        // A total waveform can be either a simple segment with a number of repetitions or a sequence of subsequences
+        type Sequence = internal {
+            Name : string
+            Elements : SequenceElement seq }
+        and SequenceElement =
+            internal
+            | Segment of segment : Segment * repetitions : uint16
+            | Sequence of sequence : Sequence * repetitions : uint16
+
+        /// Bitwise representation of the markers associated with an IQ point
+        type Markers = byte
+        type MarkerFile = internal {
+            Name : string
+            Elements : Markers array }
+
     type KeysightRfSettings = {
         Sweep : Sweep
         Modulation : Modulation list }
