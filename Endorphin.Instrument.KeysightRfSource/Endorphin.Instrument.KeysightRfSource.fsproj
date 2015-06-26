@@ -65,6 +65,7 @@
     <Compile Include="DummyInstrument.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
+    <Compile Include="Endian.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
