@@ -200,8 +200,11 @@ module Model =
 
     [<AutoOpen>]
     module IQData =
-        type Endianness = | LittleEndian | BigEndian
+        type Endianness =
+            | LittleEndian
+            | BigEndian
 
+        /// A single IQ point with associated markers and endianness
         type Point = {
             I : int16
             Q : int16
@@ -211,23 +214,42 @@ module Model =
             Marker4 : bool
             Order : Endianness } // Included the order field so we don't introduce problems by assuming the host is a certain order
 
-        // Segment doesn't need name associated with it because it should always be in a sequence
-        type Segment = Point array
+        // Sample doesn't need a filename associated with it because it should always be in a sequence
+        /// A single sample of a waveform - can be constant or part of e.g. a sin wave, or any other form.
+        type Sample = Point array
 
-        // A total waveform can be either a simple segment with a number of repetitions or a sequence of subsequences
-        type Sequence = internal {
-            Name : string
-            Elements : SequenceElement seq }
-        and SequenceElement =
+        /// A total waveform can be either a sequence of samples or of subsequences.  A waveform must have
+        /// at least 60 samples in it, but since these could be repeated, it is not necessary to store them all.
+        type WaveformElement =
             internal
-            | Segment of segment : Segment * repetitions : uint16
-            | Sequence of sequence : Sequence * repetitions : uint16
+            | Sample of sample : Sample * repetitions : uint16
+            | Element of element : WaveformElement * repetitions : uint16
+
+        type Waveform = internal {
+            Name : byte array // ASCII string of file name
+            Elements : WaveformElement list }
 
         /// Bitwise representation of the markers associated with an IQ point
         type Markers = byte
-        type MarkerFile = internal {
-            Name : string
-            Elements : Markers array }
+
+        /// Sample data after it has been encoded, with no lengths or filenames in the order
+        /// IQ * Markers
+        type EncodedSample = byte array * byte array
+
+        type EncodedElement = byte array * byte array
+
+        /// Temporary type for collections of encoded samples
+        type EncodedWaveform = {
+            Name : byte array // ASCII string of file name
+            IQ : byte array
+            Markers : byte array }
+
+        /// Sequence data after it has been encoded, including the lengths and data indicator '#'.
+        /// Ready to write to machine.
+        type EncodedWaveformFile = {
+            WaveformFileString : byte array
+            MarkerFileString : byte array
+            HeaderFileString : byte array }
 
     type KeysightRfSettings = {
         Sweep : Sweep
