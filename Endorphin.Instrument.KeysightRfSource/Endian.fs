@@ -13,6 +13,10 @@ module Endian =
         number |> BitConverter.GetBytes
     let private int64ToByte (number : int64) =
         number |> BitConverter.GetBytes
+    let private float32ToByte (number : single) =
+        number |> BitConverter.GetBytes
+    let private floatToByte (number : double) =
+        number |> BitConverter.GetBytes
 
     // Functions to convert bytes into the various types using the different available BitConverter methods
     let private byteToInt16 byteArray =
@@ -21,7 +25,12 @@ module Endian =
         BitConverter.ToInt32 (byteArray, 0)
     let private byteToInt64 byteArray =
         BitConverter.ToInt64 (byteArray, 0)
+    let private byteToFloat32 byteArray =
+        BitConverter.ToSingle (byteArray, 0)
+    let private byteToFloat byteArray =
+        BitConverter.ToDouble (byteArray, 0)
 
+    /// Swap endianness of any of the primitive numerical types except 8-bit
     let private swapEndian convertToByte convertToType number =
         number
         |> convertToByte
@@ -29,13 +38,17 @@ module Endian =
         |> convertToType
 
     /// Swap endianness of a 16-bit integer
-    let internal swapEndian16 = swapEndian int16ToByte byteToInt16
+    let internal swapEndianInt16 = swapEndian int16ToByte byteToInt16
     /// Swap endianness of a 32-bit integer
-    let internal swapEndian32 = swapEndian int32ToByte byteToInt32
+    let internal swapEndianInt32 = swapEndian int32ToByte byteToInt32
     /// Swap endianness of a 64-bit integer
-    let internal swapEndian64 = swapEndian int64ToByte byteToInt64
+    let internal swapEndianInt64 = swapEndian int64ToByte byteToInt64
+    /// Swap endianness of a single-precision float
+    let internal swapEndianFloat32 = swapEndian float32ToByte byteToFloat32
+    /// Swap endianness of a double-precision float
+    let internal swapEndianFloat = swapEndian floatToByte byteToFloat
 
-    // Helper function to convert to a specific endianness
+    /// Change any primitive numerical type to littleendian
     let private toLittleEndian swapEndianType number =
         if (BitConverter.IsLittleEndian) then
             number
@@ -48,15 +61,23 @@ module Endian =
             number
 
     /// Convert 16-bit integer to little-endian
-    let internal toLittleEndian16 = toLittleEndian swapEndian16
+    let internal toLittleEndianInt16 = toLittleEndian swapEndianInt16
     /// Convert 32-bit integer to little-endian
-    let internal toLittleEndian32 = toLittleEndian swapEndian32
+    let internal toLittleEndianInt32 = toLittleEndian swapEndianInt32
     /// Convert 64-bit integer to little-endian
-    let internal toLittleEndian64 = toLittleEndian swapEndian64
+    let internal toLittleEndianInt64 = toLittleEndian swapEndianInt64
+    /// Convert single-precision float to little-endian
+    let internal toLittleEndianFloat32 = toLittleEndian swapEndianFloat32
+    /// Convert double-preicision float to little-endian
+    let internal toLittleEndianFloat = toLittleEndian swapEndianFloat
 
     /// Convert 16-bit integer to big-endian
-    let internal toBigEndian16 = toBigEndian swapEndian16
+    let internal toBigEndianInt16 = toBigEndian swapEndianInt16
     /// Convert 32-bit integer to big-endian
-    let internal toBigEndian32 = toBigEndian swapEndian32
+    let internal toBigEndianInt32 = toBigEndian swapEndianInt32
     /// Convert 64-bit integer to big-endian
-    let internal toBigEndian64 = toBigEndian swapEndian64
+    let internal toBigEndianInt64 = toBigEndian swapEndianInt64
+    /// Convert single-precision float to big-endian
+    let internal toBigEndianFloat32 = toBigEndian swapEndianFloat32
+    /// Convert double-precision float to big-endian
+    let internal toBigEndianFloat = toBigEndian swapEndianFloat
