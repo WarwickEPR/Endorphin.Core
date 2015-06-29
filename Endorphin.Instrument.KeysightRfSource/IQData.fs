@@ -4,6 +4,15 @@ open Endorphin.Instrument.Keysight.Endian
 open System
 
 module IQData =
+    /// Basic data form of IQ point
+    let defaultIQPoint = {
+        Point.I = 0s;
+        Point.Q = 0s;
+        Point.Marker1 = false;
+        Point.Marker2 = false;
+        Point.Marker3 = false;
+        Point.Marker4 = false;
+        Order = LittleEndian }
     /// Set value of the I point
     let withIPoint  value point = { point with I = value }
     /// Set value of the Q point
@@ -22,8 +31,8 @@ module IQData =
     /// Swap endianness of an IQ point
     let private swapEndian point =
         point
-        |> withIPoint (swapEndian16 point.I)
-        |> withQPoint (swapEndian16 point.Q)
+        |> withIPoint (swapEndianInt16 point.I)
+        |> withQPoint (swapEndianInt16 point.Q)
 
     /// Convert point to littleendian order regardless of beginning order
     let internal toLittleEndian point =

@@ -202,7 +202,7 @@ module Model =
     module IQData =
         type Endianness = | LittleEndian | BigEndian
 
-        type Point = internal {
+        type Point = {
             I : int16
             Q : int16
             Marker1 : bool
