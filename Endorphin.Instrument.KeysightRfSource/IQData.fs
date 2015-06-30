@@ -57,27 +57,18 @@ module IQData =
     let internal getMarkerByte point =
         ((Convert.ToByte point.Marker4) <<< 3) ||| ((Convert.ToByte point.Marker3) <<< 2) ||| ((Convert.ToByte point.Marker2) <<< 1) ||| (Convert.ToByte point.Marker1)
 
-    /// Predefined empty type for EncodedList
-    let private emptyEncodedList = { EncodedList.IQ = []; EncodedList.Markers = [] }
+    /// Predefined empty type for EncodedElement
+    let private emptyEncodedElement = { EncodedElement.IQ = []; EncodedElement.Markers = [] }
 
-    /// Add a single encoded point onto the encoded sequence
-    let private addEncodedPoint (total : EncodedList) (point : EncodedPoint) =
-        { EncodedList.IQ      = point.IQ :: total.IQ
-          EncodedList.Markers = point.Markers :: total.Markers }
+    /// Add a single encoded point into an encoded element
+    let private addEncodedPoint (total : EncodedElement) (point : EncodedPoint) =
+        { EncodedElement.IQ      = point.IQ :: total.IQ
+          EncodedElement.Markers = point.Markers :: total.Markers }
 
-    /// Add a list of encoded points onto another
-    let private addEncodedList (total : EncodedList) (list : EncodedList) =
-        { EncodedList.IQ      = List.append list.IQ total.IQ
-          EncodedList.Markers = List.append list.Markers total.Markers }
-
-    /// Handle the necessary number of repetitions for previously encoded samples, sequences and
-    /// other lists of points.
-    let private copyEncodedList (list : EncodedList) reps =
-        let rec loop list acc reps =
-            match reps with
-            | 0us -> acc
-            | _   -> loop list (addEncodedList acc list) (reps - 1us)
-        loop list emptyEncodedList reps
+    /// Concatenate two encoded elements
+    let private addEncodedElement (total : EncodedElement) (list : EncodedElement) =
+        { EncodedElement.IQ      = List.append list.IQ total.IQ
+          EncodedElement.Markers = List.append list.Markers total.Markers }
 
     /// Encode a single point into its IQ data and marker data as an EncodedPoint
     let private encodePoint point =
@@ -87,36 +78,26 @@ module IQData =
             { EncodedPoint.IQ = Array.append (BitConverter.GetBytes point.I) (BitConverter.GetBytes point.Q)
               EncodedPoint.Markers = getMarkerByte point }
 
-    /// Encode a sample into a whole EncodedList
-    let private encodeSample sample =
-        sample
-        |> Array.map encodePoint
-        |> Array.fold addEncodedPoint emptyEncodedList
-
-    /// Encode a sequence of samples into an EncodedList
-    let private encodeSequence sequence =
-        sequence
-        |> Array.map encodeSample
-        |> Array.fold addEncodedList emptyEncodedList
-
-    /// Encode a waveform element and handle its repeats
-    let private encodeWaveformElement element =
+    /// Encode a waveform element - NOT TAIL RECURSIVE
+    let rec private encodeElement element =
         match element with
-        | Sample (sample, reps) -> copyEncodedList (encodeSample sample) reps
-        | Sequence (sequence, reps) -> copyEncodedList (encodeSequence sequence) reps
-
-    /// Helper function to separate the (element, reps) tuples out into a pipeable form
-    let private encodeWaveformElementReps (element, reps) =
-        copyEncodedList (encodeWaveformElement element) reps
+        | Points list ->
+            list
+            |> List.map encodePoint
+            |> List.fold addEncodedPoint emptyEncodedElement
+        | Waveform list ->
+            list
+            |> List.map encodeElement
+            |> List.fold addEncodedElement emptyEncodedElement
 
     /// Put the encoded list into the correct order, since it's built up in reverse for speed
-    let private reverseEncodedList (list : EncodedList) =
-        { EncodedList.IQ = List.rev list.IQ
-          EncodedList.Markers = List.rev list.Markers }
+    let private reverseEncodedElement (list : EncodedElement) =
+        { EncodedElement.IQ = List.rev list.IQ
+          EncodedElement.Markers = List.rev list.Markers }
 
     /// Flatten out the tupled lists (iq is a list of arrays) into two arrays in the form
     /// (iq [], markers [])
-    let private flattenEncodedList (list : EncodedList) =
+    let private flattenEncodedElement (list : EncodedElement) =
         let outIQ      = list.IQ      |> List.fold Array.append [||]
         let outMarkers = list.Markers |> List.toArray
         (outIQ, outMarkers)
@@ -125,10 +106,10 @@ module IQData =
     let encodeWaveform (waveform : Waveform) =
         let (iq, markers) =
             waveform.Elements
-            |> List.map encodeWaveformElementReps
-            |> List.fold addEncodedList emptyEncodedList
-            |> reverseEncodedList
-            |> flattenEncodedList
+            |> List.map encodeElement
+            |> List.fold addEncodedElement emptyEncodedElement
+            |> reverseEncodedElement
+            |> flattenEncodedElement
         { EncodedWaveform.Name = waveform.Name
           EncodedWaveform.IQ   = iq
           EncodedWaveform.Markers = markers }

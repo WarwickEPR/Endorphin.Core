@@ -201,6 +201,7 @@ module Model =
     [<AutoOpen>]
     module IQData =
         type Endianness =
+            internal
             | LittleEndian
             | BigEndian
 
@@ -215,38 +216,33 @@ module Model =
             Order   : Endianness }
             // Included the order field so we don't introduce problems by assuming the host is a certain order
 
-        // Sample doesn't need a filename associated with it because it should always be in a sequence
-        /// A single sample of a waveform - can be constant or part of e.g. a sin wave, or any other form.
-        type Sample = Point array
-
-        /// A sequence of different samples, can be used to build up set patterns
-        type Sequence = Sample array
-
-        /// A total waveform can be either a sequence of samples or of subsequences.  A waveform must have
-        /// at least 60 samples in it, but since these could be repeated, it is not necessary to store them all.
-        type WaveformElement =
+        /// Recursive type for representing a sequence of points, sequences of sequences, and so on.
+        type Element =
             internal
-            | Sample of sample : Sample * repetitions : uint16
-            | Sequence of sequence : Sequence * repeitions : uint16
+            | Points of points : Point list
+            | Waveform of waveform : Element list
 
         type Waveform = internal {
             Name : byte array // ASCII string of file name
-            Elements : (WaveformElement * uint16) list } // List of waveform elements and their repetitions
+            Elements : Element list } // List of waveform elements
 
         /// A four-byte array for each encoded IQ point
         type EncodedIQ = byte []
+        /// A byte with the four markers encoded in
+        type EncodedMarkers = byte
 
         /// A single point encoded into the four-byte array of IQ points and the marker byte
         type EncodedPoint = {
             IQ      : EncodedIQ
-            Markers : byte }
+            Markers : EncodedMarkers }
 
         /// Reverse-ordered lists of the IQ and marker points
-        type EncodedList = {
+        type EncodedElement = {
             IQ      : EncodedIQ list
-            Markers : byte list }
+            Markers : EncodedMarkers list }
 
-        /// Temporary type for collections of encoded samples
+        /// Internal record of an entire recorded waveform before being transformed into
+        /// machine-readable strings.
         type EncodedWaveform = {
             Name    : byte [] // ASCII string of file name
             IQ      : byte []
