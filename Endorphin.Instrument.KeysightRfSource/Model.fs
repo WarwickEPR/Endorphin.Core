@@ -200,31 +200,19 @@ module Model =
 
     [<AutoOpen>]
     module IQData =
-        type Endianness =
-            internal
-            | LittleEndian
-            | BigEndian
-
         /// A single IQ point with associated markers and endianness
-        type Point = {
+        type Sample = {
             I       : int16
             Q       : int16
             Marker1 : bool
             Marker2 : bool
             Marker3 : bool
-            Marker4 : bool
-            Order   : Endianness }
-            // Included the order field so we don't introduce problems by assuming the host is a certain order
+            Marker4 : bool }
 
-        /// Recursive type for representing a sequence of points, sequences of sequences, and so on.
-        type Element =
-            internal
-            | Points of points : Point list
-            | Waveform of waveform : Element list
-
+        /// A single waveform in the machine.  Must be at least 60 samples long
         type Waveform = internal {
             Name : byte array // ASCII string of file name
-            Elements : Element list } // List of waveform elements
+            Data : Sample seq } // Sequence of points
 
         /// A four-byte array for each encoded IQ point
         type EncodedIQ = byte []
@@ -232,21 +220,16 @@ module Model =
         type EncodedMarkers = byte
 
         /// A single point encoded into the four-byte array of IQ points and the marker byte
-        type EncodedPoint = {
+        type EncodedSample = {
             IQ      : EncodedIQ
             Markers : EncodedMarkers }
 
-        /// Reverse-ordered lists of the IQ and marker points
-        type EncodedElement = {
+        /// Internal record of an entire recorded waveform before being transformed into
+        /// machine-readable strings.  Lists are in reverse order for speed.
+        type EncodedWaveform = {
+            Name    : byte []
             IQ      : EncodedIQ list
             Markers : EncodedMarkers list }
-
-        /// Internal record of an entire recorded waveform before being transformed into
-        /// machine-readable strings.
-        type EncodedWaveform = {
-            Name    : byte [] // ASCII string of file name
-            IQ      : byte []
-            Markers : byte [] }
 
         /// Sequence data after it has been encoded, including the lengths and data indicator '#'.
         /// Ready to write to machine.
