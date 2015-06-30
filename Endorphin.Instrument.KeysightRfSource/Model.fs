@@ -214,6 +214,14 @@ module Model =
             Name : byte array // ASCII string of file name
             Data : Sample seq } // Sequence of points
 
+        /// Internal representation of the machine's sequencing system.
+        /// Tuple is of the form (sequence, repetitions).
+        type Sequence = (SequenceElement * uint16) list
+        and SequenceElement =
+            internal
+            | Waveform of waveform : Waveform * repetitions : uint16
+            | Sequence of sequence : Sequence * repetitions : uint16
+
         /// A four-byte array for each encoded IQ point
         type EncodedIQ = byte []
         /// A byte with the four markers encoded in
