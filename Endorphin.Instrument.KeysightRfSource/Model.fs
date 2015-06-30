@@ -206,50 +206,58 @@ module Model =
 
         /// A single IQ point with associated markers and endianness
         type Point = {
-            I : int16
-            Q : int16
+            I       : int16
+            Q       : int16
             Marker1 : bool
             Marker2 : bool
             Marker3 : bool
             Marker4 : bool
-            Order : Endianness } // Included the order field so we don't introduce problems by assuming the host is a certain order
+            Order   : Endianness }
+            // Included the order field so we don't introduce problems by assuming the host is a certain order
 
         // Sample doesn't need a filename associated with it because it should always be in a sequence
         /// A single sample of a waveform - can be constant or part of e.g. a sin wave, or any other form.
         type Sample = Point array
+
+        /// A sequence of different samples, can be used to build up set patterns
+        type Sequence = Sample array
 
         /// A total waveform can be either a sequence of samples or of subsequences.  A waveform must have
         /// at least 60 samples in it, but since these could be repeated, it is not necessary to store them all.
         type WaveformElement =
             internal
             | Sample of sample : Sample * repetitions : uint16
-            | Element of element : WaveformElement * repetitions : uint16
+            | Sequence of sequence : Sequence * repeitions : uint16
 
         type Waveform = internal {
             Name : byte array // ASCII string of file name
-            Elements : WaveformElement list }
+            Elements : (WaveformElement * uint16) list } // List of waveform elements and their repetitions
 
-        /// Bitwise representation of the markers associated with an IQ point
-        type Markers = byte
+        /// A four-byte array for each encoded IQ point
+        type EncodedIQ = byte []
 
-        /// Sample data after it has been encoded, with no lengths or filenames in the order
-        /// IQ * Markers
-        type EncodedSample = byte array * byte array
+        /// A single point encoded into the four-byte array of IQ points and the marker byte
+        type EncodedPoint = {
+            IQ      : EncodedIQ
+            Markers : byte }
 
-        type EncodedElement = byte array * byte array
+        /// Reverse-ordered lists of the IQ and marker points
+        type EncodedList = {
+            IQ      : EncodedIQ list
+            Markers : byte list }
 
         /// Temporary type for collections of encoded samples
         type EncodedWaveform = {
-            Name : byte array // ASCII string of file name
-            IQ : byte array
-            Markers : byte array }
+            Name    : byte [] // ASCII string of file name
+            IQ      : byte []
+            Markers : byte [] }
 
         /// Sequence data after it has been encoded, including the lengths and data indicator '#'.
         /// Ready to write to machine.
         type EncodedWaveformFile = {
-            WaveformFileString : byte array
-            MarkerFileString : byte array
-            HeaderFileString : byte array }
+            WaveformFileString : byte []
+            MarkerFileString   : byte []
+            HeaderFileString   : byte [] }
 
     type KeysightRfSettings = {
         Sweep : Sweep

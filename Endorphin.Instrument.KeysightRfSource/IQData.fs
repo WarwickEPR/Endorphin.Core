@@ -57,92 +57,108 @@ module IQData =
     let internal getMarkerByte point =
         ((Convert.ToByte point.Marker4) <<< 3) ||| ((Convert.ToByte point.Marker3) <<< 2) ||| ((Convert.ToByte point.Marker2) <<< 1) ||| (Convert.ToByte point.Marker1)
 
-    let private flattenListOfArrays list = list |> List.reduce Array.append
+    /// Predefined empty type for EncodedList
+    let private emptyEncodedList = { EncodedList.IQ = []; EncodedList.Markers = [] }
 
-    /// Encode a single point into its IQ data and marker data as a tuple in the order (IQ [] * Markers)
-    let internal encodePoint point =
+    /// Add a single encoded point onto the encoded sequence
+    let private addEncodedPoint (total : EncodedList) (point : EncodedPoint) =
+        { EncodedList.IQ      = point.IQ :: total.IQ
+          EncodedList.Markers = point.Markers :: total.Markers }
+
+    /// Add a list of encoded points onto another
+    let private addEncodedList (total : EncodedList) (list : EncodedList) =
+        { EncodedList.IQ      = List.append list.IQ total.IQ
+          EncodedList.Markers = List.append list.Markers total.Markers }
+
+    /// Handle the necessary number of repetitions for previously encoded samples, sequences and
+    /// other lists of points.
+    let private copyEncodedList (list : EncodedList) reps =
+        let rec loop list acc reps =
+            match reps with
+            | 0us -> acc
+            | _   -> loop list (addEncodedList acc list) (reps - 1us)
+        loop list emptyEncodedList reps
+
+    /// Encode a single point into its IQ data and marker data as an EncodedPoint
+    let private encodePoint point =
         if point.Order = LittleEndian then
             failwith "Cannot write a littleendian point to the machine"
         else
-            ( (Array.append (BitConverter.GetBytes point.I) (BitConverter.GetBytes point.Q)),
-              (getMarkerByte point) )
+            { EncodedPoint.IQ = Array.append (BitConverter.GetBytes point.I) (BitConverter.GetBytes point.Q)
+              EncodedPoint.Markers = getMarkerByte point }
 
-    /// Encode a sample into IQ data and marker data returned as a tuple in the order (IQ [] * Markers [])
-    let internal encodeSample sample =
-        // Encode individual points
-        let (arrays, markers) =
-            sample
-            |> Array.map encodePoint
-            |> Array.unzip
-        // Flatten the array of IQ arrays
-        let flatArray = arrays |> Array.reduce Array.append
-        (flatArray, markers)
+    /// Encode a sample into a whole EncodedList
+    let private encodeSample sample =
+        sample
+        |> Array.map encodePoint
+        |> Array.fold addEncodedPoint emptyEncodedList
 
-    // This function is currently far too long - perhaps should take its helper functions outside of its body to simplify
-    /// Encode each waveform element into a byte array for writing
-    let private encodeWaveformElement outerElement =
-        let rec encode element acc =
-            /// Helper function to handle repeats of single samples
-            let rec sampleReps encodedSample acc reps =
-                match reps with
-                | 0us -> acc
-                | _   -> sampleReps encodedSample (encodedSample :: acc) (reps - 1us)
-            /// Helper function to (badly) handle repeats of elements
-            let rec elementReps encodedElement acc reps =
-                match reps with
-                | 0us -> acc
-                | _   ->
-                    let newAcc = List.append encodedElement acc
-                    elementReps encodedElement newAcc (reps - 1us)
-            match element with
-            | Sample (smp, reps) -> sampleReps (encodeSample smp) acc reps
-            | Element (nextElement, reps) -> elementReps (encode nextElement acc) acc reps // NOT TAIL RECURSIVE
-            // TODO: Need to find a way to do this without causing a stack overflow on a
-            // deeply recursive type
+    /// Encode a sequence of samples into an EncodedList
+    let private encodeSequence sequence =
+        sequence
+        |> Array.map encodeSample
+        |> Array.fold addEncodedList emptyEncodedList
 
-        // Enter the encoding function, and flatten out the tuple
-        let (IQ, markers) =
-            encode outerElement []
-            |> List.rev
-            |> List.unzip
-        ( flattenListOfArrays IQ, flattenListOfArrays markers )
+    /// Encode a waveform element and handle its repeats
+    let private encodeWaveformElement element =
+        match element with
+        | Sample (sample, reps) -> copyEncodedList (encodeSample sample) reps
+        | Sequence (sequence, reps) -> copyEncodedList (encodeSequence sequence) reps
 
-    /// Encode a whole waveform into the required byte arrays
-    let internal encodeWaveform (waveform : Waveform) =
-        let (encodedIQ, encodedMarkers) =
+    /// Helper function to separate the (element, reps) tuples out into a pipeable form
+    let private encodeWaveformElementReps (element, reps) =
+        copyEncodedList (encodeWaveformElement element) reps
+
+    /// Put the encoded list into the correct order, since it's built up in reverse for speed
+    let private reverseEncodedList (list : EncodedList) =
+        { EncodedList.IQ = List.rev list.IQ
+          EncodedList.Markers = List.rev list.Markers }
+
+    /// Flatten out the tupled lists (iq is a list of arrays) into two arrays in the form
+    /// (iq [], markers [])
+    let private flattenEncodedList (list : EncodedList) =
+        let outIQ      = list.IQ      |> List.fold Array.append [||]
+        let outMarkers = list.Markers |> List.toArray
+        (outIQ, outMarkers)
+
+    /// Encode a whole waveform and handle any repetitions of elements
+    let encodeWaveform (waveform : Waveform) =
+        let (iq, markers) =
             waveform.Elements
-            |> List.map encodeWaveformElement
-            |> List.unzip
-        { Name = waveform.Name
-          IQ = flattenListOfArrays encodedIQ
-          Markers = flattenListOfArrays encodedMarkers }
+            |> List.map encodeWaveformElementReps
+            |> List.fold addEncodedList emptyEncodedList
+            |> reverseEncodedList
+            |> flattenEncodedList
+        { EncodedWaveform.Name = waveform.Name
+          EncodedWaveform.IQ   = iq
+          EncodedWaveform.Markers = markers }
 
     /// Make the data string, including the '#' character, the digits of length, the length and the data
     let private makeDataString (data : byte []) =
         let length = data.Length
         let digits = length.ToString().Length
-        // TODO: this could probably be a choice function
         if digits >= 10 then
             failwith "Can't write that much data to the instrument in one go!"
-        Array.concat
-          [ "#"B
+        Array.concat [
+            "#"B
             Encoding.ASCII.GetBytes(digits.ToString())
             Encoding.ASCII.GetBytes(length.ToString()) ]
+
+    let private waveformFolder = "WFM1:"B
+    let private markerFolder = "MKR1:"B
+    let private headerFolder = "HDR1:"B
+
+    let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
+
+    let private waveformFileString name = fileNameString waveformFolder name
+    let private markerFileString name = fileNameString markerFolder name
+    let private headerFileString name = fileNameString headerFolder name
+
+    let private dataStorageString fileName data = Array.concat [fileName; ","B; data]
 
     /// Produce the full data strings necessary for writing the three different files to the machine,
     /// given the encoded waveform to extract the data from.
     let internal encodeWaveformFile (waveform : EncodedWaveform) =
-        { WaveformFileString = Array.concat
-            [ "\"WFM1:"B
-              waveform.Name
-              "\","B
-              makeDataString waveform.IQ ]
-          MarkerFileString = Array.concat
-            [ "\"MKR1:"B
-              waveform.Name
-              "\",#"B
-              makeDataString waveform.Markers ]
-          HeaderFileString = Array.concat
-            [ "\"HDR1:"B
-              waveform.Name
-              "\""B ] } // TODO: fix the header string
+        { WaveformFileString = dataStorageString (waveformFileString waveform.Name) waveform.IQ
+          MarkerFileString   = dataStorageString (markerFileString   waveform.Name) waveform.Markers
+          HeaderFileString   = dataStorageString (headerFileString   waveform.Name) ""B }
