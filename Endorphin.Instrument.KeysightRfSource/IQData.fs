@@ -34,12 +34,6 @@ module IQData =
           EncodedWaveform.IQ      = sample.IQ :: total.IQ
           EncodedWaveform.Markers = sample.Markers :: total.Markers }
 
-    /// Put the encoded list into the correct order, since it's built up in reverse for speed
-    let private reverseEncodedWaveform (list : EncodedWaveform) =
-        { EncodedWaveform.Name    = list.Name
-          EncodedWaveform.IQ      = List.rev list.IQ
-          EncodedWaveform.Markers = List.rev list.Markers }
-
     /// Convert array of bytes to bigendian if necessary
     let private toBigEndian bytes =
         if BitConverter.IsLittleEndian then
@@ -52,13 +46,6 @@ module IQData =
         number
         |> BitConverter.GetBytes
         |> toBigEndian
-
-    /// Flatten out the tupled lists (iq is a list of arrays) into two arrays in the form
-    /// (iq [], markers [])
-    let private flattenEncodedWaveform (list : EncodedWaveform) =
-        let outIQ      = list.IQ      |> List.reduce Array.append
-        let outMarkers = list.Markers |> List.toArray
-        (outIQ, outMarkers)
 
     /// Encode a single sample into the necessary byte patterns
     let private encodeSample sample =
