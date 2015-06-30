@@ -1,8 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open Endorphin.Instrument.Keysight.Endian
 open System
-open System.Text
 
 module IQData =
     /// Basic data form of IQ point
@@ -82,8 +80,8 @@ module IQData =
             failwith "Can't write 1GB in one go!"
         Array.concat [
             "#"B
-            Encoding.ASCII.GetBytes(digits.ToString())
-            Encoding.ASCII.GetBytes(length.ToString())
+            Text.Encoding.ASCII.GetBytes(digits.ToString())
+            Text.Encoding.ASCII.GetBytes(length.ToString())
             data ]
 
     /// ASCII string of the folder location for waveforms
