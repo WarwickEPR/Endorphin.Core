@@ -109,6 +109,17 @@ module IQData =
         let waveformFileName = waveformFileString waveform.Name
         let markerFileName   = markerFileString   waveform.Name
         let headerFileName   = headerFileString   waveform.Name
-        { WaveformFileString = dataStorageString waveformFileName (reverseConcatenateToArray waveform.IQ)
-          MarkerFileString   = dataStorageString markerFileName   (reverseToArray waveform.Markers)
-          HeaderFileString   = dataStorageString headerFileName   ""B } // TODO: fix header string!
+        let waveformDataString =
+            waveform.IQ
+            |> reverseConcatenateToArray
+            |> makeDataString
+        let markerDataString =
+            waveform.Markers
+            |> reverseToArray
+            |> makeDataString
+        // TODO: fix header data string
+        let headerDataString = "#10"B
+
+        { WaveformFileString = dataStorageString  waveformFileName waveformDataString
+          MarkerFileString   = dataStorageString  markerFileName   markerDataString
+          HeaderFileString   = dataStorageString  headerFileName   headerDataString }
