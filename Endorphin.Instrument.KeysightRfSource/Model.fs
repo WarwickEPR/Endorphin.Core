@@ -210,7 +210,7 @@ module Model =
             Marker4 : bool }
 
         /// A single waveform in the machine.  Must be at least 60 samples long
-        type Waveform = internal {
+        type Waveform = {
             Name : byte array // ASCII string of file name
             Data : Sample seq } // Sequence of points
 
@@ -218,7 +218,6 @@ module Model =
         /// Tuple is of the form (sequence, repetitions).
         type Sequence = (SequenceElement * uint16) list
         and SequenceElement =
-            internal
             | Waveform of waveform : Waveform * repetitions : uint16
             | Sequence of sequence : Sequence * repetitions : uint16
 

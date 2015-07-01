@@ -53,7 +53,7 @@ module IQData =
           EncodedSample.Markers = getMarkerByte sample }
 
     /// Encode a waveform into the necessary byte patterns
-    let private encodeWaveform (waveform : Waveform) =
+    let encodeWaveform (waveform : Waveform) =
         let emptyWaveform = { Name = waveform.Name; IQ = []; Markers = [] }
         waveform.Data
         |> Seq.map encodeSample
@@ -105,7 +105,7 @@ module IQData =
 
     /// Produce the full data strings necessary for writing the three different files to the machine,
     /// given the encoded waveform to extract the data from.
-    let internal encodeWaveformFile (waveform : EncodedWaveform) =
+    let encodeWaveformFile (waveform : EncodedWaveform) =
         let waveformFileName = waveformFileString waveform.Name
         let markerFileName   = markerFileString   waveform.Name
         let headerFileName   = headerFileString   waveform.Name
