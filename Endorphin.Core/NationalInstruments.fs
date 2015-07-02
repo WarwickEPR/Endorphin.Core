@@ -42,6 +42,20 @@ module NationalInstruments =
                 with
                     exn -> return fail exn.Message }
 
+        /// Create and asynchronous computation which writes an ASCII string message to an NI
+        /// VISA device session.
+        member session.WriteBytesAsync bytes =
+            let asyncWrite =
+                Async.FromBeginEnd(
+                    (fun (callback, state) -> session.BeginWrite(bytes, 0, bytes.Length, callback, state)),
+                    session.EndWrite)
+            async {
+                try
+                    do! asyncWrite
+                    return succeed ()
+                with
+                    exn -> return fail exn.Message }
+
         /// Returns an asynchronous computation which first writes a string message to an NI
         /// VISA device session and then awaits a response to that message.
         member session.QueryAsync message =
