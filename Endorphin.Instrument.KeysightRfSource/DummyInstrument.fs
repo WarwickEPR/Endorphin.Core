@@ -22,6 +22,9 @@ module Dummy =
                     | None -> fail ("Missing response for " + visaCommand) }
          member __.readString () = asyncChoice { return "" }
          member __.writeString visaCommand = printfn "write: %s" visaCommand
+         member __.queryASCIIInstrument visaCommand = asyncChoice { return "Can't let you do that, Dave!"B }
+         member __.readASCIIString () = asyncChoice { return ""B }
+         member __.writeASCIIString visaCommand = printfn "write: %A" visaCommand
 
     let openInstrument (behaviour : Map<string,string>) =
         new DummyInstrument (behaviour) :> Visa.IVisa |> RfSource

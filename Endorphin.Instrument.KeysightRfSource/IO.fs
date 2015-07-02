@@ -58,6 +58,12 @@ module internal IO =
         sprintf "%s %s" key (valueMap value) |> rfSource.writeString
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
+
+    let internal setASCIIValue (valueMap : 'v -> byte []) key (RfSource rfSource) (value : 'v) = asyncChoice {
+        Array.concat [key; " "B; (valueMap value); "\n"B] |> rfSource.writeASCIIString
+        let! errors = queryErrorQueue (RfSource rfSource)
+        do! checkErrorQueueIsEmpty errors
+        }
  
     module Identify =
 
