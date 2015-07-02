@@ -86,11 +86,11 @@ module IQData =
         let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
 
         /// Total filename string for a waveform file
-        let private waveformFileString name = fileNameString waveformFolder name
+        let private makeWaveformFileString name = fileNameString waveformFolder name
         /// Total filename string for a markers file
-        let private markerFileString name = fileNameString markerFolder name
+        let private makeMarkerFileString name = fileNameString markerFolder name
         /// Total filename string for a header file
-        let private headerFileString name = fileNameString headerFolder name
+        let private makeHeaderFileString name = fileNameString headerFolder name
 
         /// Build up a full string for data storage and location
         let private dataStorageString fileName dataString = Array.concat [fileName; ","B; dataString]
@@ -109,16 +109,17 @@ module IQData =
 
         /// Produce the full data strings necessary for writing the three different files to the machine,
         /// given the encoded waveform to extract the data from.
-        let toEncodedWaveformFile (waveform : EncodedWaveform) =
-            let waveformFileName = waveformFileString waveform.Name
-            let markerFileName   = markerFileString   waveform.Name
-            let headerFileName   = headerFileString   waveform.Name
+        let private toEncodedWaveformFile (waveform : Waveform) =
+            let encodedWaveform = toEncodedWaveform waveform
+            let waveformFileName = makeWaveformFileString encodedWaveform.Name
+            let markerFileName   = makeMarkerFileString   encodedWaveform.Name
+            let headerFileName   = makeHeaderFileString   encodedWaveform.Name
             let waveformDataString =
-                waveform.IQ
+                encodedWaveform.IQ
                 |> reverseConcatenateToArray
                 |> makeDataString
             let markerDataString =
-                waveform.Markers
+                encodedWaveform.Markers
                 |> reverseToArray
                 |> makeDataString
             // TODO: fix header data string
@@ -127,6 +128,21 @@ module IQData =
             { WaveformFileString = dataStorageString  waveformFileName waveformDataString
               MarkerFileString   = dataStorageString  markerFileName   markerDataString
               HeaderFileString   = dataStorageString  headerFileName   headerDataString }
+
+        /// Get the whole string necessary to write a waveform file to the machine
+        let internal waveformFileString (waveform : Waveform) =
+            let encoded = toEncodedWaveformFile waveform
+            encoded.WaveformFileString
+
+        /// Get the whole string necessary to write a marker file to the machine
+        let internal markerFileString (waveform : Waveform) =
+            let encoded = toEncodedWaveformFile waveform
+            encoded.MarkerFileString
+
+        /// Get the whole string necessary to write a header file to the machine
+        let internal headerFileString (waveform : Waveform) =
+            let encoded = toEncodedWaveformFile waveform
+            encoded.HeaderFileString
 
     /// Functions for decoding waveform and sequence data received from the machine
     module internal Decode =
@@ -144,4 +160,10 @@ module IQData =
         open Encode
         open Decode
 
-        let private volatileDataKey = ":MEM:DATA"
+        let private volatileDataKey = ":MEM:DATA"B
+        /// Write the IQ data into the machine's volatile memory
+        let writeVolatileWaveformFile = IO.setASCIIValue waveformFileString volatileDataKey
+        /// Write the marker file into the machine's volatile memory
+        let writeVolatileMarkerFile = IO.setASCIIValue markerFileString volatileDataKey
+        /// Write the header file into the machine's volatile memory
+        let writeVolatileHeaderFile = IO.setASCIIValue headerFileString volatileDataKey
