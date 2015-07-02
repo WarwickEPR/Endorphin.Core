@@ -3,30 +3,33 @@
 open System
 
 module IQData =
-    /// Basic data form of IQ point
-    let defaultIQSample = {
-        Sample.I = 0s;
-        Sample.Q = 0s;
-        Sample.Marker1 = false;
-        Sample.Marker2 = false;
-        Sample.Marker3 = false;
-        Sample.Marker4 = false; }
-    /// Set value of the I sample
-    let withISample value sample = { sample with I = value }
-    /// Set value of the Q sample
-    let withQSample value sample = { sample with Q = value }
-    /// Set value of the first marker
-    let withMarker1 value sample = { sample with Marker1 = value }
-    /// Set value of the second marker
-    let withMarker2 value sample = { sample with Marker2 = value }
-    /// Set value of the third marker
-    let withMarker3 value sample = { sample with Marker3 = value }
-    /// Set value of the fourth marker
-    let withMarker4 value sample = { sample with Marker4 = value }
+    /// Functions for configuring samples
+    module Configure =
+        /// Basic data form of IQ point
+        let defaultIQSample = {
+            Sample.I = 0s;
+            Sample.Q = 0s;
+            Sample.Marker1 = false;
+            Sample.Marker2 = false;
+            Sample.Marker3 = false;
+            Sample.Marker4 = false; }
+        /// Set value of the I sample
+        let withISample value sample = { sample with I = value }
+        /// Set value of the Q sample
+        let withQSample value sample = { sample with Q = value }
+        /// Set value of the first marker
+        let withMarker1 value sample = { sample with Marker1 = value }
+        /// Set value of the second marker
+        let withMarker2 value sample = { sample with Marker2 = value }
+        /// Set value of the third marker
+        let withMarker3 value sample = { sample with Marker3 = value }
+        /// Set value of the fourth marker
+        let withMarker4 value sample = { sample with Marker4 = value }
 
-    module Encode =
+    /// Functions for encoding waveforms and samples into a writeable form
+    module internal Encode =
         /// Make a marker byte out of the booleans in an IQ sample
-        let internal getMarkerByte sample =
+        let private getMarkerByte sample =
             ((Convert.ToByte sample.Marker4) <<< 3) ||| ((Convert.ToByte sample.Marker3) <<< 2) ||| ((Convert.ToByte sample.Marker2) <<< 1) ||| (Convert.ToByte sample.Marker1)
 
         /// Add a single encoded sample into an encoded waveform
@@ -54,7 +57,7 @@ module IQData =
               EncodedSample.Markers = getMarkerByte sample }
 
         /// Encode a waveform into the necessary byte patterns
-        let toEncodedWaveform (waveform : Waveform) =
+        let private toEncodedWaveform (waveform : Waveform) =
             let emptyWaveform = { Name = waveform.Name; IQ = []; Markers = [] }
             waveform.Data
             |> Seq.map toEncodedSample
@@ -77,7 +80,7 @@ module IQData =
         /// ASCII string of the folder location for markers
         let private markerFolder   = "MKR1:"B
         /// ASCII string of the folder location for headers
-        let private headerFolder   = "HDR1:"B
+        let private headerFolder   = "HDR:"B
 
         /// Build up a full file name string for storing a file
         let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
@@ -125,7 +128,8 @@ module IQData =
               MarkerFileString   = dataStorageString  markerFileName   markerDataString
               HeaderFileString   = dataStorageString  headerFileName   headerDataString }
 
-    module Decode =
+    /// Functions for decoding waveform and sequence data received from the machine
+    module internal Decode =
         let private toHostOrder bytes =
             if BitConverter.IsLittleEndian then
                 bytes |> Array.rev
@@ -134,3 +138,10 @@ module IQData =
 
         let private markersFromByte markers =
             (Convert.ToBoolean(markers &&& 0x1), Convert.ToBoolean(markers &&& 0x2), Convert.ToBoolean(markers &&& 0x4), Convert.ToBoolean(markers &&& 0x8))
+
+    /// Functions for writing and receiving data from the machine
+    module Control =
+        open Encode
+        open Decode
+
+        let private volatileDataKey = ":MEM:DATA"
