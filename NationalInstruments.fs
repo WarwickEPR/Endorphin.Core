@@ -3,6 +3,7 @@
 open ExtCore.Control
 open NationalInstruments.VisaNS
 open log4net
+open System.Text
 
 /// VISA access to instruments with asynchronous messaging
 module NationalInstruments =
@@ -26,6 +27,19 @@ module NationalInstruments =
                     return succeed result
                 with exn -> return fail exn.Message }
 
+        /// Create an asynchronous computation which reads a byte array from an NI VISA device
+        /// session.
+        member session.ReadASCIIAsync() =
+            let asyncReadBytes =
+                Async.FromBeginEnd(
+                    (fun (callback, state) -> session.BeginRead(session.DefaultBufferSize, callback, state)),
+                    session.EndReadByteArray)
+            async {
+                try
+                    let! result = asyncReadBytes
+                    return succeed result
+                with exn -> return fail exn.Message }
+
         /// Returns an asynchronous computation which writes a string message to an NI VISA
         /// device session.
         member session.WriteAsync message = 
@@ -42,9 +56,9 @@ module NationalInstruments =
                 with
                     exn -> return fail exn.Message }
 
-        /// Create and asynchronous computation which writes an ASCII string message to an NI
+        /// Create an asynchronous computation which writes an ASCII string message to an NI
         /// VISA device session.
-        member session.WriteBytesAsync bytes =
+        member session.WriteASCIIAsync bytes =
             let asyncWrite =
                 Async.FromBeginEnd(
                     (fun (callback, state) -> session.BeginWrite(bytes, 0, bytes.Length, callback, state)),
@@ -69,6 +83,18 @@ module NationalInstruments =
                         session.Clear())
                 do! session.WriteAsync message
                 return! session.ReadAsync() }
+
+        /// Create an asynchronous workflow which writes a string to an NI VISA device session,
+        /// then reads a response from the same device.
+        member session.QueryASCIIAsync message =
+            asyncChoice {
+                use! __ =
+                    AsyncChoice.liftAsync
+                    <| Async.OnCancel(fun() ->
+                        session.Terminate()
+                        session.Clear())
+                do! session.WriteASCIIAsync message
+                return! session.ReadASCIIAsync() }
     
     [<RequireQualifiedAccess>]
     module Visa =
@@ -77,6 +103,9 @@ module NationalInstruments =
             | ReadString of replyChannel : AsyncChoiceReplyChannel<string,string>
             | WriteString of visaCommand : string
             | QueryString of visaCommand : string * replyChannel : AsyncChoiceReplyChannel<string,string>
+            | ReadASCIIString of replyChannel : AsyncChoiceReplyChannel<byte [],string>
+            | WriteASCIIString of visaCommand : byte []
+            | QueryASCIIString of visaCommand : byte [] * replyChannel : AsyncChoiceReplyChannel<byte [], string>
             | CloseSession of replyChannel : AsyncChoiceReplyChannel<unit,string>
 
         type Instrument = private Instrument of Agent<VisaMessage>
@@ -99,7 +128,6 @@ module NationalInstruments =
                 let rec failed () = async {
                     let! message = mailbox.Receive()
                     match message with
-                
                     | ReadString replyChannel ->
                         let error = "Received read request after communication to instrument failed."
                         log.Error error
@@ -112,6 +140,22 @@ module NationalInstruments =
 
                     | QueryString (visaCommand, replyChannel) ->
                         let error = sprintf "Received query request after communication to instrument failed: %s." visaCommand
+                        log.Error error
+                        fail error |> replyChannel.Reply
+                        return! failed ()
+
+                    | ReadASCIIString replyChannel ->
+                        let error = "Received read request after communication to instrument failed."
+                        log.Error error
+                        fail error |> replyChannel.Reply
+                        return! failed ()
+
+                    | WriteASCIIString visaCommand -> // TODO: possibly log the whole command?
+                        sprintf "Received a data write request after communication to instrument failed: \"%A\"" visaCommand |> log.Error
+                        return! failed()
+
+                    | QueryASCIIString (visaCommand, replyChannel) ->
+                        let error = sprintf "Received a data query reuest after commnication to instrument failed: %s." (Encoding.UTF8.GetString visaCommand)
                         log.Error error
                         fail error |> replyChannel.Reply
                         return! failed ()
@@ -154,6 +198,34 @@ module NationalInstruments =
                         | Success _     -> return! loop instrument
                         | Failure error -> log.Error error ; return! failed ()
 
+                    | ReadASCIIString replyChannel ->
+                        "Reading ASCII string." |> log.Debug
+                        let! response = instrument.ReadASCIIAsync()
+                        response |> replyChannel.Reply
+                        sprintf "Received string response : \"%A\"" response |> log.Debug
+
+                        match response with
+                        | Success _     -> return! loop instrument
+                        | Failure error -> log.Error error ; return! failed ()
+
+                    | WriteASCIIString visaCommand ->
+                        sprintf "Writing ASCII data string." |> log.Debug
+                        let! response = instrument.WriteASCIIAsync visaCommand
+
+                        match response with
+                        | Success _     -> return! loop instrument
+                        | Failure error -> log.Error error ; return! failed ()
+
+                    | QueryASCIIString (visaCommand, replyChannel) ->
+                        sprintf "Query with ASCII string: \"%s\"" (Encoding.UTF8.GetString visaCommand) |> log.Debug
+                        let! response = instrument.QueryASCIIAsync visaCommand
+                        response |> replyChannel.Reply
+                        sprintf "Received string response: \"%A\"" response |> log.Debug
+
+                        match response with
+                        | Success _     -> return! loop instrument
+                        | Failure error -> log.Error error ; return! failed ()
+
                     | CloseSession replyChannel -> do! closeSession replyChannel
 
                     return () }
@@ -178,6 +250,15 @@ module NationalInstruments =
         let writeString (Instrument agent) visaCommand =
             agent.Post (WriteString visaCommand)
 
+        let queryASCIIInstrument (Instrument agent) visaCommand =
+            agent.PostAndAsyncReply(fun replyChannel -> QueryASCIIString(visaCommand, replyChannel))
+
+        let readASCIIString (Instrument agent) =
+            agent.PostAndAsyncReply ReadASCIIString
+
+        let writeASCIIString (Instrument agent) visaCommand =
+            agent.Post (WriteASCIIString visaCommand)
+
         let closeInstrument (Instrument agent) =
             agent.PostAndAsyncReply CloseSession
 
@@ -191,6 +272,9 @@ module NationalInstruments =
             abstract member queryInstrument : string -> Async<Choice<string,string>>
             abstract member writeString     : string -> unit
             abstract member readString      : unit   -> Async<Choice<string,string>>
+            abstract member queryASCIIInstrument : byte [] -> Async<Choice<byte[], string>>
+            abstract member writeASCIIString     : byte [] -> unit
+            abstract member readASCIIString      : unit    -> Async<Choice<byte [],string>>
             abstract member closeInstrument : unit -> Async<Choice<unit,string>>
 
         type VisaInstrument (visaAddress,timeout) =
@@ -199,4 +283,7 @@ module NationalInstruments =
                 member __.queryInstrument (str) = queryInstrument agent str
                 member __.writeString (str) = writeString agent str
                 member __.readString () = readString agent
+                member __.queryASCIIInstrument (bytes) = queryASCIIInstrument agent bytes
+                member __.writeASCIIString (bytes) = writeASCIIString agent bytes
+                member __.readASCIIString () = readASCIIString agent
                 member __.closeInstrument () = closeInstrument agent
