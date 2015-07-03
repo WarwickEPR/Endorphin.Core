@@ -20,9 +20,21 @@ let printResult =
     | Failure error -> printfn "Bad things happened: %s" error
 
 let amplitude = 32000.0
-let numSamples = 600
+let numSamples = 1000
+let numWaveforms = 10
 let fractionalSin frac = Math.Sin (2.0 * Math.PI * frac)
 let fractionalCos frac = Math.Cos (2.0 * Math.PI * frac)
+
+let generateWaveform value samples =
+    { Name = sprintf "test-%04d" value
+      Data = seq {for i in 1 .. samples -> { Sample.I = value
+                                             Sample.Q = value
+                                             Sample.Marker1 = true
+                                             Sample.Marker2 = false
+                                             Sample.Marker3 = true
+                                             Sample.Marker4 = true } } }
+
+let waveforms = seq { for i in 1 .. numWaveforms -> generateWaveform (int16 ((double i) * amplitude / (double numWaveforms))) numSamples }
 
 let testWaveform = { Name = "test"
                      Data = seq {for i in 1 .. numSamples -> { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
@@ -37,8 +49,10 @@ let writeTest = asyncChoice {
     let! identity = RfSource.queryIdentity keysight
     printfn "%A" identity
 
-    do! writeVolatileWaveformFile keysight testWaveform
-    do! writeVolatileMarkerFile keysight testWaveform
+    for waveform in waveforms do
+        do! writeVolatileWaveformFile keysight waveform
+        do! writeVolatileMarkerFile keysight waveform
+
     do RfSource.closeInstrument |> ignore }
 
 let out = writeTest |> Async.RunSynchronously
