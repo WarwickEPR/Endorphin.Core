@@ -67,6 +67,7 @@
     <None Include="Scripts\load-project.fsx" />
     <Compile Include="Endian.fs" />
     <Compile Include="IQData.fs" />
+    <None Include="WaveformDemo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">

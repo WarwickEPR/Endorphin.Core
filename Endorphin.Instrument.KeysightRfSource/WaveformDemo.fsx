@@ -24,7 +24,7 @@ let numSamples = 600
 let fractionalSin frac = Math.Sin (2.0 * Math.PI * frac)
 let fractionalCos frac = Math.Cos (2.0 * Math.PI * frac)
 
-let testWaveform = { Name = "test"B
+let testWaveform = { Name = "test"
                      Data = seq {for i in 1 .. numSamples -> { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
                                                                Sample.Q = int16 (amplitude * fractionalCos ((double (i-1))/(double numSamples)))
                                                                Sample.Marker1 = Convert.ToBoolean((i-1)%2)

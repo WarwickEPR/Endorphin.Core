@@ -211,7 +211,7 @@ module Model =
 
         /// A single waveform in the machine.  Must be at least 60 samples long
         type Waveform = {
-            Name : byte array // ASCII string of file name
+            Name : string
             Data : Sample seq } // Sequence of points
 
         /// Internal representation of the machine's sequencing system.
