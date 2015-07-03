@@ -43,7 +43,7 @@ let testWaveform = { Name = "test"
                            Sample.Q = int16 (amplitude * fractionalCos ((double (i-1))/(double numSamples)))
                            Sample.Marker1 = Convert.ToBoolean((i-1)%2)
                            Sample.Marker2 = Convert.ToBoolean(i%2)
-                           Sample.Marker3 = Convert.ToBoolean((i-1)%3) 
+                           Sample.Marker3 = Convert.ToBoolean((i-1)%3)
                            Sample.Marker4 = Convert.ToBoolean(0) } } }
 
 let writeTest = asyncChoice {
