@@ -26,23 +26,25 @@ let fractionalSin frac = Math.Sin (2.0 * Math.PI * frac)
 let fractionalCos frac = Math.Cos (2.0 * Math.PI * frac)
 
 let generateSegment value samples =
-    { Name = sprintf "test-%04d" value
-      Data = seq {for i in 1 .. samples -> { Sample.I = value
-                                             Sample.Q = value
-                                             Sample.Marker1 = true
-                                             Sample.Marker2 = false
-                                             Sample.Marker3 = true
-                                             Sample.Marker4 = true } } }
+    { Name = sprintf "test-%05d" value
+      Data = seq {for i in 1 .. samples ->
+          { Sample.I = value
+            Sample.Q = value
+            Sample.Marker1 = true
+            Sample.Marker2 = false
+            Sample.Marker3 = true
+            Sample.Marker4 = true } } }
 
 let segments = seq { for i in 1 .. numSegments -> generateSegment (int16 ((double i) * amplitude / (double numSegments))) numSamples }
 
 let testWaveform = { Name = "test"
-                     Data = seq {for i in 1 .. numSamples -> { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
-                                                               Sample.Q = int16 (amplitude * fractionalCos ((double (i-1))/(double numSamples)))
-                                                               Sample.Marker1 = Convert.ToBoolean((i-1)%2)
-                                                               Sample.Marker2 = Convert.ToBoolean(i%2)
-                                                               Sample.Marker3 = Convert.ToBoolean((i-1)%3) 
-                                                               Sample.Marker4 = Convert.ToBoolean(0) } } }
+                     Data = seq {for i in 1 .. numSamples ->
+                         { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
+                           Sample.Q = int16 (amplitude * fractionalCos ((double (i-1))/(double numSamples)))
+                           Sample.Marker1 = Convert.ToBoolean((i-1)%2)
+                           Sample.Marker2 = Convert.ToBoolean(i%2)
+                           Sample.Marker3 = Convert.ToBoolean((i-1)%3) 
+                           Sample.Marker4 = Convert.ToBoolean(0) } } }
 
 let writeTest = asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
@@ -50,8 +52,7 @@ let writeTest = asyncChoice {
     printfn "%A" identity
 
     for segment in segments do
-        do! writeVolatileWaveformFile keysight segment
-        do! writeVolatileMarkerFile keysight segment
+        do! storeSegmentFiles keysight segment
 
     do RfSource.closeInstrument |> ignore }
 

@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
+open ExtCore.Control
 open System
 
 module IQData =
@@ -86,7 +87,7 @@ module IQData =
             /// ASCII string of the folder location for markers
             let private markerFolder   = "MKR1:"B
             /// ASCII string of the folder location for headers
-            let private headerFolder   = "HDR:"B
+            let private headerFolder   = "HDR1:"B
 
             /// Build up a full file name string for storing a file
             let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
@@ -116,7 +117,7 @@ module IQData =
 
             /// Produce the full data strings necessary for writing the three different files
             /// to the machine, given the encoded segment to extract the data from.
-            let private toEncodedSegmentFile (segment : Segment) =
+            let internal toEncodedSegmentFiles (segment : Segment) =
                 let encodedsegment = toEncodedSegment segment
                 let waveformFileName = makeWaveformFileString encodedsegment.Name
                 let markerFileName   = makeMarkerFileString   encodedsegment.Name
@@ -137,19 +138,13 @@ module IQData =
                   Header   = dataStorageString  headerFileName   headerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine
-            let internal waveformFileString (segment : Segment) =
-                let encoded = toEncodedSegmentFile segment
-                encoded.Waveform
+            let internal waveformFileString (encoded : EncodedSegmentFiles) = encoded.Waveform
 
             /// Get the whole string necessary to write a marker file to the machine
-            let internal markerFileString (segment : Segment) =
-                let encoded = toEncodedSegmentFile segment
-                encoded.Markers
+            let internal markersFileString (encoded : EncodedSegmentFiles) = encoded.Markers
 
             /// Get the whole string necessary to write a header file to the machine
-            let internal headerFileString (segment : Segment) =
-                let encoded = toEncodedSegmentFile segment
-                encoded.Header
+            let internal headerFileString (encoded : EncodedSegmentFiles) = encoded.Header
 
         /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
@@ -232,10 +227,13 @@ module IQData =
     module Control =
         open Translate
 
+        /// Command to write file to volatile memory
         let private volatileDataKey = ":MEM:DATA"B
-        /// Write the IQ data into the machine's volatile memory
-        let writeVolatileWaveformFile = IO.setASCIIValue waveformFileString volatileDataKey
-        /// Write the marker file into the machine's volatile memory
-        let writeVolatileMarkerFile = IO.setASCIIValue markerFileString volatileDataKey
-        /// Write the header file into the machine's volatile memory
-        let writeVolatileHeaderFile = IO.setASCIIValue headerFileString volatileDataKey
+
+        /// Store the three files associated with any segment in the machine's volatile memory
+        let storeSegmentFiles instrument segment =
+            let encoded = toEncodedSegmentFiles segment
+            asyncChoice {
+                do! IO.setASCIIValue waveformFileString volatileDataKey instrument encoded
+                do! IO.setASCIIValue markersFileString volatileDataKey instrument encoded
+                do! IO.setASCIIValue headerFileString volatileDataKey instrument encoded }
