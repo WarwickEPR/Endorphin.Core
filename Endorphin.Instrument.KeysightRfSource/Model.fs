@@ -209,8 +209,8 @@ module Model =
             Marker3 : bool
             Marker4 : bool }
 
-        /// A single waveform in the machine.  Must be at least 60 samples long
-        type Waveform = {
+        /// A single segment in the machine.  Must be at least 60 samples long
+        type Segment = {
             Name : string
             Data : Sample seq } // Sequence of points
 
@@ -218,7 +218,7 @@ module Model =
         /// Tuple is of the form (sequence, repetitions).
         type Sequence = (SequenceElement * uint16) list
         and SequenceElement =
-            | Waveform of waveform : Waveform * repetitions : uint16
+            | Segment of segment : Segment * repetitions : uint16
             | Sequence of sequence : Sequence * repetitions : uint16
 
         /// A four-byte array for each encoded IQ point
@@ -231,19 +231,19 @@ module Model =
             IQ      : EncodedIQ
             Markers : EncodedMarkers }
 
-        /// Internal record of an entire recorded waveform before being transformed into
+        /// Internal record of an entire recorded segment before being transformed into
         /// machine-readable strings.  Lists are in reverse order for speed.
-        type EncodedWaveform = {
+        type EncodedSegment = {
             Name    : byte []
             IQ      : EncodedIQ list
             Markers : EncodedMarkers list }
 
         /// Sequence data after it has been encoded, including the lengths and data indicator '#'.
         /// Ready to write to machine.
-        type EncodedWaveformFile = {
-            WaveformFileString : byte []
-            MarkerFileString   : byte []
-            HeaderFileString   : byte [] }
+        type EncodedSegmentFiles = {
+            Waveform : byte []
+            Markers  : byte []
+            Header   : byte [] }
 
     type KeysightRfSettings = {
         Sweep : Sweep

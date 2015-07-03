@@ -26,7 +26,7 @@ module IQData =
         /// Set value of the fourth marker
         let withMarker4 value sample = { sample with Marker4 = value }
 
-    /// Functions for encoding waveforms and samples into a writeable form
+    /// Functions for encoding segments and samples into a writeable form
     module internal Translate =
         [<AutoOpen>]
         module internal Encode =
@@ -35,11 +35,11 @@ module IQData =
                 ((Convert.ToByte sample.Marker4) <<< 3) ||| ((Convert.ToByte sample.Marker3) <<< 2)
                 ||| ((Convert.ToByte sample.Marker2) <<< 1) ||| (Convert.ToByte sample.Marker1)
 
-            /// Add a single encoded sample into an encoded waveform
-            let private addEncodedSample (total : EncodedWaveform) (sample : EncodedSample) =
-                { EncodedWaveform.Name    = total.Name
-                  EncodedWaveform.IQ      = sample.IQ :: total.IQ
-                  EncodedWaveform.Markers = sample.Markers :: total.Markers }
+            /// Add a single encoded sample into an encoded segment
+            let private addEncodedSample (total : EncodedSegment) (sample : EncodedSample) =
+                { EncodedSegment.Name    = total.Name
+                  EncodedSegment.IQ      = sample.IQ :: total.IQ
+                  EncodedSegment.Markers = sample.Markers :: total.Markers }
 
             /// Convert array of bytes to bigendian if necessary
             let private toBigEndian bytes =
@@ -59,14 +59,14 @@ module IQData =
                 { EncodedSample.IQ      = Array.append (toBytes sample.I) (toBytes sample.Q)
                   EncodedSample.Markers = getMarkerByte sample }
 
-            /// Encode a waveform into the necessary byte patterns
-            let private toEncodedWaveform (waveform : Waveform) =
-                let emptyWaveform = { Name = Text.Encoding.ASCII.GetBytes waveform.Name
-                                      IQ = []
-                                      Markers = [] }
-                waveform.Data
+            /// Encode a segment into the necessary byte patterns
+            let private toEncodedSegment (segment : Segment) =
+                let emptySegment = { Name = Text.Encoding.ASCII.GetBytes segment.Name
+                                     IQ = []
+                                     Markers = [] }
+                segment.Data
                 |> Seq.map toEncodedSample
-                |> Seq.fold addEncodedSample emptyWaveform
+                |> Seq.fold addEncodedSample emptySegment
 
             /// Make the data string, including the '#' character, the digits of length, the length
             /// and the data
@@ -115,43 +115,43 @@ module IQData =
                 |> List.toArray
 
             /// Produce the full data strings necessary for writing the three different files
-            /// to the machine, given the encoded waveform to extract the data from.
-            let private toEncodedWaveformFile (waveform : Waveform) =
-                let encodedWaveform = toEncodedWaveform waveform
-                let waveformFileName = makeWaveformFileString encodedWaveform.Name
-                let markerFileName   = makeMarkerFileString   encodedWaveform.Name
-                let headerFileName   = makeHeaderFileString   encodedWaveform.Name
-                let waveformDataString =
-                    encodedWaveform.IQ
+            /// to the machine, given the encoded segment to extract the data from.
+            let private toEncodedSegmentFile (segment : Segment) =
+                let encodedsegment = toEncodedSegment segment
+                let waveformFileName = makeWaveformFileString encodedsegment.Name
+                let markerFileName   = makeMarkerFileString   encodedsegment.Name
+                let headerFileName   = makeHeaderFileString   encodedsegment.Name
+                let segmentDataString =
+                    encodedsegment.IQ
                     |> reverseConcatenateToArray
                     |> makeDataString
                 let markerDataString =
-                    encodedWaveform.Markers
+                    encodedsegment.Markers
                     |> reverseToArray
                     |> makeDataString
                 // TODO: fix header data string
                 let headerDataString = "#10"B
 
-                { WaveformFileString = dataStorageString  waveformFileName waveformDataString
-                  MarkerFileString   = dataStorageString  markerFileName   markerDataString
-                  HeaderFileString   = dataStorageString  headerFileName   headerDataString }
+                { Waveform = dataStorageString  waveformFileName segmentDataString
+                  Markers  = dataStorageString  markerFileName   markerDataString
+                  Header   = dataStorageString  headerFileName   headerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine
-            let internal waveformFileString (waveform : Waveform) =
-                let encoded = toEncodedWaveformFile waveform
-                encoded.WaveformFileString
+            let internal waveformFileString (segment : Segment) =
+                let encoded = toEncodedSegmentFile segment
+                encoded.Waveform
 
             /// Get the whole string necessary to write a marker file to the machine
-            let internal markerFileString (waveform : Waveform) =
-                let encoded = toEncodedWaveformFile waveform
-                encoded.MarkerFileString
+            let internal markerFileString (segment : Segment) =
+                let encoded = toEncodedSegmentFile segment
+                encoded.Markers
 
             /// Get the whole string necessary to write a header file to the machine
-            let internal headerFileString (waveform : Waveform) =
-                let encoded = toEncodedWaveformFile waveform
-                encoded.HeaderFileString
+            let internal headerFileString (segment : Segment) =
+                let encoded = toEncodedSegmentFile segment
+                encoded.Header
 
-        /// Functions for decoding waveform and sequence data received from the machine
+        /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
         module internal Decode =
             /// Convert a big-endian array of bytes into the host order
@@ -185,11 +185,11 @@ module IQData =
                   Marker3 = m3
                   Marker4 = m4 }
 
-            /// Decode an encoded waveform back into the internal representation of the waveform
-            let private toWaveform (encodedWaveform : EncodedWaveform) =
-                let name = Text.Encoding.UTF8.GetString encodedWaveform.Name
+            /// Decode an encoded segment back into the internal representation of the segment
+            let private tosegment (encodedSegment : EncodedSegment) =
+                let name = Text.Encoding.UTF8.GetString encodedSegment.Name
                 let data =
-                    List.map2 toSample encodedWaveform.IQ encodedWaveform.Markers
+                    List.map2 toSample encodedSegment.IQ encodedSegment.Markers
                     |> List.rev
                     |> List.toSeq
                 { Name = name

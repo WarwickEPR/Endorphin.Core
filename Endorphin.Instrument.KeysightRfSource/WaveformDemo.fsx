@@ -21,11 +21,11 @@ let printResult =
 
 let amplitude = 32000.0
 let numSamples = 1000
-let numWaveforms = 10
+let numSegments = 10
 let fractionalSin frac = Math.Sin (2.0 * Math.PI * frac)
 let fractionalCos frac = Math.Cos (2.0 * Math.PI * frac)
 
-let generateWaveform value samples =
+let generateSegment value samples =
     { Name = sprintf "test-%04d" value
       Data = seq {for i in 1 .. samples -> { Sample.I = value
                                              Sample.Q = value
@@ -34,7 +34,7 @@ let generateWaveform value samples =
                                              Sample.Marker3 = true
                                              Sample.Marker4 = true } } }
 
-let waveforms = seq { for i in 1 .. numWaveforms -> generateWaveform (int16 ((double i) * amplitude / (double numWaveforms))) numSamples }
+let segments = seq { for i in 1 .. numSegments -> generateSegment (int16 ((double i) * amplitude / (double numSegments))) numSamples }
 
 let testWaveform = { Name = "test"
                      Data = seq {for i in 1 .. numSamples -> { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
@@ -49,9 +49,9 @@ let writeTest = asyncChoice {
     let! identity = RfSource.queryIdentity keysight
     printfn "%A" identity
 
-    for waveform in waveforms do
-        do! writeVolatileWaveformFile keysight waveform
-        do! writeVolatileMarkerFile keysight waveform
+    for segment in segments do
+        do! writeVolatileWaveformFile keysight segment
+        do! writeVolatileMarkerFile keysight segment
 
     do RfSource.closeInstrument |> ignore }
 
