@@ -228,12 +228,18 @@ module IQData =
         open Translate
 
         /// Command to write file to volatile memory
-        let private volatileDataKey = ":MEM:DATA"B
-
+        let private volatileDataKey = ":MMEM:DATA"B
         /// Store the three files associated with any segment in the machine's volatile memory
         let storeSegmentFiles instrument segment =
             let encoded = toEncodedSegmentFiles segment
             asyncChoice {
-                do! IO.setASCIIValue waveformFileString volatileDataKey instrument encoded
-                do! IO.setASCIIValue markersFileString volatileDataKey instrument encoded
-                do! IO.setASCIIValue headerFileString volatileDataKey instrument encoded }
+                do! IO.setBytesValue waveformFileString volatileDataKey instrument encoded
+                do! IO.setBytesValue markersFileString volatileDataKey instrument encoded
+                do! IO.setBytesValue headerFileString volatileDataKey instrument encoded }
+
+        /// Command to delete all waveform, markers and header files stored in the BBG memory
+        /// of the machine (the usual place that they're stored in)
+        let private deleteAllSegmentsKey = ":MMEM:DEL:WFM"
+        /// Delete all the waveform, markers and header files stored in the BBG memory of the
+        /// machine (the usual storage location)
+        let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey

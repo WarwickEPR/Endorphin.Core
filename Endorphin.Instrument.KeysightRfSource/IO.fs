@@ -59,11 +59,16 @@ module internal IO =
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
 
-    let internal setASCIIValue (valueMap : 'v -> byte []) key (RfSource rfSource) (value : 'v) = asyncChoice {
+    let internal setBytesValue (valueMap : 'v -> byte []) key (RfSource rfSource) (value : 'v) = asyncChoice {
         Array.concat [key; " "B; (valueMap value); "\n"B] |> rfSource.writeBytes
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors
         }
+
+    let internal writeKey key (RfSource rfSource) = asyncChoice {
+        postCommand key (RfSource rfSource)
+        let! errors = queryErrorQueue (RfSource rfSource)
+        do! checkErrorQueueIsEmpty errors }
  
     module Identify =
 
