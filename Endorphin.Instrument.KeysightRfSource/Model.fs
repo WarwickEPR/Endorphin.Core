@@ -214,12 +214,21 @@ module Model =
             Name : string
             Data : Sample seq } // Sequence of points
 
-        /// Internal representation of the machine's sequencing system.
-        /// Tuple is of the form (sequence, repetitions).
-        type Sequence = (SequenceElement * uint16) list
-        and SequenceElement =
-            | Segment of segment : Segment * repetitions : uint16
-            | Sequence of sequence : Sequence * repetitions : uint16
+        /// Representation of the stored segments on the machine
+        type StoredSegment = StoredSegment of name : string
+        /// Representation of the stored sequences on the machine
+        type StoredSequence = StoredSequence of name : string
+
+        /// An element in a machine sequence can either be a segment (waveform or markers),
+        /// or another sequence.  Both can have a number of repetitions associated with them.
+        type SequenceElement =
+            | Segment of segment : StoredSegment * repetitions : uint16
+            | Sequence of sequence : StoredSequence * repetitions : uint16
+
+        /// A full sequence to be stored in the machine
+        type Sequence = {
+            Name : string
+            Sequence : SequenceElement list }
 
         /// A four-byte array for each encoded IQ point
         type EncodedIQ = byte []

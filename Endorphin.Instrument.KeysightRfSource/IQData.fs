@@ -146,6 +146,14 @@ module IQData =
             /// Get the whole string necessary to write a header file to the machine
             let internal headerFileString (encoded : EncodedSegmentFiles) = encoded.Header
 
+            /// Create an internal stored segment representation
+            let internal toStoredSegment (segment : Segment) =
+                StoredSegment segment.Name
+
+            /// Create and internal stored sequence representation
+            let internal toStoredSequence (sequence : Sequence) =
+                StoredSequence sequence.Name
+
         /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
         module internal Decode =
@@ -181,7 +189,7 @@ module IQData =
                   Marker4 = m4 }
 
             /// Decode an encoded segment back into the internal representation of the segment
-            let private tosegment (encodedSegment : EncodedSegment) =
+            let private toSegment (encodedSegment : EncodedSegment) =
                 let name = Text.Encoding.UTF8.GetString encodedSegment.Name
                 let data =
                     List.map2 toSample encodedSegment.IQ encodedSegment.Markers
@@ -228,14 +236,17 @@ module IQData =
         open Translate
 
         /// Command to write file to volatile memory
-        let private volatileDataKey = ":MMEM:DATA"B
-        /// Store the three files associated with any segment in the machine's volatile memory
-        let storeSegmentFiles instrument segment =
+        let private volatileDataKey = ":MMEM:DATA"
+        /// Store the three files associated with any segment in the machine's volatile memory.
+        /// Returns a StoredSegment type representing the data stored.
+        let storeSegment instrument segment =
             let encoded = toEncodedSegmentFiles segment
+            let key = Text.Encoding.ASCII.GetBytes volatileDataKey
             asyncChoice {
-                do! IO.setBytesValue waveformFileString volatileDataKey instrument encoded
-                do! IO.setBytesValue markersFileString volatileDataKey instrument encoded
-                do! IO.setBytesValue headerFileString volatileDataKey instrument encoded }
+                do! IO.setBytesValue waveformFileString key instrument encoded
+                do! IO.setBytesValue markersFileString key instrument encoded
+                do! IO.setBytesValue headerFileString key instrument encoded
+                return toStoredSegment segment }
 
         /// Command to delete all waveform, markers and header files stored in the BBG memory
         /// of the machine (the usual place that they're stored in)
