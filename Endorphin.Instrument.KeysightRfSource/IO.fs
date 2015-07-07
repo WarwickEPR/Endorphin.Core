@@ -3,6 +3,7 @@
 open ExtCore.Control
 open Endorphin.Core.StringUtils
 open Endorphin.Core.NationalInstruments
+open System.Text
 
 // Common functions to set/query values of a VISA Keysight instrument
 // Includes functions to access values such as numbers, frequencies etc
@@ -59,8 +60,9 @@ module internal IO =
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
 
-    let internal setBytesValue (valueMap : 'v -> byte []) key (RfSource rfSource) (value : 'v) = asyncChoice {
-        Array.concat [key; " "B; (valueMap value); "\n"B] |> rfSource.writeBytes
+    let internal setBytesValue (valueMap : 'v -> byte []) (key : string) (RfSource rfSource) (value : 'v) = asyncChoice {
+        let bytesKey = Encoding.ASCII.GetBytes key
+        Array.concat [bytesKey; " "B; (valueMap value); "\n"B] |> rfSource.writeBytes
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors
         }

@@ -150,6 +150,13 @@ module IQData =
             let internal toStoredSegment (segment : Segment) =
                 StoredSegment segment.Name
 
+            /// Get the full file name of a waveform file from the short name stored in the
+            /// StoredSegment.  For example, if the StoredSegment name is "test", then this
+            /// function returns "\"WFM1:test\""B
+            let internal fullWaveformFileName (segment : StoredSegment) =
+                let bytesName = Text.Encoding.ASCII.GetBytes (string segment)
+                Array.concat [ "\"WFM1:"B ; bytesName ; "\""B ]
+
             /// Create and internal stored sequence representation
             let internal toStoredSequence (sequence : Sequence) =
                 StoredSequence sequence.Name
@@ -241,11 +248,10 @@ module IQData =
         /// Returns a StoredSegment type representing the data stored.
         let storeSegment instrument segment =
             let encoded = toEncodedSegmentFiles segment
-            let key = Text.Encoding.ASCII.GetBytes volatileDataKey
             asyncChoice {
-                do! IO.setBytesValue waveformFileString key instrument encoded
-                do! IO.setBytesValue markersFileString key instrument encoded
-                do! IO.setBytesValue headerFileString key instrument encoded
+                do! IO.setBytesValue waveformFileString volatileDataKey instrument encoded
+                do! IO.setBytesValue markersFileString volatileDataKey instrument encoded
+                do! IO.setBytesValue headerFileString volatileDataKey instrument encoded
                 return toStoredSegment segment }
 
         /// Command to delete all waveform, markers and header files stored in the BBG memory
@@ -254,3 +260,10 @@ module IQData =
         /// Delete all the waveform, markers and header files stored in the BBG memory of the
         /// machine (the usual storage location)
         let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey
+
+        /// Command to delete any file on the machine by name.  If a waveform file is passed,
+        /// any associated markers and header files are deleted alongside it.
+        let private deleteFileKey = ":MMEM:DEL:NAME"
+        /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
+        /// file, the markers file and the headers file (if present).
+        let deleteStoredSegment = IO.setBytesValue fullWaveformFileName deleteFileKey
