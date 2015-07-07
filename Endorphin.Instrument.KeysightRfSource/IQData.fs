@@ -88,6 +88,8 @@ module IQData =
             let private markerFolder   = "MKR1:"B
             /// ASCII string of the folder location for headers
             let private headerFolder   = "HDR1:"B
+            /// ASCII string of the folder location for sequences
+            let private sequenceFolder = "SEQ:"B
 
             /// Build up a full file name string for storing a file
             let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
@@ -98,6 +100,8 @@ module IQData =
             let private makeMarkerFileString name = fileNameString markerFolder name
             /// Total filename string for a header file
             let private makeHeaderFileString name = fileNameString headerFolder name
+            /// Total filename string for a sequence file
+            let private makeSequenceFileString name = fileNameString sequenceFolder name
 
             /// Build up a full string for data storage and location
             let private dataStorageString fileName dataString =
@@ -138,13 +142,13 @@ module IQData =
                   Header   = dataStorageString  headerFileName   headerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine
-            let internal waveformFileString (encoded : EncodedSegmentFiles) = encoded.Waveform
+            let internal waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
 
             /// Get the whole string necessary to write a marker file to the machine
-            let internal markersFileString (encoded : EncodedSegmentFiles) = encoded.Markers
+            let internal markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
 
             /// Get the whole string necessary to write a header file to the machine
-            let internal headerFileString (encoded : EncodedSegmentFiles) = encoded.Header
+            let internal headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
 
             /// Create an internal stored segment representation
             let internal toStoredSegment (segment : Segment) =
@@ -155,7 +159,53 @@ module IQData =
             /// function returns "\"WFM1:test\""B
             let internal fullWaveformFileName (segment : StoredSegment) =
                 let bytesName = Text.Encoding.ASCII.GetBytes (string segment)
-                Array.concat [ "\"WFM1:"B ; bytesName ; "\""B ]
+                makeWaveformFileString bytesName
+
+            /// Make an ASCII string out of an object's ToString() method
+            let private toASCIIString obj =
+                obj.ToString()
+                |> Text.Encoding.ASCII.GetBytes
+
+            /// Get the ASCII string representation of a StoredSegment
+            let private getStoredSegmentASCIIString (StoredSegment str) =
+                str
+                |> Text.Encoding.ASCII.GetBytes
+
+            /// Get the ASCII string representation of a StoredSequence
+            let private getStoredSequenceASCIIString (StoredSequence str) =
+                str
+                |> Text.Encoding.ASCII.GetBytes
+
+            /// Make a sequence element into a tuple of the byte array of the full filename
+            /// and the ASCII representation of the number of repetitions
+            let private makeASCIISequenceElement =
+                function
+                | Segment (segment, reps) ->
+                    let name =
+                        segment
+                        |> getStoredSegmentASCIIString
+                        |> makeWaveformFileString
+                    (name, toASCIIString reps)
+                | Sequence (sequence, reps) ->
+                    let name =
+                        sequence
+                        |> getStoredSequenceASCIIString
+                        |> makeSequenceFileString
+                    (name, toASCIIString reps)
+
+            /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B
+            let private toEncodedSequenceElement (element : SequenceElement) =
+                let (name, reps) = makeASCIISequenceElement element
+                Array.concat [ name ; ","B ; reps ; ",ALL"B ]
+
+            /// Encode a whole sequence in an EncodedSequence
+            let internal sequenceDataString (sequence : Sequence) =
+                let name = Text.Encoding.ASCII.GetBytes sequence.Name
+                sequence.Sequence
+                |> List.map toEncodedSequenceElement
+                |> List.map (Array.append ","B)
+                |> List.reduce Array.append
+                |> Array.append (makeSequenceFileString name)
 
             /// Create and internal stored sequence representation
             let internal toStoredSequence (sequence : Sequence) =
@@ -202,8 +252,8 @@ module IQData =
                     List.map2 toSample encodedSegment.IQ encodedSegment.Markers
                     |> List.rev
                     |> List.toSeq
-                { Name = name
-                  Data = data }
+                { Segment.Name = name
+                  Segment.Data = data }
 
             /// Test if two values are equal
             let private isEqual a b = (a = b)
@@ -242,28 +292,53 @@ module IQData =
     module Control =
         open Translate
 
+        /// <summary><para>
         /// Command to write file to volatile memory
-        let private volatileDataKey = ":MMEM:DATA"
+        /// </para><para>
+        /// Command reference p.133, p.151. p.133 is technically for the ":MEM:DATA" command rather
+        /// than the ":MMEM:DATA" command, but they are identical, and the former has more
+        /// information.
+        /// </para></summary>
+        let private storeDataKey = ":MMEM:DATA"
         /// Store the three files associated with any segment in the machine's volatile memory.
         /// Returns a StoredSegment type representing the data stored.
         let storeSegment instrument segment =
             let encoded = toEncodedSegmentFiles segment
             asyncChoice {
-                do! IO.setBytesValue waveformFileString volatileDataKey instrument encoded
-                do! IO.setBytesValue markersFileString volatileDataKey instrument encoded
-                do! IO.setBytesValue headerFileString volatileDataKey instrument encoded
+                do! IO.setBytesValue waveformDataString storeDataKey instrument encoded
+                do! IO.setBytesValue markersDataString storeDataKey instrument encoded
+                do! IO.setBytesValue headerDataString storeDataKey instrument encoded
                 return toStoredSegment segment }
 
+        /// <summary><para>
         /// Command to delete all waveform, markers and header files stored in the BBG memory
         /// of the machine (the usual place that they're stored in)
+        /// </para><para>
+        /// Command reference p.152
+        /// </para></summary>
         let private deleteAllSegmentsKey = ":MMEM:DEL:WFM"
         /// Delete all the waveform, markers and header files stored in the BBG memory of the
         /// machine (the usual storage location)
         let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey
 
+        /// <summary><para>
         /// Command to delete any file on the machine by name.  If a waveform file is passed,
         /// any associated markers and header files are deleted alongside it.
+        /// </para><para>
+        /// Command reference p.152
+        /// </para></summary>
         let private deleteFileKey = ":MMEM:DEL:NAME"
         /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
         let deleteStoredSegment = IO.setBytesValue fullWaveformFileName deleteFileKey
+
+        /// <summary><para>
+        /// Key to store sequences to the machine.
+        /// </para><para>
+        /// Command reference p.345
+        /// </para></summary>
+        let private storeSequenceKey = ":RAD:ARB:SEQ"
+        /// Write a sequence file to the machine and returns the stored sequence type
+        let storeSequence instrument sequence = asyncChoice {
+            do! IO.setBytesValue sequenceDataString storeSequenceKey instrument sequence
+            return toStoredSequence sequence }

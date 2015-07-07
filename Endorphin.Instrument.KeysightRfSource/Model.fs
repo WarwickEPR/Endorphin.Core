@@ -247,12 +247,15 @@ module Model =
             IQ      : EncodedIQ list
             Markers : EncodedMarkers list }
 
-        /// Sequence data after it has been encoded, including the lengths and data indicator '#'.
+        /// Segment data after it has been encoded, including the lengths and data indicator '#'.
         /// Ready to write to machine.
         type EncodedSegmentFiles = {
             Waveform : byte []
             Markers  : byte []
             Header   : byte [] }
+
+        /// Sequence data after it has been encoded, ready to write to the machine
+        type EncodedSequence = EncodedSequence of sequence : byte []
 
     type KeysightRfSettings = {
         Sweep : Sweep
