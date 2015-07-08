@@ -8,22 +8,17 @@
 open Endorphin.Instrument.Keysight
 open log4net.Config
 open ExtCore.Control
-open System
+
+// BasicConfigurator.Configure()
 
 open IQData.Control
-
-BasicConfigurator.Configure()
 
 let printResult =
     function
     | Success ()    -> printfn "Successfully did things."
     | Failure error -> printfn "Bad things happened: %s" error
 
-let amplitude = 32000.0
 let numSamples = 1000
-let numSegments = 10
-let fractionalSin frac = Math.Sin (2.0 * Math.PI * frac)
-let fractionalCos frac = Math.Cos (2.0 * Math.PI * frac)
 
 let generateSegment value samples =
     { Name = sprintf "test-%05d" value
@@ -35,27 +30,45 @@ let generateSegment value samples =
                Sample.Marker3 = true
                Sample.Marker4 = true } } }
 
-let segments = seq { for i in 1 .. numSegments -> generateSegment (int16 ((double i) * amplitude / (double numSegments))) numSamples }
+let segment1 = generateSegment 30000s numSamples
+let segment2 = generateSegment 10000s numSamples
 
-let testWaveform = { Name = "test"
-                     Data = seq {for i in 1 .. numSamples
-                         -> { Sample.I = int16 (amplitude * fractionalSin ((double (i-1))/(double numSamples)))
-                              Sample.Q = int16 (amplitude * fractionalCos ((double (i-1))/(double numSamples)))
-                              Sample.Marker1 = Convert.ToBoolean((i-1)%2)
-                              Sample.Marker2 = Convert.ToBoolean(i%2)
-                              Sample.Marker3 = Convert.ToBoolean((i-1)%3)
-                              Sample.Marker4 = Convert.ToBoolean(0) } } }
-
-let writeTest = asyncChoice {
+asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
-    let! identity = RfSource.queryIdentity keysight
-    printfn "%A" identity
 
-    for segment in segments do
-        do! storeSegmentFiles keysight segment
+    let! storedSegment1 = storeSegment keysight segment1
+    let! storedSegment2 = storeSegment keysight segment2
+
+    printfn "%A" storedSegment1
+    printfn "%A" storedSegment2
+
+    let sequence1 = {
+        Name = "sequence1"
+        Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegment2, 20us) ] }
+    let! storedSequence1 = storeSequence keysight sequence1
+
+    printfn "%A" storedSequence1
+
+    let sequence2 = {
+        Name = "sequence2"
+        Sequence = [ Segment(storedSegment1, 65509us) ; Sequence(storedSequence1, 100us) ] }
+    let! storedSequence2 = storeSequence keysight sequence2
+
+    printfn "%A" storedSequence2
+
+    let sequence3 = {
+        Name = "sequence3"
+        Sequence = [ Segment(storedSegment2, 1us) ; Sequence(storedSequence1, 1024us) ] }
+    let! storedSequence3 = storeSequence keysight sequence3
+
+    printfn "%A" storedSequence3
+
+    // do! deleteStoredSegment keysight storedSegment2
+    // do! deleteStoredSequence keysight storedSequence2
+
+    // do! deleteAllStoredSegments keysight
+    // do! deleteAllStoredSequences keysight
 
     do RfSource.closeInstrument |> ignore }
-
-let out = writeTest |> Async.RunSynchronously
-
-printResult out
+|> Async.RunSynchronously
+|> printResult

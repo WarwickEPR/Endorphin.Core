@@ -121,7 +121,7 @@ module IQData =
 
             /// Produce the full data strings necessary for writing the three different files
             /// to the machine, given the encoded segment to extract the data from.
-            let internal toEncodedSegmentFiles (segment : Segment) =
+            let toEncodedSegmentFiles (segment : Segment) =
                 let encodedsegment = toEncodedSegment segment
                 let waveformFileName = makeWaveformFileString encodedsegment.Name
                 let markerFileName   = makeMarkerFileString   encodedsegment.Name
@@ -142,56 +142,48 @@ module IQData =
                   Header   = dataStorageString  headerFileName   headerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine
-            let internal waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
-
+            let waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
             /// Get the whole string necessary to write a marker file to the machine
-            let internal markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
-
+            let markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
             /// Get the whole string necessary to write a header file to the machine
-            let internal headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
+            let headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
 
             /// Create an internal stored segment representation
-            let internal toStoredSegment (segment : Segment) =
+            let toStoredSegment (segment : Segment) =
                 StoredSegment segment.Name
+
+            /// Make an ASCII string out of an object's ToString() method
+            let private toASCIIString obj =
+                obj.ToString() |> Text.Encoding.ASCII.GetBytes
+            /// Get the ASCII string representation of a StoredSegment
+            let private getStoredSegmentASCIIString (StoredSegment str) =
+                str |> Text.Encoding.ASCII.GetBytes
+            /// Get the ASCII string representation of a StoredSequence
+            let private getStoredSequenceASCIIString (StoredSequence str) =
+                str |> Text.Encoding.ASCII.GetBytes
 
             /// Get the full file name of a waveform file from the short name stored in the
             /// StoredSegment.  For example, if the StoredSegment name is "test", then this
             /// function returns "\"WFM1:test\""B
-            let internal fullWaveformFileName (segment : StoredSegment) =
-                let bytesName = Text.Encoding.ASCII.GetBytes (string segment)
-                makeWaveformFileString bytesName
+            let fullWaveformFileName (segment : StoredSegment) =
+                segment
+                |> getStoredSegmentASCIIString
+                |> makeWaveformFileString
 
-            /// Make an ASCII string out of an object's ToString() method
-            let private toASCIIString obj =
-                obj.ToString()
-                |> Text.Encoding.ASCII.GetBytes
-
-            /// Get the ASCII string representation of a StoredSegment
-            let private getStoredSegmentASCIIString (StoredSegment str) =
-                str
-                |> Text.Encoding.ASCII.GetBytes
-
-            /// Get the ASCII string representation of a StoredSequence
-            let private getStoredSequenceASCIIString (StoredSequence str) =
-                str
-                |> Text.Encoding.ASCII.GetBytes
+            /// Get the full file name of a sequence file from the short name stored in the
+            /// StoredSequence.  For example, if the StoredSequence name is "test", then this
+            /// function returns "\"SEQ:test\""B
+            let fullSequenceFileName (sequence : StoredSequence) =
+                sequence
+                |> getStoredSequenceASCIIString
+                |> makeSequenceFileString
 
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions
             let private makeASCIISequenceElement =
                 function
-                | Segment (segment, reps) ->
-                    let name =
-                        segment
-                        |> getStoredSegmentASCIIString
-                        |> makeWaveformFileString
-                    (name, toASCIIString reps)
-                | Sequence (sequence, reps) ->
-                    let name =
-                        sequence
-                        |> getStoredSequenceASCIIString
-                        |> makeSequenceFileString
-                    (name, toASCIIString reps)
+                | Segment (segment, reps)   -> (fullWaveformFileName segment,  toASCIIString reps)
+                | Sequence (sequence, reps) -> (fullSequenceFileName sequence, toASCIIString reps)
 
             /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B
             let private toEncodedSequenceElement (element : SequenceElement) =
@@ -199,16 +191,16 @@ module IQData =
                 Array.concat [ name ; ","B ; reps ; ",ALL"B ]
 
             /// Encode a whole sequence in an EncodedSequence
-            let internal sequenceDataString (sequence : Sequence) =
+            let sequenceDataString (sequence : Sequence) =
                 let name = Text.Encoding.ASCII.GetBytes sequence.Name
                 sequence.Sequence
                 |> List.map toEncodedSequenceElement
-                |> List.map (Array.append ","B)
+                |> List.map (Array.append ","B) // actually prepends ','B, but we want this
                 |> List.reduce Array.append
                 |> Array.append (makeSequenceFileString name)
 
             /// Create and internal stored sequence representation
-            let internal toStoredSequence (sequence : Sequence) =
+            let toStoredSequence (sequence : Sequence) =
                 StoredSequence sequence.Name
 
         /// Functions for decoding segment and sequence data received from the machine
@@ -320,6 +312,16 @@ module IQData =
         /// Delete all the waveform, markers and header files stored in the BBG memory of the
         /// machine (the usual storage location)
         let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey
+        /// <summary><para>
+        /// Command to delete all sequence files stored in the internal memory of the machine
+        /// (the usual storage location).
+        /// </para><para>
+        /// Command reference p.146. Uses ":MEM" rather than ":MMEM" for some reason.
+        /// </para></summary>
+        let private deleteAllSequencesKey = ":MEM:DEL:SEQ"
+        /// Delete all the sequence files stored in the internal memory of the machine (the usual
+        /// storage location).
+        let deleteAllStoredSequences = IO.writeKey deleteAllSequencesKey
 
         /// <summary><para>
         /// Command to delete any file on the machine by name.  If a waveform file is passed,
@@ -331,6 +333,9 @@ module IQData =
         /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
         let deleteStoredSegment = IO.setBytesValue fullWaveformFileName deleteFileKey
+        /// Delete a sequence from the machine's internal data storage (the usual storage
+        /// location).
+        let deleteStoredSequence = IO.setBytesValue fullSequenceFileName deleteFileKey
 
         /// <summary><para>
         /// Key to store sequences to the machine.
