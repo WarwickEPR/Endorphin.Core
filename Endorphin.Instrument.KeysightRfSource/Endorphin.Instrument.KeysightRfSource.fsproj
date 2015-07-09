@@ -60,13 +60,12 @@
     <Compile Include="Source.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
+    <Compile Include="IQData.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Demo.fsx" />
     <Compile Include="DummyInstrument.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
-    <Compile Include="Endian.fs" />
-    <Compile Include="IQData.fs" />
     <None Include="WaveformDemo.fsx" />
     <None Include="Testing.fsx" />
   </ItemGroup>
