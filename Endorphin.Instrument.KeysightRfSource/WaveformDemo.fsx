@@ -45,15 +45,18 @@ asyncChoice {
     printfn "%A" storedSegment1
     printfn "%A" storedSegment2
 
-    let addStrings (str1 : string) (str2 : string) = str1 + str2
+    let addString str1 str2 = str1 + str2
 
-    let! storedSegmentList =
+    let! storedSegmentArray =
         segmentSequence
         |> Seq.map (storeSegment keysight)
-        |> Async.Parallel
-        |> Async.RunSynchronously
-        |> Array.toList
-        |> Choice.foldChoice List.cons [] addStrings ""
+        |> AsyncChoice.Parallel "" addString
+
+    printfn "%A" storedSegmentArray
+
+    let sequenceSequence = seq { for i in 1 .. 100
+        -> { Name = sprintf "seq-%03d" i
+             Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegmentArray.[i-1], (uint16 i)) ] } }
 
     let sequence1 = {
         Name = "sequence1"
@@ -75,6 +78,13 @@ asyncChoice {
     let! storedSequence3 = storeSequence keysight sequence3
 
     printfn "%A" storedSequence3
+
+    let! storedSequenceArray =
+        sequenceSequence
+        |> Seq.map (storeSequence keysight)
+        |> AsyncChoice.Parallel "" addString
+
+    printfn "%A" storedSequenceArray
 
     // do! deleteStoredSegment keysight storedSegment2
     // do! deleteStoredSequence keysight storedSequence2
