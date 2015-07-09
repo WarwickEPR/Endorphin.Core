@@ -30,7 +30,27 @@ module ErrorHandling =
         member __.ReturnFrom (choice : Choice<'T, 'Error>) =
             choice |> async.Return
 
-[<AutoOpen>]
 module AsyncChoice =
     let liftAsync comp = comp |> Async.map succeed
     let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
+
+module Choice =
+    /// Fold a list of choices into a single choice based on the two folds specified
+    let foldChoice (foldType        : 'TState -> 'T -> 'TState)
+                   (startTypeState  : 'TState)
+                   (foldError       : 'eState -> 'e -> 'eState)
+                   (startErrorState : 'eState)
+                   (choiceList      : Choice<'T, 'e> list)
+                                    : Choice<'TState, 'eState> =
+        let rec loop list typeState errorState =
+            match list with
+            | [] ->
+                if errorState = startErrorState then
+                    succeed typeState
+                else
+                    fail errorState
+            | hd :: tl ->
+                match hd with
+                | Success s -> loop tl (foldType typeState s) errorState
+                | Failure f -> loop tl typeState (foldError errorState f)
+        loop choiceList startTypeState startErrorState
