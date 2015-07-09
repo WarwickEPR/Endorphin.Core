@@ -22,13 +22,16 @@ let numSamples = 1000
 
 let generateSegment value samples =
     { Name = sprintf "test-%05d" value
-      Data = seq {for i in 1 .. samples
+      Data = seq {for _ in 1 .. samples
           -> { Sample.I = value
                Sample.Q = value
                Sample.Marker1 = true
                Sample.Marker2 = false
                Sample.Marker3 = true
                Sample.Marker4 = true } } }
+
+let segmentSequence = seq { for i in 1 .. 100
+    -> generateSegment (int16 (32000.0 * float i / 100.0)) numSamples }
 
 let segment1 = generateSegment 30000s numSamples
 let segment2 = generateSegment 10000s numSamples
@@ -41,6 +44,16 @@ asyncChoice {
 
     printfn "%A" storedSegment1
     printfn "%A" storedSegment2
+
+    let addStrings (str1 : string) (str2 : string) = str1 + str2
+
+    let! storedSegmentList =
+        segmentSequence
+        |> Seq.map (storeSegment keysight)
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Array.toList
+        |> Choice.foldChoice List.cons [] addStrings ""
 
     let sequence1 = {
         Name = "sequence1"
