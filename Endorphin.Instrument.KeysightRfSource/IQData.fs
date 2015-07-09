@@ -284,6 +284,18 @@ module IQData =
     module Control =
         open Translate
 
+        /// Concatenate two error strings into one string
+        let private addErrorStrings str1 str2 = str1 + " AND ALSO " + str2
+        /// Generic function to parallelise the the storage of a sequence of storables
+        let private parallelizeStorageFold errorState errorFold store instrument sequence =
+            sequence
+            |> Seq.map (store instrument)
+            |> AsyncChoice.Parallel errorState errorFold
+        /// Parallelise the storage of a sequence of storables, concatenating any errors which may
+        /// occur
+        let private parallelizeStorage store instrument sequence =
+            parallelizeStorageFold "" addErrorStrings store instrument sequence
+
         /// <summary><para>
         /// Command to write file to volatile memory
         /// </para><para>
@@ -301,6 +313,11 @@ module IQData =
                 do! IO.setBytesValue markersDataString storeDataKey instrument encoded
                 do! IO.setBytesValue headerDataString storeDataKey instrument encoded
                 return toStoredSegment segment }
+
+        /// Store a sequence of segments into the volatile memory of the machine.  Returns an
+        /// array of StoredSegments.
+        let storeSegmentSequence instrument sequence =
+            parallelizeStorage storeSegment instrument sequence
 
         /// <summary><para>
         /// Command to delete all waveform, markers and header files stored in the BBG memory
@@ -347,3 +364,7 @@ module IQData =
         let storeSequence instrument sequence = asyncChoice {
             do! IO.setBytesValue sequenceDataString storeSequenceKey instrument sequence
             return toStoredSequence sequence }
+        /// Write a sequence of sequences files to the machine, and return an array of the stored
+        /// sequence type
+        let storeSequenceSequence instrument sequence =
+            parallelizeStorage storeSequence instrument sequence

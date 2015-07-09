@@ -37,7 +37,7 @@ let segment1 = generateSegment 30000s numSamples
 let segment2 = generateSegment 10000s numSamples
 
 asyncChoice {
-    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
+    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
 
     let! storedSegment1 = storeSegment keysight segment1
     let! storedSegment2 = storeSegment keysight segment2
@@ -45,12 +45,7 @@ asyncChoice {
     printfn "%A" storedSegment1
     printfn "%A" storedSegment2
 
-    let addString str1 str2 = str1 + str2
-
-    let! storedSegmentArray =
-        segmentSequence
-        |> Seq.map (storeSegment keysight)
-        |> AsyncChoice.Parallel "" addString
+    let! storedSegmentArray = storeSegmentSequence keysight segmentSequence
 
     printfn "%A" storedSegmentArray
 
@@ -79,10 +74,7 @@ asyncChoice {
 
     printfn "%A" storedSequence3
 
-    let! storedSequenceArray =
-        sequenceSequence
-        |> Seq.map (storeSequence keysight)
-        |> AsyncChoice.Parallel "" addString
+    let! storedSequenceArray = storeSequenceSequence keysight sequenceSequence
 
     printfn "%A" storedSequenceArray
 

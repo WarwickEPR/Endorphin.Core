@@ -59,5 +59,4 @@ module AsyncChoice =
                  : AsyncChoice<'T [], 'EState> =
         async {
             let! sequence' = sequence |> Async.Parallel
-            return foldChoices fold state sequence'
-        }
+            return foldChoices fold state sequence' }
