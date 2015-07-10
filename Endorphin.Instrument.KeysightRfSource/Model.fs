@@ -200,14 +200,18 @@ module Model =
 
     [<AutoOpen>]
     module IQData =
-        /// A single IQ point with associated markers and endianness
+        /// A record of the 4 markers' states
+        type Markers = {
+            M1 : bool
+            M2 : bool
+            M3 : bool
+            M4 : bool }
+
+        /// A single IQ point with associated markers
         type Sample = {
             I       : int16
             Q       : int16
-            Marker1 : bool
-            Marker2 : bool
-            Marker3 : bool
-            Marker4 : bool }
+            Markers : Markers }
 
         /// A single segment in the machine.  Must be at least 60 samples long
         type Segment = {
@@ -256,6 +260,17 @@ module Model =
 
         /// Sequence data after it has been encoded, ready to write to the machine
         type EncodedSequence = EncodedSequence of sequence : byte []
+
+    [<AutoOpen>]
+    module RfPulse =
+        /// A number of samples, generally used as a pulse duration
+        type SampleCount = SampleCount of int
+
+        type Pulse =
+            | Rf of amplitude : Amplitude * phase : Phase * duration : SampleCount * increment : SampleCount
+            | Delay of duration : SampleCount
+            | AcquisitionTrigger
+            | Marker of marker : Markers
 
     type KeysightRfSettings = {
         Sweep : Sweep

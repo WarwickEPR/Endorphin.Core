@@ -25,10 +25,7 @@ let generateSegment value samples =
       Data = seq {for _ in 1 .. samples
           -> { Sample.I = value
                Sample.Q = value
-               Sample.Marker1 = true
-               Sample.Marker2 = false
-               Sample.Marker3 = true
-               Sample.Marker4 = true } } }
+               Sample.Markers = { M1 = true; M2 = false; M3 = true; M4 = true } } } }
 
 let segmentSequence = seq { for i in 1 .. 100
     -> generateSegment (int16 (32000.0 * float i / 100.0)) numSamples }

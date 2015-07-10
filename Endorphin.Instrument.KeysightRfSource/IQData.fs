@@ -10,31 +10,40 @@ module IQData =
         let defaultIQSample = {
             Sample.I = 0s;
             Sample.Q = 0s;
-            Sample.Marker1 = false;
-            Sample.Marker2 = false;
-            Sample.Marker3 = false;
-            Sample.Marker4 = false; }
+            Sample.Markers = { M1 = false; M2 = false; M3 = false; M4 = false } }
         /// Set value of the I sample
         let withISample value sample = { sample with I = value }
         /// Set value of the Q sample
         let withQSample value sample = { sample with Q = value }
         /// Set value of the first marker
-        let withMarker1 value sample = { sample with Marker1 = value }
+        let private markersWithMarker1 value markers = { markers with M1 = value }
         /// Set value of the second marker
-        let withMarker2 value sample = { sample with Marker2 = value }
+        let private markersWithMarker2 value markers = { markers with M2 = value }
         /// Set value of the third marker
-        let withMarker3 value sample = { sample with Marker3 = value }
+        let private markersWithMarker3 value markers = { markers with M3 = value }
         /// Set value of the fourth marker
-        let withMarker4 value sample = { sample with Marker4 = value }
+        let private markersWithMarker4 value markers = { markers with M4 = value }
+        /// Set value of the first marker
+        let withMarker1 value (sample : Sample) =
+            { sample with Markers = markersWithMarker1 value sample.Markers }
+        /// Set value of the second marker
+        let withMarker2 value (sample : Sample) =
+            { sample with Markers = markersWithMarker2 value sample.Markers }
+        /// Set value of the third marker
+        let withMarker3 value (sample : Sample) =
+            { sample with Markers = markersWithMarker3 value sample.Markers }
+        /// Set value of the fourth marker
+        let withMarker4 value (sample : Sample) =
+            { sample with Markers = markersWithMarker4 value sample.Markers }
 
     /// Functions for encoding segments and samples into a writeable form
     module internal Translate =
         [<AutoOpen>]
         module internal Encode =
             /// Make a marker byte out of the booleans in an IQ sample
-            let private getMarkerByte sample =
-                ((Convert.ToByte sample.Marker4) <<< 3) ||| ((Convert.ToByte sample.Marker3) <<< 2)
-                ||| ((Convert.ToByte sample.Marker2) <<< 1) ||| (Convert.ToByte sample.Marker1)
+            let private getMarkerByte (sample : Sample) =
+                ((Convert.ToByte sample.Markers.M4) <<< 3) ||| ((Convert.ToByte sample.Markers.M3) <<< 2)
+                ||| ((Convert.ToByte sample.Markers.M2) <<< 1) ||| (Convert.ToByte sample.Markers.M1)
 
             /// Add a single encoded sample into an encoded segment
             let private addEncodedSample (total : EncodedSegment) (sample : EncodedSample) =
@@ -223,19 +232,18 @@ module IQData =
 
             /// Decompress the markers back into a 4-tuple of the 4 Boolean markers
             let private getMarkers (markers : EncodedMarkers) =
-                (Convert.ToBoolean(markers &&& 0x1uy), Convert.ToBoolean(markers &&& 0x2uy),
-                 Convert.ToBoolean(markers &&& 0x4uy), Convert.ToBoolean(markers &&& 0x8uy))
+                { M1 = Convert.ToBoolean(markers &&& 0x1uy)
+                  M2 = Convert.ToBoolean(markers &&& 0x2uy)
+                  M3 = Convert.ToBoolean(markers &&& 0x4uy)
+                  M4 = Convert.ToBoolean(markers &&& 0x8uy) }
 
             /// Decode an encoded sample back into the internal representation of a sample
             let private toSample encodedIQ encodedMarkers =
                 let (I, Q) = getIQ encodedIQ
-                let (m1, m2, m3, m4) = getMarkers encodedMarkers
+                let markers = getMarkers encodedMarkers
                 { I = I
                   Q = Q
-                  Marker1 = m1
-                  Marker2 = m2
-                  Marker3 = m3
-                  Marker4 = m4 }
+                  Markers = markers }
 
             /// Decode an encoded segment back into the internal representation of the segment
             let private toSegment (encodedSegment : EncodedSegment) =
