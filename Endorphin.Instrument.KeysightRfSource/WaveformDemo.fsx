@@ -21,7 +21,7 @@ let printResult =
 let numSamples = 1000
 
 let generateSegment value samples =
-    { Name = sprintf "test-%05d" value
+    { Name = SegmentId (sprintf "test-%05d" value)
       Data = seq {for _ in 1 .. samples
           -> { Sample.I = value
                Sample.Q = value
@@ -47,25 +47,25 @@ asyncChoice {
     printfn "%A" storedSegmentArray
 
     let sequenceSequence = seq { for i in 1 .. 100
-        -> { Name = sprintf "seq-%03d" i
+        -> { Name = SequenceId (sprintf "seq-%03d" i)
              Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegmentArray.[i-1], (uint16 i)) ] } }
 
     let sequence1 = {
-        Name = "sequence1"
+        Name = SequenceId "sequence1"
         Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegment2, 20us) ] }
     let! storedSequence1 = storeSequence keysight sequence1
 
     printfn "%A" storedSequence1
 
     let sequence2 = {
-        Name = "sequence2"
+        Name = SequenceId "sequence2"
         Sequence = [ Segment(storedSegment1, 65509us) ; Sequence(storedSequence1, 100us) ] }
     let! storedSequence2 = storeSequence keysight sequence2
 
     printfn "%A" storedSequence2
 
     let sequence3 = {
-        Name = "sequence3"
+        Name = SequenceId "sequence3"
         Sequence = [ Segment(storedSegment2, 1us) ; Sequence(storedSequence1, 1024us) ] }
     let! storedSequence3 = storeSequence keysight sequence3
 

@@ -56,12 +56,14 @@
     <Compile Include="Quantities.fs" />
     <Compile Include="IO.fs" />
     <None Include="app.config" />
+    <Compile Include="CRC.fs" />
     <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
     <Compile Include="IQData.fs" />
+    <Compile Include="RfPulse.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Demo.fsx" />
     <Compile Include="DummyInstrument.fs" />

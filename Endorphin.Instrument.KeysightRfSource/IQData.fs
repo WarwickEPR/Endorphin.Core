@@ -40,6 +40,11 @@ module IQData =
     module internal Translate =
         [<AutoOpen>]
         module internal Encode =
+            /// Get the string form of a SegmentId
+            let extractSegmentId (SegmentId id) = id
+            /// Get the string form of a SequenceId
+            let extractSequenceId (SequenceId id) = id
+
             /// Make a marker byte out of the booleans in an IQ sample
             let private getMarkerByte (sample : Sample) =
                 ((Convert.ToByte sample.Markers.M4) <<< 3) ||| ((Convert.ToByte sample.Markers.M3) <<< 2)
@@ -71,7 +76,10 @@ module IQData =
 
             /// Encode a segment into the necessary byte patterns
             let private toEncodedSegment (segment : Segment) =
-                let emptySegment = { Name = Text.Encoding.ASCII.GetBytes segment.Name
+                let emptySegment = { Name =
+                                         segment.Name
+                                         |> extractSegmentId
+                                         |> Text.Encoding.ASCII.GetBytes
                                      IQ = []
                                      Markers = [] }
                 segment.Data
@@ -161,15 +169,23 @@ module IQData =
             let toStoredSegment (segment : Segment) =
                 StoredSegment segment.Name
 
+            /// Create and internal stored sequence representation
+            let toStoredSequence (sequence : Sequence) =
+                StoredSequence sequence.Name
+
             /// Make an ASCII string out of an object's ToString() method
             let private toASCIIString obj =
                 obj.ToString() |> Text.Encoding.ASCII.GetBytes
             /// Get the ASCII string representation of a StoredSegment
-            let private getStoredSegmentASCIIString (StoredSegment str) =
-                str |> Text.Encoding.ASCII.GetBytes
+            let internal getStoredSegmentASCIIString (StoredSegment id) =
+                id
+                |> extractSegmentId
+                |> Text.Encoding.ASCII.GetBytes
             /// Get the ASCII string representation of a StoredSequence
-            let private getStoredSequenceASCIIString (StoredSequence str) =
-                str |> Text.Encoding.ASCII.GetBytes
+            let internal getStoredSequenceASCIIString (StoredSequence id) =
+                id
+                |> extractSequenceId
+                |> Text.Encoding.ASCII.GetBytes
 
             /// Get the full file name of a waveform file from the short name stored in the
             /// StoredSegment.  For example, if the StoredSegment name is "test", then this
@@ -201,16 +217,15 @@ module IQData =
 
             /// Encode a whole sequence in an EncodedSequence
             let sequenceDataString (sequence : Sequence) =
-                let name = Text.Encoding.ASCII.GetBytes sequence.Name
+                let name =
+                    sequence.Name
+                    |> extractSequenceId
+                    |> Text.Encoding.ASCII.GetBytes
                 sequence.Sequence
                 |> List.map toEncodedSequenceElement
                 |> List.map (Array.append ","B) // actually prepends ','B, but we want this
                 |> List.reduce Array.append
                 |> Array.append (makeSequenceFileString name)
-
-            /// Create and internal stored sequence representation
-            let toStoredSequence (sequence : Sequence) =
-                StoredSequence sequence.Name
 
         /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
@@ -247,7 +262,10 @@ module IQData =
 
             /// Decode an encoded segment back into the internal representation of the segment
             let private toSegment (encodedSegment : EncodedSegment) =
-                let name = Text.Encoding.UTF8.GetString encodedSegment.Name
+                let name =
+                    encodedSegment.Name
+                    |> Text.Encoding.UTF8.GetString
+                    |> SegmentId
                 let data =
                     List.map2 toSample encodedSegment.IQ encodedSegment.Markers
                     |> List.rev

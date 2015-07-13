@@ -32,6 +32,9 @@ module Model =
             | PhaseInRad of float<rad>
             | PhaseInDeg of float<deg>
 
+        /// A list of phases to cycle through
+        type PhaseCycle = PhaseCycle of Phase list
+
         type Duration = DurationInSec of float<s>
         type Percentage = Percentage of float<pct>
         type DecibelRatio = DecibelRatio of float<dB>
@@ -213,15 +216,20 @@ module Model =
             Q       : int16
             Markers : Markers }
 
+        /// The identifier of a segment, stored as a string
+        type SegmentId = SegmentId of string
+        /// The identifier of a sequence
+        type SequenceId = SequenceId of string
+
         /// A single segment in the machine.  Must be at least 60 samples long
         type Segment = {
-            Name : string
+            Name : SegmentId
             Data : Sample seq } // Sequence of points
 
         /// Representation of the stored segments on the machine
-        type StoredSegment = StoredSegment of name : string
+        type StoredSegment = StoredSegment of name : SegmentId
         /// Representation of the stored sequences on the machine
-        type StoredSequence = StoredSequence of name : string
+        type StoredSequence = StoredSequence of name : SequenceId
 
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
@@ -231,46 +239,100 @@ module Model =
 
         /// A full sequence to be stored in the machine
         type Sequence = {
-            Name : string
+            Name : SequenceId
             Sequence : SequenceElement list }
 
-        /// A four-byte array for each encoded IQ point
-        type EncodedIQ = byte []
-        /// A byte with the four markers encoded in
-        type EncodedMarkers = byte
+        [<AutoOpen>]
+        module internal Translate =
+            [<AutoOpen>]
+            module Encode =
+                /// A four-byte array for each encoded IQ point
+                type EncodedIQ = byte []
+                /// A byte with the four markers encoded in
+                type EncodedMarkers = byte
 
-        /// A single point encoded into the four-byte array of IQ points and the marker byte
-        type EncodedSample = {
-            IQ      : EncodedIQ
-            Markers : EncodedMarkers }
+                /// A single point encoded into the four-byte array of IQ points and the marker byte
+                type EncodedSample = {
+                    IQ      : EncodedIQ
+                    Markers : EncodedMarkers }
 
-        /// Internal record of an entire recorded segment before being transformed into
-        /// machine-readable strings.  Lists are in reverse order for speed.
-        type EncodedSegment = {
-            Name    : byte []
-            IQ      : EncodedIQ list
-            Markers : EncodedMarkers list }
+                /// Internal record of an entire recorded segment before being transformed into
+                /// machine-readable strings.  Lists are in reverse order for speed.
+                type EncodedSegment = {
+                    Name    : byte []
+                    IQ      : EncodedIQ list
+                    Markers : EncodedMarkers list }
 
-        /// Segment data after it has been encoded, including the lengths and data indicator '#'.
-        /// Ready to write to machine.
-        type EncodedSegmentFiles = {
-            Waveform : byte []
-            Markers  : byte []
-            Header   : byte [] }
-
-        /// Sequence data after it has been encoded, ready to write to the machine
-        type EncodedSequence = EncodedSequence of sequence : byte []
+                /// Segment data after it has been encoded, including the lengths and data indicator '#'.
+                /// Ready to write to machine.
+                type EncodedSegmentFiles = {
+                    Waveform : byte []
+                    Markers  : byte []
+                    Header   : byte [] }
 
     [<AutoOpen>]
     module RfPulse =
-        /// A number of samples, generally used as a pulse duration
-        type SampleCount = SampleCount of int
+        [<AutoOpen>]
+        module Configure =
+            /// A number of samples, generally used as a pulse duration
+            type SampleCount = SampleCount of int
 
-        type Pulse =
-            | Rf of amplitude : Amplitude * phase : Phase * duration : SampleCount * increment : SampleCount
-            | Delay of duration : SampleCount
-            | AcquisitionTrigger
-            | Marker of marker : Markers
+            /// A pulse with its varying parameters also attached, for use in defining experiments
+            type Pulse =
+                | Rf      of phaseCycle : PhaseCycle * duration : SampleCount * increment : SampleCount
+                | Delay   of duration : SampleCount * increment : SampleCount
+                | Trigger of markers : Markers
+                | Marker  of markers : Markers * duration : SampleCount * increment : SampleCount
+
+            /// A whole experiment, ready to be compiled and optimised
+            type Experiment = Experiment of pulses : Pulse seq * repetitions : int
+
+            /// ID string of an experiment
+            type ExperimentId = ExperimentId of string
+
+        [<AutoOpen>]
+        module internal Encode =
+            /// A single pulse which can be easily converted into a single segment, for use after the
+            /// compilation of the experiment and optimisation phases
+            type StaticPulse =
+                | StaticRf      of phase : Phase * duration : SampleCount
+                | StaticDelay   of duration : SampleCount
+                | StaticTrigger of markers : Markers
+                | StaticMarker  of markers : Markers * duration : SampleCount
+
+            /// A segment referenced by segment ID, but which has *NOT* been stored into the machine
+            type InternalSegment = InternalSegmentId of SegmentId
+            /// A sequence referenced by sequence ID, but which has *NOT* been stored into the machine
+            type InternalSequence = InternalSequenceId of SequenceId
+
+            /// A sequence element after compilation - very similar to the regular sequence type,
+            /// but this one doesn't require the segments and sequences to have been written to disk.
+            /// For internal use only because of the lack of safety in writing of these.
+            type CompiledSequenceElement =
+                | InternalSegment of id : InternalSegment * repetitions : uint16
+                | InternalSequence of id : InternalSequence * repetitions : uint16
+
+            /// A sequence after compilation - very similar to the regular sequence type,
+            /// but this one doesn't require the segments and sequences to have been written to disk.
+            /// For internal use only because of the lack of safety in writing of these.
+            type CompiledSequence = CompiledSequence of CompiledSequenceElement list
+
+            type CompiledExperiment = StaticPulse list
+
+            /// An assembled experiment, ready for storing onto the machine
+            type EncodedExperiment = {
+                Name : ExperimentId
+                Segments : Segment list
+                Sequences : Sequence list
+                Experiment : Sequence }
+
+        [<AutoOpen>]
+        module Control =
+            /// The data associated with a stored experiment - its name and dependencies
+            type StoredExperiment = {
+                Id : ExperimentId
+                Segments : StoredSegment []
+                Sequences : StoredSequence [] }
 
     type KeysightRfSettings = {
         Sweep : Sweep
