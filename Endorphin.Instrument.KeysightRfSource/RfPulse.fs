@@ -139,9 +139,7 @@ module RfPulse =
                 | StaticMarker (markers, dur) -> ((generateSample 0.0 noPhase markers), dur)
 
             /// Convert a list of static pulses into a list of samples
-            let private toSamples sequence =
-                sequence
-                |> Seq.map expandStaticPulse
+            let private toSamples = Seq.map expandStaticPulse
 
             /// Compile an experiment into a direct list of samples which could (if they were written
             /// into one segment of a storable size) play back the entire experiment.
