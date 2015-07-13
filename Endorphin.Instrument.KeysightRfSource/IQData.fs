@@ -2,19 +2,22 @@
 
 open ExtCore.Control
 open System
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module IQData =
     /// Functions for configuring samples
     module Configure =
+        /// A markers record with all markers turned off
+        let noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
         /// Basic data form of IQ point
         let defaultIQSample = {
             Sample.I = 0s;
             Sample.Q = 0s;
-            Sample.Markers = { M1 = false; M2 = false; M3 = false; M4 = false } }
+            Sample.Markers = noMarkers }
         /// Set value of the I sample
-        let withISample value sample = { sample with I = value }
+        let withI value sample = { sample with I = value }
         /// Set value of the Q sample
-        let withQSample value sample = { sample with Q = value }
+        let withQ value sample = { sample with Q = value }
         /// Set value of the first marker
         let private markersWithMarker1 value markers = { markers with M1 = value }
         /// Set value of the second marker
@@ -35,6 +38,28 @@ module IQData =
         /// Set value of the fourth marker
         let withMarker4 value (sample : Sample) =
             { sample with Markers = markersWithMarker4 value sample.Markers }
+        /// Set value of all markers at once
+        let withMarkers markers (sample: Sample) =
+            { sample with Markers = markers }
+
+        /// Convert a Phase type into a float value of radians for use in the mathematical functions
+        let private phaseToRadians =
+            function
+            | PhaseInRad (angle) -> angle / 1.0<rad>
+            | PhaseInDeg (angle) -> angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>
+
+        /// The maximum amplitude in arbitrary units that the machine can take for an IQ point amplitude
+        let private maximumMachineAmplitude = Int16.MaxValue
+
+        /// Generate a sample at the given amplitude and phase.  The amplitude is relative to the
+        /// maximum amplitude available with the current scaling setting on the machine.
+        let generateSample relativeAmplitude phase markers =
+            let phaseAngle = phaseToRadians phase
+            let amplitude = relativeAmplitude * float maximumMachineAmplitude
+            defaultIQSample
+            |> withI (int16 (amplitude * Math.Cos phaseAngle))
+            |> withQ (int16 (amplitude * Math.Sin phaseAngle))
+            |> withMarkers markers
 
     /// Functions for encoding segments and samples into a writeable form
     module internal Translate =
@@ -174,15 +199,20 @@ module IQData =
                 StoredSequence sequence.Name
 
             /// Make an ASCII string out of an object's ToString() method
-            let private toASCIIString obj =
+            let toASCIIString obj =
                 obj.ToString() |> Text.Encoding.ASCII.GetBytes
+            /// Get the ASCII string of a segment's ID
+            let getSegmentASCIIString (segment : Segment) =
+                segment.Name
+                |> extractSegmentId
+                |> toASCIIString
             /// Get the ASCII string representation of a StoredSegment
-            let internal getStoredSegmentASCIIString (StoredSegment id) =
+            let getStoredSegmentASCIIString (StoredSegment id) =
                 id
                 |> extractSegmentId
                 |> Text.Encoding.ASCII.GetBytes
             /// Get the ASCII string representation of a StoredSequence
-            let internal getStoredSequenceASCIIString (StoredSequence id) =
+            let getStoredSequenceASCIIString (StoredSequence id) =
                 id
                 |> extractSequenceId
                 |> Text.Encoding.ASCII.GetBytes

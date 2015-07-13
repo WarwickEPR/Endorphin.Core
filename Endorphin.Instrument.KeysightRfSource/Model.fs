@@ -227,9 +227,9 @@ module Model =
             Data : Sample seq } // Sequence of points
 
         /// Representation of the stored segments on the machine
-        type StoredSegment = StoredSegment of name : SegmentId
+        type StoredSegment = internal StoredSegment of name : SegmentId
         /// Representation of the stored sequences on the machine
-        type StoredSequence = StoredSequence of name : SequenceId
+        type StoredSequence = internal StoredSequence of name : SequenceId
 
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
@@ -285,13 +285,21 @@ module Model =
                 | Marker  of markers : Markers * duration : SampleCount * increment : SampleCount
 
             /// A whole experiment, ready to be compiled and optimised
-            type Experiment = Experiment of pulses : Pulse seq * repetitions : int
+            type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
 
             /// ID string of an experiment
             type ExperimentId = ExperimentId of string
 
         [<AutoOpen>]
         module internal Encode =
+            type StaticPhasePulse =
+                | StaticPhaseRf of phase : Phase * duration : SampleCount * increment : SampleCount
+                | StaticPhaseDelay of duration : SampleCount * increment : SampleCount
+                | StaticPhaseTrigger of markers : Markers
+                | StaticPhaseMarker of markers : Markers * duration : SampleCount * increment : SampleCount
+
+            type StaticPhaseExperiment = StaticPhaseExperiment of pulses : StaticPhasePulse seq * repetitions : uint16
+
             /// A single pulse which can be easily converted into a single segment, for use after the
             /// compilation of the experiment and optimisation phases
             type StaticPulse =
@@ -300,31 +308,35 @@ module Model =
                 | StaticTrigger of markers : Markers
                 | StaticMarker  of markers : Markers * duration : SampleCount
 
-            /// A segment referenced by segment ID, but which has *NOT* been stored into the machine
-            type InternalSegment = InternalSegmentId of SegmentId
-            /// A sequence referenced by sequence ID, but which has *NOT* been stored into the machine
-            type InternalSequence = InternalSequenceId of SequenceId
+            /// A list of samples and their repetitions, which could be easily written onto the
+            /// machine, but likely with a lot of redundancy.
+            type CompiledExperiment = CompiledExperiment of (Sample * SampleCount) seq
 
-            /// A sequence element after compilation - very similar to the regular sequence type,
-            /// but this one doesn't require the segments and sequences to have been written to disk.
-            /// For internal use only because of the lack of safety in writing of these.
-            type CompiledSequenceElement =
-                | InternalSegment of id : InternalSegment * repetitions : uint16
-                | InternalSequence of id : InternalSequence * repetitions : uint16
+            /// An element of a sequence where the dependencies are not yet written to the machine.
+            /// Elements may still be pending writing, and not available for playback yet.  This should
+            /// not be exposed publically, to prevent accidentally depending on an unwritten file.
+            type PendingSequenceElement =
+                | PendingSegment of name : SegmentId * repetitions : uint16
+                | PendingSequence of name : SequenceId * repetitions : uint16
 
-            /// A sequence after compilation - very similar to the regular sequence type,
-            /// but this one doesn't require the segments and sequences to have been written to disk.
-            /// For internal use only because of the lack of safety in writing of these.
-            type CompiledSequence = CompiledSequence of CompiledSequenceElement list
+            /// A sequence where the dependencies are not yet written to the machine. Elements may
+            /// still be pending writing, and not available for playback yet.  This should not be
+            /// exposed publically, to prevent accidentally depending on an unwritten file.
+            type PendingSequence = {
+                Name : SequenceId
+                Sequence : PendingSequenceElement list }
 
-            type CompiledExperiment = StaticPulse list
+            type CompressedExperiment = {
+                Segments : Segment seq
+                Sequences : PendingSequence seq
+                Experiment : PendingSequence }
 
             /// An assembled experiment, ready for storing onto the machine
             type EncodedExperiment = {
                 Name : ExperimentId
-                Segments : Segment list
-                Sequences : Sequence list
-                Experiment : Sequence }
+                Segments : Segment seq
+                Sequences : PendingSequence seq
+                Experiment : PendingSequence }
 
         [<AutoOpen>]
         module Control =
