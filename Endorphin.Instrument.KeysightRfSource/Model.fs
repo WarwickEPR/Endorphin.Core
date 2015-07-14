@@ -202,7 +202,7 @@ module Model =
             | StepSweep of sweep : StepSweep
 
     [<AutoOpen>]
-    module IQData =
+    module Waveform =
         /// A record of the 4 markers' states
         type Markers = {
             M1 : bool
@@ -277,12 +277,23 @@ module Model =
             /// A number of samples, generally used as a pulse duration
             type SampleCount = SampleCount of int
 
+            // Define some type aliases for the pulse types so that it's simple to update the model
+            // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
+            /// A single rf pulse as a tuple of (phases, duration, increment)
+            type RfPulse = PhaseCycle * SampleCount * SampleCount
+            /// A single delay pulse as a tuple of (duration, increment)
+            type DelayPulse = SampleCount * SampleCount
+            /// A single trigger pulse trigger a set of markers
+            type TriggerPulse = Markers
+            /// A single marker pulse as a tuple of (markers, duration, increment)
+            type MarkerPulse = Markers * SampleCount * SampleCount
+
             /// A pulse with its varying parameters also attached, for use in defining experiments
             type Pulse =
-                | Rf      of phaseCycle : PhaseCycle * duration : SampleCount * increment : SampleCount
-                | Delay   of duration : SampleCount * increment : SampleCount
-                | Trigger of markers : Markers
-                | Marker  of markers : Markers * duration : SampleCount * increment : SampleCount
+                | Rf      of RfPulse
+                | Delay   of DelayPulse
+                | Trigger of TriggerPulse
+                | Marker  of MarkerPulse
 
             /// A whole experiment, ready to be compiled and optimised
             type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
@@ -292,14 +303,27 @@ module Model =
 
         [<AutoOpen>]
         module internal Encode =
-            type StaticPhasePulse =
-                | StaticPhaseRf of phase : Phase * duration : SampleCount * increment : SampleCount
-                | StaticPhaseDelay of duration : SampleCount * increment : SampleCount
-                | StaticPhaseTrigger of markers : Markers
-                | StaticPhaseMarker of markers : Markers * duration : SampleCount * increment : SampleCount
+            /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
+            /// the number of pulses in each cycle are the same.
+            type VerifiedPulse =
+                | VerifiedRf of RfPulse
+                | VerifiedDelay of DelayPulse
+                | VerifiedTrigger of TriggerPulse
+                | VerifiedMarker of MarkerPulse
 
-            type StaticPhaseExperiment = StaticPhaseExperiment of pulses : StaticPhasePulse seq * repetitions : uint16
+            /// Metadata about the experiment gathered during verification, for use during the
+            /// compilation step
+            type ExperimentMetadata = {
+                ExperimentRepetitions : uint16
+                RfCount : int
+                RfPhaseCount : int }
 
+            /// An experiment after it has been passed through the user-input verifier.
+            type VerifiedExperiment = {
+                Pulses : VerifiedPulse seq
+                Metadata : ExperimentMetadata }
+
+            // No need for type aliases here because there's no other step which uses similar types
             /// A single pulse which can be easily converted into a single segment, for use after the
             /// compilation of the experiment and optimisation phases
             type StaticPulse =
@@ -325,11 +349,6 @@ module Model =
             type PendingSequence = {
                 Name : SequenceId
                 Sequence : PendingSequenceElement list }
-
-            type CompressedExperiment = {
-                Segments : Segment seq
-                Sequences : PendingSequence seq
-                Experiment : PendingSequence }
 
             /// An assembled experiment, ready for storing onto the machine
             type EncodedExperiment = {

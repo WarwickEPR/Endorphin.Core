@@ -4,8 +4,9 @@ open ExtCore.Control
 open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-module IQData =
+module Waveform =
     /// Functions for configuring samples
+    [<AutoOpen>]
     module Configure =
         /// A markers record with all markers turned off
         let noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
@@ -62,6 +63,7 @@ module IQData =
             |> withMarkers markers
 
     /// Functions for encoding segments and samples into a writeable form
+    [<AutoOpen>]
     module internal Translate =
         [<AutoOpen>]
         module internal Encode =
@@ -337,6 +339,7 @@ module IQData =
                 // (Array.length data) - (start + digits + 1)
 
     /// Functions for writing and receiving data from the machine
+    [<AutoOpen>]
     module Control =
         open Translate
 

@@ -62,7 +62,7 @@
     <Compile Include="Source.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
-    <Compile Include="IQData.fs" />
+    <Compile Include="Waveform.fs" />
     <Compile Include="RfPulse.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Demo.fsx" />

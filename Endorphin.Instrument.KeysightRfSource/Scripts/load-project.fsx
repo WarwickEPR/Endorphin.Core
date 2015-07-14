@@ -10,7 +10,7 @@
       @"..\Source.fs"
       @"..\Modulation.fs"
       @"..\Sweep.fs"
-      @"..\IQData.fs"
+      @"..\Waveform.fs"
       @"..\RfPulse.fs"
       @"..\RfSource.fs"
       @"..\DummyInstrument.fs"
