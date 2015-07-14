@@ -302,7 +302,7 @@ module Model =
             type ExperimentId = ExperimentId of string
 
         [<AutoOpen>]
-        module internal Encode =
+        module internal Translate =
             /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
             /// the number of pulses in each cycle are the same.
             type VerifiedPulse =
@@ -314,9 +314,9 @@ module Model =
             /// Metadata about the experiment gathered during verification, for use during the
             /// compilation step
             type ExperimentMetadata = {
-                ExperimentRepetitions : uint16
-                RfCount : int
-                RfPhaseCount : int }
+                ExperimentRepetitions : int
+                PulsesCount : int
+                RfPhaseCount : int option }
 
             /// An experiment after it has been passed through the user-input verifier.
             type VerifiedExperiment = {
@@ -352,18 +352,21 @@ module Model =
 
             /// An assembled experiment, ready for storing onto the machine
             type EncodedExperiment = {
-                Name : ExperimentId
+                EncodedExperimentId : ExperimentId
                 Segments : Segment seq
                 Sequences : PendingSequence seq
                 Experiment : PendingSequence }
 
         [<AutoOpen>]
         module Control =
+
+            type StoredExperimentId = StoredExperimentId of ExperimentId
+
             /// The data associated with a stored experiment - its name and dependencies
             type StoredExperiment = {
-                Id : ExperimentId
-                Segments : StoredSegment []
-                Sequences : StoredSequence [] }
+                StoredExperiment : StoredExperimentId
+                StoredSegments   : StoredSegment []
+                StoredSequences  : StoredSequence [] }
 
     type KeysightRfSettings = {
         Sweep : Sweep
