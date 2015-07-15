@@ -5,6 +5,6 @@
 #r @"System.Core.dll"
 #r @"System.dll"
 #r @"System.Numerics.dll"
-#r @"..\..\external-libs\NationalInstruments.Common.dll"
-#r @"..\..\external-libs\NationalInstruments.VisaNS.dll"
 #r @"..\..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
+#r @"..\..\..\..\..\..\..\..\Program Files (x86)\National Instruments\MeasurementStudioVS2012\DotNET\Assemblies\Current\NationalInstruments.Common.dll"
+#r @"..\..\..\..\..\..\..\..\Program Files (x86)\National Instruments\MeasurementStudioVS2012\DotNET\Assemblies\Current\NationalInstruments.VisaNS.dll"
