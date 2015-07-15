@@ -27,9 +27,7 @@ module RfPulse =
                 | _ -> failwith "Non-RF pulse made it through the RF-pulse filter"
 
             /// Check if a phase cycle length matches the passed length parameter
-            let private incorrectCycleLength length pulse =
-                if length = rfPulseCycleLength pulse then false
-                else true
+            let private incorrectCycleLength length pulse = not (length = rfPulseCycleLength pulse)
 
             /// Check if a phase cycle has a non-zero length
             let private nonZero length =
@@ -67,7 +65,7 @@ module RfPulse =
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify (Experiment (pulses, reps)) = choice {
-                let  rfPulses     =   pulses |> Seq.filter isRfPulse
+                let  rfPulses     = pulses |> Seq.filter isRfPulse
                 let! rfPhaseCount =
                     if rfPulses |> Seq.length = 0 then
                         succeed None
@@ -113,8 +111,7 @@ module RfPulse =
                     { experiment with Pulses = pulses}
 
             /// Get the new duration in SampleCount for the nth repetition
-            let private duration (SampleCount dur) (SampleCount inc) n =
-                SampleCount (dur + inc * n)
+            let private duration (SampleCount dur) (SampleCount inc) n = SampleCount (dur + inc * n)
 
             /// Set the duration in a pulse to the correct duration for the repetition that we're on.
             /// The increment remains, but is safe to discard after this function.
@@ -171,8 +168,7 @@ module RfPulse =
             let private noPhase = PhaseInRad 0.0<rad>
 
             /// Expand a static pulse into a sample and a count of how many repetitions that sample has
-            let private expandStaticPulse =
-                function
+            let private expandStaticPulse = function
                 | StaticRf (phase, dur)       -> ((generateSample 1.0 phase noMarkers), dur)
                 | StaticDelay (dur)           -> ((generateSample 0.0 noPhase noMarkers), dur)
                 | StaticTrigger (markers)     -> ((generateSample 0.0 noPhase markers), SampleCount 1)
@@ -240,8 +236,7 @@ module RfPulse =
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
             /// storing all of the dependencies at the same time.
-            let private toRegularSequenceElement =
-                function
+            let private toRegularSequenceElement = function
                 | PendingSegment (name, reps) -> Segment (StoredSegment name, reps)
                 | PendingSequence (name, reps) -> Sequence (StoredSequence name, reps)
 
