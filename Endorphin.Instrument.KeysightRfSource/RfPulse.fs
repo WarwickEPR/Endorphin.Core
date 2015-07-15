@@ -14,7 +14,7 @@ module RfPulse =
         let private makeSequenceCopies n sequence = seq {for _ in 1 .. n do yield! sequence }
 
         [<AutoOpen>]
-        module internal Verify =
+        module private Verify =
             /// Check if a particular pulse is an RF pulse or not
             let private isRfPulse = function
                 | Rf _ -> true
@@ -23,6 +23,7 @@ module RfPulse =
             /// Get the length of an RF pulse's cycle
             let private rfPulseCycleLength = function
                 | Rf (PhaseCycle cycle, _, _) -> cycle.Length
+                // if the rf filter has done its job, this should never trigger
                 | _ -> failwith "Non-RF pulse made it through the RF-pulse filter"
 
             /// Check if a phase cycle length matches the passed length parameter
@@ -83,14 +84,16 @@ module RfPulse =
                       RfPhaseCount = rfPhaseCount } } }
 
         [<AutoOpen>]
-        module internal Compile =
+        module private Compile =
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence
             let private chooseCorrectPhase pulseCount index pulse =
                 match pulse with
                 | VerifiedRf (PhaseCycle phases, dur, inc) ->
                     let phase =
-                        // Use integer division to find which phase we should select
+                        // Use integer division to find which phase we should select.
+                        // This assumes that the verification step would have put us on the failure
+                        // track if there aren't enough phases in any of the cycles
                         List.nth phases (index/pulseCount)
                         |> List.cons []
                         |> PhaseCycle
@@ -187,7 +190,7 @@ module RfPulse =
                 |> CompiledExperiment
 
         [<AutoOpen>]
-        module internal Compress =
+        module private Compress =
             /// Get the ASCII string representation of a PendingSequence's id
             let getPendingSequenceASCIIString (sequence : PendingSequence) =
                 sequence.Name

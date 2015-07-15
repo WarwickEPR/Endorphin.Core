@@ -303,25 +303,27 @@ module Model =
 
         [<AutoOpen>]
         module internal Translate =
-            /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
-            /// the number of pulses in each cycle are the same.
-            type VerifiedPulse =
-                | VerifiedRf of RfPulse
-                | VerifiedDelay of DelayPulse
-                | VerifiedTrigger of TriggerPulse
-                | VerifiedMarker of MarkerPulse
+            [<AutoOpen>]
+            module Verify =
+                /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
+                /// the number of pulses in each cycle are the same.
+                type VerifiedPulse =
+                    | VerifiedRf of RfPulse
+                    | VerifiedDelay of DelayPulse
+                    | VerifiedTrigger of TriggerPulse
+                    | VerifiedMarker of MarkerPulse
 
-            /// Metadata about the experiment gathered during verification, for use during the
-            /// compilation step
-            type ExperimentMetadata = {
-                ExperimentRepetitions : int
-                PulsesCount : int
-                RfPhaseCount : int option }
+                /// Metadata about the experiment gathered during verification, for use during the
+                /// compilation step
+                type ExperimentMetadata = {
+                    ExperimentRepetitions : int
+                    PulsesCount : int
+                    RfPhaseCount : int option }
 
-            /// An experiment after it has been passed through the user-input verifier.
-            type VerifiedExperiment = {
-                Pulses : VerifiedPulse seq
-                Metadata : ExperimentMetadata }
+                /// An experiment after it has been passed through the user-input verifier.
+                type VerifiedExperiment = {
+                    Pulses : VerifiedPulse seq
+                    Metadata : ExperimentMetadata }
 
             // No need for type aliases here because there's no other step which uses similar types
             /// A single pulse which can be easily converted into a single segment, for use after the
