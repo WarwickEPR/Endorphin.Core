@@ -92,6 +92,8 @@ module RfPulse =
                         // Use integer division to find which phase we should select.
                         // This assumes that the verification step would have put us on the failure
                         // track if there aren't enough phases in any of the cycles
+
+                        // TODO: due to random access, might be better as an array
                         List.nth phases (index/pulseCount)
                         |> List.cons []
                         |> PhaseCycle
@@ -174,8 +176,33 @@ module RfPulse =
                 | StaticTrigger (markers)     -> ((generateSample 0.0 noPhase markers), SampleCount 1)
                 | StaticMarker (markers, dur) -> ((generateSample 0.0 noPhase markers), dur)
 
+            /// Add two SampleCounts together
+            let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
+
+            /// Given a seq of samples and their durations, group any adjaacent samples which are
+            /// equal and update the durations accordingly
+            /// TODO: de-ugly this
+            let private groupEqualSamples samples =
+                let rec loop list acc =
+                    match list with
+                    | [] ->
+                        acc
+                        |> List.rev
+                        |> Seq.ofList
+                    | x :: xs ->
+                        match acc with
+                        | [] -> loop xs [x]
+                        | y :: ys when fst x = fst y ->
+                            let acc' = (fst y, addDurations x y) :: ys
+                            loop xs acc'
+                        | _ -> loop xs (x :: acc)
+                loop (List.ofSeq samples) []
+
             /// Convert a list of static pulses into a list of samples
-            let private toSamples = Seq.map expandStaticPulse
+            let private toSamples pulses =
+                pulses
+                |> Seq.map expandStaticPulse
+                |> groupEqualSamples
 
             /// Compile an experiment into a direct list of samples which could (if they were written
             /// into one segment of a storable size) play back the entire experiment.
