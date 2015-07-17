@@ -170,13 +170,21 @@ type CwEprExperimentWorker(experiment : CwEprExperiment, magnetController : Magn
         magnetController.MagnetControllerParameters.ShuntOffset 
             + magnetController.MagnetControllerParameters.ShuntStep * float (max (abs experiment.StartingFieldIndex) (abs experiment.FinalFieldIndex))
     
-    // choose the PicoScope shunt input range so that is as small as possible without clipping
-    let shuntVoltageRange = 
-        Range.SmallestInputRangeForVoltage (magnetController.MagnetControllerParameters.ShuntNoise + (maxShuntVoltage - minShuntVoltage) / 2.0)
+    let minRangeForOffsetVoltage =
+        function
+        | v when abs v <= 0.25<V> -> Range._100mV
+        | v when abs v <= 2.5<V>  -> Range._500mV
+        | v when abs v <= 20.0<V> -> Range._5V
+        | v                       -> failwithf "Required voltage offset out of bounds: %f." (float v)
 
     // choose the PicoScope shunt input voltage offset so that it is in the middle of the expected shunt voltage range
     let shuntVoltageOffset =
-        Math.Round(0.5 * float (minShuntVoltage + maxShuntVoltage), 1) * 1.0<V>
+        - Math.Round(0.5 * float (minShuntVoltage + maxShuntVoltage), 1) * 1.0<V>
+        
+    // choose the PicoScope shunt input range so that is as small as possible without clipping
+    let shuntVoltageRange = 
+        Range.SmallestInputRangeForVoltage (magnetController.MagnetControllerParameters.ShuntNoise + (maxShuntVoltage - minShuntVoltage) / 2.0)
+        |> max (minRangeForOffsetVoltage shuntVoltageOffset)
 
     // create an empty CwEprData with the shunt ADC -> magnetic field conversion function
     let emptyData =
