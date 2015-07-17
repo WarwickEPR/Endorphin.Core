@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Core
 
 open System
+open System.Text
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Collections
 
@@ -36,6 +37,18 @@ module StringUtils =
         | "1" -> Some true
         | _ -> None
 
-    let upperCase (str : string) = str.ToUpper() 
-    let parseCsvSeq parseFunc (str :string) = (str.Split [|','|]) |> Array.toSeq |> Seq.map parseFunc
-    let csvSeqString stringFunc seq = String.Join(",", Seq.map stringFunc seq)
+    /// Parses each comma-separated substring in a string using the provided parsing function and 
+    /// returns the elements.
+    let parseCsvSeq  parseFunc  = String.split [|','|] >> Seq.map parseFunc
+    
+    /// Returns a comma-separated string, consisiting of the elements of the provided sequence
+    /// mapped onto the provided string conversion function.
+    let csvSeqString stringFunc = Seq.map stringFunc   >> String.concat ","
+
+    /// Returns a hexidecimal string for a provided byte array.
+    let bytesToHexidecimalString (bytes : byte array) =
+        let hex = new StringBuilder((Array.length bytes) * 2)
+        for byte in bytes do
+            hex.AppendFormat("{0:x2}", byte) |> ignore
+        
+        hex.ToString()
