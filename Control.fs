@@ -37,4 +37,31 @@ module Utils =
 module AsyncChoice =
     let liftAsync comp = comp |> Async.map succeed
     let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
-    let guard cond err = if cond then succeed () else fail err
+    let guard cond err = if cond then succeed () else fail err   
+
+    /// Fold an array of Choice<'T, 'Error> into a single Choice<'T [], 'EState>, depending on a
+    /// folding function to fold the errors into the desried form.
+    let private foldChoices (folder : 'EState -> 'Error -> 'EState)
+                            (state  : 'EState)
+                            (arr    : Choice<'T, 'Error> [])
+                            : Choice<'T [], 'EState> =
+        let rec loop (arr : Choice<_,_> []) index typeacc erroracc =
+            if index = arr.Length then
+                if erroracc = state then
+                    succeed typeacc
+                else
+                    fail erroracc
+
+            else
+                match arr.[index] with
+                | Success s -> loop arr (index+1) (Array.append typeacc [|s|]) erroracc
+                | Failure f -> loop arr (index+1) typeacc (folder erroracc f)
+        loop arr 0 [||] state
+
+    /// Compose a sequence of AsyncChoice workflows into a single workflow which runs all of them in
+    /// parallel, and folds the errors into a single one using a fold function and an initial state.
+    let Parallel state (fold : 'EState -> 'Error -> 'EState) (sequence : AsyncChoice<'T, 'Error> seq)
+                 : AsyncChoice<'T [], 'EState> =
+        async {
+            let! sequence' = sequence |> Async.Parallel
+            return foldChoices fold state sequence' }
