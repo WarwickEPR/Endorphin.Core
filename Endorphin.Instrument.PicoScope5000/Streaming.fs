@@ -40,7 +40,7 @@ module Streaming =
               TriggerSettings   = Trigger.auto 1s<ms>
               StreamStop        = ManualStop
               DownsamplingRatio = None
-              Inputs            = Inputs.empty }
+              Inputs            = Inputs.none }
 
         let withResolution resolution (parameters : StreamingParameters) = { parameters with Resolution = resolution }
         let withSampleInterval sampleInterval (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }

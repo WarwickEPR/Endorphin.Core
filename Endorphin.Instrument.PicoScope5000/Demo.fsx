@@ -14,11 +14,11 @@ open System.Windows.Forms
 open FSharp.Charting
 
 let form = new Form(Visible = true, TopMost = true, Width = 800, Height = 600)
-let ctx = SynchronizationContext.Current
+let uiContext = SynchronizationContext.Current
 
 let streamingParameters = 
     let inputs =
-        Inputs.empty // define acquisition inputs by adding the required channels and specifying downsampling
+        Inputs.none // define acquisition inputs by adding the required channels and specifying downsampling
         |> Inputs.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
         |> Inputs.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
         |> Inputs.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
@@ -28,16 +28,16 @@ let streamingParameters =
     |> Streaming.Parameters.withNoDownsampling inputs // use the previously defined inputs
 
 let showTimeChart acquisition = async {
-    do! Async.SwitchToContext ctx // add the chart to the form using the UI thread context
+    do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
         
     let chart = 
         Chart.Combine [ 
             Streaming.Signals.sampleByTime (ChannelA, NoDownsamplingBuffer) acquisition
-            |> Observable.observeOn ctx
+            |> Observable.observeOn uiContext
             |> LiveChart.FastLineIncremental
 
             Streaming.Signals.sampleByTime (ChannelB, NoDownsamplingBuffer) acquisition
-            |> Observable.observeOn ctx
+            |> Observable.observeOn uiContext
             |> LiveChart.FastLineIncremental ]
         |> Chart.WithXAxis(Title = "Time")
         |> Chart.WithYAxis(Title = "ADC coounts")
@@ -49,11 +49,11 @@ let showTimeChart acquisition = async {
     do! Async.SwitchToThreadPool() } |> AsyncChoice.liftAsync
 
 let showChartXY acquisition = async {
-    do! Async.SwitchToContext ctx // add the chart to the form using the UI thread context
+    do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
 
     let chartXY =
         Streaming.Signals.sampleXY (ChannelA, NoDownsamplingBuffer) (ChannelB, NoDownsamplingBuffer) acquisition
-        |> Observable.observeOn ctx
+        |> Observable.observeOn uiContext
         |> LiveChart.FastLineIncremental
         |> Chart.WithXAxis(Title = "Channel A ADC counts")
         |> Chart.WithYAxis(Title = "Channel B ADC counts")
@@ -70,15 +70,13 @@ let printStatusUpdates acquisition =
 
 let experiment = asyncChoice {
     let! picoScope = PicoScope.openFirst() // open the first avaiable PicoScope
-    use conn = defer (fun () -> PicoScope.closeInstrument picoScope |> ignore) // close the connection when finished
-    
     // create an acquisition with the previously defined parameters and start it after subscribing to its events
     let acquisition = Streaming.Acquisition.create picoScope streamingParameters
     do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
     printStatusUpdates acquisition
     let! acquisitionHandle = Streaming.Acquisition.start acquisition
     
-    // run the acquisition for 1s and then stop manually
+    // run the acquisition for 10s and then stop manually
     do! Async.Sleep 10000 |> AsyncChoice.liftAsync
     do! Streaming.Acquisition.stopAndFinish acquisitionHandle }
 

@@ -50,7 +50,7 @@ module Inputs =
                 |> Set.map (fun channel -> { InputChannel = channel ; DownsamplingMode = downsamplingMode })
                 |> Set.union inputs.InputSampling }
         
-    let empty = { InputSampling = Set.empty ; InputSettings = Map.empty }
+    let none = { InputSampling = Set.empty ; InputSettings = Map.empty }
 
     let enableChannel  channel  coupling range voltageOffset bandwidth = enableChannelSet (Set.singleton channel) coupling range voltageOffset bandwidth
     let enableChannels channels coupling range voltageOffset bandwidth = enableChannelSet (Set.ofList channels)   coupling range voltageOffset bandwidth
