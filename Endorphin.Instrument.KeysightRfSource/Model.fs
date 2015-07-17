@@ -198,6 +198,65 @@ module Model =
             | NoSweep of frequency : Frequency * amplitude : Amplitude
             | StepSweep of sweep : StepSweep
 
+    [<AutoOpen>]
+    module IQData =
+        /// A single IQ point with associated markers and endianness
+        type Sample = {
+            I       : int16
+            Q       : int16
+            Marker1 : bool
+            Marker2 : bool
+            Marker3 : bool
+            Marker4 : bool }
+
+        /// A single segment in the machine.  Must be at least 60 samples long
+        type Segment = {
+            Name : string
+            Data : Sample seq } // Sequence of points
+
+        /// Representation of the stored segments on the machine
+        type StoredSegment = StoredSegment of name : string
+        /// Representation of the stored sequences on the machine
+        type StoredSequence = StoredSequence of name : string
+
+        /// An element in a machine sequence can either be a segment (waveform or markers),
+        /// or another sequence.  Both can have a number of repetitions associated with them.
+        type SequenceElement =
+            | Segment of segment : StoredSegment * repetitions : uint16
+            | Sequence of sequence : StoredSequence * repetitions : uint16
+
+        /// A full sequence to be stored in the machine
+        type Sequence = {
+            Name : string
+            Sequence : SequenceElement list }
+
+        /// A four-byte array for each encoded IQ point
+        type EncodedIQ = byte []
+        /// A byte with the four markers encoded in
+        type EncodedMarkers = byte
+
+        /// A single point encoded into the four-byte array of IQ points and the marker byte
+        type EncodedSample = {
+            IQ      : EncodedIQ
+            Markers : EncodedMarkers }
+
+        /// Internal record of an entire recorded segment before being transformed into
+        /// machine-readable strings.  Lists are in reverse order for speed.
+        type EncodedSegment = {
+            Name    : byte []
+            IQ      : EncodedIQ list
+            Markers : EncodedMarkers list }
+
+        /// Segment data after it has been encoded, including the lengths and data indicator '#'.
+        /// Ready to write to machine.
+        type EncodedSegmentFiles = {
+            Waveform : byte []
+            Markers  : byte []
+            Header   : byte [] }
+
+        /// Sequence data after it has been encoded, ready to write to the machine
+        type EncodedSequence = EncodedSequence of sequence : byte []
+
     type KeysightRfSettings = {
         Sweep : Sweep
         Modulation : Modulation list }

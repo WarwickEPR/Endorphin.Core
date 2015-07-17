@@ -9,5 +9,6 @@
       @"..\Source.fs"
       @"..\Modulation.fs"
       @"..\Sweep.fs"
+      @"..\IQData.fs"
       @"..\RfSource.fs"
       @"..\DummyInstrument.fs"
