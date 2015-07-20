@@ -96,6 +96,20 @@ module NationalInstruments =
                 do! session.WriteBytesAsync message
                 return! session.ReadBytesAsync() }
     
+    [<AutoOpen>]
+    /// Contains a model for communication over a National Instruments VISA session.
+    module Model =
+        /// Provides an interface for communicating with a devices over a National Instruments VISA
+        /// MessageBasedSession. Requests are queued and handled asynchronously.
+        type VisaInstrument =
+            internal { ReadString  : unit -> AsyncChoice<string, string>
+                       WriteString : string -> unit
+                       QueryString : string -> AsyncChoice<string, string>
+                       ReadBytes   : unit -> AsyncChoice<byte [], string>
+                       WriteBytes  : byte array -> unit
+                       QueryBytes  : byte array -> AsyncChoice<byte array, string>
+                       Close       : unit -> AsyncChoice<unit, string> } 
+
     [<RequireQualifiedAccess>]
     /// Contains functions for communication with devices which support the National Instruments VISA
     /// interface.
@@ -126,17 +140,6 @@ module NationalInstruments =
             | WriteBytes msg       -> sprintf "Write bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
             | QueryBytes (msg, _)  -> sprintf "Query response after writing bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
             | CloseSession _       -> "Close session"
-
-        /// Provides an interface for communicating with a devices over a National Instruments VISA
-        /// MessageBasedSession. Requests are queued and handled asynchronously.
-        type VisaInstrument =
-            private { ReadString  : unit -> AsyncChoice<string, string>
-                      WriteString : string -> unit
-                      QueryString : string -> AsyncChoice<string, string>
-                      ReadBytes   : unit -> AsyncChoice<byte [], string>
-                      WriteBytes  : byte array -> unit
-                      QueryBytes  : byte array -> AsyncChoice<byte array, string>
-                      Close       : unit -> AsyncChoice<unit, string> } 
 
         /// Creates an agent which establishes a MessageBasedSession to the specified VISA address
         /// with the specified timeout and handles VisaMessages. 
