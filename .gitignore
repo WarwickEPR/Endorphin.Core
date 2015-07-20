@@ -154,4 +154,9 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+
+# VS reference loading files
+load-references.fsx
+load-project.fsx
+
 Testing.fsx
