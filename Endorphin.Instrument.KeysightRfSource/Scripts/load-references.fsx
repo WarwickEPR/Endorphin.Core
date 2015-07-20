@@ -6,6 +6,5 @@
 #r @"System.dll"
 #r @"System.Numerics.dll"
 #r @"..\..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
-#r @"..\..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r @"..\..\..\..\..\..\..\Program Files (x86)\National Instruments\MeasurementStudioVS2012\DotNET\Assemblies\Current\NationalInstruments.Common.dll"
 #r @"..\..\..\..\..\..\..\Program Files (x86)\National Instruments\MeasurementStudioVS2012\DotNET\Assemblies\Current\NationalInstruments.VisaNS.dll"

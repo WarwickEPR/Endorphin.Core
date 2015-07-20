@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Core
 
+open Endorphin.Core.StringUtils
 open ExtCore.Control
 open NationalInstruments.VisaNS
 open log4net
@@ -95,144 +96,158 @@ module NationalInstruments =
                 do! session.WriteBytesAsync message
                 return! session.ReadBytesAsync() }
     
-    [<RequireQualifiedAccess>]
-    module Visa =
+    [<AutoOpen>]
+    /// Contains a model for communication over a National Instruments VISA session.
+    module Model =
+        /// Provides an interface for communicating with a devices over a National Instruments VISA
+        /// MessageBasedSession. Requests are queued and handled asynchronously.
+        type VisaInstrument =
+            internal { ReadString  : unit -> AsyncChoice<string, string>
+                       WriteString : string -> unit
+                       QueryString : string -> AsyncChoice<string, string>
+                       ReadBytes   : unit -> AsyncChoice<byte [], string>
+                       WriteBytes  : byte array -> unit
+                       QueryBytes  : byte array -> AsyncChoice<byte array, string>
+                       Close       : unit -> AsyncChoice<unit, string> } 
 
+    [<RequireQualifiedAccess>]
+    /// Contains functions for communication with devices which support the National Instruments VISA
+    /// interface.
+    module Visa =
+    
+        /// Truncates a message string to 25 characters for logging.
+        let private truncateString str =
+            if String.length str > 25
+            then (String.sub str 0 22 |> String.ofSubstring) + "..."
+            else str
+        
+        /// Represents messages which can be sent over a VISA message-based session.
         type private VisaMessage =
-            | ReadString of replyChannel : AsyncChoiceReplyChannel<string,string>
-            | WriteString of visaCommand : string
-            | QueryString of visaCommand : string * replyChannel : AsyncChoiceReplyChannel<string,string>
-            | ReadBytes of replyChannel  : AsyncChoiceReplyChannel<byte [],string>
-            | WriteBytes of visaCommand  : byte []
-            | QueryBytes of visaCommand  : byte [] * replyChannel : AsyncChoiceReplyChannel<byte [], string>
+            | ReadString   of replyChannel : AsyncChoiceReplyChannel<string,string>
+            | WriteString  of visaCommand : string
+            | QueryString  of visaCommand : string * replyChannel : AsyncChoiceReplyChannel<string,string>
+            | ReadBytes    of replyChannel  : AsyncChoiceReplyChannel<byte [],string>
+            | WriteBytes   of visaCommand  : byte []
+            | QueryBytes   of visaCommand  : byte [] * replyChannel : AsyncChoiceReplyChannel<byte [], string>
             | CloseSession of replyChannel : AsyncChoiceReplyChannel<unit,string>
 
-        type Instrument = private Instrument of Agent<VisaMessage>
+        /// Returns a description of the given VisaMessage.
+        let private messageDescription = function
+            | ReadString _         -> "Read string from session"
+            | WriteString msg      -> sprintf "Write string to session: \"%s\"" (truncateString msg)
+            | QueryString (msg, _) -> sprintf "Query response after writing string to session: \"%s\"" (truncateString msg)
+            | ReadBytes _          -> "Read bytes from session"
+            | WriteBytes msg       -> sprintf "Write bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
+            | QueryBytes (msg, _)  -> sprintf "Query response after writing bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
+            | CloseSession _       -> "Close session"
 
-        /// Asynchronously handles requests to 
+        /// Creates an agent which establishes a MessageBasedSession to the specified VISA address
+        /// with the specified timeout and handles VisaMessages. 
         let private createAgent visaAddress timeout =
-            let trimEnd (str : string) = str.TrimEnd [|'\n' ; '\r'|]
-        
             Agent.Start(fun mailbox ->
-                let log = LogManager.GetLogger (sprintf "VISA Instrument %s" visaAddress)
-            
+                let log = LogManager.GetLogger (sprintf "VISA Instrument \"%s\"" visaAddress)
+                
+                // trims terminantion characters at the end of a response.     
+                let trimResponse = Choice.map (String.trimEnd [|'\n' ; '\r'|])
+
+                // logs a string read from the VISA session if the read was successful
+                let logString = function
+                    | Success str -> sprintf "Successfully read string from session: %s." (truncateString <| str) |> log.Debug
+                    | Failure _   -> ()
+
+                // logs a byte array read from a VISA session if the read was successful
+                let logByteArray = function
+                    | Success bytes -> sprintf "Successfully read byte array from session: %s." (truncateString <| bytesToHexidecimalString bytes) |> log.Debug
+                    | Failure _     -> ()
+
+                // closes the VISA session and returns a response over the specified reply channel
                 let closeSession (replyChannel : AsyncChoiceReplyChannel<unit, string>) = async {
                     "Closing session." |> log.Info
                     if mailbox.CurrentQueueLength <> 0 then
-                        let error = sprintf "%d messages remaining in mailbox queue." mailbox.CurrentQueueLength 
+                        let error = sprintf "Closing session with %d messages remaining in mailbox queue." mailbox.CurrentQueueLength 
                         log.Error error 
                         fail error |> replyChannel.Reply
                     else succeed () |> replyChannel.Reply }
 
+                // dequeues VisaMessages from the mailbox and handles them if communication to the
+                // instrument fails
                 let rec failed () = async {
+                    let errorString message = sprintf "Received message after communication to instrument failed: %s." (messageDescription message)
+
                     let! message = mailbox.Receive()
                     match message with
-                    | ReadString replyChannel ->
-                        let error = "Received read request after communication to instrument failed."
-                        log.Error error
-                        fail error |> replyChannel.Reply
-                        return! failed ()
-                
-                    | WriteString visaCommand ->
-                        sprintf "Received write request after communication to instrument failed: %s." visaCommand |> log.Error
-                        return! failed ()
-
-                    | QueryString (visaCommand, replyChannel) ->
-                        let error = sprintf "Received query request after communication to instrument failed: %s." visaCommand
-                        log.Error error
-                        fail error |> replyChannel.Reply
-                        return! failed ()
-
-                    | ReadBytes replyChannel ->
-                        let error = "Received read request after communication to instrument failed."
-                        log.Error error
-                        fail error |> replyChannel.Reply
-                        return! failed ()
-
-                    | WriteBytes visaCommand -> // TODO: possibly log the whole command?
-                        sprintf "Received a data write request after communication to instrument failed: \"%A\"" visaCommand |> log.Error
-                        return! failed()
-
-                    | QueryBytes (visaCommand, replyChannel) ->
-                        let error = sprintf "Received a data query reuest after commnication to instrument failed: %A." visaCommand
-                        log.Error error
-                        fail error |> replyChannel.Reply
-                        return! failed ()
-
                     | CloseSession replyChannel ->
                         do! closeSession replyChannel
-                        return () }
 
+                    | WriteString _
+                    | WriteBytes _  -> 
+                        errorString message |> log.Error
+                        return! failed ()
+
+                    | ReadString replyChannel
+                    | QueryString (_, replyChannel) ->
+                        errorString message |> log.Error
+                        fail (errorString message) |> replyChannel.Reply
+                        return! failed ()
+
+                    | ReadBytes replyChannel
+                    | QueryBytes (_, replyChannel) ->
+                        errorString message |> log.Error
+                        fail (errorString message) |> replyChannel.Reply
+                        return! failed () }
+
+                // dequeus VisaMessages from the mailbox and communicates accordingly with the VISA
+                // instrument using the MessageBasedSession
                 let rec loop (instrument : MessageBasedSession) = async {
                     let! message = mailbox.Receive()
-                    match message with
-                    
-                    | ReadString replyChannel ->
-                        "Reading string." |> log.Debug
-                        let! response = instrument.ReadAsync()
-                        let trimmedResponse = Choice.map trimEnd response
-                        trimmedResponse |> replyChannel.Reply
-                        sprintf "Received string response: \"%A\"" trimmedResponse |> log.Debug
-                    
+                    sprintf "Received message: %s" (messageDescription message) |> log.Debug
+
+                    let continueAfter response = 
                         match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
+                        | Success _     -> loop instrument
+                        | Failure error ->
+                            sprintf "Communication to instrument failed: %s." error |> log.Error
+                            failed ()
+
+                    match message with
+                    | ReadString replyChannel ->
+                        let! response = instrument.ReadAsync() |> Async.map trimResponse
+                        response |> replyChannel.Reply
+                        logString response 
+                        return! continueAfter response
 
                     | WriteString visaCommand -> 
-                        sprintf "Writing string: \"%s\"" visaCommand |> log.Debug
                         let! response = instrument.WriteAsync visaCommand
-                    
-                        match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
-                    
+                        return! continueAfter response
+
                     | QueryString (visaCommand, replyChannel) ->
-                        sprintf "Query with string: \"%s\"" visaCommand |> log.Debug
-                        let! response = instrument.QueryAsync visaCommand
-                        let trimmedResponse = Choice.map trimEnd response
-                        trimmedResponse |> replyChannel.Reply
-                        sprintf "Received string response: \"%A\"" trimmedResponse |> log.Debug
-                    
-                        match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
+                        let! response = instrument.QueryAsync visaCommand |> Async.map trimResponse
+                        response |> replyChannel.Reply
+                        logString response
+                        return! continueAfter response
 
                     | ReadBytes replyChannel ->
-                        "Reading byte array." |> log.Debug
                         let! response = instrument.ReadBytesAsync()
                         response |> replyChannel.Reply
-                        sprintf "Received string response : \"%A\"" response |> log.Debug
-
-                        match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
+                        logByteArray response
+                        return! continueAfter response
 
                     | WriteBytes visaCommand ->
-                        sprintf "Writing byte array \"%A\"" visaCommand |> log.Debug
                         let! response = instrument.WriteBytesAsync visaCommand
-
-                        match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
+                        return! continueAfter response
 
                     | QueryBytes (visaCommand, replyChannel) ->
-                        sprintf "Query with byte array: \"%A\"" visaCommand |> log.Debug
                         let! response = instrument.QueryBytesAsync visaCommand
                         response |> replyChannel.Reply
-                        sprintf "Received string response: \"%A\"" response |> log.Debug
+                        logByteArray response
+                        return! continueAfter response
 
-                        match response with
-                        | Success _     -> return! loop instrument
-                        | Failure error -> log.Error error ; return! failed ()
+                    | CloseSession replyChannel -> do! closeSession replyChannel }
 
-                    | CloseSession replyChannel -> do! closeSession replyChannel
-
-                    return () }
-
-                // startup
+                // startup: connects to the instrument and enters the message processing loop
                 async {
                     try
-                        sprintf "Opening instrument \"%s\"" visaAddress |> log.Info
+                        sprintf "Opening instrument \"%s\"." visaAddress |> log.Info
                         use instrument = ResourceManager.GetLocalManager().Open(visaAddress, AccessModes.NoLock, timeout) :?> MessageBasedSession
                         instrument.Timeout <- timeout
                         return! loop instrument
@@ -240,49 +255,45 @@ module NationalInstruments =
                         sprintf "Failed to connect to instrument: %s." exn.Message |> log.Error
                         return! failed () })
 
-        let queryInstrument (Instrument agent) visaCommand =
-            agent.PostAndAsyncReply(fun replyChannel -> QueryString(visaCommand, replyChannel))
-        
-        let readString (Instrument agent) =
-            agent.PostAndAsyncReply ReadString
-
-        let writeString (Instrument agent) visaCommand =
-            agent.Post (WriteString visaCommand)
-
-        let queryBytesInstrument (Instrument agent) visaCommand =
-            agent.PostAndAsyncReply(fun replyChannel -> QueryBytes(visaCommand, replyChannel))
-
-        let readBytes (Instrument agent) =
-            agent.PostAndAsyncReply ReadBytes
-
-        let writeBytes (Instrument agent) visaCommand =
-            agent.Post (WriteBytes visaCommand)
-
-        let closeInstrument (Instrument agent) =
-            agent.PostAndAsyncReply CloseSession
-
+        /// Opens a connection to a VISA instrument using the specified address and timeout in
+        /// milliseconds. The returned VisaInstrument can then be used to communicate with the
+        /// instrument.
         let openInstrument visaAddress timeout =
-            createAgent visaAddress timeout |> Instrument
+            let agent = createAgent visaAddress timeout
 
-        // Access the instrument through an interface to allow it to
-        // be mocked easily for simple offline tests
+            let queryString visaCommand = agent.PostAndAsyncReply(fun replyChannel -> QueryString(visaCommand, replyChannel))
+            let readString () = agent.PostAndAsyncReply ReadString
+            let writeString visaCommand = agent.Post (WriteString visaCommand)
+            let queryBytes visaCommand = agent.PostAndAsyncReply(fun replyChannel -> QueryBytes(visaCommand, replyChannel))
+            let readBytes () = agent.PostAndAsyncReply ReadBytes
+            let writeBytes visaCommand = agent.Post (WriteBytes visaCommand)
+            let close () = agent.PostAndAsyncReply CloseSession
 
-        type IVisa =
-            abstract member queryInstrument : string -> Async<Choice<string,string>>
-            abstract member writeString     : string -> unit
-            abstract member readString      : unit   -> Async<Choice<string,string>>
-            abstract member queryBytesInstrument : byte [] -> Async<Choice<byte[], string>>
-            abstract member writeBytes      : byte [] -> unit
-            abstract member readBytes       : unit    -> Async<Choice<byte [],string>>
-            abstract member closeInstrument : unit -> Async<Choice<unit,string>>
+            { ReadString  = readString
+              WriteString = writeString
+              QueryString = queryString 
+              ReadBytes   = readBytes
+              WriteBytes  = writeBytes
+              QueryBytes  = queryBytes
+              Close       = close }
 
-        type VisaInstrument (visaAddress,timeout) =
-            let agent = openInstrument visaAddress timeout
-            interface IVisa with
-                member __.queryInstrument (str) = queryInstrument agent str
-                member __.writeString (str) = writeString agent str
-                member __.readString () = readString agent
-                member __.queryBytesInstrument (bytes) = queryBytesInstrument agent bytes
-                member __.writeBytes (bytes) = writeBytes agent bytes
-                member __.readBytes () = readBytes agent
-                member __.closeInstrument () = closeInstrument agent
+        /// Closes the connection to the VISA instrument.
+        let closeInstrument instrument = instrument.Close
+
+        /// Reads a string from the VISA instrument session.
+        let readString      instrument = instrument.ReadString
+
+        /// Writes a string to the VISA instrument session.
+        let writeString     instrument = instrument.WriteString
+        
+        /// Writes a string to the VISA instrument session and a waits a response.
+        let queryString     instrument = instrument.QueryString
+
+        /// Reads a byte array from the VISA instrument session.
+        let readBytes       instrument = instrument.ReadBytes
+
+        /// Writes a byte array to the VISA instrument session.
+        let writeBytes      instrument = instrument.WriteBytes
+
+        /// Writes a byte array to the VISA instrument session and awaits a response.
+        let queryBytes      instrument = instrument.QueryBytes

@@ -12,10 +12,10 @@ open System.Text
 [<RequireQualifiedAccess>]
 module internal IO =
 
-    let postCommand key (RfSource rfSource) = rfSource.writeString key
+    let postCommand key (RfSource rfSource) = Visa.writeString rfSource key
 
     let internal queryValue parseFunc key (RfSource rfSource) = asyncChoice {
-        let! response = sprintf "%s?" key |> rfSource.queryInstrument
+        let! response = sprintf "%s?" key |> Visa.queryString rfSource
         return parseFunc response }
 
     let internal tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
@@ -56,13 +56,13 @@ module internal IO =
             else succeed ()
 
     let internal setValue (valueMap : 'v -> string) key (RfSource rfSource) (value : 'v) = asyncChoice {
-        sprintf "%s %s" key (valueMap value) |> rfSource.writeString
+        sprintf "%s %s" key (valueMap value) |> Visa.writeString rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
 
     let internal setBytesValue (valueMap : 'v -> byte []) (key : string) (RfSource rfSource) (value : 'v) = asyncChoice {
         let bytesKey = Encoding.ASCII.GetBytes key
-        Array.concat [bytesKey; " "B; (valueMap value); "\n"B] |> rfSource.writeBytes
+        Array.concat [bytesKey; " "B; (valueMap value); "\n"B] |> Visa.writeBytes rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors
         }
@@ -106,13 +106,13 @@ module internal IO =
     module Connect =
 
         let openInstrument visaAddress timeout = asyncChoice {
-            let visaInstrument = new Visa.VisaInstrument (visaAddress,timeout) :> Visa.IVisa
+            let visaInstrument = Visa.openInstrument visaAddress timeout
             let rfSource = RfSource <| visaInstrument
-            let! modelNumber = Identify.identity rfSource
-            let! __ = Error.queryErrorQueue rfSource // clear the error queue before doing anything
+            let! _ = Identify.identity rfSource
+            let! _ = Error.queryErrorQueue rfSource // clear the error queue before doing anything
             return rfSource }
 
-        let closeInstrument (RfSource rfSource) = rfSource.closeInstrument()
+        let closeInstrument (RfSource rfSource) = Visa.closeInstrument rfSource
 
     let setInt = setValue (fun (i : int) -> i.ToString())
     let queryInt = queryValue int
@@ -126,14 +126,14 @@ module internal IO =
     // TODO: Handle other units?
     let queryAmplitude key (RfSource rfSource) = asyncChoice {
         // Leaves units in original state
-        let! powerUnit = ":UNIT:POW?" |> rfSource.queryInstrument
-        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> rfSource.queryInstrument
+        let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
+        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryString rfSource
         return parseAmplitudeInDbm response }
 
     let setAmplitudeSeq key = setValue (csvSeqString amplitudeString) key 
     let queryAmplitudeSeq key (RfSource rfSource) = asyncChoice {
-        let! powerUnit = ":UNIT:POW?" |> rfSource.queryInstrument
-        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> rfSource.queryInstrument
+        let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
+        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryString rfSource
         return parseCsvSeq parseAmplitudeInDbm <| response }
 
     let setDuration = setValue durationString 
