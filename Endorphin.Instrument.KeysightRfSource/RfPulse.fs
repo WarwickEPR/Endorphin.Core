@@ -6,6 +6,7 @@ open CRC
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module RfPulse =
+    /// Functions for translating human-readable experiment data into a machine-readable form
     module internal Translate =
         /// Create a string of hex values out of binary data
         let toHexString = sprintf "%016x"
@@ -13,6 +14,8 @@ module RfPulse =
         /// Create a sequence with n copies of the original sequence concatenated
         let private makeSequenceCopies n sequence = seq { for _ in 1 .. n do yield! sequence }
 
+        /// Functions to check that a user-input experiment is in a valid form, and collect metadata
+        /// for use in the compilation step.
         [<AutoOpen>]
         module private Verify =
             /// Check if a particular pulse is an RF pulse or not
@@ -81,6 +84,7 @@ module RfPulse =
                       PulsesCount = Seq.length pulses
                       RfPhaseCount = rfPhaseCount } } }
 
+        /// Functions for compiling experiments into a form which can be more easily compressed
         [<AutoOpen>]
         module private Compile =
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
@@ -130,6 +134,8 @@ module RfPulse =
                 | VerifiedMarker (markers, dur, inc) ->
                     VerifiedMarker (markers, duration dur inc n, inc)
 
+            /// Expand a sequence of pulses which still have increment data attached into a sequence of
+            /// pulses with ignorable increments.  The increments are now encoded into the durations.
             let private expandRepetitions experiment =
                 let pulses =
                     experiment.Pulses
@@ -212,6 +218,7 @@ module RfPulse =
                 |> toSamples
                 |> CompiledExperiment
 
+        /// Functions to compress streams of pulses into waveform and sequence files
         [<AutoOpen>]
         module private Compress =
             /// Get the ASCII string representation of a PendingSequence's id
@@ -244,6 +251,8 @@ module RfPulse =
                 Sequences = []
                 Experiment = { Name = SequenceId ""; Sequence = [] } }
 
+        /// Internal functions for encoding experiments from the user-input form to the writeable
+        /// machine form of repeatable files.
         [<AutoOpen>]
         module Encode =
             /// Encode an experiment into a writeable form
@@ -274,6 +283,7 @@ module RfPulse =
                 Name = pending.Name
                 Sequence = pending.Sequence |> List.map toRegularSequenceElement }
 
+    /// Public functions for writing user-input experiments to the machine
     [<AutoOpen>]
     module Control =
         open Translate
