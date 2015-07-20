@@ -66,7 +66,7 @@ module Waveform =
     [<AutoOpen>]
     module internal Translate =
         [<AutoOpen>]
-        module internal Encode =
+        module Encode =
             /// Get the string form of a SegmentId
             let extractSegmentId (SegmentId id) = id
             /// Get the string form of a SequenceId
@@ -261,7 +261,7 @@ module Waveform =
 
         /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
-        module internal Decode =
+        module Decode =
             /// Convert a big-endian array of bytes into the host order
             let private toHostOrder bytes =
                 if BitConverter.IsLittleEndian then

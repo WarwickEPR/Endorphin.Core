@@ -11,7 +11,7 @@ module RfPulse =
         let toHexString = sprintf "%016x"
 
         /// Create a sequence with n copies of the original sequence concatenated
-        let private makeSequenceCopies n sequence = seq {for _ in 1 .. n do yield! sequence }
+        let private makeSequenceCopies n sequence = seq { for _ in 1 .. n do yield! sequence }
 
         [<AutoOpen>]
         module private Verify =
@@ -181,7 +181,7 @@ module RfPulse =
 
             /// Given a seq of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly
-            /// TODO: de-ugly this
+            // TODO: de-ugly this
             let private groupEqualSamples samples =
                 let rec loop list acc =
                     match list with
@@ -245,7 +245,7 @@ module RfPulse =
                 Experiment = { Name = SequenceId ""; Sequence = [] } }
 
         [<AutoOpen>]
-        module internal Encode =
+        module Encode =
             /// Encode an experiment into a writeable form
             let toEncodedExperiment experiment = choice {
                 let! verified = experiment |> verify
