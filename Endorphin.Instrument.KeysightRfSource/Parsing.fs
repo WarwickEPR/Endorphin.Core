@@ -6,7 +6,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 // functions to translate quantities used in the model
 [<AutoOpen>]
-module internal Quantities =
+module internal Parsing =
     let parseAmplitudeInDbm (str : string) = PowerInDbm (float str * 1.0<dBm>)
     let amplitudeString (PowerInDbm amplitude) = sprintf "%e dBm" (float amplitude)
     let parseFrequencyInHz (str : string) = FrequencyInHz (float str * 1.0<Hz>)
