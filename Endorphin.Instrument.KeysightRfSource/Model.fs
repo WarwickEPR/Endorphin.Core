@@ -6,12 +6,11 @@ open Endorphin.Core.NationalInstruments
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 // Model of the possible configurations of a Keysight RF source
-
 [<AutoOpen>]
 module Model =
     [<AutoOpen>]
     module Instrument =
-        type RfSource = internal RfSource of Visa.IVisa
+        type RfSource = internal RfSource of VisaInstrument
 
         type DeviceId =
             { Manufacturer : string

@@ -25,7 +25,7 @@ module Modulation =
         type DepthType = LinearType | ExponentialType
 
         let parseDepthType str =
-            match upperCase str with
+            match String.toUpper str with
             | "LIN" | "LINEAR" -> LinearType
             | "EXP" | "EXPONENTIAL" -> ExponentialType
             | str -> failwithf "Unexpected depth type: %s" str

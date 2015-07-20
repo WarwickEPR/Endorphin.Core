@@ -2,7 +2,7 @@
 #I __SOURCE_DIRECTORY__
 #load @"load-references.fsx"
 #load @"..\Model.fs"
-      @"..\Quantities.fs"
+      @"..\Parsing.fs"
       @"..\IO.fs"
       @"..\CRC.fs"
       @"..\Basic.fs"
@@ -13,4 +13,3 @@
       @"..\Waveform.fs"
       @"..\RfPulse.fs"
       @"..\RfSource.fs"
-      @"..\DummyInstrument.fs"

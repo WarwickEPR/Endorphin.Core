@@ -51,9 +51,8 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <None Include="packages.config" />
     <Compile Include="Model.fs" />
-    <Compile Include="Quantities.fs" />
+    <Compile Include="Parsing.fs" />
     <Compile Include="IO.fs" />
     <None Include="app.config" />
     <Compile Include="CRC.fs" />
@@ -65,12 +64,13 @@
     <Compile Include="Waveform.fs" />
     <Compile Include="RfPulse.fs" />
     <Compile Include="RfSource.fs" />
-    <None Include="Demo.fsx" />
-    <Compile Include="DummyInstrument.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
+    <None Include="Demo.fsx" />
     <None Include="WaveformDemo.fsx" />
     <None Include="Testing.fsx" />
+    <None Include="packages.config" />
+    <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">

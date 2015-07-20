@@ -6,7 +6,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 // functions to translate quantities used in the model
 [<AutoOpen>]
-module internal Quantities =
+module internal Parsing =
     let parseAmplitudeInDbm (str : string) = PowerInDbm (float str * 1.0<dBm>)
     let amplitudeString (PowerInDbm amplitude) = sprintf "%e dBm" (float amplitude)
     let parseFrequencyInHz (str : string) = FrequencyInHz (float str * 1.0<Hz>)
@@ -37,7 +37,7 @@ module internal Quantities =
         | Impedance_1MOhm  -> "1000000"
     
     let parseDirection str =
-        match upperCase str with
+        match String.toUpper str with
         | "UP"   -> Up
         | "DOWN" -> Down
         | _      -> failwithf "Unexpected direction string: %s." str
@@ -48,7 +48,7 @@ module internal Quantities =
         | Down -> "DOWN"
 
     let parseCoupling str =
-        match upperCase str with
+        match String.toUpper str with
         | "AC" -> AC
         | "DC" -> DC
         | _    -> failwithf "Unexpected coupling string: %s." str
@@ -59,7 +59,7 @@ module internal Quantities =
         | DC -> "DC"
 
     let parseOnOffState str =
-        match upperCase str with
+        match String.toUpper str with
         | "0" | "OFF" -> Off
         | "1" | "ON"  -> On
         | str         -> failwithf "Unexpected on-off string: %s." str
@@ -70,7 +70,7 @@ module internal Quantities =
         | On  -> "ON"
 
     let parseAutoManualState str =
-        match upperCase str with
+        match String.toUpper str with
         | "AUTO"           -> Auto
         | "MAN" | "MANUAL" -> Manual
         | _                -> failwithf "Unexpected auto-manual string: %s." str
@@ -81,7 +81,7 @@ module internal Quantities =
         | Manual -> "MANUAL"
 
     let parsePolarity str =
-        match upperCase str with
+        match String.toUpper str with
         | "POS" | "POSITIVE" -> Positive
         | "NEG" | "NEGATIVE" -> Negative
         | _                  -> failwithf "Unexpected trigger polarity string: %s." str

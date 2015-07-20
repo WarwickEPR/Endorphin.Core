@@ -4,10 +4,9 @@ open ExtCore.Control
 
 module Sweep =
     module internal Translate =
-        open Endorphin.Core.StringUtils
 
         let parseSweepMode str =
-            match upperCase str with
+            match String.toUpper str with
             | "CW"
             | "FIX"
             | "FIXED" -> Fixed
@@ -20,7 +19,7 @@ module Sweep =
             | Swept -> "LIST"
 
         let parseStepSpacing str =
-            match upperCase str with
+            match String.toUpper str with
             | "LIN" | "LINEAR"      -> LinearStepSpacing
             | "LOG" | "LOGARITHMIC" -> LogarithmicStepSpacing
             | _                     -> failwithf "Unexpected step spacing string: %s." str
@@ -31,7 +30,7 @@ module Sweep =
             | LogarithmicStepSpacing -> "LOG"
 
         let parseSweepType str =
-            match upperCase str with
+            match String.toUpper str with
             | "LIST" -> List
             | "STEP" -> Step
             | _      -> failwithf "Unexpected sweep type string: %s." str

@@ -12,7 +12,7 @@ module Source =
             | InternalGenerator Function1 -> "FUNCTION1"
 
         let parseSource str =
-            match upperCase str with
+            match String.toUpper str with
             | "EXT1" -> ExternalPort EXT1
             | "EXT2" -> ExternalPort EXT2
             | "FUNCTION1" -> InternalGenerator Function1
@@ -42,7 +42,7 @@ module Source =
                                             return Ramp polarity }
                 let key = functionKey shapeKey prefix fg
                 asyncChoice {
-                    let! shape = IO.queryValue upperCase key rfSource
+                    let! shape = IO.queryValue String.toUpper key rfSource
                     match shape with
                     | "SINE"             -> return Sine
                     | "TRI" | "TRIANGLE" -> return Triangle

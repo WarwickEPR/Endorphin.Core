@@ -7,7 +7,7 @@ module Triggering =
         open Endorphin.Core.StringUtils
 
         let parseExternalTriggerSource str =
-            match upperCase str with
+            match String.toUpper str with
             | "TRIG1" | "TRIGGER1" -> Trigger1
             | "TRIG2" | "TRIGGER2" -> Trigger2
             | "PULS" | "PULSE"     -> Pulse
@@ -21,7 +21,7 @@ module Triggering =
 
   
         let parseInternalTriggerSource str =
-            match upperCase str with
+            match String.toUpper str with
             | "PVID" | "PVIDEO" -> PulseVideo
             | "PSYN" | "PSYNC"  -> PulseSync
             | _                 -> failwithf "Unexpected trigger source string: %s" str
@@ -32,7 +32,7 @@ module Triggering =
             | PulseSync  -> "PSYN"
 
         let parseTriggerSourceType str =
-            match upperCase str with
+            match String.toUpper str with
             | "IMM" | "IMMEDIATE" -> ImmediateType
             | "KEY"               -> TriggerKeyType
             | "BUS"               -> BusType
