@@ -70,6 +70,7 @@
     <None Include="WaveformDemo.fsx" />
     <None Include="packages.config" />
     <None Include="app.config" />
+    <None Include="ExperimentDemo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
