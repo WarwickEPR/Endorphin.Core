@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-/// Functions for calculating the CRC-64 of arrays of bytes
+/// Functions for calculating the CRC-64 of arrays of bytes.
+/// Potentially deprecated
 module CRC =
     /// Get the table entry for a given index in the 64-bit CRC lookup table of the
     /// given polynomial
