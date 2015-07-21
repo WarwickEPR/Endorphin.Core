@@ -68,6 +68,8 @@ module RfPulse =
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify (Experiment (pulses, reps)) = choice {
+                // Check that there's a non-zero number of experiment repetitions
+                do! if reps = 0us then fail "Must do the experiment at least once!" else succeed ()
                 let  rfPulses     = pulses |> Seq.filter isRfPulse
                 let! rfPhaseCount =
                     if rfPulses |> Seq.length = 0 then
@@ -76,7 +78,6 @@ module RfPulse =
                         rfPulses
                         |> checkPhaseCycles
                         |> liftOption
-
                 return {
                     Pulses = Seq.map toVerifiedPulse pulses
                     Metadata =
