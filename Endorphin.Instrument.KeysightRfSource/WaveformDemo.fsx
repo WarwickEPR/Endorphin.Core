@@ -11,7 +11,7 @@ open ExtCore.Control
 
 // BasicConfigurator.Configure()
 
-open IQData.Control
+open Waveform.Control
 
 let printResult =
     function
