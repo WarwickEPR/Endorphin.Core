@@ -220,10 +220,14 @@ module Model =
         /// The identifier of a sequence
         type SequenceId = SequenceId of string
 
+        /// The data portion of a Segment
+        // Can just be a type alias, but allows nice semantic use in Map<>
+        type SegmentData = Sample seq
+
         /// A single segment in the machine.  Must be at least 60 samples long
         type Segment = {
             Name : SegmentId
-            Data : Sample seq } // Sequence of points
+            Data : SegmentData } // Sequence of points
 
         /// Representation of the stored segments on the machine
         type StoredSegment = internal StoredSegment of name : SegmentId
@@ -236,10 +240,13 @@ module Model =
             | Segment of segment : StoredSegment * repetitions : uint16
             | Sequence of sequence : StoredSequence * repetitions : uint16
 
+        /// The data portion of a sequence
+        type SequenceData = SequenceElement list
+
         /// A full sequence to be stored in the machine
         type Sequence = {
             Name : SequenceId
-            Sequence : SequenceElement list }
+            Sequence : SequenceData }
 
         [<AutoOpen>]
         module internal Translate =
@@ -297,9 +304,6 @@ module Model =
             /// A whole experiment, ready to be compiled and optimised
             type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
 
-            /// ID string of an experiment
-            type ExperimentId = ExperimentId of string
-
         [<AutoOpen>]
         module internal Translate =
             [<AutoOpen>]
@@ -344,16 +348,32 @@ module Model =
                 | PendingSegment of name : SegmentId * repetitions : uint16
                 | PendingSequence of name : SequenceId * repetitions : uint16
 
+            /// The data portion of a pending sequence
+            type PendingSequenceData = PendingSequenceElement list
+
             /// A sequence where the dependencies are not yet written to the machine. Elements may
             /// still be pending writing, and not available for playback yet.  This should not be
             /// exposed publically, to prevent accidentally depending on an unwritten file.
             type PendingSequence = {
                 Name : SequenceId
-                Sequence : PendingSequenceElement list }
+                PendingSequence : PendingSequenceData }
+
+            /// Container type for data and a boolean flag to represent whether or not it has been
+            /// fully compressed
+            type CompressedData<'T> = {
+                Data : 'T
+                FullyCompressed : bool }
+
+            /// An experiment inside the compression step
+            type CompressedExperiment = {
+                Segments : Map<SegmentId, CompressedData<SegmentData>>
+                Sequences : Map<SequenceId, CompressedData<PendingSequenceData>>
+                SampleCount : int
+                FullyCompressed : bool
+                CompressedExperiment : PendingSequenceData }
 
             /// An assembled experiment, ready for storing onto the machine
             type EncodedExperiment = {
-                EncodedExperimentId : ExperimentId
                 Segments : Segment seq
                 Sequences : PendingSequence seq
                 Experiment : PendingSequence }
@@ -361,7 +381,7 @@ module Model =
         [<AutoOpen>]
         module Control =
 
-            type StoredExperimentId = StoredExperimentId of ExperimentId
+            type StoredExperimentId = StoredExperimentId of SequenceId
 
             /// The data associated with a stored experiment - its name and dependencies
             type StoredExperiment = {

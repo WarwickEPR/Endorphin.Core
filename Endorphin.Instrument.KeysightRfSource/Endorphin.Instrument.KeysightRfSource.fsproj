@@ -68,7 +68,6 @@
     <None Include="Scripts\load-project.fsx" />
     <None Include="Demo.fsx" />
     <None Include="WaveformDemo.fsx" />
-    <None Include="Testing.fsx" />
     <None Include="packages.config" />
     <None Include="app.config" />
   </ItemGroup>

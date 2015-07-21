@@ -8,8 +8,8 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 module RfPulse =
     /// Functions for translating human-readable experiment data into a machine-readable form
     module internal Translate =
-        /// Create a string of hex values out of binary data
-        let toHexString = sprintf "%016x"
+        /// Create a hash of an object as a hexadecimal string 8 characters long
+        let hexHash obj = sprintf "%08x" (hash obj)
 
         /// Create a sequence with n copies of the original sequence concatenated
         let private makeSequenceCopies n sequence = seq { for _ in 1 .. n do yield! sequence }
@@ -153,7 +153,7 @@ module RfPulse =
             /// Return only the pulse sequence of a verified experiment
             let private pulseSequence (experiment : VerifiedExperiment) = experiment.Pulses
 
-            /// Convert a verified pulse to a static pulse.  Assumes that the phase cycle is of length
+            /// Convert a verified pulse to a static pulse. Assumes that the phase cycle is of length
             /// 1, but this should have been ensured by the expandVariables step.
             let private toStaticPulse = function
                 | VerifiedRf (PhaseCycle phases, duration, _) ->
@@ -227,47 +227,92 @@ module RfPulse =
                 |> extractSequenceId
                 |> toASCIIString
 
-            /// Create the name of an experiment to store in the machine and to use as an internal
-            /// reference point.
-            let makeExperimentName segments sequences =
-                let bytesSegments =
-                    segments
-                    |> Seq.map getSegmentASCIIString
-                    |> Seq.fold Array.append [||]
-                let bytesSequences =
-                    sequences
-                    |> Seq.map getPendingSequenceASCIIString
-                    |> Seq.fold Array.append [||]
-                bytesSequences
-                |> Array.append bytesSegments
-                |> crc64
-                |> toHexString
-                |> ExperimentId
+            /// Expand a (Sample * SampleCount) into a sequence of repeating samples
+            let private expandSampleReps (sample, SampleCount reps) =
+                seq { for _ in 1 .. reps -> sample }
 
-            /// TODO!!!
-            let compress compiled = {
-                EncodedExperimentId = makeExperimentName [] []
-                Segments = []
-                Sequences = []
-                Experiment = { Name = SequenceId ""; Sequence = [] } }
+            /// Make a segment ID by hashing the samples
+            let private makeSegmentName (samples : SegmentData) =
+                samples
+                |> hexHash
+                |> SegmentId
+
+            /// Make an initial compressed experiment - does not do any compression, just converts
+            /// the compiled experiment into the compressed type.
+            let private toCompressedExperiment (CompiledExperiment compiled) =
+                let segment = {
+                    Data = Seq.collect expandSampleReps compiled
+                    FullyCompressed = false }
+                let id = makeSegmentName segment.Data
+                { Segments = Map.add id segment Map.empty
+                  Sequences = Map.empty
+                  SampleCount = Seq.length segment.Data
+                  FullyCompressed = false
+                  CompressedExperiment = [ PendingSegment (id, 1us) ] }
+
+            /// Perform a single step of the compression
+            let private compressionStep (experiment : CompressedExperiment) =
+                { experiment with FullyCompressed = true }
+                // FLAWLESS COMPRESSION!!!
+
+            /// Compress the experiment down until either
+            /// a) fewer than than the threshold number of samples are to be written or
+            /// b) the maximum compression is reached
+            let compress threshold compiled =
+                let rec loop compressed =
+                    let condition = compressed.SampleCount <= threshold
+                                    || compressed.FullyCompressed
+                    match condition with
+                    | true  -> compressed
+                    | false -> loop (compressionStep compressed)
+                loop (toCompressedExperiment compiled)
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
         [<AutoOpen>]
         module Encode =
+            /// Zip a tupled segment back into an actual segment
+            let private zipSegment (id, compressed : CompressedData<SegmentData>) : Segment = {
+                Name = id
+                Data = compressed.Data }
+
+            /// Zip a tupled sequence back into an actual sequence
+            let private zipPendingSequence (id, compressed : CompressedData<PendingSequenceData>) = {
+                Name = id
+                PendingSequence = compressed.Data }
+
+            /// Create the name of an experiment to store in the machine and to use as an internal
+            /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
+            let private makeExperimentName (compressed : CompressedExperiment) =
+                compressed
+                |> hexHash
+                |> SequenceId
+
+            /// Convert a compressed experiment into an encoded one suitable for writing
+            /// to the machine
+            let private encode (compressed : CompressedExperiment) =
+                let segments =
+                    compressed.Segments
+                    |> Map.toSeq
+                    |> Seq.map zipSegment
+                let sequences =
+                    compressed.Sequences
+                    |> Map.toSeq
+                    |> Seq.map zipPendingSequence
+                { Segments = segments
+                  Sequences = sequences
+                  Experiment =
+                  { Name = makeExperimentName compressed
+                    PendingSequence = compressed.CompressedExperiment } }
+
             /// Encode an experiment into a writeable form
-            let toEncodedExperiment experiment = choice {
+            let toEncodedExperiment threshold experiment = choice {
                 let! verified = experiment |> verify
                 return
                     verified
                     |> compile
-                    |> compress }
-
-            /// Get the experiment ID of an encoded experiment
-            let getExperimentId encoded =
-                encoded.Experiment.Name
-                |> extractSequenceId
-                |> ExperimentId
+                    |> compress threshold
+                    |> encode }
 
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
@@ -281,22 +326,33 @@ module RfPulse =
             /// storing all of the dependencies at the same time.
             let toRegularSequence (pending : PendingSequence) : Sequence = {
                 Name = pending.Name
-                Sequence = pending.Sequence |> List.map toRegularSequenceElement }
+                Sequence = pending.PendingSequence |> List.map toRegularSequenceElement }
 
     /// Public functions for writing user-input experiments to the machine
     [<AutoOpen>]
     module Control =
         open Translate
 
+        /// Get the SequenceId of a stored sequence
+        let private getStoredSequenceId (StoredSequence sequence) = sequence
+
         /// Store an experiment onto the machine as a set of necessary sequences and samples
-        let storeExperiment instrument experiment = asyncChoice {
-            let! encoded = toEncodedExperiment experiment
+        let storeExperiment instrument threshold experiment = asyncChoice {
+            let! encoded = toEncodedExperiment threshold experiment
             let! storedSegments = storeSegmentSequence instrument encoded.Segments
             let! storedSequences =
                 encoded.Sequences
                 |> Seq.map toRegularSequence
                 |> storeSequenceSequence instrument
+            let! storedExperimentAsSequence =
+                encoded.Experiment
+                |> toRegularSequence
+                |> storeSequence instrument
+            let storedExperiment =
+                storedExperimentAsSequence
+                |> getStoredSequenceId
+                |> StoredExperimentId
             return {
-                StoredExperiment = StoredExperimentId (getExperimentId encoded)
+                StoredExperiment = storedExperiment
                 StoredSegments   = storedSegments
                 StoredSequences  = storedSequences } }
