@@ -319,8 +319,11 @@ module Model =
                 /// Metadata about the experiment gathered during verification, for use during the
                 /// compilation step
                 type ExperimentMetadata = {
+                    /// How many times the experiment is repeated
                     ExperimentRepetitions : int
+                    /// How many pulses there are per phase
                     PulsesCount : int
+                    /// How many phases there are in the phase cycle
                     RfPhaseCount : int option }
 
                 /// An experiment after it has been passed through the user-input verifier.

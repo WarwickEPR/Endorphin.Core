@@ -137,10 +137,16 @@ module RfPulse =
             /// Expand a sequence of pulses which still have increment data attached into a sequence of
             /// pulses with ignorable increments.  The increments are now encoded into the durations.
             let private expandRepetitions experiment =
+                let reps = experiment.Metadata.ExperimentRepetitions
+                let phaseCount = experiment.Metadata.RfPhaseCount
+                let pulsesPerRep =
+                    match phaseCount with
+                    | Some s -> s * experiment.Metadata.PulsesCount
+                    | None -> experiment.Metadata.PulsesCount
                 let pulses =
                     experiment.Pulses
-                    |> makeSequenceCopies experiment.Metadata.ExperimentRepetitions
-                    |> Seq.mapi (chooseCorrectDuration experiment.Metadata.PulsesCount)
+                    |> makeSequenceCopies reps
+                    |> Seq.mapi (chooseCorrectDuration pulsesPerRep)
                 { experiment with Pulses = pulses }
 
             /// Convert an experiment with pulses, increments and a phase cycle into a list of
