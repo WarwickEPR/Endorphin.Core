@@ -64,7 +64,6 @@
     <Error Condition="!Exists('..\packages\xunit.runner.visualstudio.2.1.0-beta1-build1051\build\net20\xunit.runner.visualstudio.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.runner.visualstudio.2.1.0-beta1-build1051\build\net20\xunit.runner.visualstudio.props'))" />
   </Target>
   <ItemGroup>
-    <None Include="packages.config" />
     <Compile Include="Utils.fs" />
     <Compile Include="RfSourceMockTest.fs" />
     <Compile Include="RfSourceLiveTest.fs" />

@@ -62,7 +62,6 @@
     <Compile Include="WinFormsObservables.fs" />
     <Compile Include="Collections.List.fs" />
     <Compile Include="Collections.Map.fs" />
-    <None Include="packages.config" />
     <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>

@@ -54,7 +54,6 @@
     <Compile Include="MagnetControllerSession.fs" />
     <Compile Include="RampWorker.fs" />
     <Compile Include="StaticFieldWorker.fs" />
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">
