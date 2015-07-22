@@ -39,6 +39,14 @@ module AsyncChoice =
     let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
     let guard cond err = if cond then succeed () else fail err   
 
+    /// Ignore any success value from an AsyncChoice workflow, but still propagate the failure
+    let ignore input = async {
+        let! choice = input
+        return
+            match choice with
+            | Success s -> succeed ()
+            | Failure f -> fail f }
+
     /// Fold an array of Choice<'T, 'Error> into a single Choice<'T [], 'EState>, depending on a
     /// folding function to fold the errors into the desried form.
     let private foldChoices (folder : 'EState -> 'Error -> 'EState)
