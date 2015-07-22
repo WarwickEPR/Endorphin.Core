@@ -146,7 +146,6 @@ module Waveform =
                     |> dataString
                 // TODO: fix header data string
                 let headerDataString = "#10"B
-
                 { Waveform = dataStorageString  waveformFilename waveformDataString
                   Markers  = dataStorageString  markerFilename   markerDataString
                   Header   = dataStorageString  headerFilename   headerDataString }
@@ -157,11 +156,6 @@ module Waveform =
             let markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
             /// Get the whole string necessary to write a header file to the machine
             let headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
-
-            /// Create an internal stored segment representation
-            let toStoredSegment (segment : Segment) = StoredSegment segment.Name
-            /// Create and internal stored sequence representation
-            let toStoredSequence (sequence : Sequence) = StoredSequence sequence.Name
 
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions
@@ -279,6 +273,11 @@ module Waveform =
         /// occur
         let private parallelizeStorage store instrument sequence =
             parallelizeStorageFold "" addErrorStrings store instrument sequence
+
+        /// Create an internal stored segment representation
+        let private toStoredSegment (segment : Segment) = StoredSegment segment.Name
+        /// Create and internal stored sequence representation
+        let private toStoredSequence (sequence : Sequence) = StoredSequence sequence.Name
 
         /// Command to write file to volatile memory
         /// Command reference p.133, p.151. p.133 is technically for the ":MEM:DATA" command rather
