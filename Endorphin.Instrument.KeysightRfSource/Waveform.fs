@@ -444,12 +444,24 @@ module Waveform =
         /// Turn off the ARB generator of the instrument
         let turnOffArb = setArbState Off
 
-        /// Begin playing a segment on the instrument
-        let playSegment instrument segment = asyncChoice {
+        /// Begin playing a segment stored on the instrument
+        let playStoredSegment instrument segment = asyncChoice {
             do! selectSegment instrument segment
             do! turnOnArb instrument }
 
-        /// Begin playing a sequence on the instrument
-        let playSequence instrument sequence = asyncChoice {
+        /// Begin playing a sequence stored on the instrument
+        let playStoredSequence instrument sequence = asyncChoice {
             do! selectSequence instrument sequence
             do! turnOnArb instrument }
+
+        /// Store a segment file on to the machine, then begin playing it back as soon as possible
+        let playSegment instrument segment = asyncChoice {
+            let! stored = storeSegment instrument segment
+            do! playStoredSegment instrument stored
+            return stored }
+
+        /// Store a sequence file on to the machine. then begin playing it back as soon as possible
+        let playSequence instrument sequence = asyncChoice {
+            let! stored = storeSequence instrument sequence
+            do! playStoredSequence instrument stored
+            return stored }
