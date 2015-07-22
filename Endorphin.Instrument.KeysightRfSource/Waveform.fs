@@ -103,10 +103,7 @@ module Waveform =
 
             /// Encode a segment into the necessary byte patterns
             let private toEncodedSegment (segment : Segment) =
-                let emptySegment = { Name =
-                                         segment.Name
-                                         |> extractSegmentId
-                                         |> Text.Encoding.ASCII.GetBytes
+                let emptySegment = { Name = segment.Name |> extractSegmentId
                                      IQ = []
                                      Markers = [] }
                 segment.Data
@@ -115,7 +112,7 @@ module Waveform =
 
             /// Make the data string, including the '#' character, the digits of length, the length
             /// and the data
-            let private makeDataString (data : byte []) =
+            let private dataString (data : byte []) =
                 let length = data.Length
                 let digits = length.ToString().Length
                 if digits >= 10 then
@@ -126,58 +123,27 @@ module Waveform =
                     Text.Encoding.ASCII.GetBytes(length.ToString())
                     data ]
 
-            /// ASCII string of the folder location for waveforms
-            let private waveformFolder = "WFM1:"B
-            /// ASCII string of the folder location for markers
-            let private markerFolder   = "MKR1:"B
-            /// ASCII string of the folder location for headers
-            let private headerFolder   = "HDR1:"B
-            /// ASCII string of the folder location for sequences
-            let private sequenceFolder = "SEQ:"B
-
-            /// Build up a full file name string for storing a file
-            let private fileNameString folder name = Array.concat ["\""B; folder; name; "\""B]
-
-            /// Total filename string for a waveform file
-            let private makeWaveformFileString name = fileNameString waveformFolder name
-            /// Total filename string for a markers file
-            let private makeMarkerFileString name = fileNameString markerFolder name
-            /// Total filename string for a header file
-            let private makeHeaderFileString name = fileNameString headerFolder name
-            /// Total filename string for a sequence file
-            let makeSequenceFileString name = fileNameString sequenceFolder name
-
             /// Build up a full string for data storage and location
-            let private dataStorageString fileName dataString =
-                Array.concat [fileName; ","B; dataString]
-
-            /// Reverse a list of arrays, then concatenate
-            let private reverseConcatenateToArray list =
-                list
-                |> List.rev
-                |> List.reduce Array.append
-
-            /// Reverse a list and convert it to an array
-            let private reverseToArray list =
-                list
-                |> List.rev
-                |> List.toArray
+            let private dataStorageString (fileName : string) dataString =
+                Array.concat [System.Text.Encoding.ASCII.GetBytes fileName; ","B; dataString]
 
             /// Produce the full data strings necessary for writing the three different files
             /// to the machine, given the encoded segment to extract the data from.
             let toEncodedSegmentFiles (segment : Segment) =
-                let encodedsegment = toEncodedSegment segment
-                let waveformFileName = makeWaveformFileString encodedsegment.Name
-                let markerFileName   = makeMarkerFileString   encodedsegment.Name
-                let headerFileName   = makeHeaderFileString   encodedsegment.Name
+                let encodedSegment = toEncodedSegment segment
+                let waveformFileName = waveformFileString encodedSegment.Name
+                let markerFileName   = markerFileString   encodedSegment.Name
+                let headerFileName   = headerFileString   encodedSegment.Name
                 let segmentDataString =
-                    encodedsegment.IQ
-                    |> reverseConcatenateToArray
-                    |> makeDataString
+                    encodedSegment.IQ
+                    |> List.rev
+                    |> List.reduce Array.append
+                    |> dataString
                 let markerDataString =
-                    encodedsegment.Markers
-                    |> reverseToArray
-                    |> makeDataString
+                    encodedSegment.Markers
+                    |> List.rev
+                    |> Array.ofList
+                    |> dataString
                 // TODO: fix header data string
                 let headerDataString = "#10"B
 
@@ -193,71 +159,33 @@ module Waveform =
             let headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
 
             /// Create an internal stored segment representation
-            let toStoredSegment (segment : Segment) =
-                StoredSegment segment.Name
-
+            let toStoredSegment (segment : Segment) = StoredSegment segment.Name
             /// Create and internal stored sequence representation
-            let toStoredSequence (sequence : Sequence) =
-                StoredSequence sequence.Name
-
-            /// Make an ASCII string out of an object's ToString() method
-            let toASCIIString obj =
-                obj.ToString() |> Text.Encoding.ASCII.GetBytes
-            /// Get the ASCII string of a segment's ID
-            let getSegmentASCIIString (segment : Segment) =
-                segment.Name
-                |> extractSegmentId
-                |> toASCIIString
-            /// Get the ASCII string representation of a StoredSegment
-            let getStoredSegmentASCIIString (StoredSegment id) =
-                id
-                |> extractSegmentId
-                |> Text.Encoding.ASCII.GetBytes
-            /// Get the ASCII string representation of a StoredSequence
-            let getStoredSequenceASCIIString (StoredSequence id) =
-                id
-                |> extractSequenceId
-                |> Text.Encoding.ASCII.GetBytes
-
-            /// Get the full file name of a waveform file from the short name stored in the
-            /// StoredSegment.  For example, if the StoredSegment name is "test", then this
-            /// function returns "\"WFM1:test\""B
-            let fullWaveformFileName (segment : StoredSegment) =
-                segment
-                |> getStoredSegmentASCIIString
-                |> makeWaveformFileString
-
-            /// Get the full file name of a sequence file from the short name stored in the
-            /// StoredSequence.  For example, if the StoredSequence name is "test", then this
-            /// function returns "\"SEQ:test\""B
-            let fullSequenceFileName (sequence : StoredSequence) =
-                sequence
-                |> getStoredSequenceASCIIString
-                |> makeSequenceFileString
+            let toStoredSequence (sequence : Sequence) = StoredSequence sequence.Name
 
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions
-            let private makeASCIISequenceElement =
-                function
-                | Segment (segment, reps)   -> (fullWaveformFileName segment,  toASCIIString reps)
-                | Sequence (sequence, reps) -> (fullSequenceFileName sequence, toASCIIString reps)
+            let private asciiSequenceElement = function
+                | Segment (segment, reps)   -> (storedSegmentFilename segment,  asciiString reps)
+                | Sequence (sequence, reps) -> (storedSequenceFilename sequence, asciiString reps)
 
             /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B
             let private toEncodedSequenceElement (element : SequenceElement) =
-                let (name, reps) = makeASCIISequenceElement element
-                Array.concat [ name ; ","B ; reps ; ",ALL"B ]
+                let (name, reps) = asciiSequenceElement element
+                Array.concat [ System.Text.Encoding.ASCII.GetBytes name ; ","B ; reps ; ",ALL"B ]
 
             /// Encode a whole sequence in an EncodedSequence
             let sequenceDataString (sequence : Sequence) =
                 let name =
                     sequence.Name
                     |> extractSequenceId
-                    |> Text.Encoding.ASCII.GetBytes
+                    |> sequenceFileString
+                    |> System.Text.Encoding.ASCII.GetBytes
                 sequence.Sequence
                 |> List.map toEncodedSequenceElement
                 |> List.map (Array.append ","B) // actually prepends ','B, but we want this
                 |> List.reduce Array.append
-                |> Array.append (makeSequenceFileString name)
+                |> Array.append name
 
         /// Functions for decoding segment and sequence data received from the machine
         [<AutoOpen>]
@@ -294,10 +222,7 @@ module Waveform =
 
             /// Decode an encoded segment back into the internal representation of the segment
             let private toSegment (encodedSegment : EncodedSegment) =
-                let name =
-                    encodedSegment.Name
-                    |> Text.Encoding.UTF8.GetString
-                    |> SegmentId
+                let name = encodedSegment.Name |> SegmentId
                 let data =
                     List.map2 toSample encodedSegment.IQ encodedSegment.Markers
                     |> List.rev
@@ -396,10 +321,10 @@ module Waveform =
         let private deleteFileKey = ":MMEM:DEL:NAME"
         /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
-        let deleteStoredSegment = IO.setBytesValue fullWaveformFileName deleteFileKey
+        let deleteStoredSegment = IO.setValue storedSegmentFilename deleteFileKey
         /// Delete a sequence from the machine's internal data storage (the usual storage
         /// location).
-        let deleteStoredSequence = IO.setBytesValue fullSequenceFileName deleteFileKey
+        let deleteStoredSequence = IO.setValue storedSequenceFilename deleteFileKey
 
         /// Key to store sequences to the machine.
         /// Command reference p.345
@@ -417,9 +342,9 @@ module Waveform =
         /// Command reference p.355
         let private selectArbFileKey = ":RAD:ARB:WAV"
         /// Select a segment file on the machine
-        let selectSegment = IO.setBytesValue fullWaveformFileName selectArbFileKey
+        let selectSegment = IO.setValue storedSegmentFilename selectArbFileKey
         /// Select a sequence file on the machine
-        let selectSequence = IO.setBytesValue fullSequenceFileName selectArbFileKey
+        let selectSequence = IO.setValue storedSequenceFilename selectArbFileKey
 
         /// Key related to the state of the dual ARB player on the machine. Needs the output
         /// state to also be on before it will start to play.

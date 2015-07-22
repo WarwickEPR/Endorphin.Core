@@ -232,7 +232,7 @@ module RfPulse =
             let getPendingSequenceASCIIString (sequence : PendingSequence) =
                 sequence.Name
                 |> extractSequenceId
-                |> toASCIIString
+                |> asciiString
 
             /// Expand a (Sample * SampleCount) into a sequence of repeating samples
             let private expandSampleReps (sample, SampleCount reps) =

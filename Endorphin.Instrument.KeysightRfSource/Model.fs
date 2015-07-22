@@ -265,7 +265,7 @@ module Model =
                 /// Internal record of an entire recorded segment before being transformed into
                 /// machine-readable strings.  Lists are in reverse order for speed.
                 type EncodedSegment = {
-                    Name    : byte []
+                    Name    : string
                     IQ      : EncodedIQ list
                     Markers : EncodedMarkers list }
 
