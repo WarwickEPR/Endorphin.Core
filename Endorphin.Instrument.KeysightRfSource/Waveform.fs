@@ -131,10 +131,10 @@ module Waveform =
             /// to the machine, given the encoded segment to extract the data from.
             let toEncodedSegmentFiles (segment : Segment) =
                 let encodedSegment = toEncodedSegment segment
-                let waveformFileName = waveformFileString encodedSegment.Name
-                let markerFileName   = markerFileString   encodedSegment.Name
-                let headerFileName   = headerFileString   encodedSegment.Name
-                let segmentDataString =
+                let waveformFilename = waveformFileString encodedSegment.Name
+                let markerFilename   = markerFileString   encodedSegment.Name
+                let headerFilename   = headerFileString   encodedSegment.Name
+                let waveformDataString =
                     encodedSegment.IQ
                     |> List.rev
                     |> List.reduce Array.append
@@ -147,9 +147,9 @@ module Waveform =
                 // TODO: fix header data string
                 let headerDataString = "#10"B
 
-                { Waveform = dataStorageString  waveformFileName segmentDataString
-                  Markers  = dataStorageString  markerFileName   markerDataString
-                  Header   = dataStorageString  headerFileName   headerDataString }
+                { Waveform = dataStorageString  waveformFilename waveformDataString
+                  Markers  = dataStorageString  markerFilename   markerDataString
+                  Header   = dataStorageString  headerFilename   headerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine
             let waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
