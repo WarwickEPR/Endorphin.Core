@@ -383,8 +383,8 @@ module Model =
 
         [<AutoOpen>]
         module Control =
-
-            type StoredExperimentId = StoredExperimentId of SequenceId
+            /// The id of a stored experiment
+            type StoredExperimentId = StoredExperimentId of StoredSequence
 
             /// The data associated with a stored experiment - its name and dependencies
             type StoredExperiment = {
