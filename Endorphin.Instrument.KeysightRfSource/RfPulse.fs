@@ -17,7 +17,7 @@ module RfPulse =
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
         /// for use in the compilation step.
         [<AutoOpen>]
-        module private Verify =
+        module private Metadata =
             /// Check if a particular pulse is an RF pulse or not
             let private isRfPulse = function
                 | Rf _ -> true
@@ -67,7 +67,7 @@ module RfPulse =
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
-            let verify (Experiment (pulses, reps)) = choice {
+            let metadata (Experiment (pulses, reps)) = choice {
                 // Check that there's a non-zero number of experiment repetitions
                 do! if reps = 0us then fail "Must do the experiment at least once!" else succeed ()
                 let  rfPulses     = pulses |> Seq.filter isRfPulse
@@ -314,7 +314,7 @@ module RfPulse =
 
             /// Encode an experiment into a writeable form
             let toEncodedExperiment threshold experiment = choice {
-                let! verified = experiment |> verify
+                let! verified = experiment |> metadata
                 return
                     verified
                     |> compile
