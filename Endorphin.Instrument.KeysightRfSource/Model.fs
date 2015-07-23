@@ -265,7 +265,7 @@ module Model =
                 /// Internal record of an entire recorded segment before being transformed into
                 /// machine-readable strings.  Lists are in reverse order for speed.
                 type EncodedSegment = {
-                    Name    : byte []
+                    Name    : string
                     IQ      : EncodedIQ list
                     Markers : EncodedMarkers list }
 
@@ -383,8 +383,8 @@ module Model =
 
         [<AutoOpen>]
         module Control =
-
-            type StoredExperimentId = StoredExperimentId of SequenceId
+            /// The id of a stored experiment
+            type StoredExperimentId = StoredExperimentId of StoredSequence
 
             /// The data associated with a stored experiment - its name and dependencies
             type StoredExperiment = {

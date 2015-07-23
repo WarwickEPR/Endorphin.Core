@@ -232,7 +232,7 @@ module RfPulse =
             let getPendingSequenceASCIIString (sequence : PendingSequence) =
                 sequence.Name
                 |> extractSequenceId
-                |> toASCIIString
+                |> asciiString
 
             /// Expand a (Sample * SampleCount) into a sequence of repeating samples
             let private expandSampleReps (sample, SampleCount reps) =
@@ -339,10 +339,6 @@ module RfPulse =
     [<AutoOpen>]
     module Control =
         open Translate
-
-        /// Get the SequenceId of a stored sequence
-        let private getStoredSequenceId (StoredSequence sequence) = sequence
-
         /// Store an experiment onto the machine as a set of necessary sequences and samples
         let storeExperiment instrument threshold experiment = asyncChoice {
             let! encoded = toEncodedExperiment threshold experiment
@@ -355,11 +351,20 @@ module RfPulse =
                 encoded.Experiment
                 |> toRegularSequence
                 |> storeSequence instrument
-            let storedExperiment =
-                storedExperimentAsSequence
-                |> getStoredSequenceId
-                |> StoredExperimentId
+            let storedExperiment = StoredExperimentId storedExperimentAsSequence
             return {
                 StoredExperiment = storedExperiment
                 StoredSegments   = storedSegments
                 StoredSequences  = storedSequences } }
+
+        /// Play a stored experiment on the machine
+        let playStoredExperiment instrument experiment = asyncChoice {
+            let sequence = experiment |> experimentToStoredSequence
+            do! playStoredSequence instrument sequence }
+
+        /// Store an experiment on the machine, then begin playing it as soon as possible. Returns
+        /// the stored experiment
+        let playExperiment instrument threshold experiment = asyncChoice {
+            let! stored = storeExperiment instrument threshold experiment
+            do! playStoredExperiment instrument stored
+            return stored }

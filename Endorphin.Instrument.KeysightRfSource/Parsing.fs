@@ -97,3 +97,63 @@ module internal Parsing =
         | Triangle -> "TRI"
         | Square   -> "SQU"
         | Ramp _   -> "RAMP"
+
+    /// Make an ASCII string out of an object's ToString() method
+    let asciiString obj =
+        obj.ToString() |> System.Text.Encoding.ASCII.GetBytes
+
+    /// String of the folder location for waveforms
+    let private waveformFolder = "WFM1:"
+    /// String of the folder location for markers
+    let private markerFolder   = "MKR1:"
+    /// String of the folder location for headers
+    let private headerFolder   = "HDR1:"
+    /// String of the folder location for sequences
+    let private sequenceFolder = "SEQ:"
+
+    /// Build up a full file name string for storing a file
+    let private fileNameString folder name = String.concat "" ["\""; folder; name; "\""]
+
+    /// Total filename string for a waveform file
+    let waveformFileString name = fileNameString waveformFolder name
+    /// Total filename string for a markers file
+    let markerFileString name = fileNameString markerFolder name
+    /// Total filename string for a header file
+    let headerFileString name = fileNameString headerFolder name
+    /// Total filename string for a sequence file
+    let sequenceFileString name = fileNameString sequenceFolder name
+
+    /// Get the string representation of a SegmentId
+    let extractSegmentId (SegmentId id) = id
+    /// Get the string representation of a SequenceId
+    let extractSequenceId (SequenceId id) = id
+    /// Get the string representation of a StoredSegment
+    let extractStoredSegmentId (StoredSegment id) = id |> extractSegmentId
+    /// Get the string representation of a StoredSequence
+    let extractStoredSequenceId (StoredSequence id) = id |> extractSequenceId
+
+    /// Convert a stored experiment ID into a StoredSequence ID
+    let experimentIdToSequenceId (StoredExperimentId id) = id
+    /// Get the sequence ID of a stored experiment
+    let experimentToStoredSequence experiment = experiment.StoredExperiment |> experimentIdToSequenceId
+    /// Get the string representation of a StoredExperiment's ID
+    let extractStoredExperimentId experiment =
+        experiment
+        |> experimentToStoredSequence
+        |> extractStoredSequenceId
+
+    /// Get the full file name of a waveform file from the short name stored in the
+    /// StoredSegment.  For example, if the StoredSegment name is "test", then this
+    /// function returns "\"WFM1:test\""B
+    let storedSegmentFilename (segment : StoredSegment) =
+        segment
+        |> extractStoredSegmentId
+        |> waveformFileString
+
+    /// Get the full file name of a sequence file from the short name stored in the
+    /// StoredSequence.  For example, if the StoredSequence name is "test", then this
+    /// function returns "\"SEQ:test\""B
+    let storedSequenceFilename (sequence : StoredSequence) =
+        sequence
+        |> extractStoredSequenceId
+        |> sequenceFileString
