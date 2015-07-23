@@ -11,8 +11,12 @@ module RfPulse =
         /// Create a hash of an object as a hexadecimal string 8 characters long
         let hexHash obj = sprintf "%08x" (hash obj)
 
-        /// Create a sequence with n copies of the original sequence concatenated
-        let private makeSequenceCopies n sequence = seq { for _ in 1 .. n do yield! sequence }
+        /// Create a list with n copies of the original list concatenated
+        let private makeListCopies n list =
+            let rec loop list acc = function
+                | 0 -> acc
+                | i -> loop list (list @ acc) (i - 1)
+            loop list [] n
 
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
         /// for use in the compilation step.
@@ -41,14 +45,13 @@ module RfPulse =
 
             /// Check that the length of all the phase cycles in a sequence of pulses are the same.
             /// If they are, then return that number.  If not, then return a failure.
-            let private checkPhaseCycles pulses = choice {
+            let private checkPhaseCycles (pulses : List<Pulse>) = choice {
                 let! length =
-                    pulses
-                    |> Seq.head
+                    pulses.Head
                     |> rfPulseCycleLength
                     |> nonZero
                 return!
-                    if Seq.exists (incorrectCycleLength length) pulses then
+                    if List.exists (incorrectCycleLength length) pulses then
                         fail "Not all phase cycles are the same length"
                     else
                         succeed length }
@@ -70,19 +73,20 @@ module RfPulse =
             let metadata (Experiment (pulses, reps)) = choice {
                 // Check that there's a non-zero number of experiment repetitions
                 do! if reps = 0us then fail "Must do the experiment at least once!" else succeed ()
-                let  rfPulses     = pulses |> Seq.filter isRfPulse
+                let  pulses'  = List.ofSeq pulses
+                let  rfPulses = pulses' |> List.filter isRfPulse
                 let! rfPhaseCount =
-                    if rfPulses |> Seq.length = 0 then
+                    if rfPulses.Length = 0 then
                         succeed None
                     else
                         rfPulses
                         |> checkPhaseCycles
                         |> liftOption
                 return {
-                    Pulses = Seq.map toVerifiedPulse pulses
+                    Pulses = List.map toVerifiedPulse pulses'
                     Metadata =
                     { ExperimentRepetitions = int reps
-                      PulsesCount = Seq.length pulses
+                      PulsesCount = pulses'.Length
                       RfPhaseCount = rfPhaseCount } } }
 
         /// Functions for compiling experiments into a form which can be more easily compressed
@@ -113,8 +117,8 @@ module RfPulse =
                 | Some n ->
                     let pulses =
                         experiment.Pulses
-                        |> makeSequenceCopies n
-                        |> Seq.mapi (chooseCorrectPhase experiment.Metadata.PulsesCount)
+                        |> makeListCopies n
+                        |> List.mapi (chooseCorrectPhase experiment.Metadata.PulsesCount)
                     { experiment with Pulses = pulses}
 
             /// Get the new duration in SampleCount for the nth repetition
@@ -146,8 +150,8 @@ module RfPulse =
                     | None -> experiment.Metadata.PulsesCount
                 let pulses =
                     experiment.Pulses
-                    |> makeSequenceCopies reps
-                    |> Seq.mapi (chooseCorrectDuration pulsesPerRep)
+                    |> makeListCopies reps
+                    |> List.mapi (chooseCorrectDuration pulsesPerRep)
                 { experiment with Pulses = pulses }
 
             /// Convert an experiment with pulses, increments and a phase cycle into a list of
@@ -177,7 +181,7 @@ module RfPulse =
                 experiment
                 |> expandVariables
                 |> pulseSequence
-                |> Seq.map toStaticPulse
+                |> List.map toStaticPulse
 
             /// A phase for use when we don't care what the phase actually is
             let private noPhase = PhaseInRad 0.0<rad>
@@ -192,16 +196,13 @@ module RfPulse =
             /// Add two SampleCounts together
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
 
-            /// Given a seq of samples and their durations, group any adjaacent samples which are
+            /// Given a list of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly
             // TODO: de-ugly this
             let private groupEqualSamples samples =
                 let rec loop list acc =
                     match list with
-                    | [] ->
-                        acc
-                        |> List.rev
-                        |> Seq.ofList
+                    | [] -> acc |> List.rev
                     | x :: xs ->
                         match acc with
                         | [] -> loop xs [x]
@@ -209,12 +210,12 @@ module RfPulse =
                             let acc' = (fst y, addDurations x y) :: ys
                             loop xs acc'
                         | _ -> loop xs (x :: acc)
-                loop (List.ofSeq samples) []
+                loop samples []
 
             /// Convert a list of static pulses into a list of samples
             let private toSamples pulses =
                 pulses
-                |> Seq.map expandStaticPulse
+                |> List.map expandStaticPulse
                 |> groupEqualSamples
 
             /// Compile an experiment into a direct list of samples which could (if they were written
@@ -234,59 +235,34 @@ module RfPulse =
                 |> extractSequenceId
                 |> asciiString
 
-            /// Expand a (Sample * SampleCount) into a sequence of repeating samples
-            let private expandSampleReps (sample, SampleCount reps) =
-                seq { for _ in 1 .. reps -> sample }
-
             /// Make a segment ID by hashing the samples
             let private makeSegmentName (samples : SegmentData) =
                 samples
                 |> hexHash
                 |> SegmentId
 
-            /// Make an initial compressed experiment - does not do any compression, just converts
-            /// the compiled experiment into the compressed type.
-            let private toCompressedExperiment (CompiledExperiment compiled) =
-                let segment = {
-                    Data = Seq.collect expandSampleReps compiled
-                    FullyCompressed = false }
-                let id = makeSegmentName segment.Data
-                { Segments = Map.add id segment Map.empty
-                  Sequences = Map.empty
-                  SampleCount = Seq.length segment.Data
-                  FullyCompressed = false
-                  CompressedExperiment = [ PendingSegment (id, 1us) ] }
-
-            /// Perform a single step of the compression
-            let private compressionStep (experiment : CompressedExperiment) =
-                { experiment with FullyCompressed = true }
-                // FLAWLESS COMPRESSION!!!
-
             /// Compress the experiment down until either
             /// a) fewer than than the threshold number of samples are to be written or
             /// b) the maximum compression is reached
-            let compress threshold compiled =
-                let rec loop compressed =
-                    let condition = compressed.SampleCount <= threshold
-                                    || compressed.FullyCompressed
-                    match condition with
-                    | true  -> compressed
-                    | false -> loop (compressionStep compressed)
-                loop (toCompressedExperiment compiled)
+            let compress compiled = {
+                Segments = Map.empty
+                Sequences = Map.empty
+                SampleCount = 0
+                CompressedExperiment = [] }
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
         [<AutoOpen>]
         module Encode =
             /// Zip a tupled segment back into an actual segment
-            let private zipSegment (id, compressed : CompressedData<SegmentData>) : Segment = {
+            let private zipSegment (id, compressed : SegmentData) : Segment = {
                 Name = id
-                Data = compressed.Data }
+                Data = compressed }
 
             /// Zip a tupled sequence back into an actual sequence
-            let private zipPendingSequence (id, compressed : CompressedData<PendingSequenceData>) = {
+            let private zipPendingSequence (id, compressed : PendingSequenceData) = {
                 Name = id
-                PendingSequence = compressed.Data }
+                PendingSequence = compressed }
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
@@ -300,12 +276,12 @@ module RfPulse =
             let private encode (compressed : CompressedExperiment) =
                 let segments =
                     compressed.Segments
-                    |> Map.toSeq
-                    |> Seq.map zipSegment
+                    |> Map.toList
+                    |> List.map zipSegment
                 let sequences =
                     compressed.Sequences
-                    |> Map.toSeq
-                    |> Seq.map zipPendingSequence
+                    |> Map.toList
+                    |> List.map zipPendingSequence
                 { Segments = segments
                   Sequences = sequences
                   Experiment =
@@ -313,12 +289,12 @@ module RfPulse =
                     PendingSequence = compressed.CompressedExperiment } }
 
             /// Encode an experiment into a writeable form
-            let toEncodedExperiment threshold experiment = choice {
+            let toEncodedExperiment experiment = choice {
                 let! verified = experiment |> metadata
                 return
                     verified
                     |> compile
-                    |> compress threshold
+                    |> compress
                     |> encode }
 
             /// Convert a pending sequence element to a regular sequence element.  Should not be
@@ -340,8 +316,8 @@ module RfPulse =
     module Control =
         open Translate
         /// Store an experiment onto the machine as a set of necessary sequences and samples
-        let storeExperiment instrument threshold experiment = asyncChoice {
-            let! encoded = toEncodedExperiment threshold experiment
+        let storeExperiment instrument experiment = asyncChoice {
+            let! encoded = toEncodedExperiment experiment
             let! storedSegments = storeSegmentSequence instrument encoded.Segments
             let! storedSequences =
                 encoded.Sequences
@@ -365,6 +341,6 @@ module RfPulse =
         /// Store an experiment on the machine, then begin playing it as soon as possible. Returns
         /// the stored experiment
         let playExperiment instrument threshold experiment = asyncChoice {
-            let! stored = storeExperiment instrument threshold experiment
+            let! stored = storeExperiment instrument experiment
             do! playStoredExperiment instrument stored
             return stored }

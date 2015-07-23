@@ -43,7 +43,7 @@ let experiment = Experiment (pulses, 1us)
 asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
 
-    let! storedExperiment = storeExperiment keysight 10000000 experiment
+    let! storedExperiment = storeExperiment keysight experiment
     printfn "%A" storedExperiment
 
     (*

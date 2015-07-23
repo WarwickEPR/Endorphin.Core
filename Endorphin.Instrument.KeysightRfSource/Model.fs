@@ -222,7 +222,7 @@ module Model =
 
         /// The data portion of a Segment
         // Can just be a type alias, but allows nice semantic use in Map<>
-        type SegmentData = Sample seq
+        type SegmentData = Sample list
 
         /// A single segment in the machine.  Must be at least 60 samples long
         type Segment = {
@@ -328,7 +328,7 @@ module Model =
 
                 /// An experiment after it has been passed through the user-input verifier.
                 type VerifiedExperiment = {
-                    Pulses : VerifiedPulse seq
+                    Pulses : VerifiedPulse list
                     Metadata : ExperimentMetadata }
 
             // No need for type aliases here because there's no other step which uses similar types
@@ -342,7 +342,7 @@ module Model =
 
             /// A list of samples and their repetitions, which could be easily written onto the
             /// machine, but likely with a lot of redundancy.
-            type CompiledExperiment = CompiledExperiment of (Sample * SampleCount) seq
+            type CompiledExperiment = CompiledExperiment of (Sample * SampleCount) list
 
             /// An element of a sequence where the dependencies are not yet written to the machine.
             /// Elements may still be pending writing, and not available for playback yet.  This should
@@ -361,24 +361,17 @@ module Model =
                 Name : SequenceId
                 PendingSequence : PendingSequenceData }
 
-            /// Container type for data and a boolean flag to represent whether or not it has been
-            /// fully compressed
-            type CompressedData<'T> = {
-                Data : 'T
-                FullyCompressed : bool }
-
             /// An experiment inside the compression step
             type CompressedExperiment = {
-                Segments : Map<SegmentId, CompressedData<SegmentData>>
-                Sequences : Map<SequenceId, CompressedData<PendingSequenceData>>
+                Segments : Map<SegmentId, SegmentData>
+                Sequences : Map<SequenceId, PendingSequenceData>
                 SampleCount : int
-                FullyCompressed : bool
                 CompressedExperiment : PendingSequenceData }
 
             /// An assembled experiment, ready for storing onto the machine
             type EncodedExperiment = {
-                Segments : Segment seq
-                Sequences : PendingSequence seq
+                Segments : Segment list
+                Sequences : PendingSequence list
                 Experiment : PendingSequence }
 
         [<AutoOpen>]

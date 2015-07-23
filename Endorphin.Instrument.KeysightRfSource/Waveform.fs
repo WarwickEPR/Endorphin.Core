@@ -220,7 +220,6 @@ module Waveform =
                 let data =
                     List.map2 toSample encodedSegment.IQ encodedSegment.Markers
                     |> List.rev
-                    |> List.toSeq
                 { Segment.Name = name
                   Segment.Data = data }
 
