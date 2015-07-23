@@ -219,13 +219,20 @@ module RfPulse =
                 |> List.map expandStaticPulse
                 |> groupEqualSamples
 
+            /// Count the number of pulses in the experiment, and return the completed CompiledExperiment
+            let private toCompiledExperiment list =
+                let rec loop n = function
+                    | [] -> n
+                    | (_, SampleCount dur) :: tail -> loop (n+dur) tail
+                { Data = list; Length = loop 0 list }
+
             /// Compile an experiment into a direct list of samples which could (if they were written
             /// into one segment of a storable size) play back the entire experiment.
             let compile experiment =
                 experiment
                 |> toStaticPulses
                 |> toSamples
-                |> CompiledExperiment
+                |> toCompiledExperiment
 
         /// Functions to compress streams of pulses into waveform and sequence files
         [<AutoOpen>]
@@ -246,8 +253,8 @@ module RfPulse =
                     BitConverter.GetBytes sample.Markers.M3
                     BitConverter.GetBytes sample.Markers.M4 ]
 
-            /// Make a segment ID by hashing the samples
-            let private makeSegmentName (samples : SegmentData) =
+            /// Make a segment name string by hashing the samples
+            let private hashSegment (samples : SegmentData) =
                 samples
                 |> List.map sampleToByteArray
                 |> List.fold Array.append [||]
@@ -260,10 +267,82 @@ module RfPulse =
                 SampleCount = 0
                 CompressedExperiment = [] }
 
+            /// Split a compiled experiment into a head of SegmentData, and a tail of
+            /// CompiledExperiment, based on the passed number of samples to pick
+            // TODO: rather ugly
+            let private splitCompiledExperiment n compiled : (SegmentData * CompiledExperiment) =
+                let rec loop list acc = function
+                    | 0 -> List.rev acc, { Data = list; Length = compiled.Length - n }
+                    | i ->
+                        let (head, tail) = List.take 1 list
+                        let (sample, SampleCount dur) = List.exactlyOne head
+                        if dur = 1 then
+                            loop tail (sample::acc) (i-1)
+                        else
+                            loop ((sample, SampleCount (dur-1))::tail) (sample::acc) (i-1)
+                loop compiled.Data [] n
+
+            /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
+            /// of the experiment
+            let private splitCompiledAtNextSegment compiled =
+                let segmentLength = if compiled.Length < 120 then compiled.Length else 60
+                splitCompiledExperiment segmentLength compiled
+
+            /// Get the last segment ID from a sequence element.  Current compression doesn't create
+            /// any subsequences, so if we find one, something has gone very wrong!
+            let private lastSegmentIdFromSequenceElement = function
+                | PendingSegment (SegmentId id, _) -> id
+                | _ -> failwith "Compression doesn't support writing subsequences in experiments"
+
+            /// Find the most recent SegmentId - during the compression, the most recent one is
+            /// first in the list, since the list is built up in reverse order
+            let private lastSegmentId compressed =
+                match List.tryHead compressed.CompressedExperiment with
+                | None -> None
+                | Some s -> Some (lastSegmentIdFromSequenceElement s)
+
+            /// Increase the number of reps on the last segment in a CompressedExperiment
+            let private increaseLastSegmentReps compressed =
+                let data =
+                    match compressed.CompressedExperiment with
+                    | PendingSegment (id, count) :: tail ->
+                        if count = UInt16.MaxValue then
+                            PendingSegment (id, 1us) :: compressed.CompressedExperiment
+                        else
+                            PendingSegment (id, count + 1us) :: tail
+                    | _ -> failwith "Compression doesn't support writing subsequences in experiments"
+                { compressed with CompressedExperiment = data }
+
+            /// Prepend a different segment onto the passed compressed experiment.
+            // Map.add is safe even if the segment already exists because it just doesn't do
+            // anything in that case.
+            let private consDifferentSegment id samples (compressed : CompressedExperiment) =
+                { Segments = Map.add id samples compressed.Segments
+                  Sequences = compressed.Sequences
+                  SampleCount = compressed.SampleCount + samples.Length
+                  CompressedExperiment =
+                      (PendingSegment (SegmentId id, 1us)) :: compressed.CompressedExperiment }
+
+            /// Prepend some SegmentData onto a CompressedExperiment
+            let private consToExperiment compressed samples =
+                let id = hashSegment samples
+                if Some id = lastSegmentId compressed then
+                    increaseLastSegmentReps compressed
+                else
+                    consDifferentSegment id samples compressed
+
+            /// One step in the compression
+            let rec private compressionLoop output input =
+                match input.Length with
+                | 0 ->
+                    { output with CompressedExperiment = List.rev output.CompressedExperiment }
+                | _ ->
+                    let (segment, input') = splitCompiledAtNextSegment input
+                    let output' = consToExperiment output segment
+                    compressionLoop output' input'
+
             /// Compress the experiment down using a basic 60-sample dictionary method
-            let compress compiled =
-                let empty = emptyCompressedExperiment
-                empty
+            let compress = compressionLoop emptyCompressedExperiment
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
