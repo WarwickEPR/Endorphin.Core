@@ -237,12 +237,6 @@ module RfPulse =
         /// Functions to compress streams of pulses into waveform and sequence files
         [<AutoOpen>]
         module private Compress =
-            /// Get the ASCII string representation of a PendingSequence's id
-            let getPendingSequenceASCIIString (sequence : PendingSequence) =
-                sequence.Name
-                |> extractSequenceId
-                |> asciiString
-
             /// Convert a sample into an array of bytes
             let private sampleToByteArray sample =
                 Array.concat [
@@ -276,10 +270,10 @@ module RfPulse =
                     | i ->
                         let (head, tail) = List.take 1 list
                         let (sample, SampleCount dur) = List.exactlyOne head
-                        if dur = 1 then
-                            loop tail (sample::acc) (i-1)
+                        if i >= dur then
+                            loop tail (sample::acc) (i - dur)
                         else
-                            loop ((sample, SampleCount (dur-1))::tail) (sample::acc) (i-1)
+                            loop ((sample, SampleCount (dur - i))::tail) (sample::acc) 0
                 loop compiled.Data [] n
 
             /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
@@ -444,7 +438,7 @@ module RfPulse =
 
         /// Store an experiment on the machine, then begin playing it as soon as possible. Returns
         /// the stored experiment
-        let playExperiment instrument threshold experiment = asyncChoice {
+        let playExperiment instrument experiment = asyncChoice {
             let! stored = storeExperiment instrument experiment
             do! playStoredExperiment instrument stored
             return stored }
