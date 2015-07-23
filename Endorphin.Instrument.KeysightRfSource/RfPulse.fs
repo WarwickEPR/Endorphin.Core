@@ -4,12 +4,13 @@ open ExtCore.Control
 open Waveform
 open CRC
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open System
 
 module RfPulse =
     /// Functions for translating human-readable experiment data into a machine-readable form
     module internal Translate =
-        /// Create a hash of an object as a hexadecimal string 8 characters long
-        let hexHash obj = sprintf "%08x" (hash obj)
+        /// Create a hash of a byte array as a hexadecimal string 16 characters long
+        let hexHash arr = sprintf "%016x" (crc64 arr)
 
         /// Create a list with n copies of the original list concatenated
         let private makeListCopies n list =
@@ -235,20 +236,35 @@ module RfPulse =
                 |> extractSequenceId
                 |> asciiString
 
+            /// Convert a sample into an array of bytes
+            let private sampleToByteArray sample =
+                Array.concat [
+                    BitConverter.GetBytes sample.I
+                    BitConverter.GetBytes sample.Q
+                    BitConverter.GetBytes sample.Markers.M1
+                    BitConverter.GetBytes sample.Markers.M2
+                    BitConverter.GetBytes sample.Markers.M3
+                    BitConverter.GetBytes sample.Markers.M4 ]
+
             /// Make a segment ID by hashing the samples
             let private makeSegmentName (samples : SegmentData) =
                 samples
+                |> List.map sampleToByteArray
+                |> List.fold Array.append [||]
                 |> hexHash
                 |> SegmentId
 
-            /// Compress the experiment down until either
-            /// a) fewer than than the threshold number of samples are to be written or
-            /// b) the maximum compression is reached
-            let compress compiled = {
+            /// An empty compressed experiment, ready to be added to
+            let private emptyCompressedExperiment = {
                 Segments = Map.empty
                 Sequences = Map.empty
                 SampleCount = 0
                 CompressedExperiment = [] }
+
+            /// Compress the experiment down using a basic 60-sample dictionary method
+            let compress compiled =
+                let empty = emptyCompressedExperiment
+                empty
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
@@ -264,10 +280,20 @@ module RfPulse =
                 Name = id
                 PendingSequence = compressed }
 
+            /// Convert a PendingSequence element into a byte array of the name followed by the
+            /// number of repetitions
+            let private elementToByteArray = function
+                | PendingSegment (SegmentId name, reps) ->
+                    Array.concat [Text.Encoding.ASCII.GetBytes name; BitConverter.GetBytes reps]
+                | PendingSequence (SequenceId name, reps) ->
+                    Array.concat [Text.Encoding.ASCII.GetBytes name; BitConverter.GetBytes reps]
+
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
             let private makeExperimentName (compressed : CompressedExperiment) =
-                compressed
+                compressed.CompressedExperiment
+                |> List.map elementToByteArray
+                |> List.fold Array.append [||]
                 |> hexHash
                 |> SequenceId
 
