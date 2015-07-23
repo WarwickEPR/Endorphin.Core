@@ -252,7 +252,6 @@ module RfPulse =
                 |> List.map sampleToByteArray
                 |> List.fold Array.append [||]
                 |> hexHash
-                |> SegmentId
 
             /// An empty compressed experiment, ready to be added to
             let private emptyCompressedExperiment = {
@@ -272,12 +271,12 @@ module RfPulse =
         module Encode =
             /// Zip a tupled segment back into an actual segment
             let private zipSegment (id, compressed : SegmentData) : Segment = {
-                Name = id
+                Name = SegmentId id
                 Data = compressed }
 
             /// Zip a tupled sequence back into an actual sequence
             let private zipPendingSequence (id, compressed : PendingSequenceData) = {
-                Name = id
+                Name = SequenceId id
                 PendingSequence = compressed }
 
             /// Convert a PendingSequence element into a byte array of the name followed by the

@@ -363,8 +363,8 @@ module Model =
 
             /// An experiment inside the compression step
             type CompressedExperiment = {
-                Segments : Map<SegmentId, SegmentData>
-                Sequences : Map<SequenceId, PendingSequenceData>
+                Segments : Map<string, SegmentData>
+                Sequences : Map<string, PendingSequenceData>
                 SampleCount : int
                 CompressedExperiment : PendingSequenceData }
 
