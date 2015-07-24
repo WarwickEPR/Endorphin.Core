@@ -222,7 +222,7 @@ module Model =
 
         /// The data portion of a Segment
         // Can just be a type alias, but allows nice semantic use in Map<>
-        type SegmentData = Sample list
+        type SegmentData = Sample array
 
         /// A single segment in the machine.  Must be at least 60 samples long
         type Segment = {
@@ -252,29 +252,19 @@ module Model =
         module internal Translate =
             [<AutoOpen>]
             module Encode =
-                /// A four-byte array for each encoded IQ point
-                type EncodedIQ = byte []
-                /// A byte with the four markers encoded in
-                type EncodedMarkers = byte
-
-                /// A single point encoded into the four-byte array of IQ points and the marker byte
-                type EncodedSample = {
-                    IQ      : EncodedIQ
-                    Markers : EncodedMarkers }
-
                 /// Internal record of an entire recorded segment before being transformed into
                 /// machine-readable strings.  Lists are in reverse order for speed.
                 type EncodedSegment = {
-                    Name    : string
-                    IQ      : EncodedIQ list
-                    Markers : EncodedMarkers list }
+                    EncodedName    : string
+                    EncodedIQ      : byte array
+                    EncodedMarkers : byte array }
 
                 /// Segment data after it has been encoded, including the lengths and data indicator '#'.
                 /// Ready to write to machine.
                 type EncodedSegmentFiles = {
-                    Waveform : byte []
-                    Markers  : byte []
-                    Header   : byte [] }
+                    Waveform : byte array
+                    Markers  : byte array
+                    Header   : byte array }
 
     [<AutoOpen>]
     module RfPulse =

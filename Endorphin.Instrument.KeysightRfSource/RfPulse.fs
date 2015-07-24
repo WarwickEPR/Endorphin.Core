@@ -237,21 +237,11 @@ module RfPulse =
         /// Functions to compress streams of pulses into waveform and sequence files
         [<AutoOpen>]
         module private Compress =
-            /// Convert a sample into an array of bytes
-            let private sampleToByteArray sample =
-                Array.concat [
-                    BitConverter.GetBytes sample.I
-                    BitConverter.GetBytes sample.Q
-                    BitConverter.GetBytes sample.Markers.M1
-                    BitConverter.GetBytes sample.Markers.M2
-                    BitConverter.GetBytes sample.Markers.M3
-                    BitConverter.GetBytes sample.Markers.M4 ]
-
             /// Make a segment name string by hashing the samples
             let private hashSegment (samples : SegmentData) =
                 samples
-                |> List.map sampleToByteArray
-                |> List.fold Array.append [||]
+                |> toEncodedSegmentData
+                |> (fun (a, b) -> Array.append a b)
                 |> hexHash
 
             /// An empty compressed experiment, ready to be added to
@@ -265,19 +255,21 @@ module RfPulse =
             /// CompiledExperiment, based on the passed number of samples to pick
             // TODO: rather ugly
             let private splitCompiledExperiment n compiled : (SegmentData * CompiledExperiment) =
-                let rec loop list acc = function
-                    | 0 -> List.rev acc, { Data = list; Length = compiled.Length - n }
-                    | i ->
-                        let (head, tail) = List.take 1 list
-                        let (sample, SampleCount dur) = List.exactlyOne head
-                        let (list', taken) =
-                            if i >= dur then
-                                (tail, dur)
-                            else
-                                ((sample, SampleCount(dur-i))::tail, i)
-                        let acc' = [for _ in 1 .. taken -> sample] @ acc
-                        loop list' acc' (i - taken)
-                loop compiled.Data [] n
+                let data = Array.create n defaultIqSample
+                let rec loop list = function
+                    | 0 -> data, { Data = list; Length = compiled.Length - n }
+                    | rem ->
+                        match list with
+                        | [] -> failwith "Tried to read too many elements during compression!"
+                        | (sample, SampleCount dur) :: tail ->
+                            let (list', taken) =
+                                if rem >= dur then
+                                    (tail, dur)
+                                else
+                                    ((sample, SampleCount(dur-rem))::tail, rem)
+                            for j in (n-rem) .. ((n-rem)+taken - 1) do data.[j] <- sample
+                            loop list' (rem-taken)
+                loop compiled.Data n
 
             /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
             /// of the experiment
@@ -363,12 +355,26 @@ module RfPulse =
                 | PendingSequence (SequenceId name, reps) ->
                     Array.concat [Text.Encoding.ASCII.GetBytes name; BitConverter.GetBytes reps]
 
+            let private elementByteCount = function
+                | PendingSegment (SegmentId name, reps) ->
+                    (Text.Encoding.ASCII.GetByteCount name) + (BitConverter.GetBytes reps).Length
+                | PendingSequence (SequenceId name, reps) ->
+                    (Text.Encoding.ASCII.GetByteCount name) + (BitConverter.GetBytes reps).Length
+
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
             let private makeExperimentName (compressed : CompressedExperiment) =
-                compressed.CompressedExperiment
-                |> List.map elementToByteArray
-                |> List.fold Array.append [||]
+                let list = compressed.CompressedExperiment
+                let byteCount = elementByteCount list.Head
+                let arrLength = list.Length * byteCount
+                let array = Array.create arrLength 0uy
+                let rec loop n = function
+                    | [] -> array
+                    | el :: tail ->
+                        let elementArray = elementToByteArray el
+                        for i in 0 .. (byteCount-1) do array.[n*byteCount + i] <- elementArray.[i]
+                        loop (n+1) tail
+                loop 0 list
                 |> hexHash
                 |> SequenceId
 

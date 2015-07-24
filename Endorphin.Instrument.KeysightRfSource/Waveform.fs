@@ -11,7 +11,7 @@ module Waveform =
         /// A markers record with all markers turned off
         let noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
         /// Basic data form of IQ point
-        let defaultIQSample = {
+        let defaultIqSample = {
             Sample.I = 0s;
             Sample.Q = 0s;
             Sample.Markers = noMarkers }
@@ -57,7 +57,7 @@ module Waveform =
         let generateSample relativeAmplitude phase markers =
             let phaseAngle = phaseToRadians phase
             let amplitude = relativeAmplitude * float maximumMachineAmplitude
-            defaultIQSample
+            defaultIqSample
             |> withI (int16 (amplitude * Math.Cos phaseAngle))
             |> withQ (int16 (amplitude * Math.Sin phaseAngle))
             |> withMarkers markers
@@ -67,48 +67,43 @@ module Waveform =
     module internal Translate =
         [<AutoOpen>]
         module Encode =
-            /// Get the string form of a SegmentId
-            let extractSegmentId (SegmentId id) = id
-            /// Get the string form of a SequenceId
-            let extractSequenceId (SequenceId id) = id
-
             /// Make a marker byte out of the booleans in an IQ sample
             let private getMarkerByte (sample : Sample) =
                 ((Convert.ToByte sample.Markers.M4) <<< 3) ||| ((Convert.ToByte sample.Markers.M3) <<< 2)
                 ||| ((Convert.ToByte sample.Markers.M2) <<< 1) ||| (Convert.ToByte sample.Markers.M1)
 
-            /// Add a single encoded sample into an encoded segment
-            let private addEncodedSample (total : EncodedSegment) (sample : EncodedSample) =
-                { EncodedSegment.Name    = total.Name
-                  EncodedSegment.IQ      = sample.IQ :: total.IQ
-                  EncodedSegment.Markers = sample.Markers :: total.Markers }
-
-            /// Convert array of bytes to bigendian if necessary
-            let private toBigEndian bytes =
-                if BitConverter.IsLittleEndian then
-                    bytes |> Array.rev
-                else
-                    bytes
-
             /// Convert a 16-bit integer to an array of bytes in machine order
             let private toBytes (number : int16) =
-                number
-                |> BitConverter.GetBytes
-                |> toBigEndian
+                [| byte ((number &&& 0xFF00s) >>> 8) ; byte (number &&& 0xFFs) |]
 
-            /// Encode a single sample into the necessary byte patterns
-            let private toEncodedSample sample =
-                { EncodedSample.IQ      = Array.append (toBytes sample.I) (toBytes sample.Q)
-                  EncodedSample.Markers = getMarkerByte sample }
+            /// Get a four-byte array of the IQ data in the correct endianness
+            let private iqBytes sample =
+                let i = toBytes sample.I
+                let q = toBytes sample.Q
+                [| i.[0]; i.[1]; q.[0]; q.[1] |]
+
+            /// Create a tuple of iq, markers encoded as byte sequences
+            let toEncodedSegmentData (data : SegmentData) =
+                let sampleCount = data.Length
+                let iq = Array.create (sampleCount*4) 0uy
+                let markers = Array.create sampleCount 0uy
+                for i in 0 .. (sampleCount-1) do
+                    let singleIq = iqBytes data.[i]
+                    iq.[(4*i)]     <- singleIq.[0]
+                    iq.[(4*i) + 1] <- singleIq.[1]
+                    iq.[(4*i) + 2] <- singleIq.[2]
+                    iq.[(4*i) + 3] <- singleIq.[3]
+                    markers.[i]    <- getMarkerByte data.[i]
+                (iq, markers)
+
 
             /// Encode a segment into the necessary byte patterns
             let private toEncodedSegment (segment : Segment) =
-                let emptySegment = { Name = segment.Name |> extractSegmentId
-                                     IQ = []
-                                     Markers = [] }
-                segment.Data
-                |> Seq.map toEncodedSample
-                |> Seq.fold addEncodedSample emptySegment
+                let name = extractSegmentId segment.Name
+                let (iq, markers) = toEncodedSegmentData segment.Data
+                { EncodedName = name
+                  EncodedIQ = iq
+                  EncodedMarkers = markers }
 
             /// Make the data string, including the '#' character, the digits of length, the length
             /// and the data
@@ -131,19 +126,11 @@ module Waveform =
             /// to the machine, given the encoded segment to extract the data from.
             let toEncodedSegmentFiles (segment : Segment) =
                 let encodedSegment = toEncodedSegment segment
-                let waveformFilename = waveformFileString encodedSegment.Name
-                let markerFilename   = markerFileString   encodedSegment.Name
-                let headerFilename   = headerFileString   encodedSegment.Name
-                let waveformDataString =
-                    encodedSegment.IQ
-                    |> List.rev
-                    |> List.reduce Array.append
-                    |> dataString
-                let markerDataString =
-                    encodedSegment.Markers
-                    |> List.rev
-                    |> Array.ofList
-                    |> dataString
+                let waveformFilename = waveformFileString encodedSegment.EncodedName
+                let markerFilename   = markerFileString   encodedSegment.EncodedName
+                let headerFilename   = headerFileString   encodedSegment.EncodedName
+                let waveformDataString = dataString encodedSegment.EncodedIQ
+                let markerDataString   = dataString encodedSegment.EncodedMarkers
                 // TODO: fix header data string
                 let headerDataString = "#10"B
                 { Waveform = dataStorageString  waveformFilename waveformDataString
@@ -200,7 +187,7 @@ module Waveform =
                 (intI, intQ)
 
             /// Decompress the markers back into a 4-tuple of the 4 Boolean markers
-            let private getMarkers (markers : EncodedMarkers) =
+            let private getMarkers markers =
                 { M1 = Convert.ToBoolean(markers &&& 0x1uy)
                   M2 = Convert.ToBoolean(markers &&& 0x2uy)
                   M3 = Convert.ToBoolean(markers &&& 0x4uy)
@@ -213,15 +200,6 @@ module Waveform =
                 { I = I
                   Q = Q
                   Markers = markers }
-
-            /// Decode an encoded segment back into the internal representation of the segment
-            let private toSegment (encodedSegment : EncodedSegment) =
-                let name = encodedSegment.Name |> SegmentId
-                let data =
-                    List.map2 toSample encodedSegment.IQ encodedSegment.Markers
-                    |> List.rev
-                { Segment.Name = name
-                  Segment.Data = data }
 
             /// Test if two values are equal
             let private isEqual a b = (a = b)
