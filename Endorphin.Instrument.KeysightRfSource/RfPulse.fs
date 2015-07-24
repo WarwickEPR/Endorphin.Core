@@ -270,10 +270,13 @@ module RfPulse =
                     | i ->
                         let (head, tail) = List.take 1 list
                         let (sample, SampleCount dur) = List.exactlyOne head
-                        if i >= dur then
-                            loop tail (sample::acc) (i - dur)
-                        else
-                            loop ((sample, SampleCount (dur - i))::tail) (sample::acc) 0
+                        let (list', taken) =
+                            if i >= dur then
+                                (tail, dur)
+                            else
+                                ((sample, SampleCount(dur-i))::tail, i)
+                        let acc' = [for _ in 1 .. taken -> sample] @ acc
+                        loop list' acc' (i - taken)
                 loop compiled.Data [] n
 
             /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
