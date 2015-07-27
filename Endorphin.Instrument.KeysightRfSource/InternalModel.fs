@@ -29,13 +29,13 @@ module internal InternalModel =
             | VerifiedMarker of MarkerPulse
 
         /// Metadata about the experiment gathered during verification, for use during the
-        /// compilation step
+        /// compilation step.
         type ExperimentMetadata = {
-            /// How many times the experiment is repeated
+            /// How many times the experiment is repeated.
             ExperimentRepetitions : int
-            /// How many pulses there are per phase
+            /// How many pulses there are per phase.
             PulsesCount : int
-            /// How many phases there are in the phase cycle
+            /// How many phases there are in the phase cycle.
             RfPhaseCount : int option }
 
         /// An experiment after it has been passed through the user-input verifier.
@@ -45,7 +45,7 @@ module internal InternalModel =
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the
-        /// compilation of the experiment and optimisation phases
+        /// compilation of the experiment and optimisation phases.
         type StaticPulse =
             | StaticRf      of phase : Phase * duration : SampleCount
             | StaticDelay   of duration : SampleCount
@@ -65,7 +65,7 @@ module internal InternalModel =
             | PendingSegment of name : SegmentId * repetitions : uint16
             | PendingSequence of name : SequenceId * repetitions : uint16
 
-        /// The data portion of a pending sequence
+        /// The data portion of a pending sequence.
         type PendingSequenceData = PendingSequenceElement list
 
         /// A sequence where the dependencies are not yet written to the machine. Elements may
@@ -75,14 +75,14 @@ module internal InternalModel =
             Name : SequenceId
             PendingSequence : PendingSequenceData }
 
-        /// An experiment inside the compression step
+        /// An experiment inside the compression step.
         type CompressedExperiment = {
             Segments : Map<string, SegmentData>
             Sequences : Map<string, PendingSequenceData>
             SampleCount : int
             CompressedExperiment : PendingSequenceData }
 
-        /// An assembled experiment, ready for storing onto the machine
+        /// An assembled experiment, ready for storing onto the machine.
         type EncodedExperiment = {
             Segments : Segment list
             Sequences : PendingSequence list
