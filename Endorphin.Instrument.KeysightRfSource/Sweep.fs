@@ -183,17 +183,6 @@ module Sweep =
             let private frequenciesCountKey = ":LIST:FREQUENCY:POINTS"
             let queryFrequenciesCount = IO.queryInt frequenciesCountKey
 
-            let private waveformsKey = ":LIST:WAVEFORM"
-            let setWaveforms key = IO.setWaveformSeq waveformsKey key
-            let queryWaveforms = IO.queryWaveformSeq waveformsKey
-
-            let private waveformSweepModeKey = ":RADIO:LARB"
-            let setWaveformSweepMode = IO.setOnOffState waveformSweepModeKey
-            let queryWaveformSweepMode = IO.queryOnOffState waveformSweepModeKey
-
-            let private waveformsCountKey = ":LIST:WAVEFORM:POINTS"
-            let queryWaveformsCount = IO.queryInt waveformsCountKey
-
     /// Commands used to control running sweeps
     module Runtime = 
         /// Starts an armed sweep waiting on Bus triggering

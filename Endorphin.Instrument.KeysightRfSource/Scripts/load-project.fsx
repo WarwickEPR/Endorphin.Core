@@ -2,6 +2,7 @@
 #I __SOURCE_DIRECTORY__
 #load @"load-references.fsx"
 #load @"..\Model.fs"
+      @"..\InternalModel.fs"
       @"..\Parsing.fs"
       @"..\IO.fs"
       @"..\CRC.fs"

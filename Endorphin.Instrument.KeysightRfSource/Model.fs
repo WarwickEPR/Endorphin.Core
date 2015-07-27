@@ -152,15 +152,6 @@ module Model =
             | ExternalSource (port,_) -> ExternalPort port
             | InternalSource (generator,_) -> InternalGenerator generator
 
-
-
-    [<AutoOpen>]
-    module Waveforms =
-        type WaveformId = WaveformId of string 
-
-        let internal waveformIdString (WaveformId name) = name
-        let internal parseWaveformId = WaveformId
-
     [<AutoOpen>]
     module Sweep =
         type SweepMode = Fixed | Swept
@@ -248,134 +239,40 @@ module Model =
             Name : SequenceId
             Sequence : SequenceData }
 
-        [<AutoOpen>]
-        module internal Translate =
-            [<AutoOpen>]
-            module Encode =
-                /// Internal record of an entire recorded segment before being transformed into
-                /// machine-readable strings.  Lists are in reverse order for speed.
-                type EncodedSegment = {
-                    EncodedName    : string
-                    EncodedIQ      : byte array
-                    EncodedMarkers : byte array }
-
-                /// Segment data after it has been encoded, including the lengths and data indicator '#'.
-                /// Ready to write to machine.
-                type EncodedSegmentFiles = {
-                    Waveform : byte array
-                    Markers  : byte array
-                    Header   : byte array }
-
     [<AutoOpen>]
     module RfPulse =
-        [<AutoOpen>]
-        module Configure =
-            /// A number of samples, generally used as a pulse duration
-            type SampleCount = SampleCount of int
+        /// A number of samples, generally used as a pulse duration
+        type SampleCount = SampleCount of int
 
-            // Define some type aliases for the pulse types so that it's simple to update the model
-            // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
-            /// A single rf pulse as a tuple of (phases, duration, increment)
-            type RfPulse = PhaseCycle * SampleCount * SampleCount
-            /// A single delay pulse as a tuple of (duration, increment)
-            type DelayPulse = SampleCount * SampleCount
-            /// A single trigger pulse trigger a set of markers
-            type TriggerPulse = Markers
-            /// A single marker pulse as a tuple of (markers, duration, increment)
-            type MarkerPulse = Markers * SampleCount * SampleCount
+        // Define some type aliases for the pulse types so that it's simple to update the model
+        // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
+        /// A single rf pulse as a tuple of (phases, duration, increment)
+        type RfPulse = PhaseCycle * SampleCount * SampleCount
+        /// A single delay pulse as a tuple of (duration, increment)
+        type DelayPulse = SampleCount * SampleCount
+        /// A single trigger pulse trigger a set of markers
+        type TriggerPulse = Markers
+        /// A single marker pulse as a tuple of (markers, duration, increment)
+        type MarkerPulse = Markers * SampleCount * SampleCount
 
-            /// A pulse with its varying parameters also attached, for use in defining experiments
-            type Pulse =
-                | Rf      of RfPulse
-                | Delay   of DelayPulse
-                | Trigger of TriggerPulse
-                | Marker  of MarkerPulse
+        /// A pulse with its varying parameters also attached, for use in defining experiments
+        type Pulse =
+            | Rf      of RfPulse
+            | Delay   of DelayPulse
+            | Trigger of TriggerPulse
+            | Marker  of MarkerPulse
 
-            /// A whole experiment, ready to be compiled and optimised
-            type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
+        /// A whole experiment, ready to be compiled and optimised
+        type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
 
-        [<AutoOpen>]
-        module internal Translate =
-            [<AutoOpen>]
-            module Verify =
-                /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
-                /// the number of pulses in each cycle are the same.
-                type VerifiedPulse =
-                    | VerifiedRf of RfPulse
-                    | VerifiedDelay of DelayPulse
-                    | VerifiedTrigger of TriggerPulse
-                    | VerifiedMarker of MarkerPulse
+        /// The id of a stored experiment
+        type StoredExperimentId = StoredExperimentId of StoredSequence
 
-                /// Metadata about the experiment gathered during verification, for use during the
-                /// compilation step
-                type ExperimentMetadata = {
-                    /// How many times the experiment is repeated
-                    ExperimentRepetitions : int
-                    /// How many pulses there are per phase
-                    PulsesCount : int
-                    /// How many phases there are in the phase cycle
-                    RfPhaseCount : int option }
-
-                /// An experiment after it has been passed through the user-input verifier.
-                type VerifiedExperiment = {
-                    Pulses : VerifiedPulse list
-                    Metadata : ExperimentMetadata }
-
-            // No need for type aliases here because there's no other step which uses similar types
-            /// A single pulse which can be easily converted into a single segment, for use after the
-            /// compilation of the experiment and optimisation phases
-            type StaticPulse =
-                | StaticRf      of phase : Phase * duration : SampleCount
-                | StaticDelay   of duration : SampleCount
-                | StaticTrigger of markers : Markers
-                | StaticMarker  of markers : Markers * duration : SampleCount
-
-            /// A list of samples and their repetitions, which could be easily written onto the
-            /// machine, but likely with a lot of redundancy.
-            type CompiledExperiment = {
-                Data : (Sample * SampleCount) list
-                Length : int }
-
-            /// An element of a sequence where the dependencies are not yet written to the machine.
-            /// Elements may still be pending writing, and not available for playback yet.  This should
-            /// not be exposed publically, to prevent accidentally depending on an unwritten file.
-            type PendingSequenceElement =
-                | PendingSegment of name : SegmentId * repetitions : uint16
-                | PendingSequence of name : SequenceId * repetitions : uint16
-
-            /// The data portion of a pending sequence
-            type PendingSequenceData = PendingSequenceElement list
-
-            /// A sequence where the dependencies are not yet written to the machine. Elements may
-            /// still be pending writing, and not available for playback yet.  This should not be
-            /// exposed publically, to prevent accidentally depending on an unwritten file.
-            type PendingSequence = {
-                Name : SequenceId
-                PendingSequence : PendingSequenceData }
-
-            /// An experiment inside the compression step
-            type CompressedExperiment = {
-                Segments : Map<string, SegmentData>
-                Sequences : Map<string, PendingSequenceData>
-                SampleCount : int
-                CompressedExperiment : PendingSequenceData }
-
-            /// An assembled experiment, ready for storing onto the machine
-            type EncodedExperiment = {
-                Segments : Segment list
-                Sequences : PendingSequence list
-                Experiment : PendingSequence }
-
-        [<AutoOpen>]
-        module Control =
-            /// The id of a stored experiment
-            type StoredExperimentId = StoredExperimentId of StoredSequence
-
-            /// The data associated with a stored experiment - its name and dependencies
-            type StoredExperiment = {
-                StoredExperiment : StoredExperimentId
-                StoredSegments   : StoredSegment []
-                StoredSequences  : StoredSequence [] }
+        /// The data associated with a stored experiment - its name and dependencies
+        type StoredExperiment = {
+            StoredExperiment : StoredExperimentId
+            StoredSegments   : StoredSegment []
+            StoredSequences  : StoredSequence [] }
 
     type KeysightRfSettings = {
         Sweep : Sweep

@@ -161,8 +161,3 @@ module internal IO =
     
     let setPolarity = setValue polarityString
     let queryPolarity = queryValue parsePolarity
-
-    let setWaveform = setValue waveformIdString
-    let queryWaveform = queryValue parseWaveformId
-    let setWaveformSeq key = setValue (csvSeqString waveformIdString) key
-    let queryWaveformSeq = queryValue (parseCsvSeq parseWaveformId)

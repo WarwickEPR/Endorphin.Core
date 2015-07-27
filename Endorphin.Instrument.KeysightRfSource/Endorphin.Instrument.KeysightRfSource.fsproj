@@ -52,6 +52,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Model.fs" />
+    <Compile Include="InternalModel.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="IO.fs" />
     <None Include="app.config" />
