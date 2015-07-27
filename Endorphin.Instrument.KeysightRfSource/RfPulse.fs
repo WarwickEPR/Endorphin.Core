@@ -1,8 +1,8 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open ExtCore.Control
+open Endorphin.Core.CRC
 open Waveform
-open CRC
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 

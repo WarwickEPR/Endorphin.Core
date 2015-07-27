@@ -1,4 +1,4 @@
-﻿namespace Endorphin.Instrument.Keysight
+﻿namespace Endorphin.Core
 
 /// Functions for calculating the CRC-64 of arrays of bytes.
 module CRC =
