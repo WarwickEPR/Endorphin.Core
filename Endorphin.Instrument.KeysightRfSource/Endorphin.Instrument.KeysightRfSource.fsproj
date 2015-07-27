@@ -56,7 +56,6 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="IO.fs" />
     <None Include="app.config" />
-    <Compile Include="CRC.fs" />
     <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
