@@ -48,8 +48,9 @@ module Waveform =
 
         /// Convert a Phase type into a float value of radians for use in the mathematical functions.
         let private phaseToRadians = function
-            | PhaseInRad (angle) -> angle / 1.0<rad>
-            | PhaseInDeg (angle) -> angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>
+            // We want IQ to be equal at 0 phase, so rotate phases by pi/4
+            | PhaseInRad (angle) -> (angle / 1.0<rad>) + (Math.PI / 4.0)
+            | PhaseInDeg (angle) -> (angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>) + (Math.PI / 4.0)
 
         /// The maximum amplitude in arbitrary units that the machine can take for an IQ point amplitude.
         let private maximumMachineAmplitude = Int16.MaxValue
