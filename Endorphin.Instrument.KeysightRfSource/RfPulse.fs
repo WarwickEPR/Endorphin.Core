@@ -244,24 +244,27 @@ module RfPulse =
                 SampleCount = 0
                 CompressedExperiment = [] }
 
+            /// Attempt to take "count" number of samples from the next repetition of samples in a
+            /// compiled experiment.  If there aren't enough, then take as many as possible.  Returns
+            /// the sample taken, the remaining compiled experiment, and the number of counts taken.
+            let private takeCountFromNextElement list count =
+                match list with
+                | [] -> failwith "Tried to read too many elements during compression!"
+                | (sample, SampleCount dur) :: tail when count >= dur ->
+                    (sample, tail, dur)
+                | (sample, SampleCount dur) :: tail ->
+                    (sample, (sample, SampleCount(dur - count)) :: tail, count)
+
             /// Split a compiled experiment into a head of SegmentData, and a tail of
             /// CompiledExperiment, based on the passed number of samples to pick.
-            // TODO: rather ugly
             let private splitCompiledExperiment n compiled : (SegmentData * CompiledExperiment) =
                 let data = Array.create n defaultIqSample
                 let rec loop list = function
                     | 0 -> data, { Data = list; Length = compiled.Length - n }
                     | rem ->
-                        match list with
-                        | [] -> failwith "Tried to read too many elements during compression!"
-                        | (sample, SampleCount dur) :: tail ->
-                            let (list', taken) =
-                                if rem >= dur then
-                                    (tail, dur)
-                                else
-                                    ((sample, SampleCount(dur - rem)) :: tail, rem)
-                            for j in (n - rem) .. ((n - rem) + taken - 1) do data.[j] <- sample
-                            loop list' (rem-taken)
+                        let (sample, list', taken) = takeCountFromNextElement list rem
+                        for j in (n - rem) .. ((n - rem) + taken - 1) do data.[j] <- sample
+                        loop list' (rem-taken)
                 loop compiled.Data n
 
             /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
