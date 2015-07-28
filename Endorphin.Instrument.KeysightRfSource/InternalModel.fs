@@ -7,7 +7,6 @@ module internal InternalModel =
         /// Internal record of an entire recorded segment before being transformed into
         /// machine-readable strings.  Lists are in reverse order for speed.
         type EncodedSegment = {
-            EncodedName    : string
             EncodedIQ      : byte array
             EncodedMarkers : byte array }
 
@@ -65,25 +64,20 @@ module internal InternalModel =
             | PendingSegment of name : SegmentId * repetitions : uint16
             | PendingSequence of name : SequenceId * repetitions : uint16
 
-        /// The data portion of a pending sequence.
-        type PendingSequenceData = PendingSequenceElement list
-
         /// A sequence where the dependencies are not yet written to the machine. Elements may
         /// still be pending writing, and not available for playback yet.  This should not be
         /// exposed publically, to prevent accidentally depending on an unwritten file.
-        type PendingSequence = {
-            Name : SequenceId
-            PendingSequence : PendingSequenceData }
+        type PendingSequence = PendingSequenceElement list
 
         /// An experiment inside the compression step.
         type CompressedExperiment = {
-            Segments : Map<string, SegmentData>
-            Sequences : Map<string, PendingSequenceData>
+            Segments : Map<string, Segment>
+            Sequences : Map<string, PendingSequence>
             SampleCount : int
-            CompressedExperiment : PendingSequenceData }
+            CompressedExperiment : PendingSequence }
 
         /// An assembled experiment, ready for storing onto the machine.
         type EncodedExperiment = {
-            Segments : Segment list
-            Sequences : PendingSequence list
-            Experiment : PendingSequence }
+            Segments : (SegmentId * Segment) list
+            Sequences : (SequenceId * PendingSequence) list
+            Experiment : (SequenceId * PendingSequence) }

@@ -1,17 +1,14 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
-open Endorphin.Core.CRC
 open Waveform
+open Hashing
+open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
 module RfPulse =
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
-        /// Create a hash of a byte array as a hexadecimal string 16 characters long.
-        let hexHash arr = sprintf "%016x" (crc64 arr)
-
         /// Create a list with n copies of the original list concatenated.
         let private makeListCopies n list =
             let rec loop list acc = function
@@ -183,12 +180,22 @@ module RfPulse =
             /// A phase for use when we don't care what the phase actually is.
             let private noPhase = PhaseInRad 0.0<rad>
 
+            /// A set of markers all turned off.
+            let private noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
+
             /// Expand a static pulse into a sample and a count of how many repetitions that sample has.
-            let private expandStaticPulse = function
-                | StaticRf (phase, dur)       -> ((generateSample 1.0 phase noMarkers), dur)
-                | StaticDelay (dur)           -> ((generateSample 0.0 noPhase noMarkers), dur)
-                | StaticTrigger (markers)     -> ((generateSample 0.0 noPhase markers), SampleCount 1)
-                | StaticMarker (markers, dur) -> ((generateSample 0.0 noPhase markers), dur)
+            let private expandStaticPulse pulse =
+                let (amplitude, phase, markers, duration) =
+                    match pulse with
+                    | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
+                    | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
+                    | StaticTrigger (markers)     -> (0.0, noPhase, markers, SampleCount 1)
+                    | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
+                let sample =
+                    defaultIqSample
+                    |> withAmplitudeAndPhase amplitude phase
+                    |> withMarkers markers
+                (sample, duration)
 
             /// Add two SampleCounts together.
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
@@ -230,13 +237,6 @@ module RfPulse =
         /// Functions to compress streams of pulses into waveform and sequence files.
         [<AutoOpen>]
         module private Compress =
-            /// Make a segment name string by hashing the samples.
-            let private hashSegment (samples : SegmentData) =
-                samples
-                |> toEncodedSegmentData
-                |> (fun (a, b) -> Array.append a b)
-                |> hexHash
-
             /// An empty compressed experiment, ready to be added to.
             let private emptyCompressedExperiment = {
                 Segments = Map.empty
@@ -257,7 +257,7 @@ module RfPulse =
 
             /// Split a compiled experiment into a head of SegmentData, and a tail of
             /// CompiledExperiment, based on the passed number of samples to pick.
-            let private splitCompiledExperiment n compiled : (SegmentData * CompiledExperiment) =
+            let private splitCompiledExperiment n compiled : (Segment * CompiledExperiment) =
                 let data = Array.create n defaultIqSample
                 let rec loop list = function
                     | 0 -> data, { Data = list; Length = compiled.Length - n }
@@ -308,9 +308,9 @@ module RfPulse =
                   CompressedExperiment =
                       (PendingSegment (SegmentId id, 1us)) :: compressed.CompressedExperiment }
 
-            /// Prepend some SegmentData onto a CompressedExperiment.
+            /// Prepend some Segment onto a CompressedExperiment.
             let private consToExperiment compressed samples =
-                let id = hashSegment samples
+                let id = hexHash segmentToBytes samples
                 if Some id = lastSegmentId compressed then
                     increaseLastSegmentReps compressed
                 else
@@ -333,16 +333,6 @@ module RfPulse =
         /// machine form of repeatable files.
         [<AutoOpen>]
         module Encode =
-            /// Zip a tupled segment back into an actual segment.
-            let private zipSegment (id, compressed : SegmentData) : Segment = {
-                Name = SegmentId id
-                Data = compressed }
-
-            /// Zip a tupled sequence back into an actual sequence.
-            let private zipPendingSequence (id, compressed : PendingSequenceData) = {
-                Name = SequenceId id
-                PendingSequence = compressed }
-
             /// Convert a PendingSequence element into a byte array of the name followed by the
             /// number of repetitions.
             let private elementToByteArray = function
@@ -362,7 +352,7 @@ module RfPulse =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let private makeExperimentName (compressed : CompressedExperiment) =
+            let private makeExperimentName compressed =
                 let list = compressed.CompressedExperiment
                 let byteCount = elementByteCount list.Head
                 let arrLength = list.Length * byteCount
@@ -373,8 +363,8 @@ module RfPulse =
                         let elementArray = elementToByteArray el
                         for i in 0 .. (byteCount - 1) do array.[n * byteCount + i] <- elementArray.[i]
                         loop (n + 1) tail
-                loop 0 list
-                |> hexHash
+                list
+                |> hexHash (loop 0)
                 |> SequenceId
 
             /// Convert a compressed experiment into an encoded one suitable for writing
@@ -383,16 +373,14 @@ module RfPulse =
                 let segments =
                     compressed.Segments
                     |> Map.toList
-                    |> List.map zipSegment
+                    |> List.map (fun (str, seg) -> (SegmentId str, seg))
                 let sequences =
                     compressed.Sequences
                     |> Map.toList
-                    |> List.map zipPendingSequence
+                    |> List.map (fun (str, sqn) -> (SequenceId str, sqn))
                 { Segments = segments
                   Sequences = sequences
-                  Experiment =
-                  { Name = makeExperimentName compressed
-                    PendingSequence = compressed.CompressedExperiment } }
+                  Experiment = (makeExperimentName compressed, compressed.CompressedExperiment) }
 
             /// Encode an experiment into a writeable form.
             let toEncodedExperiment experiment = choice {
@@ -413,40 +401,5 @@ module RfPulse =
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
             /// storing all of the dependencies at the same time.
-            let toRegularSequence (pending : PendingSequence) : Sequence = {
-                Name = pending.Name
-                Sequence = pending.PendingSequence |> List.map toRegularSequenceElement }
-
-    /// Public functions for writing user-input experiments to the machine.
-    [<AutoOpen>]
-    module Control =
-        open Translate
-        /// Store an experiment onto the machine as a set of necessary sequences and samples.
-        let storeExperiment instrument experiment = asyncChoice {
-            let! encoded = toEncodedExperiment experiment
-            let! storedSegments = storeSegmentSequence instrument encoded.Segments
-            let! storedSequences =
-                encoded.Sequences
-                |> Seq.map toRegularSequence
-                |> storeSequenceSequence instrument
-            let! storedExperimentAsSequence =
-                encoded.Experiment
-                |> toRegularSequence
-                |> storeSequence instrument
-            let storedExperiment = StoredExperimentId storedExperimentAsSequence
-            return {
-                StoredExperiment = storedExperiment
-                StoredSegments   = storedSegments
-                StoredSequences  = storedSequences } }
-
-        /// Play a stored experiment on the machine.
-        let playStoredExperiment instrument experiment = asyncChoice {
-            let sequence = experiment |> experimentToStoredSequence
-            do! playStoredSequence instrument sequence }
-
-        /// Store an experiment on the machine, then begin playing it as soon as possible. Returns
-        /// the stored experiment.
-        let playExperiment instrument experiment = asyncChoice {
-            let! stored = storeExperiment instrument experiment
-            do! playStoredExperiment instrument stored
-            return stored }
+            let toRegularSequence pending : Sequence =
+                pending |> List.map toRegularSequenceElement

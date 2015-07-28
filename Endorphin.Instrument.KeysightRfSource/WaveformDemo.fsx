@@ -1,17 +1,20 @@
 ﻿#r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
 #r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
-#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
+#r @"..\Endorphin.Core\bin\Release\Endorphin.Core.dll"
 #r "NationalInstruments.Common.dll"
 #r "NationalInstruments.VisaNS.dll"
-#r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
+#r @"bin\Release\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Endorphin.Instrument.Keysight
 open log4net.Config
 open ExtCore.Control
+open Control
+
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 // BasicConfigurator.Configure()
 
-open Waveform.Control
+open Waveform.Configure
 
 let printResult =
     function
@@ -20,12 +23,12 @@ let printResult =
 
 let numSamples = 1000
 
-let generateSegment value samples =
-    { Name = SegmentId (sprintf "test-%05d" value)
-      Data = seq {for _ in 1 .. samples
-          -> { Sample.I = value
-               Sample.Q = value
-               Sample.Markers = { M1 = true; M2 = false; M3 = true; M4 = true } } } }
+let generateSegment value count =
+    let sample =
+        defaultIqSample
+        |> withAmplitudeAndPhase (float value / float System.Int16.MaxValue) (PhaseInRad 0.0<rad>)
+        |> withMarkers { M1 = true; M2 = false; M3 = true; M4 = true }
+    [| for _ in 1 .. count -> sample |]
 
 let segmentSequence = seq { for i in 1 .. 100
     -> generateSegment (int16 (32000.0 * float i / 100.0)) numSamples }
@@ -47,26 +50,19 @@ asyncChoice {
     printfn "%A" storedSegmentArray
 
     let sequenceSequence = seq { for i in 1 .. 100
-        -> { Name = SequenceId (sprintf "seq-%03d" i)
-             Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegmentArray.[i-1], (uint16 i)) ] } }
+        -> [ Segment(storedSegment1, 10us) ; Segment(storedSegmentArray.[i-1], (uint16 i)) ] }
 
-    let sequence1 = {
-        Name = SequenceId "sequence1"
-        Sequence = [ Segment(storedSegment1, 10us) ; Segment(storedSegment2, 20us) ] }
+    let sequence1 = [ Segment(storedSegment1, 10us) ; Segment(storedSegment2, 20us) ]
     let! storedSequence1 = storeSequence keysight sequence1
 
     printfn "%A" storedSequence1
 
-    let sequence2 = {
-        Name = SequenceId "sequence2"
-        Sequence = [ Segment(storedSegment1, 65509us) ; Sequence(storedSequence1, 100us) ] }
+    let sequence2 = [ Segment(storedSegment1, 65509us) ; Sequence(storedSequence1, 100us) ]
     let! storedSequence2 = storeSequence keysight sequence2
 
     printfn "%A" storedSequence2
 
-    let sequence3 = {
-        Name = SequenceId "sequence3"
-        Sequence = [ Segment(storedSegment2, 1us) ; Sequence(storedSequence1, 1024us) ] }
+    let sequence3 = [ Segment(storedSegment2, 1us) ; Sequence(storedSequence1, 1024us) ]
     let! storedSequence3 = storeSequence keysight sequence3
 
     printfn "%A" storedSequence3

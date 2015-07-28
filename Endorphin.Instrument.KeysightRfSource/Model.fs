@@ -254,14 +254,8 @@ module Model =
         /// The identifier of a sequence.
         type SequenceId = SequenceId of string
 
-        /// The data portion of a Segment.
-        // Can just be a type alias, but allows nice semantic use in Map<>
-        type SegmentData = Sample array
-
         /// A single segment in the machine.  Must be at least 60 samples long.
-        type Segment = {
-            Name : SegmentId
-            Data : SegmentData } // Sequence of points
+        type Segment = Sample array
 
         /// Representation of the stored segments on the machine.
         type StoredSegment = internal StoredSegment of name : SegmentId
@@ -274,13 +268,8 @@ module Model =
             | Segment of segment : StoredSegment * repetitions : uint16
             | Sequence of sequence : StoredSequence * repetitions : uint16
 
-        /// The data portion of a sequence.
-        type SequenceData = SequenceElement list
-
         /// A full sequence to be stored in the machine.
-        type Sequence = {
-            Name : SequenceId
-            Sequence : SequenceData }
+        type Sequence = SequenceElement list
 
     [<AutoOpen>]
     module RfPulse =
@@ -314,8 +303,8 @@ module Model =
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
             StoredExperiment : StoredExperimentId
-            StoredSegments   : StoredSegment []
-            StoredSequences  : StoredSequence [] }
+            StoredSegments   : StoredSegment array
+            StoredSequences  : StoredSequence array }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {

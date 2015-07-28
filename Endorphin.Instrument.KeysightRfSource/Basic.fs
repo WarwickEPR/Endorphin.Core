@@ -1,7 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 [<AutoOpen>]
-module Control =
+module Basic =
     /// Key for the overall RF output state. Must be On if anything is to play.
     /// Command reference p.157.
     let private outputStateKey = ":OUTPUT:STATE"
