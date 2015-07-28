@@ -224,7 +224,7 @@ module RfPulse =
                 let rec loop n = function
                     | [] -> n
                     | (_, SampleCount dur) :: tail -> loop (n + dur) tail
-                { Data = list; Length = loop 0 list }
+                { CompiledData = list; CompiledLength = loop 0 list }
 
             /// Compile an experiment into a direct list of samples which could (if they were written
             /// into one segment of a storable size) play back the entire experiment.
@@ -257,20 +257,23 @@ module RfPulse =
 
             /// Split a compiled experiment into a head of SegmentData, and a tail of
             /// CompiledExperiment, based on the passed number of samples to pick.
-            let private splitCompiledExperiment n compiled : (Segment * CompiledExperiment) =
-                let data = Array.create n defaultIqSample
-                let rec loop list = function
-                    | 0 -> data, { Data = list; Length = compiled.Length - n }
+            let private splitCompiledExperiment n compiled =
+                let rec loop list acc = function
+                    | 0 ->
+                        let segment = {
+                            Samples = Array.ofList <| List.rev acc
+                            Length = n }
+                        (segment, { CompiledData = list; CompiledLength = compiled.CompiledLength - n })
                     | rem ->
                         let (sample, list', taken) = takeCountFromNextElement list rem
-                        for j in (n - rem) .. ((n - rem) + taken - 1) do data.[j] <- sample
-                        loop list' (rem-taken)
-                loop compiled.Data n
+                        let acc' = (sample, SampleCount taken) :: acc
+                        loop list' acc' (rem - taken)
+                loop compiled.CompiledData [] n
 
             /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
             /// of the experiment.
             let private splitCompiledAtNextSegment compiled =
-                let segmentLength = if compiled.Length < 120 then compiled.Length else 60
+                let segmentLength = if compiled.CompiledLength < 120 then compiled.CompiledLength else 60
                 splitCompiledExperiment segmentLength compiled
 
             /// Get the last segment ID from a sequence element.  Current compression doesn't create
@@ -318,7 +321,7 @@ module RfPulse =
 
             /// One step in the compression.
             let rec private compressionLoop output input =
-                match input.Length with
+                match input.CompiledLength with
                 | 0 ->
                     { output with CompressedExperiment = List.rev output.CompressedExperiment }
                 | _ ->

@@ -54,8 +54,8 @@ module internal InternalModel =
         /// A list of samples and their repetitions, which could be easily written onto the
         /// machine, but likely with a lot of redundancy.
         type CompiledExperiment = {
-            Data : (Sample * SampleCount) list
-            Length : int }
+            CompiledData : (Sample * SampleCount) list
+            CompiledLength : int }
 
         /// An element of a sequence where the dependencies are not yet written to the machine.
         /// Elements may still be pending writing, and not available for playback yet.  This should

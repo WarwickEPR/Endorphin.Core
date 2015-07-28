@@ -88,15 +88,29 @@ module Waveform =
                 let sampleCount = segment.Length
                 let iq = Array.create (sampleCount * 4) 0uy
                 let markers = Array.create sampleCount 0uy
+                let mutable sampleIndex = 0
+                let mutable used = 0
                 for i in 0 .. (sampleCount - 1) do
-                    let singleIq = iqBytes segment.[i]
-                    iq.[(4 * i)]     <- singleIq.[0]
-                    iq.[(4 * i) + 1] <- singleIq.[1]
-                    iq.[(4 * i) + 2] <- singleIq.[2]
-                    iq.[(4 * i) + 3] <- singleIq.[3]
-                    markers.[i]      <- getMarkerByte segment.[i]
+                    let (sample, SampleCount count) = segment.Samples.[sampleIndex]
+                    if used = 0 then
+                        let singleIq = iqBytes sample
+                        iq.[(4 * i)]     <- singleIq.[0]
+                        iq.[(4 * i) + 1] <- singleIq.[1]
+                        iq.[(4 * i) + 2] <- singleIq.[2]
+                        iq.[(4 * i) + 3] <- singleIq.[3]
+                        markers.[i]      <- getMarkerByte sample
+                        used <- used + 1
+                    else
+                        iq.[(4 * i)]     <- iq.[(4 * i) - 4]
+                        iq.[(4 * i) + 1] <- iq.[(4 * i) - 3]
+                        iq.[(4 * i) + 2] <- iq.[(4 * i) - 2]
+                        iq.[(4 * i) + 3] <- iq.[(4 * i) - 1]
+                        markers.[i]      <- markers.[i - 1]
+                        if used = count - 1 then
+                            used <- 0
+                            sampleIndex <- sampleIndex + 1
+                        else used <- used + 1
                 (iq, markers)
-
 
             /// Encode a segment into the necessary byte patterns.
             let private toEncodedSegment segment =

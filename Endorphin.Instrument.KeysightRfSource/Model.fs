@@ -249,13 +249,18 @@ module Model =
             Q       : int16
             Markers : Markers }
 
+        /// A number of samples, generally used as a pulse duration.
+        type SampleCount = SampleCount of int
+
         /// The identifier of a segment, stored as a string.
         type SegmentId = SegmentId of string
         /// The identifier of a sequence.
         type SequenceId = SequenceId of string
 
         /// A single segment in the machine.  Must be at least 60 samples long.
-        type Segment = Sample array
+        type Segment = {
+            Samples : (Sample * SampleCount) array
+            Length  : int }
 
         /// Representation of the stored segments on the machine.
         type StoredSegment = internal StoredSegment of name : SegmentId
@@ -273,9 +278,6 @@ module Model =
 
     [<AutoOpen>]
     module RfPulse =
-        /// A number of samples, generally used as a pulse duration.
-        type SampleCount = SampleCount of int
-
         // Define some type aliases for the pulse types so that it's simple to update the model
         // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
         /// A single rf pulse as a tuple of (phases, duration, increment).
