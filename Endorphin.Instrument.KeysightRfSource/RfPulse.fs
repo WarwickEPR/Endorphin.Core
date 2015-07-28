@@ -195,19 +195,15 @@ module RfPulse =
 
             /// Given a list of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly.
-            // TODO: de-ugly this
             let private groupEqualSamples samples =
-                let rec loop list acc =
-                    match list with
-                    | [] -> acc |> List.rev
-                    | x :: xs ->
-                        match acc with
-                        | [] -> loop xs [x]
-                        | y :: ys when fst x = fst y ->
-                            let acc' = (fst y, addDurations x y) :: ys
-                            loop xs acc'
-                        | _ -> loop xs (x :: acc)
-                loop samples []
+                let folder acc el =
+                    match acc with
+                    | [] -> [el]
+                    | y :: ys when fst el = fst y -> (fst y, addDurations y el) :: ys
+                    | _ -> el :: acc
+                samples
+                |> List.fold folder []
+                |> List.rev
 
             /// Convert a list of static pulses into a list of samples.
             let private toSamples pulses =
