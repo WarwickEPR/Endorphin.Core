@@ -186,7 +186,24 @@ module Waveform =
                 |> Array.append name
 
             /// Get a unique representation of a segment as a byte array.
-            let segmentToBytes = toEncodedSegmentData >> (fun (a, b) -> Array.append a b)
+            let segmentToBytes segment =
+                let length = segment.Samples.Length
+                let arr = Array.create (length * 9) 0uy // 5 bytes per sample, 4 bytes per count
+                for i in 0 .. length - 1 do
+                    let (sample, SampleCount reps) = segment.Samples.[i]
+                    let reps' = BitConverter.GetBytes reps // endianness doesn't matter here
+                    let iq = iqBytes sample
+                    arr.[(i * 9) + 0] <- iq.[0] // -funroll-loops!
+                    arr.[(i * 9) + 1] <- iq.[1]
+                    arr.[(i * 9) + 2] <- iq.[2]
+                    arr.[(i * 9) + 3] <- iq.[3]
+                    arr.[(i * 9) + 4] <- getMarkerByte sample
+                    arr.[(i * 9) + 5] <- reps'.[0]
+                    arr.[(i * 9) + 6] <- reps'.[1]
+                    arr.[(i * 9) + 7] <- reps'.[2]
+                    arr.[(i * 9) + 8] <- reps'.[3]
+                arr // return the byte array we just created
+
             /// Get a unique representation of a sequence as a byte array.
             let sequenceToBytes = sequenceData
 
