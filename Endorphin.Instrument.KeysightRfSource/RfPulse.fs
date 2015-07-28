@@ -57,11 +57,6 @@ module RfPulse =
                     else
                         succeed length }
 
-            /// Make a Choice<'a,'b> into a Choice<'a option,'b>.
-            let private liftOption = function
-                | Success s -> succeed (Some s)
-                | Failure f -> fail f
-
             /// Convert a pulse into a VerifiedPulse type. The calling function is assumed to have
             /// actually done the verification.
             let private toVerifiedPulse = function
@@ -83,7 +78,7 @@ module RfPulse =
                     else
                         rfPulses
                         |> checkPhaseCycles
-                        |> liftOption
+                        |> Choice.liftInsideOption
                 return {
                     Pulses = List.map toVerifiedPulse pulses'
                     Metadata =

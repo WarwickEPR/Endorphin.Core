@@ -30,6 +30,12 @@ module ErrorHandling =
         member __.ReturnFrom (choice : Choice<'T, 'Error>) =
             choice |> async.Return
 
+module Choice =
+    /// Make a Choice<'a,'b> into a Choice<'a option,'b>.
+    let liftInsideOption = function
+        | Success s -> succeed (Some s)
+        | Failure f -> fail f
+
 [<AutoOpen>]
 module Utils =
     let defer f = { new System.IDisposable with member __.Dispose() = f () }
