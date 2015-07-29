@@ -83,12 +83,12 @@ module internal Parsing =
         match str with
         | ParseRegex regex [ ParseFloat p ; ParseFloat i ; ParseFloat d ] ->
             { Proportional = p
-              Intergral    = i
+              Integral    = i
               Differential = d }
         | str -> failwith "Unexpected PID string: %s." str
 
     /// Encode PID settings to a string.
-    let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Intergral pid.Differential
+    let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Integral pid.Differential
     
     /// Parse a standard event status byte string.
     let parseStandardEventStatus (str : string) =

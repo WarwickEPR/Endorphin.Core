@@ -46,7 +46,7 @@ module Model =
     /// in closed loop mode.
     type PIDSettings =
         { Proportional : float
-          Intergral    : float
+          Integral     : float
           Differential : float }
     
     /// Event status byte indicating the instrument status.
