@@ -10,9 +10,10 @@
     <RootNamespace>Endorphin.Instrument.LakeShoreTempController</RootNamespace>
     <AssemblyName>Endorphin.Instrument.LakeShoreTempController</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>Endorphin.Instrument.LakeShoreTempController</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -34,6 +35,9 @@
     <DocumentationFile>bin\Release\Endorphin.Instrument.LakeShoreTempController.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ExtCore">
+      <HintPath>..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -41,6 +45,16 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Model.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">
+      <Name>Endorphin.Core</Name>
+      <Project>{b1887520-0f25-4ff4-958e-12b964df20f9}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
