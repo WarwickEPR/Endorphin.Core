@@ -53,6 +53,10 @@ module internal IO =
     let private setValueForLoop stringFunc key tempController loop value =
         performCommand (sprintf "%s %s, %s" key (loopString loop) (stringFunc value)) tempController
 
+    /// Query the device identity and fail if it does not correspond to a LakeShore model 325
+    /// temperature controller.
+    let queryIdentity = tryQueryValue tryParseIdentity
+
     /// Query the temperature corresponding to the given key for the given instrument control
     /// loop asynchronously.
     let queryTemperatureForLoop = queryValueForLoop parseTemperatureInK
