@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="Status.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">
