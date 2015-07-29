@@ -95,11 +95,7 @@ module RfPulse =
                         // Use integer division to find which phase we should select.
                         // This assumes that the verification step would have put us on the failure
                         // track if there aren't enough phases in any of the cycles
-
-                        // TODO: due to random access, might be better as an array
-                        List.nth phases (index/pulseCount)
-                        |> List.cons []
-                        |> PhaseCycle
+                        PhaseCycle [| phases.[index/pulseCount] |]
                     VerifiedRf (phase, dur, inc)
                 | _ -> pulse
 
@@ -162,7 +158,7 @@ module RfPulse =
             /// 1, but this should have been ensured by the expandVariables step.
             let private toStaticPulse = function
                 | VerifiedRf (PhaseCycle phases, duration, _) ->
-                    StaticRf ((List.exactlyOne phases), duration)
+                    StaticRf (phases.[0], duration)
                 | VerifiedDelay (duration, _) ->
                     StaticDelay (duration)
                 | VerifiedTrigger (markers) ->

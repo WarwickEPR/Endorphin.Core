@@ -37,7 +37,7 @@ module Model =
             | PhaseInDeg of float<deg>
 
         /// A list of phases to cycle through.
-        type PhaseCycle = PhaseCycle of Phase list
+        type PhaseCycle = PhaseCycle of Phase array
 
         /// A duration that something lasts for.
         type Duration = DurationInSec of float<s>
