@@ -247,25 +247,38 @@ module RfPulse =
             /// Attempt to take "count" number of samples from the next repetition of samples in a
             /// compiled experiment.  If there aren't enough, then take as many as possible.  Returns
             /// the sample taken, the remaining compiled experiment, and the number of counts taken.
-            let private takeCountFromNextElement list count =
+            let private takeCountFromNextElement list count reps =
                 match list with
                 | [] -> failwith "Tried to read too many elements during compression!"
-                | (sample, SampleCount dur) :: tail when count >= dur ->
+                | (sample, SampleCount dur) :: tail when count * reps >= dur ->
                     (sample, tail, dur)
                 | (sample, SampleCount dur) :: tail ->
-                    (sample, (sample, SampleCount(dur - count)) :: tail, count)
+                    (sample, (sample, SampleCount(dur - (count * reps))) :: tail, (count * reps))
+
+            /// Get how many times the next sample in a compiled experiment is repeated.
+            let nextSampleCount (list : (Sample * SampleCount) list) =
+                list
+                |> List.tryHead
+                |> (function | Some s -> snd s; | None -> SampleCount 0)
+                |> (fun (SampleCount s) -> s)
 
             /// Split a compiled experiment into a head of SegmentData, and a tail of
             /// CompiledExperiment, based on the passed number of samples to pick.
             let private splitCompiledExperiment n compiled =
-                let rec loop list acc = function
+                let rec loop list acc rem =
+                    let nextCount = nextSampleCount list
+                    let reps = nextCount / n
+                    let condition = reps >= 2 && compiled.CompiledLength >= (60 + reps * n)
+                    match rem with
                     | 0 ->
-                        let segment = {
-                            Samples = Array.ofList <| List.rev acc
-                            Length = n }
-                        (segment, { CompiledData = list; CompiledLength = compiled.CompiledLength - n })
+                        ({ Samples = Array.ofList <| List.rev acc; Length = n }, 1,
+                         { CompiledData = list; CompiledLength = compiled.CompiledLength - n })
+                    | rem when rem = n && condition ->
+                        let (sample, list', taken) = takeCountFromNextElement list rem reps
+                        ({ Samples = [| (sample, SampleCount n) |]; Length = n}, reps,
+                         { CompiledData = list'; CompiledLength = compiled.CompiledLength - taken })
                     | rem ->
-                        let (sample, list', taken) = takeCountFromNextElement list rem
+                        let (sample, list', taken) = takeCountFromNextElement list rem 1
                         let acc' = (sample, SampleCount taken) :: acc
                         loop list' acc' (rem - taken)
                 loop compiled.CompiledData [] n
@@ -289,35 +302,48 @@ module RfPulse =
                 | None -> None
                 | Some s -> Some (lastSegmentIdFromSequenceElement s)
 
+            /// Get the quotient and remainder of how many times an integer may be divided by the
+            /// maximum value in a uint16.
+            let private intByUint16 num =
+                (num / int UInt16.MaxValue, uint16 (num % int UInt16.MaxValue))
+
+            let private listToPrepend construct id curCount reps =
+                let (quotient, remainder) = intByUint16 reps
+                let maxReps = [ for _ in 1 .. quotient -> construct (id, UInt16.MaxValue) ]
+                let overflow =
+                    if int curCount + int remainder < int UInt16.MaxValue then
+                        [ construct (id, curCount + remainder) ]
+                    else
+                        [ construct (id, curCount); construct (id, remainder) ]
+                overflow @ maxReps
+
             /// Increase the number of reps on the last segment in a CompressedExperiment.
-            let private increaseLastSegmentReps compressed =
+            let private increaseLastSegmentReps compressed (reps : int) =
                 let data =
                     match compressed.CompressedExperiment with
                     | PendingSegment (id, count) :: tail ->
-                        if count = UInt16.MaxValue then
-                            PendingSegment (id, 1us) :: compressed.CompressedExperiment
-                        else
-                            PendingSegment (id, count + 1us) :: tail
-                    | _ -> failwith "Compression doesn't support writing subsequences in experiments"
+                        (listToPrepend PendingSegment id count reps) @ tail
+                    | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 { compressed with CompressedExperiment = data }
 
             /// Prepend a different segment onto the passed compressed experiment.
             // Map.add is safe even if the segment already exists because it just doesn't do
             // anything in that case.
-            let private consDifferentSegment id samples (compressed : CompressedExperiment) =
+            let private consDifferentSegment id samples reps (compressed : CompressedExperiment) =
+                let list = listToPrepend PendingSegment (SegmentId id) 0us reps
                 { Segments = Map.add id samples compressed.Segments
                   Sequences = compressed.Sequences
                   SampleCount = compressed.SampleCount + samples.Length
                   CompressedExperiment =
-                      (PendingSegment (SegmentId id, 1us)) :: compressed.CompressedExperiment }
+                      list @ compressed.CompressedExperiment }
 
             /// Prepend some Segment onto a CompressedExperiment.
-            let private consToExperiment compressed samples =
+            let private consToExperiment compressed samples reps =
                 let id = hexHash segmentToBytes samples
                 if Some id = lastSegmentId compressed then
-                    increaseLastSegmentReps compressed
+                    increaseLastSegmentReps compressed reps
                 else
-                    consDifferentSegment id samples compressed
+                    consDifferentSegment id samples reps compressed
 
             /// One step in the compression.
             let rec private compressionLoop output input =
@@ -325,8 +351,8 @@ module RfPulse =
                 | 0 ->
                     { output with CompressedExperiment = List.rev output.CompressedExperiment }
                 | _ ->
-                    let (segment, input') = splitCompiledAtNextSegment input
-                    let output' = consToExperiment output segment
+                    let (segment, reps, input') = splitCompiledAtNextSegment input
+                    let output' = consToExperiment output segment reps
                     compressionLoop output' input'
 
             /// Compress the experiment down using a basic 60-sample dictionary method.
