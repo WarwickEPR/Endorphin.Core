@@ -56,6 +56,6 @@ module internal Parsing =
               Differential = d }
         | str -> failwith "Unexpected PID string: %s." str
 
-    let parseEventStatus (str : string) =
+    let parseStandardEventStatus (str : string) =
         StandardEventStatus <| Array.first (Encoding.ASCII.GetBytes str)
         
