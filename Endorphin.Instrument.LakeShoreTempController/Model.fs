@@ -2,6 +2,7 @@
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+[<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.
 module Model =
     
