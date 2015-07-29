@@ -20,7 +20,7 @@ module internal Keys =
     let manualHeaterOuptut = "MOUT"
 
     /// PID settings.
-    let pid = "PID"
+    let pidSettings = "PID"
 
     /// Temperature set point.
     let setPoint = "SETP"
