@@ -28,12 +28,12 @@ module internal IO =
 
     /// Performs a query for the value corresponding to the given key for the given temperature
     /// controller loop and parses the result with the given parsing function.
-    let private queryValueForLoop parseFunc key tempController loop =
+    let private queryValueForLoop parseFunc key loop =
         performQuery parseFunc (sprintf "%s? %s" key (loopString loop))
 
     /// Queries the standard event status byte of the instrument which indicates command and
     /// execution errors.
-    let queryStandardEventStatus = queryValue parseStandardEventStatus Keys.standardEventStatus
+    let private queryStandardEventStatus = queryValue parseStandardEventStatus Keys.standardEventStatus
 
     /// Sends the provided command string to the instrument and immediately checks the standard
     /// event status byte for errors.
@@ -52,4 +52,3 @@ module internal IO =
     /// after converting it to a string with the string conversion function.
     let private setValueForLoop stringFunc key tempController loop value =
         performCommand (sprintf "%s %s, %s" key (loopString loop) (stringFunc value)) tempController
-
