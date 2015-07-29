@@ -1,13 +1,30 @@
 ﻿namespace Endorphin.Instrument.LakeShoreTempController
 
-open System.Text
-open Endorphin.Core.StringUtils
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open System.Text
+
+open Endorphin.Core.StringUtils
+open ExtCore.Control
 
 [<AutoOpen>]
 /// Internal parsing functions between model types and their corresponding VISA command
 /// string formats.
 module internal Parsing =
+    let internal tryParseIdentity str =
+        let parts = 
+            String.split [|','|] str
+            |> Array.map (String.trimStart [|' '|] >> String.trimEnd [|' '|])
+
+        if Array.length parts <> 4   then fail <| sprintf "Unexpected device ID string: %s." str
+        elif parts.[0] <> "LSCI"     then fail <| sprintf "Unexpected device manufacturer: %s." parts.[0]
+        elif parts.[1] <> "MODEL325" then fail <| sprintf "Unexpected device model number: %s." parts.[1]
+        else
+            succeed <| 
+                { Manufacturer = parts.[0]
+                  ModelNumber  = parts.[1]
+                  SerialNumber = parts.[2]
+                  Version      = parts.[3] }
+
     let parseTemperatureInK (str : string) = TemperatureInK ((float str) * 1.0<K>)
     let temperatureString (TemperatureInK temp) = sprintf "%+.5g" (float temp)
     let parseHeaterOuptput (str : string) = HeaterOutput ((float str) * 1.0<pct>)
