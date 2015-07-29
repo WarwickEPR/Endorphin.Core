@@ -62,9 +62,9 @@ module internal Parsing =
         | Loop1 -> "1"
         | Loop2 -> "2"
 
-    let pidString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Intergral pid.Differential
+    let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Intergral pid.Differential
     
-    let parsePid str = 
+    let parsePidSettings str = 
         let regex = @"\G([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4})\s$"
         match str with
         | ParseRegex regex [ ParseFloat p ; ParseFloat i ; ParseFloat d ] ->
