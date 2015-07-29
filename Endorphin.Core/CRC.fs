@@ -1,7 +1,6 @@
-﻿namespace Endorphin.Instrument.Keysight
+﻿namespace Endorphin.Core
 
 /// Functions for calculating the CRC-64 of arrays of bytes.
-/// Potentially deprecated
 module CRC =
     /// Get the table entry for a given index in the 64-bit CRC lookup table of the
     /// given polynomial
@@ -20,9 +19,11 @@ module CRC =
             table.[i] <- getCrc64TableEntry i polynomial
         table
 
+    /// A CRC-64 table using a magic ECMA-standard polynomial
+    let table = createCrc64Table 0x42F0E1EBA9EA3693uL
+
     /// Calculate the CRC-64 of an array of bytes using the magic ECMA standardised polynomial
     let crc64 (bytes : byte []) =
-        let table = createCrc64Table 0x42F0E1EBA9EA3693uL
         let rec loop crc i =
             if i = bytes.Length then crc
             else
