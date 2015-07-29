@@ -15,9 +15,14 @@ module Model =
     /// Heater output range of the temperature controller.
     type HeaterRange = HeaterOff | HeaterLow | HeaterHigh
 
-    /// Control mode of the temperature controller. Open loop represents manual heater output
-    /// control whereas closed loop represents PID feedback.
-    type ControlMode = OpenLoop | ClosedLoop 
+    /// Control mode of the temperature controller.
+    type ControlMode =
+        | ManualPID
+        | ZoneMode
+        | OpenLoop
+        | AutoTunePID
+        | AutoTunePI
+        | AutoTuneP 
 
     /// The sensor loop of the temperature controller.
     type Loop = Loop1 | Loop2
