@@ -10,6 +10,9 @@ open ExtCore.Control
 /// Internal parsing functions between model types and their corresponding VISA command
 /// string formats.
 module internal Parsing =
+
+    /// Attempt to parse the given identity string and check if correspond to a LakeShore
+    /// model 325 temperature controller.
     let internal tryParseIdentity str =
         let parts = 
             String.split [|','|] str
@@ -25,22 +28,32 @@ module internal Parsing =
                   SerialNumber = parts.[2]
                   Version      = parts.[3] }
 
+    /// Parse a temperature string in degrees K.
     let parseTemperatureInK (str : string) = TemperatureInK ((float str) * 1.0<K>)
+
+    /// Encode a temperatures in degrees K to a string.
     let temperatureString (TemperatureInK temp) = sprintf "%+.5g" (float temp)
+
+    /// Parse a heater output string in percent.
     let parseHeaterOuptput (str : string) = HeaterOutput ((float str) * 1.0<pct>)
+
+    /// Encode a heater output in percent to a string.
     let heaterOutputString (HeaterOutput output) = sprintf "%+.4g" (float output)
 
+    /// Parse a heater range string.
     let parseHeaterRange = function
         | "0" -> HeaterOff
         | "1" -> HeaterLow
         | "2" -> HeaterHigh
         | str -> failwithf "Unexpected heater range string: %s." str
 
+    /// Encode a heater range to a string.
     let heaterRangeString = function
         | HeaterOff  -> "0"
         | HeaterLow  -> "1"
         | HeaterHigh -> "2"
 
+    /// Parse a control mode string.
     let parseControlMode = function
         | "1" -> ManualPID
         | "2" -> ZoneMode
@@ -50,6 +63,7 @@ module internal Parsing =
         | "6" -> AutoTuneP
         | str -> failwithf "Unexpected control mode string: %s" str
 
+    /// Encode a control mode to a string.
     let controlModeString = function
         | ManualPID   -> "1"
         | ZoneMode    -> "2"
@@ -58,12 +72,12 @@ module internal Parsing =
         | AutoTunePI  -> "5"
         | AutoTuneP   -> "6"
 
+    /// Encode a control loop to a string.
     let loopString = function
         | Loop1 -> "1"
         | Loop2 -> "2"
 
-    let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Intergral pid.Differential
-    
+    /// Parse a PID settings string.
     let parsePidSettings str = 
         let regex = @"\G([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4})\s$"
         match str with
@@ -73,6 +87,10 @@ module internal Parsing =
               Differential = d }
         | str -> failwith "Unexpected PID string: %s." str
 
+    /// Encode PID settings to a string.
+    let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Intergral pid.Differential
+    
+    /// Parse a standard event status byte string.
     let parseStandardEventStatus (str : string) =
         StandardEventStatus <| Array.first (Encoding.ASCII.GetBytes str)
         
