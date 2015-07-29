@@ -33,3 +33,6 @@ module Model =
         { Proportional : float
           Intergral    : float
           Differential : float }
+    
+    /// Event status byte indicating the instrument status.
+    type EventStatus = EventStatus of status : byte
