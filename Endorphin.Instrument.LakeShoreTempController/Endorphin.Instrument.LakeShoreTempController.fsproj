@@ -52,6 +52,7 @@
     <Compile Include="Status.fs" />
     <Compile Include="Keys.fs" />
     <Compile Include="IO.fs" />
+    <Compile Include="TempController.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">
