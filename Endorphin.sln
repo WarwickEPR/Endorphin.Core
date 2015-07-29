@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.PicoScope5000", "Endorphin.Instrument.PicoScope5000\Endorphin.Instrument.PicoScope5000.fsproj", "{B1B7A7F3-66B2-48E4-9F37-B1D2D9903904}"
 EndProject
@@ -28,6 +28,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VisaTimeoutTest", "VisaTimeoutTest\VisaTimeoutTest.fsproj", "{6A28880A-5C28-4812-88E8-1B66278024D4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F43E456E-DBEA-41B5-8230-D3B4F17AEE23}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.LakeShoreTempController", "Endorphin.Instrument.LakeShoreTempController\Endorphin.Instrument.LakeShoreTempController.fsproj", "{958F39D3-7489-4B57-994B-9A4E861B0AA8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -139,6 +141,18 @@ Global
 		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{6A28880A-5C28-4812-88E8-1B66278024D4}.Release|Win32.ActiveCfg = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Debug|Win32.Build.0 = Debug|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Win32.ActiveCfg = Release|Any CPU
+		{958F39D3-7489-4B57-994B-9A4E861B0AA8}.Release|Win32.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
