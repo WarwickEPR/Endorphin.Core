@@ -52,3 +52,43 @@ module internal IO =
     /// after converting it to a string with the string conversion function.
     let private setValueForLoop stringFunc key tempController loop value =
         performCommand (sprintf "%s %s, %s" key (loopString loop) (stringFunc value)) tempController
+
+    /// Query the temperature corresponding to the given key for the given instrument control
+    /// loop asynchronously.
+    let queryTemperatureForLoop = queryValueForLoop parseTemperatureInK
+
+    /// Set the temperature corresponding to the given key for the given instrument control
+    /// loop to the specified value asynchronously.
+    let setTemperatureForLoop = setValueForLoop temperatureString
+
+    /// Query the heater output corresponding to the given key for the given instrument control
+    /// loop asynchronously.
+    let queryHeaterOutputForLoop = queryValueForLoop parseHeaterOuptput
+
+    /// Set the heater output corresponding to the given key for the given instrument control
+    /// loop to the specified value asynchronously.
+    let setHeaterOutputForLoop = setValueForLoop heaterOutputString
+
+    /// Query the heater range corresponding to the given key for the given instrument control
+    /// loop asynchronously.
+    let queryHeaterRangeForLoop = queryValueForLoop parseHeaterRange
+
+    /// Set the heater range corresponding to the given key for the given instrument control
+    /// loop to the specified value asynchronously.
+    let setHeaterRangeForLoop = setValueForLoop heaterRangeString
+
+    /// Query the control mode corresponding to the given key for the given instrument control
+    /// loop asynchronously.
+    let queryControlModeForLoop = queryValueForLoop parseControlMode
+
+    /// Set the control mode corresponding to the given key for the given instrument control
+    /// loop to the specified value asynchronously.
+    let setControlModeForLoop = setValueForLoop controlModeString
+
+    /// Query the PID settings corresponding to the given key for the given instrument control
+    /// loop asynchronously.
+    let queryPidSettingsForLoop = queryValueForLoop parsePidSettings
+
+    /// Set the PID settings corresponding to the given key for the given instrument control
+    /// loop to the specified value asynchronously.
+    let setPidSettingsForLoop = setValueForLoop pidSettingsString
