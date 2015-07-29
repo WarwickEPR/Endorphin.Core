@@ -35,4 +35,4 @@ module Model =
           Differential : float }
     
     /// Event status byte indicating the instrument status.
-    type EventStatus = EventStatus of status : byte
+    type StandardEventStatus = StandardEventStatus of status : byte

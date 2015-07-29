@@ -7,7 +7,7 @@ open Endorphin.Core
 module internal Status =
     
     /// True if a command causes an execution error (e.g. parameter out of range).
-    let executionError (EventStatus status) = Byte.nthBit 4 status
+    let executionError (StandardEventStatus status) = Byte.nthBit 4 status
 
     /// True if an invalid command is sent (e.g. syntax error).
-    let commandError   (EventStatus status) = Byte.nthBit 5 status
+    let commandError   (StandardEventStatus status) = Byte.nthBit 5 status

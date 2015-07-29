@@ -57,5 +57,5 @@ module internal Parsing =
         | str -> failwith "Unexpected PID string: %s." str
 
     let parseEventStatus (str : string) =
-        EventStatus <| Array.first (Encoding.ASCII.GetBytes str)
+        StandardEventStatus <| Array.first (Encoding.ASCII.GetBytes str)
         
