@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.LakeShoreTempController
 
+open System.Text
 open Endorphin.Core.StringUtils
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -54,3 +55,7 @@ module internal Parsing =
               Intergral    = i
               Differential = d }
         | str -> failwith "Unexpected PID string: %s." str
+
+    let parseEventStatus (str : string) =
+        EventStatus <| Array.first (Encoding.ASCII.GetBytes str)
+        
