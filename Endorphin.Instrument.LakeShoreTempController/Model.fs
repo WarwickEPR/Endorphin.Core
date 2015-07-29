@@ -2,10 +2,25 @@
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+open Endorphin.Core.NationalInstruments
+
 [<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.
 module Model =
-    
+
+    [<AutoOpen>]
+    module Instrument =
+        
+        /// LakeShore model 325 temperature controlller.    
+        type TempController = internal TempController of tempController : VisaInstrument
+
+        /// LakeShore model 325 temperature controller identity details.
+        type Identity =
+            { Manufacturer : string
+              ModelNumber  : string
+              SerialNumber : string
+              Version      : string }
+
     /// Temperature in Kelvin.
     type Temperatue = TemperatureInK of temperature : float<K>
     
