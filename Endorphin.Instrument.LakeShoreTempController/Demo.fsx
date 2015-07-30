@@ -119,10 +119,9 @@ let experiment = asyncChoice {
     do! monitorController tempController measurementRepeats measurementInterval }
 
 // when the form is shown run the experiment workflow and print success/failure messages
-form.Shown.Add(fun _ ->
-    Async.StartWithContinuations (experiment,
-        (function
-        | Success ()    -> printfn "Successfully perfromed %d measurements." measurementRepeats
-        | Failure error -> printfn "Failed to perform measurements: %s" error),
-        (fun exn -> printfn "Error: %s" exn.Message),
-        ignore))
+Async.StartWithContinuations (experiment,
+    (function
+    | Success ()    -> printfn "Successfully perfromed %d measurements." measurementRepeats
+    | Failure error -> printfn "Failed to perform measurements: %s" error),
+    (fun exn -> printfn "Error: %s" exn.Message),
+    ignore)
