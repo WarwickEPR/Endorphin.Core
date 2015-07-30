@@ -36,6 +36,16 @@ module Choice =
         | Success s -> succeed (Some s)
         | Failure f -> fail f
 
+    /// Map a list, where each mapping results in a choice, binding the result of each mapping.
+    let mapList map list =
+        let rec loop acc list = choice {
+            match list with
+            | [] -> return List.rev acc
+            | hd :: tl ->
+                let! hd' = map hd
+                return! loop (hd' :: acc) tl }
+        loop [] list
+
 [<AutoOpen>]
 module Utils =
     let defer f = { new System.IDisposable with member __.Dispose() = f () }
