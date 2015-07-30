@@ -92,5 +92,5 @@ module internal Parsing =
     
     /// Parse a standard event status byte string.
     let parseStandardEventStatus (str : string) =
-        StandardEventStatus <| Array.first (Encoding.ASCII.GetBytes str)
+        StandardEventStatus <| (byte str)
         
