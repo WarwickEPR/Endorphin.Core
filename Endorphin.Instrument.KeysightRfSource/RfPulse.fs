@@ -467,7 +467,8 @@ module RfPulse =
             /// Pretty-print out a segment
             let printSegment indent segment =
                 segment.Samples
-                |> Array.iter (fun (smp, SampleCount count) -> printSample indent smp; printfn " * %d" count)
+                |> Array.iter
+                    (fun (smp, SampleCount count) -> printSample indent smp; printfn " * %d" count)
 
             /// Pretty print a pending sequence.
             let rec printPendingSequence indent segMap seqMap sequence =
