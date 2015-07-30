@@ -9,13 +9,6 @@ open System
 module RfPulse =
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
-        /// Create a list with n copies of the original list concatenated.
-        let private makeListCopies n list =
-            let rec loop list acc = function
-                | 0 -> acc
-                | i -> loop list (list @ acc) (i - 1)
-            loop list [] n
-
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
         /// for use in the compilation step.
         [<AutoOpen>]
@@ -86,10 +79,26 @@ module RfPulse =
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
         module private Compile =
+            /// Does the same as List.map, but returns a reversed list.
+            let private mapReversed map list =
+                let rec loop i acc = function
+                    | [] -> acc
+                    | head :: tail ->
+                        loop (i + 1) ((map head) :: acc) tail
+                loop 0 [] list
+
+            /// Create a list with n copies of the original list concatenated.
+            let private mapiListCopies n mapi list =
+                let rec loop acc = function
+                    | 0 -> List.rev acc
+                    | i ->
+                        let copy = mapReversed (mapi (n - i)) list
+                        loop (copy @ acc) (i - 1)
+                loop [] n
+
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence.
-            let private chooseCorrectPhase pulseCount index pulse =
-                match pulse with
+            let private chooseCorrectPhase pulseCount index = function
                 | VerifiedRf (PhaseCycle phases, dur, inc) ->
                     let phase =
                         // Use integer division to find which phase we should select.
@@ -97,7 +106,7 @@ module RfPulse =
                         // track if there aren't enough phases in any of the cycles
                         PhaseCycle [| phases.[index/pulseCount] |]
                     VerifiedRf (phase, dur, inc)
-                | _ -> pulse
+                | pulse -> pulse
 
             /// Expand an Experiment into a sequence of StaticPhasePulses, with the relevant phase
             /// in each RfPulse.
@@ -107,8 +116,7 @@ module RfPulse =
                 | Some n ->
                     let pulses =
                         experiment.Pulses
-                        |> makeListCopies n
-                        |> List.mapi (chooseCorrectPhase experiment.Metadata.PulsesCount)
+                        |> mapiListCopies n (chooseCorrectPhase experiment.Metadata.PulsesCount)
                     { experiment with Pulses = pulses }
 
             /// Get the new duration in SampleCount for the nth repetition.
@@ -140,8 +148,7 @@ module RfPulse =
                     | None   -> experiment.Metadata.PulsesCount
                 let pulses =
                     experiment.Pulses
-                    |> makeListCopies reps
-                    |> List.mapi (chooseCorrectDuration pulsesPerRep)
+                    |> mapiListCopies reps (chooseCorrectDuration pulsesPerRep)
                 { experiment with Pulses = pulses }
 
             /// Convert an experiment with pulses, increments and a phase cycle into a list of
@@ -196,13 +203,16 @@ module RfPulse =
             /// Add two SampleCounts together.
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
 
+            /// Check whether two samples are equal by comparing their hashes.
+            let private equalSamples a b = (hexHash sampleToBytes a) = (hexHash sampleToBytes b)
+
             /// Given a list of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly.
             let private groupEqualSamples samples =
                 let folder acc el =
                     match acc with
                     | [] -> [el]
-                    | y :: ys when fst el = fst y -> (fst y, addDurations y el) :: ys
+                    | y :: ys when equalSamples (fst el) (fst y) -> (fst y, addDurations y el) :: ys
                     | _ -> el :: acc
                 samples
                 |> List.fold folder []
