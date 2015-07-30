@@ -8,7 +8,7 @@ module internal Keys =
     let identity = "*IDN"
     
     /// Standard event status byte.
-    let standardEventStatus = "*ESE"
+    let standardEventStatus = "*ESR"
 
     /// Control loop mode.
     let controlMode = "CMODE"
