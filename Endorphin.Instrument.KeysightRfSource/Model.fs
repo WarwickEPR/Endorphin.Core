@@ -296,8 +296,19 @@ module Model =
             | Trigger of TriggerPulse
             | Marker  of MarkerPulse
 
+        /// Choose whether each step in an experiment should be triggered internally, using some
+        /// separator pulse sequence to separate them out, or have some external trigger to play the
+        /// next step.
+        type ExperimentTrigger =
+            | ExperimentInternal of separator : Pulse seq
+            | ExperimentExternal
+
         /// A whole experiment, ready to be compiled and optimised.
-        type Experiment = Experiment of pulses : Pulse seq * repetitions : uint16
+        type Experiment = {
+            Pulses : Pulse seq
+            Repetitions : int
+            Triggering : ExperimentTrigger
+            ShotsPerPoint : int }
 
         /// The id of a stored experiment.
         type StoredExperimentId = StoredExperimentId of StoredSequence

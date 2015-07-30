@@ -1,9 +1,9 @@
 #r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
 #r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
-#r @"..\Endorphin.Core\bin\Release\Endorphin.Core.dll"
+#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r "NationalInstruments.Common.dll"
 #r "NationalInstruments.VisaNS.dll"
-#r @"bin\Release\Endorphin.Instrument.KeysightRfSource.dll"
+#r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Endorphin.Instrument.Keysight
 open log4net.Config
@@ -36,7 +36,12 @@ let pulses = seq {
     yield Marker ( { M1 = false; M2 = true; M3 = false; M4 = true }, SampleCount 120, SampleCount 0)
 }
 
-let experiment = Experiment (pulses, 1us)
+let experiment = {
+    Pulses = pulses
+    Repetitions = 2
+    Triggering = ExperimentExternal
+    ShotsPerPoint = 1
+}
 
 asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000

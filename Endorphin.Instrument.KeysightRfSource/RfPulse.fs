@@ -55,26 +55,70 @@ module RfPulse =
                 | Trigger pulse -> VerifiedTrigger pulse
                 | Marker pulse -> VerifiedMarker pulse
 
+            /// Check that there is a valid number of phases in each cycle, and return their count
+            /// as an option.
+            let private countRfPhases (rfPulses : Pulse list) =
+                if rfPulses.Length = 0 then
+                    succeed None
+                else
+                    rfPulses
+                    |> checkPhaseCycles
+                    |> Choice.liftInsideOption
+
+            let private toStaticPulse pulse =
+                match pulse with
+                | Rf (PhaseCycle cycle, dur, SampleCount inc) when cycle.Length = 1 && inc = 0 ->
+                    succeed (StaticRf (Array.exactlyOne cycle, dur))
+                | Delay (dur, SampleCount inc) when inc = 0 ->
+                    succeed (StaticDelay dur)
+                | Trigger (markers) ->
+                    succeed (StaticTrigger markers)
+                | Marker (markers, dur, SampleCount inc) when inc = 0 ->
+                    succeed (StaticMarker (markers, dur))
+                | _ -> fail "All pulses in the separator must be static (i.e. no increment or phase cycle"
+
+            /// Check that an internal trigger sequence is valid (i.e. static), and convert it
+            /// if so.
+            let private checkInternalTrigger sep = choice {
+                let! sep' =
+                    sep
+                    |> List.ofSeq
+                    |> Choice.mapList toStaticPulse
+                return sep' |> (function | [] -> None; | s -> Some s) }
+
+            /// Check that the triggering portion of an experiment is valid.
+            let private checkTriggering trigger = choice {
+                match trigger with
+                | ExperimentInternal (sep) ->
+                    let! sep' = checkInternalTrigger sep
+                    return (sep', SourceInternal)
+                | ExperimentExternal -> return (None, SourceExternal) }
+
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
-            let verify (Experiment (pulses, reps)) = choice {
-                // Check that there's a non-zero number of experiment repetitions
-                do! if reps = 0us then fail "Must do the experiment at least once!" else succeed ()
-                let  pulses'  = List.ofSeq pulses
-                let  rfPulses = pulses' |> List.filter isRfPulse
-                let! rfPhaseCount =
-                    if rfPulses.Length = 0 then
-                        succeed None
+            let verify experiment = choice {
+                do! if experiment.Repetitions < 1 then
+                        fail "Must do the experiment at least once!"
                     else
-                        rfPulses
-                        |> checkPhaseCycles
-                        |> Choice.liftInsideOption
+                        succeed ()
+
+                do! if experiment.ShotsPerPoint < 1 then
+                        fail "Must have at least one shot per point!"
+                    else
+                        succeed ()
+                let pulses = experiment.Pulses |> List.ofSeq
+                let rfPulses = pulses |> List.filter isRfPulse
+                let! rfPhaseCount = countRfPhases rfPulses
+                let! (separator, source) = checkTriggering experiment.Triggering
                 return {
-                    Pulses = List.map toVerifiedPulse pulses'
+                    Pulses = pulses |> List.map toVerifiedPulse
+                    Separator = separator
                     Metadata =
-                    { ExperimentRepetitions = int reps
-                      PulsesCount = pulses'.Length
-                      RfPhaseCount = rfPhaseCount } } }
+                    { ExperimentRepetitions = experiment.Repetitions
+                      PulsesCount = pulses.Length
+                      RfPhaseCount = rfPhaseCount
+                      TriggerSource = source
+                      ShotsPerPoint = experiment.ShotsPerPoint } } }
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]

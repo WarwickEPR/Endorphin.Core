@@ -27,6 +27,11 @@ module internal InternalModel =
             | VerifiedTrigger of TriggerPulse
             | VerifiedMarker of MarkerPulse
 
+        /// Where the next point of the experiment should be triggered from.
+        type ExperimentTriggerSource =
+            | SourceInternal
+            | SourceExternal
+
         /// Metadata about the experiment gathered during verification, for use during the
         /// compilation step.
         type ExperimentMetadata = {
@@ -35,12 +40,11 @@ module internal InternalModel =
             /// How many pulses there are per phase.
             PulsesCount : int
             /// How many phases there are in the phase cycle.
-            RfPhaseCount : int option }
-
-        /// An experiment after it has been passed through the user-input verifier.
-        type VerifiedExperiment = {
-            Pulses : VerifiedPulse list
-            Metadata : ExperimentMetadata }
+            RfPhaseCount : int option
+            /// Where the next point of the experiment should be triggered from.
+            TriggerSource : ExperimentTriggerSource
+            /// How many times to run the experiment at each increment and phase.
+            ShotsPerPoint : int }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the
@@ -50,6 +54,12 @@ module internal InternalModel =
             | StaticDelay   of duration : SampleCount
             | StaticTrigger of markers : Markers
             | StaticMarker  of markers : Markers * duration : SampleCount
+
+        /// An experiment after it has been passed through the user-input verifier.
+        type VerifiedExperiment = {
+            Pulses : VerifiedPulse list
+            Separator : Option<StaticPulse list>
+            Metadata : ExperimentMetadata }
 
         /// A list of samples and their repetitions, which could be easily written onto the
         /// machine, but likely with a lot of redundancy.
