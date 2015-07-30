@@ -26,4 +26,4 @@ module internal Keys =
     let setPoint = "SETP"
 
     /// Current temperature.
-    let temperature = "TEMP"
+    let temperature = "KRDG"
