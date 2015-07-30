@@ -200,3 +200,10 @@ module Control =
             let! stored = storeExperiment instrument experiment
             do! playStoredExperiment instrument stored
             return stored }
+
+#if DEBUG
+        /// In debug mode, compress the experiment, then print it out, rather than writing to the machine.
+        let printExperiment experiment = asyncChoice {
+            let! compressed = toCompressedExperiment experiment
+            printCompressedExperiment compressed }
+#endif

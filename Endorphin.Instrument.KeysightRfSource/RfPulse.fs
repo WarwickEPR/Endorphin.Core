@@ -377,7 +377,7 @@ module RfPulse =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let private makeExperimentName compressed =
+            let internal makeExperimentName compressed =
                 let list = compressed.CompressedExperiment
                 let byteCount = elementByteCount list.Head
                 let arrLength = list.Length * byteCount
@@ -428,3 +428,53 @@ module RfPulse =
             /// storing all of the dependencies at the same time.
             let toRegularSequence pending : Sequence =
                 pending |> List.map toRegularSequenceElement
+
+#if DEBUG
+        /// Debugging functions for printing out experiments after they've been compiled.
+        [<AutoOpen>]
+        module Print =
+            /// Get a compressed experiment
+            let toCompressedExperiment experiment = asyncChoice {
+                let! verified = verify experiment
+                return verified
+                    |> compile
+                    |> compress }
+
+            /// Get a string of the indent level
+            let private getIndent indent = String.replicate indent " "
+
+            /// Pretty-print out a sample
+            let printSample (indent : int) sample =
+                printf "%s(%d; %d; %d%d%d%d)"
+                    (getIndent indent)
+                    sample.I
+                    sample.Q
+                    (Convert.ToInt32 sample.Markers.M1)
+                    (Convert.ToInt32 sample.Markers.M2)
+                    (Convert.ToInt32 sample.Markers.M3)
+                    (Convert.ToInt32 sample.Markers.M4)
+
+            /// Pretty-print out a segment
+            let printSegment indent segment =
+                segment.Samples
+                |> Array.iter (fun (smp, SampleCount count) -> printSample indent smp; printfn " * %d" count)
+
+            /// Pretty print a pending sequence.
+            let rec printPendingSequence indent segMap seqMap sequence =
+                let printEl = printPendingSequenceElement indent segMap seqMap
+                sequence
+                |> List.iter (fun el -> printfn "%s-------" (getIndent indent); printEl el)
+            and private printPendingSequenceElement indent segMap seqMap = function
+                | PendingSegment (SegmentId id, reps) ->
+                    printfn "%s%s" (getIndent (indent + 4)) id
+                    printSegment (indent + 4) (Map.find id segMap)
+                    printfn "%s%d" (getIndent (indent + 4)) reps
+                | PendingSequence (SequenceId id, reps) ->
+                    printfn "%s%s" (getIndent (indent + 4)) id
+                    printPendingSequence (indent + 4) segMap seqMap (Map.find id seqMap)
+                    printfn "%s%d" (getIndent (indent + 4)) reps
+
+            let printCompressedExperiment (compressed : CompressedExperiment) =
+                printfn "%s" ((makeExperimentName compressed) |> (fun (SequenceId id) -> id))
+                printPendingSequence 0 compressed.Segments compressed.Sequences compressed.CompressedExperiment
+#endif
