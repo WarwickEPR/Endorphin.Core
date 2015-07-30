@@ -90,26 +90,19 @@ module Waveform =
                 let markers = Array.create sampleCount 0uy
                 let mutable sampleIndex = 0
                 let mutable used = 0
+                let singleIq = Array.create 4 0uy
+                let mutable singleMarkers = 0uy
                 for i in 0 .. (sampleCount - 1) do
                     let (sample, SampleCount count) = segment.Samples.[sampleIndex]
                     if used = 0 then
-                        let singleIq = iqBytes sample
-                        iq.[(4 * i)]     <- singleIq.[0]
-                        iq.[(4 * i) + 1] <- singleIq.[1]
-                        iq.[(4 * i) + 2] <- singleIq.[2]
-                        iq.[(4 * i) + 3] <- singleIq.[3]
-                        markers.[i]      <- getMarkerByte sample
-                        used <- used + 1
-                    else
-                        iq.[(4 * i)]     <- iq.[(4 * i) - 4]
-                        iq.[(4 * i) + 1] <- iq.[(4 * i) - 3]
-                        iq.[(4 * i) + 2] <- iq.[(4 * i) - 2]
-                        iq.[(4 * i) + 3] <- iq.[(4 * i) - 1]
-                        markers.[i]      <- markers.[i - 1]
-                        if used = count - 1 then
-                            used <- 0
-                            sampleIndex <- sampleIndex + 1
-                        else used <- used + 1
+                        singleIq.[0 .. 3] <- iqBytes sample
+                        singleMarkers <- getMarkerByte sample
+                    iq.[(4 * i) .. (4 * i) + 3] <- singleIq
+                    markers.[i]      <- singleMarkers
+                    if used = count - 1 then
+                        used <- 0
+                        sampleIndex <- sampleIndex + 1
+                    else used <- used + 1
                 (iq, markers)
 
             /// Encode a segment into the necessary byte patterns.
@@ -185,23 +178,23 @@ module Waveform =
                 |> sequenceData
                 |> Array.append name
 
+            /// Get a unique representation of a sample as a byte array.
+            let sampleToBytes sample =
+                let arr = Array.create 5 0uy
+                arr.[0 .. 3] <- iqBytes sample
+                arr.[4] <- getMarkerByte sample
+                arr
+
             /// Get a unique representation of a segment as a byte array.
             let segmentToBytes segment =
                 let length = segment.Samples.Length
                 let arr = Array.create (length * 9) 0uy // 5 bytes per sample, 4 bytes per count
                 for i in 0 .. length - 1 do
                     let (sample, SampleCount reps) = segment.Samples.[i]
-                    let reps' = BitConverter.GetBytes reps // endianness doesn't matter here
-                    let iq = iqBytes sample
-                    arr.[(i * 9) + 0] <- iq.[0] // -funroll-loops!
-                    arr.[(i * 9) + 1] <- iq.[1]
-                    arr.[(i * 9) + 2] <- iq.[2]
-                    arr.[(i * 9) + 3] <- iq.[3]
-                    arr.[(i * 9) + 4] <- getMarkerByte sample
-                    arr.[(i * 9) + 5] <- reps'.[0]
-                    arr.[(i * 9) + 6] <- reps'.[1]
-                    arr.[(i * 9) + 7] <- reps'.[2]
-                    arr.[(i * 9) + 8] <- reps'.[3]
+                    arr.[(i * 9) + 0 .. (i * 9) + 3] <- iqBytes sample
+                    arr.[(i * 9) + 4]                <- getMarkerByte sample
+                    arr.[(i * 9) + 5 .. (i * 9) + 8] <- BitConverter.GetBytes reps
+                    // endianness doesn't matter here
                 arr // return the byte array we just created
 
             /// Get a unique representation of a sequence as a byte array.
