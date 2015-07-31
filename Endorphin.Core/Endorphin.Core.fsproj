@@ -58,6 +58,7 @@
     <Compile Include="StringUtils.fs" />
     <Compile Include="Units.fs" />
     <Compile Include="NationalInstruments.fs" />
+    <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="CSharpInterop.fs" />
     <Compile Include="WinFormsObservables.fs" />
     <Compile Include="Collections.List.fs" />
