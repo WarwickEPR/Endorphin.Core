@@ -171,8 +171,8 @@ module NationalInstruments =
 
                 // dequeues VisaMessages from the mailbox and handles them if communication to the
                 // instrument fails
-                let rec failed () = async {
-                    let errorString message = sprintf "Received message after communication to instrument failed: %s." (messageDescription message)
+                let rec failed error = async {
+                    let errorString message = sprintf "Received message '%s' after communication to instrument failed due to error: %s." error (messageDescription message)
 
                     let! message = mailbox.Receive()
                     match message with
@@ -182,32 +182,32 @@ module NationalInstruments =
                     | WriteString _
                     | WriteBytes _  -> 
                         errorString message |> log.Error
-                        return! failed ()
+                        return! failed error
 
                     | ReadString replyChannel
                     | QueryString (_, replyChannel) ->
                         errorString message |> log.Error
                         fail (errorString message) |> replyChannel.Reply
-                        return! failed ()
+                        return! failed error
 
                     | ReadBytes replyChannel
                     | QueryBytes (_, replyChannel) ->
                         errorString message |> log.Error
                         fail (errorString message) |> replyChannel.Reply
-                        return! failed () }
+                        return! failed error }
 
                 // dequeus VisaMessages from the mailbox and communicates accordingly with the VISA
                 // instrument using the MessageBasedSession
                 let rec loop (instrument : MessageBasedSession) = async {
                     let! message = mailbox.Receive()
-                    sprintf "Received message: %s" (messageDescription message) |> log.Debug
+                    sprintf "Received message: %s." (messageDescription message) |> log.Debug
 
                     let continueAfter response = 
                         match response with
                         | Success _     -> loop instrument
                         | Failure error ->
                             sprintf "Communication to instrument failed: %s." error |> log.Error
-                            failed ()
+                            failed error
 
                     match message with
                     | ReadString replyChannel ->
@@ -252,8 +252,9 @@ module NationalInstruments =
                         instrument.Timeout <- timeout
                         return! loop instrument
                     with exn ->
-                        sprintf "Failed to connect to instrument: %s." exn.Message |> log.Error
-                        return! failed () })
+                        let error = sprintf "Failed to connect to instrument: %s." exn.Message
+                        error |> log.Error
+                        return! failed error })
 
         /// Opens a connection to a VISA instrument using the specified address and timeout in
         /// milliseconds. The returned VisaInstrument can then be used to communicate with the
