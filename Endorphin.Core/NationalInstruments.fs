@@ -172,28 +172,28 @@ module NationalInstruments =
                 // dequeues VisaMessages from the mailbox and handles them if communication to the
                 // instrument fails
                 let rec failed error = async {
-                    let errorString message = sprintf "Received message '%s' after communication to instrument failed due to error: %s." error (messageDescription message)
-
                     let! message = mailbox.Receive()
+                    let errorMessage = sprintf "Received message '%s' after communication to instrument failed due to error: %s." error (messageDescription message)
+
                     match message with
                     | CloseSession replyChannel ->
                         do! closeSession replyChannel
 
                     | WriteString _
                     | WriteBytes _  -> 
-                        errorString message |> log.Error
+                        errorMessage |> log.Error
                         return! failed error
 
                     | ReadString replyChannel
                     | QueryString (_, replyChannel) ->
-                        errorString message |> log.Error
-                        fail (errorString message) |> replyChannel.Reply
+                        errorMessage |> log.Error
+                        (fail errorMessage) |> replyChannel.Reply
                         return! failed error
 
                     | ReadBytes replyChannel
                     | QueryBytes (_, replyChannel) ->
-                        errorString message |> log.Error
-                        fail (errorString message) |> replyChannel.Reply
+                        errorMessage |> log.Error
+                        (fail errorMessage) |> replyChannel.Reply
                         return! failed error }
 
                 // dequeus VisaMessages from the mailbox and communicates accordingly with the VISA
