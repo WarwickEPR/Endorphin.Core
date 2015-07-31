@@ -120,3 +120,30 @@ module Units =
 
     let radiansToDegrees angle = angle * (180.0<deg/rad> / System.Math.PI)
     let degreesToRadians angle = angle * (System.Math.PI / 180.0<deg/rad>)
+
+   
+    [<AutoOpen>]
+    module Voltage = 
+        [<Measure>] type uV
+        [<Measure>] type mV
+
+        let voltsPerMilliVolt      = 1.0e-3<V/mV>
+        let voltsPerMicroVolt      = 1.0e-6<V/uV>
+
+        let millivoltsPerVolt      = 1.0e3<mV/V>
+        let millivoltsPerMicroVolt = 1.0e-3<mV/uV>
+
+        let microvoltsPerVolt      = 1.0e6<uV/V>
+        let microvoltsPerMilliVolt = 1.0e3<uV/mV>
+
+        module Volts = 
+            let toMillivolts (v : float<V>) = v * millivoltsPerVolt 
+            let toMicrovolts (v : float<V>) = v * microvoltsPerVolt
+
+        module Millivolts = 
+            let toVolts      (v : float<mV>) = v * voltsPerMilliVolt 
+            let toMicrovolts (v : float<mV>) = v * microvoltsPerMilliVolt
+                                             
+        module Microvolts =                  
+            let toVolts      (v : float<uV>) = v * voltsPerMicroVolt
+            let toMillivolts (v : float<uV>) = v * millivoltsPerMicroVolt
