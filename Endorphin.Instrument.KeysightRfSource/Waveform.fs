@@ -4,6 +4,9 @@ open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Waveform =
+    /// Minimum number of samples needed for a valid Segment on the machine.
+    let minimumSegmentLength = 60u
+
     /// Functions for configuring samples.
     [<AutoOpen>]
     module Configure =
@@ -85,24 +88,24 @@ module Waveform =
 
             /// Create a tuple of iq, markers encoded as byte sequences.
             let toEncodedSegmentData (segment : Segment) =
-                let sampleCount = segment.Length
+                let sampleCount = int segment.Length
                 let iq = Array.create (sampleCount * 4) 0uy
                 let markers = Array.create sampleCount 0uy
                 let mutable sampleIndex = 0
-                let mutable used = 0
+                let mutable used = 0u
                 let singleIq = Array.create 4 0uy
                 let mutable singleMarkers = 0uy
                 for i in 0 .. (sampleCount - 1) do
                     let (sample, SampleCount count) = segment.Samples.[sampleIndex]
-                    if used = 0 then
+                    if used = 0u then
                         singleIq.[0 .. 3] <- iqBytes sample
                         singleMarkers <- getMarkerByte sample
                     iq.[(4 * i) .. (4 * i) + 3] <- singleIq
                     markers.[i]      <- singleMarkers
-                    if used = count - 1 then
-                        used <- 0
+                    if used = count - 1u then
+                        used <- 0u
                         sampleIndex <- sampleIndex + 1
-                    else used <- used + 1
+                    else used <- used + 1u
                 (iq, markers)
 
             /// Encode a segment into the necessary byte patterns.

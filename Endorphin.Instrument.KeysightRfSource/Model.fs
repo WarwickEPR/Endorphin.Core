@@ -3,7 +3,7 @@
 open Endorphin.Core.NationalInstruments
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-/// Model of the possible configurations of a Keysight RF source
+/// Model of the possible configurations of a Keysight RF source.
 [<AutoOpen>]
 module Model =
     [<AutoOpen>]
@@ -35,7 +35,6 @@ module Model =
         type Phase =
             | PhaseInRad of float<rad>
             | PhaseInDeg of float<deg>
-
         /// A list of phases to cycle through.
         type PhaseCycle = PhaseCycle of Phase array
 
@@ -250,7 +249,7 @@ module Model =
             Markers : Markers }
 
         /// A number of samples, generally used as a pulse duration.
-        type SampleCount = SampleCount of int
+        type SampleCount = SampleCount of uint32
 
         /// The identifier of a segment, stored as a string.
         type SegmentId = SegmentId of string
@@ -260,7 +259,7 @@ module Model =
         /// A single segment in the machine.  Must be at least 60 samples long.
         type Segment = {
             Samples : (Sample * SampleCount) array
-            Length  : int }
+            Length  : uint16 }
 
         /// Representation of the stored segments on the machine.
         type StoredSegment = internal StoredSegment of name : SegmentId
@@ -296,28 +295,20 @@ module Model =
             | Trigger of TriggerPulse
             | Marker  of MarkerPulse
 
-        /// Choose whether each step in an experiment should be triggered internally, using some
-        /// separator pulse sequence to separate them out, or have some external trigger to play the
-        /// next step.
-        type ExperimentTrigger =
-            | ExperimentInternal of separator : Pulse seq
-            | ExperimentExternal
-
         /// A whole experiment, ready to be compiled and optimised.
         type Experiment = {
             Pulses : Pulse seq
             Repetitions : int
-            Triggering : ExperimentTrigger
+            Triggering : TriggerSource
             ShotsPerPoint : int }
-
-        /// The id of a stored experiment.
-        type StoredExperimentId = StoredExperimentId of StoredSequence
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
-            StoredExperiment : StoredExperimentId
+            StoredExperiments: StoredSequence array
             StoredSegments   : StoredSegment array
-            StoredSequences  : StoredSequence array }
+            StoredSequences  : StoredSequence array
+            ShotsPerPoint : int
+            Triggering : TriggerSource }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {

@@ -65,35 +65,6 @@ module RfPulse =
                     |> checkPhaseCycles
                     |> Choice.liftInsideOption
 
-            let private toStaticPulse pulse =
-                match pulse with
-                | Rf (PhaseCycle cycle, dur, SampleCount inc) when cycle.Length = 1 && inc = 0 ->
-                    succeed (StaticRf (Array.exactlyOne cycle, dur))
-                | Delay (dur, SampleCount inc) when inc = 0 ->
-                    succeed (StaticDelay dur)
-                | Trigger (markers) ->
-                    succeed (StaticTrigger markers)
-                | Marker (markers, dur, SampleCount inc) when inc = 0 ->
-                    succeed (StaticMarker (markers, dur))
-                | _ -> fail "All pulses in the separator must be static (i.e. no increment or phase cycle"
-
-            /// Check that an internal trigger sequence is valid (i.e. static), and convert it
-            /// if so.
-            let private checkInternalTrigger sep = choice {
-                let! sep' =
-                    sep
-                    |> List.ofSeq
-                    |> Choice.mapList toStaticPulse
-                return sep' |> (function | [] -> None; | s -> Some s) }
-
-            /// Check that the triggering portion of an experiment is valid.
-            let private checkTriggering trigger = choice {
-                match trigger with
-                | ExperimentInternal (sep) ->
-                    let! sep' = checkInternalTrigger sep
-                    return (sep', SourceInternal)
-                | ExperimentExternal -> return (None, SourceExternal) }
-
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify experiment = choice {
@@ -101,7 +72,6 @@ module RfPulse =
                         fail "Must do the experiment at least once!"
                     else
                         succeed ()
-
                 do! if experiment.ShotsPerPoint < 1 then
                         fail "Must have at least one shot per point!"
                     else
@@ -109,58 +79,45 @@ module RfPulse =
                 let pulses = experiment.Pulses |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
                 let! rfPhaseCount = countRfPhases rfPulses
-                let! (separator, source) = checkTriggering experiment.Triggering
                 return {
-                    Pulses = pulses |> List.map toVerifiedPulse
-                    Separator = separator
+                    Pulses = [ (pulses |> List.map toVerifiedPulse) ]
                     Metadata =
                     { ExperimentRepetitions = experiment.Repetitions
                       PulsesCount = pulses.Length
                       RfPhaseCount = rfPhaseCount
-                      TriggerSource = source
+                      TriggerSource = experiment.Triggering
                       ShotsPerPoint = experiment.ShotsPerPoint } } }
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
         module private Compile =
-            /// Does the same as List.map, but returns a reversed list.
-            let private mapReversed map list =
-                let rec loop i acc = function
-                    | [] -> acc
-                    | head :: tail ->
-                        loop (i + 1) ((map head) :: acc) tail
-                loop 0 [] list
-
-            /// Create a list with n copies of the original list concatenated.
+            /// Create a list with n copies of the original list, where each list is mapped according
+            /// to some mapping function.
             let private mapiListCopies n mapi list =
                 let rec loop acc = function
-                    | 0 -> List.rev acc
+                    | 0 -> acc
                     | i ->
-                        let copy = mapReversed (mapi (n - i)) list
+                        let copy = List.map (List.map (mapi (i - 1))) list
                         loop (copy @ acc) (i - 1)
                 loop [] n
 
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence.
-            let private chooseCorrectPhase pulseCount index = function
+            let private chooseCorrectPhase index = function
                 | VerifiedRf (PhaseCycle phases, dur, inc) ->
-                    let phase =
-                        // Use integer division to find which phase we should select.
-                        // This assumes that the verification step would have put us on the failure
-                        // track if there aren't enough phases in any of the cycles
-                        PhaseCycle [| phases.[index/pulseCount] |]
+                    let phase = PhaseCycle [| phases.[index] |]
                     VerifiedRf (phase, dur, inc)
                 | pulse -> pulse
 
             /// Expand an Experiment into a sequence of StaticPhasePulses, with the relevant phase
             /// in each RfPulse.
-            let private expandPhaseCycle experiment =
+            let private expandPhaseCycle (experiment : VerifiedExperiment) =
                 match experiment.Metadata.RfPhaseCount with
                 | None -> experiment
                 | Some n ->
                     let pulses =
                         experiment.Pulses
-                        |> mapiListCopies n (chooseCorrectPhase experiment.Metadata.PulsesCount)
+                        |> mapiListCopies n chooseCorrectPhase
                     { experiment with Pulses = pulses }
 
             /// Get the new duration in SampleCount for the nth repetition.
@@ -168,9 +125,8 @@ module RfPulse =
 
             /// Set the duration in a pulse to the correct duration for the repetition that we're on.
             /// The increment remains, but is safe to discard after this function.
-            let private chooseCorrectDuration count index pulse =
-                // Use integer division to find which repetition of the experiment we're on
-                let n = index / count
+            let private chooseCorrectDuration index pulse =
+                let n = uint32 index
                 match pulse with
                 | VerifiedRf (phases, dur, inc) ->
                     VerifiedRf (phases, duration dur inc n, inc)
@@ -183,16 +139,11 @@ module RfPulse =
 
             /// Expand a sequence of pulses which still have increment data attached into a sequence of
             /// pulses with ignorable increments.  The increments are now encoded into the durations.
-            let private expandRepetitions experiment =
+            let private expandRepetitions (experiment : VerifiedExperiment) =
                 let reps = experiment.Metadata.ExperimentRepetitions
-                let phaseCount = experiment.Metadata.RfPhaseCount
-                let pulsesPerRep =
-                    match phaseCount with
-                    | Some s -> experiment.Metadata.PulsesCount * s
-                    | None   -> experiment.Metadata.PulsesCount
                 let pulses =
                     experiment.Pulses
-                    |> mapiListCopies reps (chooseCorrectDuration pulsesPerRep)
+                    |> mapiListCopies reps chooseCorrectDuration
                 { experiment with Pulses = pulses }
 
             /// Convert an experiment with pulses, increments and a phase cycle into a list of
@@ -222,7 +173,7 @@ module RfPulse =
                 experiment
                 |> expandVariables
                 |> pulseSequence
-                |> List.map toStaticPulse
+                |> List.map (List.map toStaticPulse)
 
             /// A phase for use when we don't care what the phase actually is.
             let private noPhase = PhaseInRad 0.0<rad>
@@ -236,7 +187,7 @@ module RfPulse =
                     match pulse with
                     | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
                     | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
-                    | StaticTrigger (markers)     -> (0.0, noPhase, markers, SampleCount 1)
+                    | StaticTrigger (markers)     -> (0.0, noPhase, markers, SampleCount 1u)
                     | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
                 let sample =
                     defaultIqSample
@@ -270,95 +221,40 @@ module RfPulse =
 
             /// Count the number of pulses in the experiment, and return the completed
             /// CompiledExperiment.
-            let private toCompiledExperiment list =
+            let private toCompiledPoints list =
                 let rec loop n = function
                     | [] -> n
                     | (_, SampleCount dur) :: tail -> loop (n + dur) tail
-                { CompiledData = list; CompiledLength = loop 0 list }
+                { CompiledData = list; CompiledLength = loop 0u list }
 
             /// Compile an experiment into a direct list of samples which could (if they were written
             /// into one segment of a storable size) play back the entire experiment.
             let compile experiment =
                 experiment
                 |> toStaticPulses
-                |> toSamples
-                |> toCompiledExperiment
+                |> List.map toSamples
+                |> List.map toCompiledPoints
+                |> (fun points -> { ExperimentPoints = points; Metadata = experiment.Metadata })
 
         /// Functions to compress streams of pulses into waveform and sequence files.
         [<AutoOpen>]
         module private Compress =
             /// An empty compressed experiment, ready to be added to.
-            let private emptyCompressedExperiment = {
+            let private emptyCompressedExperiment metadata = {
                 Segments = Map.empty
                 Sequences = Map.empty
-                SampleCount = 0
-                CompressedExperiment = [] }
-
-            /// Attempt to take "count" number of samples from the next repetition of samples in a
-            /// compiled experiment.  If there aren't enough, then take as many as possible.  Returns
-            /// the sample taken, the remaining compiled experiment, and the number of counts taken.
-            let private takeCountFromNextElement list count reps =
-                match list with
-                | [] -> failwith "Tried to read too many elements during compression!"
-                | (sample, SampleCount dur) :: tail when count * reps >= dur ->
-                    (sample, tail, dur)
-                | (sample, SampleCount dur) :: tail ->
-                    (sample, (sample, SampleCount(dur - (count * reps))) :: tail, (count * reps))
-
-            /// Get how many times the next sample in a compiled experiment is repeated.
-            let nextSampleCount (list : (Sample * SampleCount) list) =
-                list
-                |> List.tryHead
-                |> (function | Some s -> snd s; | None -> SampleCount 0)
-                |> (fun (SampleCount s) -> s)
-
-            /// Split a compiled experiment into a head of SegmentData, and a tail of
-            /// CompiledExperiment, based on the passed number of samples to pick.
-            let private splitCompiledExperiment n compiled =
-                let rec loop list acc rem =
-                    let nextCount = nextSampleCount list
-                    let reps = nextCount / n
-                    let condition = reps >= 2 && compiled.CompiledLength >= (60 + reps * n)
-                    match rem with
-                    | 0 ->
-                        ({ Samples = Array.ofList <| List.rev acc; Length = n }, 1,
-                         { CompiledData = list; CompiledLength = compiled.CompiledLength - n })
-                    | rem when rem = n && condition ->
-                        let (sample, list', taken) = takeCountFromNextElement list rem reps
-                        ({ Samples = [| (sample, SampleCount n) |]; Length = n}, reps,
-                         { CompiledData = list'; CompiledLength = compiled.CompiledLength - taken })
-                    | rem ->
-                        let (sample, list', taken) = takeCountFromNextElement list rem 1
-                        let acc' = (sample, SampleCount taken) :: acc
-                        loop list' acc' (rem - taken)
-                loop compiled.CompiledData [] n
-
-            /// Split a CompiledExperiment into a 60 sample segment (if possible), and the remainder
-            /// of the experiment.
-            let private splitCompiledAtNextSegment compiled =
-                let segmentLength = if compiled.CompiledLength < 120 then compiled.CompiledLength else 60
-                splitCompiledExperiment segmentLength compiled
-
-            /// Get the last segment ID from a sequence element.  Current compression doesn't create
-            /// any subsequences, so if we find one, something has gone very wrong!
-            let private lastSegmentIdFromSequenceElement = function
-                | PendingSegment (SegmentId id, _) -> id
-                | _ -> failwith "Compression doesn't support writing subsequences in experiments"
-
-            /// Find the most recent SegmentId - during the compression, the most recent one is
-            /// first in the list, since the list is built up in reverse order.
-            let private lastSegmentId compressed =
-                match List.tryHead compressed.CompressedExperiment with
-                | None -> None
-                | Some s -> Some (lastSegmentIdFromSequenceElement s)
+                CompressedExperiments = List.empty
+                Metadata = metadata }
 
             /// Get the quotient and remainder of how many times an integer may be divided by the
             /// maximum value in a uint16.
             let private intByUint16 num =
                 (num / int UInt16.MaxValue, uint16 (num % int UInt16.MaxValue))
 
-            let private listToPrepend construct id curCount reps =
-                let (quotient, remainder) = intByUint16 reps
+            /// Split an `int` SampleCount into parts of uint16, constructing enough sequence elements
+            /// along the way to make up a whole integer.
+            let private listToPrepend construct id curCount newCount =
+                let (quotient, remainder) = intByUint16 newCount
                 let maxReps = [ for _ in 1 .. quotient -> construct (id, UInt16.MaxValue) ]
                 let overflow =
                     if int curCount + int remainder < int UInt16.MaxValue then
@@ -367,46 +263,153 @@ module RfPulse =
                         [ construct (id, curCount); construct (id, remainder) ]
                 overflow @ maxReps
 
+            /// Attempt to take "count" number of samples from the next repetition of samples in a
+            /// compiled experiment.  If there aren't enough, then take as many as possible.  Returns
+            /// the sample taken, the remaining compiled experiment, and the number of counts taken.
+            let private takeCountFromNextElement list (count : uint32) (reps : uint32) =
+                match list with
+                | [] -> failwith "Tried to read too many elements during compression!"
+                | (sample, SampleCount dur) :: tail when (count * reps) >= dur ->
+                    (sample, tail, dur)
+                | (sample, SampleCount dur) :: tail ->
+                    (sample, (sample, SampleCount(dur - (count * reps))) :: tail, (count * reps))
+
+            /// Get how many times the next sample in a compiled experiment is repeated.
+            let nextSampleCount (list : (Sample * SampleCount) list) =
+                list
+                |> List.tryHead
+                |> (function | Some s -> snd s; | None -> SampleCount 0u)
+                |> (fun (SampleCount s) -> s)
+
+            /// Split a compiled experiment into a CompressedElement, and a tail of
+            /// CompiledExperiment, based on the passed number of samples to pick.
+            let private splitCompiledExperiment count reps compiled =
+                let rec loop acc input = function
+                    | 0u ->
+                        let segment = { Samples = Array.ofList <| List.rev acc; Length = (uint16 count) }
+                        let id = hexHash segmentToBytes segment
+                        ({ Element = PendingSegment (SegmentId id, uint16 reps)
+                           Segments = Map.add id segment Map.empty
+                           Sequences = Map.empty },
+                         { CompiledData = input
+                           CompiledLength = compiled.CompiledLength - (count * reps) })
+                    | rem ->
+                        let (sample, input', taken) = takeCountFromNextElement input rem reps
+                        let acc' = (sample, SampleCount (taken / reps)) :: acc
+                        loop acc' input' (rem - (taken / reps))
+                loop [] compiled.CompiledData count
+
+            /// Choose how many points to take to make up the next CompressedElement.
+            let private chooseNextLength compiled =
+                if compiled.CompiledLength > minimumSegmentLength
+                   && compiled.CompiledLength < (minimumSegmentLength * 2u)
+                then
+                    (compiled.CompiledLength, 1u)
+                else
+                    let nextLength = nextSampleCount compiled.CompiledData
+                    let reps = nextLength / minimumSegmentLength
+                    if reps <= 1u then
+                        (minimumSegmentLength, 1u)
+                    elif compiled.CompiledLength < (minimumSegmentLength * (reps + 1u)) then
+                        (minimumSegmentLength, (reps - 1u))
+                    else
+                        (minimumSegmentLength, reps)
+
+            /// Split a CompiledExperiment into a next CompressedElement, and an accordingly shortened
+            /// CompiledExperiment.
+            let private splitCompiledAtNextElement compiled =
+                let (count, reps) = chooseNextLength compiled
+                splitCompiledExperiment count reps compiled
+
+            /// Get the string of an id from an element.
+            let private elementId = function
+                | PendingSegment (SegmentId id, _) -> id
+                | PendingSequence (SequenceId id, _) -> id
+
+            /// Find the most recent id - during the compression, the most recent one is
+            /// first in the list, since the list is built up in reverse order.
+            let private lastId experiment =
+                match List.tryHead experiment with
+                | None -> None
+                | Some s ->
+                    match List.tryHead s with
+                    | None -> None
+                    | Some id -> Some (elementId id)
+
             /// Increase the number of reps on the last segment in a CompressedExperiment.
-            let private increaseLastSegmentReps compressed (reps : int) =
-                let data =
-                    match compressed.CompressedExperiment with
-                    | PendingSegment (id, count) :: tail ->
-                        (listToPrepend PendingSegment id count reps) @ tail
+            let private increaseLastReps compressed reps =
+                let (curExperiment, tailExperiments) =
+                    match compressed.CompressedExperiments with
+                    | hd :: tl -> (hd, tl)
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
-                { compressed with CompressedExperiment = data }
+                let curExperiment' =
+                    match curExperiment with
+                    | PendingSegment (id, count) :: tail ->
+                        (listToPrepend PendingSegment id count (int reps)) @ tail
+                    | PendingSequence (id, count) :: tail ->
+                        (listToPrepend PendingSequence id count (int reps)) @ tail
+                    | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
+                { compressed with CompressedExperiments = (curExperiment' :: tailExperiments) }
+
+            /// A joiner function for Map.join which just ignores clashes of keys, and returns the first
+            /// value passed to it.
+            let private ignoreKeyClash (_ : 'Key) (value : 'T) (_ : 'T) = value
 
             /// Prepend a different segment onto the passed compressed experiment.
             // Map.add is safe even if the segment already exists because it just doesn't do
             // anything in that case.
-            let private consDifferentSegment id samples reps (compressed : CompressedExperiment) =
-                let list = listToPrepend PendingSegment (SegmentId id) 0us reps
-                { Segments = Map.add id samples compressed.Segments
-                  Sequences = compressed.Sequences
-                  SampleCount = compressed.SampleCount + samples.Length
-                  CompressedExperiment =
-                      list @ compressed.CompressedExperiment }
+            let private consDifferentElement (compressed : CompressedExperiment) (element : CompressedElement) =
+                let experiments =
+                    match compressed.CompressedExperiments with
+                    | [] -> [[element.Element]]
+                    | hd :: tl -> (element.Element :: hd) :: tl
+                { Segments = Map.join ignoreKeyClash compressed.Segments element.Segments
+                  Sequences = Map.join ignoreKeyClash compressed.Sequences element.Sequences
+                  CompressedExperiments = experiments
+                  Metadata = compressed.Metadata }
+
+            /// Get the number of repetitions from the given CompressedElement.
+            let private elementReps = function
+                | PendingSegment (_, reps) -> reps
+                | PendingSequence (_, reps) -> reps
 
             /// Prepend some Segment onto a CompressedExperiment.
-            let private consToExperiment compressed samples reps =
-                let id = hexHash segmentToBytes samples
-                if Some id = lastSegmentId compressed then
-                    increaseLastSegmentReps compressed reps
+            let private consToExperiment compressed element =
+                let id = elementId element.Element
+                let reps = elementReps element.Element
+                if Some id = lastId compressed.CompressedExperiments then
+                    increaseLastReps compressed reps
                 else
-                    consDifferentSegment id samples reps compressed
+                    consDifferentElement compressed element
 
             /// One step in the compression.
             let rec private compressionLoop output input =
                 match input.CompiledLength with
-                | 0 ->
-                    { output with CompressedExperiment = List.rev output.CompressedExperiment }
+                | 0u ->
+                    let experiments =
+                        output.CompressedExperiments
+                        |> List.map List.rev
+                        |> List.rev
+                    { output with CompressedExperiments = experiments }
                 | _ ->
-                    let (segment, reps, input') = splitCompiledAtNextSegment input
-                    let output' = consToExperiment output segment reps
+                    let (element, input') = splitCompiledAtNextElement input
+                    let output' = consToExperiment output element
                     compressionLoop output' input'
 
+            /// Join two compressed experiments into one by concatenating the experiment sequences
+            /// and joining the maps.
+            let private joinCompressedExperiments (acc : CompressedExperiment) (input : CompressedExperiment) =
+                { Segments = Map.join ignoreKeyClash acc.Segments input.Segments
+                  Sequences = Map.join ignoreKeyClash acc.Sequences input.Sequences
+                  CompressedExperiments = input.CompressedExperiments @ acc.CompressedExperiments
+                  Metadata = acc.Metadata }
+
             /// Compress the experiment down using a basic 60-sample dictionary method.
-            let compress = compressionLoop emptyCompressedExperiment
+            let compress compiled =
+                compiled.ExperimentPoints
+                |> List.map (compressionLoop (emptyCompressedExperiment compiled.Metadata))
+                |> List.reduce joinCompressedExperiments
+                |> (fun a -> { a with CompressedExperiments = List.rev a.CompressedExperiments })
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
@@ -431,10 +434,9 @@ module RfPulse =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let internal makeExperimentName compressed =
-                let list = compressed.CompressedExperiment
-                let byteCount = elementByteCount list.Head
-                let arrLength = list.Length * byteCount
+            let internal makeExperimentName (compressed : PendingSequence) =
+                let byteCount = elementByteCount compressed.Head
+                let arrLength = compressed.Length * byteCount
                 let array = Array.create arrLength 0uy
                 let rec loop n = function
                     | [] -> array
@@ -442,7 +444,7 @@ module RfPulse =
                         let elementArray = elementToByteArray el
                         for i in 0 .. (byteCount - 1) do array.[n * byteCount + i] <- elementArray.[i]
                         loop (n + 1) tail
-                list
+                compressed
                 |> hexHash (loop 0)
                 |> SequenceId
 
@@ -457,9 +459,14 @@ module RfPulse =
                     compressed.Sequences
                     |> Map.toList
                     |> List.map (fun (str, sqn) -> (SequenceId str, sqn))
+                let experiments =
+                    compressed.CompressedExperiments
+                    |> List.map makeExperimentName
+                    |> (fun a -> List.zip a compressed.CompressedExperiments)
                 { Segments = segments
                   Sequences = sequences
-                  Experiment = (makeExperimentName compressed, compressed.CompressedExperiment) }
+                  Experiments = experiments
+                  Metadata = compressed.Metadata }
 
             /// Encode an experiment into a writeable form.
             let toEncodedExperiment experiment = choice {
@@ -487,19 +494,24 @@ module RfPulse =
         /// Debugging functions for printing out experiments after they've been compiled.
         [<AutoOpen>]
         module Print =
-            /// Get a compressed experiment
+            /// Get a compiled experiment.
+            let toCompiledExperiment experiment = asyncChoice {
+                let! verified = verify experiment
+                return verified |> compile }
+
+            /// Get a compressed experiment.
             let toCompressedExperiment experiment = asyncChoice {
                 let! verified = verify experiment
                 return verified
                     |> compile
                     |> compress }
 
-            /// Get a string of the indent level
+            /// Get a string of the indent level.
             let private getIndent indent = String.replicate indent " "
 
-            /// Pretty-print out a sample
+            /// Pretty-print out a sample.
             let printSample (indent : int) sample =
-                printf "%s(%d; %d; %d%d%d%d)"
+                printf "%s(%6d; %6d; %d%d%d%d)"
                     (getIndent indent)
                     sample.I
                     sample.Q
@@ -508,11 +520,14 @@ module RfPulse =
                     (Convert.ToInt32 sample.Markers.M3)
                     (Convert.ToInt32 sample.Markers.M4)
 
-            /// Pretty-print out a segment
+            /// Print out a (Sample * SampleCount) tuple.
+            let private printSampleCount indent (smp, SampleCount count) =
+                printSample indent smp
+                printfn " * %d" count
+
+            /// Pretty-print out a segment.
             let printSegment indent segment =
-                segment.Samples
-                |> Array.iter
-                    (fun (smp, SampleCount count) -> printSample indent smp; printfn " * %d" count)
+                segment.Samples |> Array.iter (printSampleCount indent)
 
             /// Pretty print a pending sequence.
             let rec printPendingSequence indent segMap seqMap sequence =
@@ -529,7 +544,15 @@ module RfPulse =
                     printPendingSequence (indent + 4) segMap seqMap (Map.find id seqMap)
                     printfn "%s%d" (getIndent (indent + 4)) reps
 
+            /// Pretty-print out a compiled experiment.
+            let printCompiledExperiment (compiled : CompiledExperiment) =
+                let helper item = List.iter (printSampleCount 0) item.CompiledData
+                List.iter helper compiled.ExperimentPoints
+
+            /// Pretty-print out a compressed experiment.
             let printCompressedExperiment (compressed : CompressedExperiment) =
-                printfn "%s" ((makeExperimentName compressed) |> (fun (SequenceId id) -> id))
-                printPendingSequence 0 compressed.Segments compressed.Sequences compressed.CompressedExperiment
+                let helper item =
+                    printfn "%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
+                    printPendingSequence 0 compressed.Segments compressed.Sequences item
+                List.iter helper compressed.CompressedExperiments
 #endif

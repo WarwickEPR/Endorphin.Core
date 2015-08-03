@@ -154,17 +154,6 @@ module internal Parsing =
     /// Get the string representation of a StoredSequence.
     let extractStoredSequenceId (StoredSequence id) = id |> extractSequenceId
 
-    /// Convert a stored experiment ID into a StoredSequence ID.
-    let experimentIdToSequenceId (StoredExperimentId id) = id
-    /// Get the sequence ID of a stored experiment.
-    let experimentToStoredSequence experiment =
-        experiment.StoredExperiment |> experimentIdToSequenceId
-    /// Get the string representation of a StoredExperiment's ID.
-    let extractStoredExperimentId experiment =
-        experiment
-        |> experimentToStoredSequence
-        |> extractStoredSequenceId
-
     /// Get the full file name of a waveform file from the short name stored in the
     /// StoredSegment.  For example, if the StoredSegment name is "test", then this
     /// function returns "\"WFM1:test\""B.

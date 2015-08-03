@@ -6,7 +6,7 @@ open Hashing
 module Control =
     [<AutoOpen>]
     module Waveform =
-        open Endorphin.Instrument.Keysight.Waveform.Translate
+        open Waveform.Translate
 
         /// Concatenate two error strings into one string.
         let private addErrorStrings str1 str2 = str1 + " AND ALSO " + str2
@@ -179,31 +179,25 @@ module Control =
                 encoded.Sequences
                 |> Seq.map (fun (id, sqn) -> (id, toRegularSequence sqn))
                 |> storeSequenceSequenceById instrument
-            let! storedExperimentAsSequence =
-                encoded.Experiment
-                |> (fun (id, exp) -> (id, toRegularSequence exp))
-                |> storeSequenceById instrument
-            let storedExperiment = StoredExperimentId storedExperimentAsSequence
+            let! storedExperiments =
+                encoded.Experiments
+                |> Seq.map (fun (id, exp) -> (id, toRegularSequence exp))
+                |> storeSequenceSequenceById instrument
             return {
-                StoredExperiment = storedExperiment
+                StoredExperiments= storedExperiments
                 StoredSegments   = storedSegments
-                StoredSequences  = storedSequences } }
-
-        /// Play a stored experiment on the machine.
-        let playStoredExperiment instrument experiment = asyncChoice {
-            let sequence = experiment |> experimentToStoredSequence
-            do! playStoredSequence instrument sequence }
-
-        /// Store an experiment on the machine, then begin playing it as soon as possible. Returns
-        /// the stored experiment.
-        let playExperiment instrument experiment = asyncChoice {
-            let! stored = storeExperiment instrument experiment
-            do! playStoredExperiment instrument stored
-            return stored }
+                StoredSequences  = storedSequences
+                ShotsPerPoint = encoded.Metadata.ShotsPerPoint
+                Triggering = encoded.Metadata.TriggerSource } }
 
 #if DEBUG
+        /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
+        let printCompiledExperiment experiment = asyncChoice {
+            let! compiled = toCompiledExperiment experiment
+            printCompiledExperiment compiled }
+
         /// In debug mode, compress the experiment, then print it out, rather than writing to the machine.
-        let printExperiment experiment = asyncChoice {
+        let printCompressedExperiment experiment = asyncChoice {
             let! compressed = toCompressedExperiment experiment
             printCompressedExperiment compressed }
 #endif

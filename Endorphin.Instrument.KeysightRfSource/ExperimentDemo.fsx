@@ -39,7 +39,7 @@ let pulses = seq {
 let experiment = {
     Pulses = pulses
     Repetitions = 2
-    Triggering = ExperimentExternal
+    Triggering = Immediate
     ShotsPerPoint = 1
 }
 
