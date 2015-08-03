@@ -36,9 +36,9 @@ module Control =
         let internal storeSegmentById instrument (id, segment) =
             let encoded = toEncodedSegmentFiles segment id
             asyncChoice {
-                do! IO.setBytesValue waveformDataString storeDataKey instrument encoded
-                do! IO.setBytesValue markersDataString storeDataKey instrument encoded
-                do! IO.setBytesValue headerDataString storeDataKey instrument encoded
+                do! IO.setValueBytes waveformDataString storeDataKey instrument encoded
+                do! IO.setValueBytes markersDataString storeDataKey instrument encoded
+                do! IO.setValueBytes headerDataString storeDataKey instrument encoded
                 return toStoredSegment id }
 
         /// Store the given sequence on the machine, and return a StoredSegment type which can be
@@ -82,17 +82,17 @@ module Control =
         let private deleteFileKey = ":MMEM:DEL:NAME"
         /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
-        let deleteStoredSegment = IO.setValue storedSegmentFilename deleteFileKey
+        let deleteStoredSegment = IO.setValueString storedSegmentFilename deleteFileKey
         /// Delete a sequence from the machine's internal data storage (the usual storage
         /// location).
-        let deleteStoredSequence = IO.setValue storedSequenceFilename deleteFileKey
+        let deleteStoredSequence = IO.setValueString storedSequenceFilename deleteFileKey
 
         /// Key to store sequences to the machine.
         /// Command reference p.345.
         let private storeSequenceKey = ":RAD:ARB:SEQ"
         /// Write a sequence file to the machine and returns the stored sequence type.
         let internal storeSequenceById instrument (id, sequence) = asyncChoice {
-            do! IO.setBytesValue (sequenceDataString id) storeSequenceKey instrument sequence
+            do! IO.setValueBytes (sequenceDataString id) storeSequenceKey instrument sequence
             return toStoredSequence id }
         /// Write a sequence to the machine, and return an identifier for that sequence.
         let storeSequence instrument sequence =
@@ -116,9 +116,9 @@ module Control =
         /// Command reference p.355.
         let private selectArbFileKey = ":RAD:ARB:WAV"
         /// Select a segment file on the machine.
-        let selectSegment = IO.setValue storedSegmentFilename selectArbFileKey
+        let selectSegment = IO.setValueString storedSegmentFilename selectArbFileKey
         /// Select a sequence file on the machine.
-        let selectSequence = IO.setValue storedSequenceFilename selectArbFileKey
+        let selectSequence = IO.setValueString storedSequenceFilename selectArbFileKey
 
         /// Key related to the state of the dual ARB player on the machine. Needs the output
         /// state to also be on before it will start to play.

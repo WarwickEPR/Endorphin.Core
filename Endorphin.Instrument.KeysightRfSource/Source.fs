@@ -62,7 +62,7 @@ module Source =
                 let key = functionKey shapeKey prefix fg
                 let rkey = functionKey rampKey prefix fg 
                 asyncChoice {
-                    do! IO.setValue functionShapeString key rfSource shape
+                    do! IO.setValueString functionShapeString key rfSource shape
                     match shape with
                     | Ramp polarity -> do! IO.setPolarity rkey rfSource polarity
                     | _ -> () }
@@ -81,14 +81,14 @@ module Source =
             /// Key for the coupling system.
             let private couplingKey = ":COUPLING"
             /// Set the coupling of an external source.
-            let internal setCoupling prefix src = IO.setValue couplingString (externalKey couplingKey prefix src)
+            let internal setCoupling prefix src = IO.setValueString couplingString (externalKey couplingKey prefix src)
             /// Query the coupling of an external source.
             let internal queryCoupling prefix src = IO.queryValue parseCoupling (externalKey couplingKey prefix src)
 
             /// Key for the impedance system.
             let private impedanceKey = ":IMPEDANCE"
             /// Set the impedance of an external source.
-            let internal setImpedance prefix src = IO.setValue impedanceString (externalKey impedanceKey prefix src)
+            let internal setImpedance prefix src = IO.setValueString impedanceString (externalKey impedanceKey prefix src)
             /// Query the impedance of an external source.
             let internal queryImpedance prefix src = IO.queryValue parseImpedance (externalKey impedanceKey prefix src)
 

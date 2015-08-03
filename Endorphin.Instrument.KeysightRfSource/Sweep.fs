@@ -51,7 +51,7 @@ module Sweep =
             /// Command reference p.45.
             let private frequencySweepModeKey = ":FREQUENCY:MODE"
             /// Set the frequency sweep mode to the given type.
-            let setFrequencySweepMode = IO.setValue sweepModeString frequencySweepModeKey
+            let setFrequencySweepMode = IO.setValueString sweepModeString frequencySweepModeKey
             /// Query the frequency sweep mode the machine is currently in.
             let queryFrequencySweepMode = IO.queryValue parseSweepMode frequencySweepModeKey
 
@@ -85,7 +85,7 @@ module Sweep =
             /// Command reference p.84.
             let private amplitudeSweepModeKey = ":POWER:MODE"
             /// Set the type of the amplitude sweep.
-            let setAmplitudeSweepMode = IO.setValue sweepModeString amplitudeSweepModeKey
+            let setAmplitudeSweepMode = IO.setValueString sweepModeString amplitudeSweepModeKey
             /// Query the currently set type of the amplitude sweep.
             let queryAmplitudeSweepMode = IO.queryValue parseSweepMode amplitudeSweepModeKey
 
@@ -108,7 +108,7 @@ module Sweep =
         /// Key needed to set the type of the sweep.
         let private typeKey = ":LIST:TYPE"
         /// Set the sweep type to either List or Step.
-        let setSweepType = IO.setValue sweepTypeString typeKey
+        let setSweepType = IO.setValueString sweepTypeString typeKey
         /// Query the current sweep type of the machine.
         let querySweepType = IO.queryValue parseSweepType typeKey
 
@@ -185,7 +185,7 @@ module Sweep =
             /// Command reference p.65.
             let private stepSpacingKey = ":SWEEP:SPACING"
             /// Set the step spacing of sweeps to be either logarithmic or linear.
-            let setStepSpacing = IO.setValue stepSpacingString stepSpacingKey
+            let setStepSpacing = IO.setValueString stepSpacingString stepSpacingKey
             /// Query whether sweeps are set to use logarithmic or linear spacing.
             let queryStepSpacing = IO.queryValue parseStepSpacing stepSpacingKey
 
@@ -238,7 +238,7 @@ module Sweep =
             /// Command reference p.55.
             let private dwellTypeKey = ":LIST:DWELL:TYPE"
             /// Set the dwell type to either list or step sweeps.
-            let setDwellType = IO.setValue sweepModeString dwellTypeKey
+            let setDwellType = IO.setValueString sweepModeString dwellTypeKey
             /// Query the currently set dwell type (either list or step).
             let queryDwellType = IO.queryValue parseSweepMode dwellTypeKey
 
@@ -273,13 +273,13 @@ module Sweep =
     /// Commands used to control running sweeps
     module Runtime = 
         /// Starts an armed sweep waiting on Bus triggering
-        let busTrigger = IO.postCommand "*TRG"
+        let busTrigger = IO.writeKey "*TRG"
 
         /// Key needed to begin sweeping immediately.
         /// Command reference p.215.
         let private immediateKey = ":TRIGGER"
         /// Starts an armed sweep immediately without waiting for selected trigger event.
-        let immediate = IO.postCommand immediateKey
+        let immediate = IO.writeKey immediateKey
 
         /// Key needed to get the current sweep point.
         /// Command reference p.63.
@@ -291,16 +291,16 @@ module Sweep =
         /// Command reference p.211.
         let private abortKey = ":ABORT"
         /// Abort current sweep. In continous mode, arms a new sweep.
-        let abort = IO.postCommand abortKey
+        let abort = IO.writeKey abortKey
 
         /// Aborts current sweep and rearms. With immediate triggering starts a new sweep.
-        let abortAndRearmSingle = IO.postCommand ":TSWEEP"
+        let abortAndRearmSingle = IO.writeKey ":TSWEEP"
 
         /// Key needed to rearm a single sweep.
         /// Command reference p.211.
         let private rearmSingleKey = ":INITIATE"
         /// Arms a single sweep. In immediate mode, starts immediately.
-        let rearmSingle = IO.postCommand rearmSingleKey
+        let rearmSingle = IO.writeKey rearmSingleKey
 
     /// Build a configuration using the data model.
     module Configure =

@@ -54,7 +54,7 @@ module Modulation =
         /// Key needed to set the source of the modulation.
         let private sourceKey = ":SOURCE"
         /// Set the soruce of the modulation.
-        let private setSource = IO.setValue sourceString 
+        let private setSource = IO.setValueString sourceString 
         /// Query the source of the modulation and parse the result.
         let private querySource = IO.queryValue parseSource
 
@@ -75,7 +75,7 @@ module Modulation =
             /// Key needed to set the type of the amplitude modulation.
             let private typeKey path = prefix path ":TYPE"
             /// Set the type of the ampltiude modulation of the given path.
-            let internal setType path = IO.setValue depthTypeString (typeKey path)
+            let internal setType path = IO.setValueString depthTypeString (typeKey path)
             /// Query the type of the amplitude modulation of the given path.
             let internal queryType path = IO.queryValue parseDepthType (typeKey path)
 

@@ -10,9 +10,6 @@ open System.Text
 /// which are common to different subsystems.
 [<RequireQualifiedAccess>]
 module internal IO =
-    /// Directly post a command to an RfSource.
-    let postCommand command (RfSource rfSource) = Visa.writeString rfSource command
-
     /// Query an RfSource for the value of a particular key, and parse the response into
     /// the internal representation.
     let internal queryValue parseFunc key (RfSource rfSource) = asyncChoice {
@@ -28,7 +25,7 @@ module internal IO =
     [<AutoOpen>]
     module Error =
         /// Parse an error message into an error code and the associated message.
-        let internal parseError (str : string) =
+        let private parseError (str : string) =
             let parts = str.Split [|','|]
             if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
         
@@ -37,18 +34,18 @@ module internal IO =
             | _                 -> failwithf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
-        let internal errorString error = sprintf "%d: %s" error.Code error.Message
+        let private errorString error = sprintf "%d: %s" error.Code error.Message
 
         /// Given a key to specify which error, query the machine for the matching error
         /// and parse the result.
-        let queryError = queryValue parseError
+        let private queryError = queryValue parseError
 
         /// Key to find the next error in the machine's queue.
         /// Command reference p.182.
         let private nextErrorInQueueKey = ":SYSTEM:ERROR"
         /// Query the machine for the next error message in the error queue and parse the
         /// result.
-        let queryNextErrorInQueue = queryError nextErrorInQueueKey
+        let private queryNextErrorInQueue = queryError nextErrorInQueueKey
 
         /// Loop through the error queue of the machine, creating a sequence of all the listed
         /// errors until the queue is empty.
@@ -60,7 +57,7 @@ module internal IO =
             errorQueueLoop List.empty
 
         /// Check if the machine's error queue has any messages in it.
-        let internal checkErrorQueueIsEmpty errors =
+        let checkErrorQueueIsEmpty errors =
             if Seq.length errors <> 0 then
                 errors
                 |> Seq.map errorString
@@ -68,35 +65,46 @@ module internal IO =
                 |> fail 
             else succeed ()
 
-    /// Set a quantity on the machine to a certain value by covnerting an internal
-    /// representation to a machine representation, using the given valueMap.
-    let internal setValue valueMap key (RfSource rfSource) value = asyncChoice {
-        sprintf "%s %s" key (valueMap value) |> Visa.writeString rfSource
+    /// Create the string representation of a command, ready for writing to the instrument.
+    let private createCommandString valueMap key value = sprintf "%s %s" key (valueMap value)
+
+    /// Create an ASCII string representation of a command, ready for writing to the instrument.
+    let private createCommandBytes valueMap (key : string) value =
+        let bytesKey = System.Text.Encoding.ASCII.GetBytes key
+        Array.concat [ bytesKey ; " "B; (valueMap value); "\n"B ]
+
+    /// Generic function for writing any command to an RF source, then query the error queue.
+    let private writeCommand writer (RfSource rfSource) command = asyncChoice {
+        command |> writer rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
         do! checkErrorQueueIsEmpty errors }
+
+    /// Generic function to create a command, then write that value to the machine.
+    let private setValue creater writer valueMap key rfSource value =
+        creater valueMap key value
+        |> writeCommand writer rfSource
+
+    /// Set a quantity on the machine to a certain value by covnerting an internal
+    /// representation to a machine representation, using the given valueMap.
+    let setValueString valueMap key rfSource value =
+        setValue createCommandString Visa.writeString valueMap key rfSource value
 
     /// Set a quantity on the machine to a certain value by covnerting an internal
     /// representation to a machine representation, using the given valueMap.  This request
     /// is sent as an ASCII string, rather than a UTF-8 string - it's more difficult to create
     /// and manipulate these values, but there is no risk of errant data causing problems
     /// when encoded to UTF-8.
-    let internal setBytesValue valueMap (key : string) (RfSource rfSource) value = asyncChoice {
-        let bytesKey = Encoding.ASCII.GetBytes key
-        Array.concat [bytesKey; " "B; (valueMap value); "\n"B] |> Visa.writeBytes rfSource
-        let! errors = queryErrorQueue (RfSource rfSource)
-        do! checkErrorQueueIsEmpty errors }
+    let setValueBytes valueMap key rfSource value =
+        setValue createCommandBytes Visa.writeBytes valueMap key rfSource value
 
     /// Write a key without a value to the machine.  Useful for "delete all" style functions.
-    let internal writeKey key (RfSource rfSource) = asyncChoice {
-        postCommand key (RfSource rfSource)
-        let! errors = queryErrorQueue (RfSource rfSource)
-        do! checkErrorQueueIsEmpty errors }
+    let writeKey key rfSource = setValueString (fun _ -> "") key rfSource None
  
     /// Functions related to identifying the connected machine.
     module Identify =
         /// Attempt to parse a device ID string into an internal representation of a
         /// device ID.
-        let internal tryParseDeviceId (str : string) =
+        let private tryParseDeviceId (str : string) =
             let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
             let parts = str.Split [|','|]
             if Array.length parts <> 4 then
@@ -110,7 +118,7 @@ module internal IO =
 
         /// Get an internal representation of a device ID from a string, and raise an exception
         /// if the string is not in the correct format.
-        let internal parseDeviceId str =
+        let private parseDeviceId str =
             match tryParseDeviceId str with
             | Success id    -> id
             | Failure error -> failwith error
@@ -151,22 +159,22 @@ module internal IO =
         let closeInstrument (RfSource rfSource) = Visa.closeInstrument rfSource
 
     /// Set the quantity represented by the given key to have the integer value given.
-    let setInt = setValue (fun (i : int) -> i.ToString())
+    let setInt = setValueString (fun (i : int) -> i.ToString())
     /// Query the given key for a plain integer value.
     let queryInt = queryValue int
 
     /// Set the frequency represented by the given key to have the given value.
-    let setFrequency = setValue frequencyString
+    let setFrequency = setValueString frequencyString
     /// Query the given key for a frequency value.
     let queryFrequency = queryValue parseFrequencyInHz
 
     /// Set a sequence of frequency values at the given key.
-    let setFrequencySeq key = setValue (csvSeqString frequencyString) key
+    let setFrequencySeq key = setValueString (csvSeqString frequencyString) key
     /// Query a sequence of frequencies, returning the values in Hz.
     let queryFrequencySeq = queryValue (parseCsvSeq parseFrequencyInHz)
 
     /// Set the amplitude of the given key to have the given value.
-    let setAmplitude = setValue amplitudeString
+    let setAmplitude = setValueString amplitudeString
     // TODO: Handle other units?
     /// Query the amplitude at the given key.  Currently only supports returning the value as
     /// dBm, rather than as a ratio.
@@ -177,7 +185,7 @@ module internal IO =
         return parseAmplitudeInDbm response }
 
     /// Set a sequence of amplitude values.
-    let setAmplitudeSeq key = setValue (csvSeqString amplitudeString) key 
+    let setAmplitudeSeq key = setValueString (csvSeqString amplitudeString) key 
     /// Query a sequence of amplitudes, returning the values in dBm.
     let queryAmplitudeSeq key (RfSource rfSource) = asyncChoice {
         let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
@@ -185,46 +193,46 @@ module internal IO =
         return parseCsvSeq parseAmplitudeInDbm <| response }
 
     /// Set the duration of the given key to have the given value in seconds.
-    let setDuration = setValue durationString 
+    let setDuration = setValueString durationString 
     /// Query the given key for a duration in seconds.
     let queryDuration = queryValue parseDurationInSec
 
     /// Set a sequence of durations to have the given values.
-    let setDurationSeq key = setValue (csvSeqString durationString) key
+    let setDurationSeq key = setValueString (csvSeqString durationString) key
     /// Query a sequence of durations, returning the values in seconds.
     let queryDurationSeq = queryValue (parseCsvSeq parseDurationInSec)
 
     /// Set the phase of the given key.
-    let setPhase = setValue phaseString
+    let setPhase = setValueString phaseString
     /// Query the given key for a phase in radians.
     let queryPhase = queryValue parsePhaseInRad
 
     /// Set the given key to the given on/off state.
-    let setOnOffState = setValue onOffStateString
+    let setOnOffState = setValueString onOffStateString
     /// Query the given key for an on/off state.
     let queryOnOffState = queryValue parseOnOffState
 
     /// Set the given key to have the given automatic/manual state.
-    let setAutoManualState = setValue autoManualStateString
+    let setAutoManualState = setValueString autoManualStateString
     /// Query the given key for an automatic/manual state.
     let queryAutoManualState = queryValue parseAutoManualState
 
     /// Set the given key to have the given direction.
-    let setDirection = setValue directionString
+    let setDirection = setValueString directionString
     /// Query the given key for a direction.
     let queryDirection = queryValue parseDirection
 
     /// Set the given key to have the given percentage.
-    let setPercentage = setValue percentageString
+    let setPercentage = setValueString percentageString
     /// Query the given key for a percentage value.
     let queryPercentage = queryValue parsePercentage
 
     /// Set the given key to have the given decibel ratio.
-    let setDecibelRatio = setValue decibelRatioString
+    let setDecibelRatio = setValueString decibelRatioString
     /// Query the given key for a decibel ratio.
     let queryDecibelRatio = queryValue parseDecibelRatio
     
     /// Set the given key to have the given polarity.
-    let setPolarity = setValue polarityString
+    let setPolarity = setValueString polarityString
     /// Query the given key for a polarity.
     let queryPolarity = queryValue parsePolarity

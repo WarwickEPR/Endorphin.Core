@@ -66,7 +66,7 @@ module Triggering =
         /// Command reference p.60 for list triggers.
         let private sourceTypeKey trigger = sprintf "%s:TRIGGER:SOURCE" (triggerTypePrefix trigger)
         /// Set the type of trigger source, given a trigger type.
-        let setSourceType trigger = IO.setValue triggerSourceTypeString (sourceTypeKey trigger)
+        let setSourceType trigger = IO.setValueString triggerSourceTypeString (sourceTypeKey trigger)
         /// Query the type of trigger source, given a trigger type.
         let querySourceType trigger = IO.queryValue parseTriggerSourceType (sourceTypeKey trigger)
 
@@ -74,7 +74,7 @@ module Triggering =
         /// Command reference p.58.
         let private externalSourceKey trigger = sprintf "%s:TRIGGER:EXTERNAL:SOURCE" (triggerTypePrefix trigger)
         /// Set the type of external trigger source, given a trigger type.
-        let setExternalSource trigger = IO.setValue externalTriggerSourceString (externalSourceKey trigger)
+        let setExternalSource trigger = IO.setValueString externalTriggerSourceString (externalSourceKey trigger)
         /// Query the value of the external trigger source, given a trigger type.
         let queryExternalSource trigger = IO.queryValue parseExternalTriggerSource (externalSourceKey trigger)
 
@@ -90,7 +90,7 @@ module Triggering =
         /// Command reference p.59.
         let private internalSourceKey trigger = sprintf "%s:TRIGGER:INTERNAL:SOURCE" (triggerTypePrefix trigger)
         /// Set the type of internal trigger source, given a trigger type.
-        let setInternalSource trigger = IO.setValue internalTriggerSourceString (internalSourceKey trigger)
+        let setInternalSource trigger = IO.setValueString internalTriggerSourceString (internalSourceKey trigger)
         /// Query the value of the internal trigger source, given a trigger type.
         let queryInternalSource trigger = IO.queryValue parseInternalTriggerSource (internalSourceKey trigger)
 
