@@ -2,6 +2,8 @@
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+open Endorphin.Core.CommandRequestAgent
+
 [<AutoOpen>]
 module Model =
     type ToggleState = Enabled | Disabled
@@ -61,7 +63,8 @@ module Model =
 
     [<AutoOpen>]
     module Device =
-        type PicoScope5000 = internal PicoScope5000 of handle : int16
+        type internal PicoScope5000Identity = { SerialNumber : string ; Handle : int16 }
+        type PicoScope5000 = internal PicoScope5000 of agent : CommandRequestAgent<PicoScope5000Identity>
         type PowerSource = MainsPower | UsbPower
 
         type DeviceInfo =
