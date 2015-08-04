@@ -13,26 +13,27 @@ module CommandRequestAgent =
     [<AutoOpen>]
     /// Command/request agent model.
     module Model =
-        /// Agent message, defining a command or request. Each command or request may fail, so the
-        /// return type of the contained closures is of Choice<'Result, 'Error> where the error 
-        /// message is a string. Commands do not return a vale in the success case, so the result
-        /// type is unit. Requests can either return a value type or an object type. Command and
-        /// request messages also include a description which is used for logging. Finally, the
-        /// close message notifies the agent that it should stop processing messages.
-        type internal CommandRequestMessage = 
-            | Command       of description : string * commandFunc : (unit -> Choice<unit,      string>) * replyChannel : AsyncReplyChannel<Choice<unit,      string>>
-            | ValueRequest  of description : string * requestFunc : (unit -> Choice<ValueType, string>) * replyChannel : AsyncReplyChannel<Choice<ValueType, string>>
-            | ObjectRequest of description : string * requestFunc : (unit -> Choice<obj,       string>) * replyChannel : AsyncReplyChannel<Choice<obj,       string>>
-            | Close         of                        closeFunc   : (unit -> Choice<unit,      string>) * replyChannel : AsyncReplyChannel<Choice<unit,      string>>
+        /// Agent message, defining a command or request. Each message case is parameteraised by
+        /// a closure dependent on the state of the agent which is determined at initialisation. 
+        /// Each command or request may fail, so the return type of the contained closures is of
+        /// Choice<'Result, 'Error> where the error message is a string. Commands do not return a
+        /// vaule in the success case, so the result type is unit. Requests can either return a
+        /// value type or an object type. Command and request messages also include a description
+        /// which is used for logging. Finally, the close message notifies the agent that it
+        /// should stop processing messages.
+        type internal CommandRequestMessage<'State> = 
+            | Command       of description : string * commandFunc : ('State -> Choice<unit,      string>) * replyChannel : AsyncReplyChannel<Choice<unit,      string>>
+            | ValueRequest  of description : string * requestFunc : ('State -> Choice<ValueType, string>) * replyChannel : AsyncReplyChannel<Choice<ValueType, string>>
+            | ObjectRequest of description : string * requestFunc : ('State -> Choice<obj,       string>) * replyChannel : AsyncReplyChannel<Choice<obj,       string>>
+            | Close         of                        closeFunc   : ('State -> Choice<unit,      string>) * replyChannel : AsyncReplyChannel<Choice<unit,      string>>
     
         /// A command/request agent processes messages of CommandRequestMessage type. The details
         /// of the implementation are hidden from the user of the library.
-        type CommandRequestAgent = internal CommandRequestAgent of Agent<CommandRequestMessage>
-    
+        type CommandRequestAgent<'State> = internal CommandRequestAgent of Agent<CommandRequestMessage<'State>>
 
     [<RequireQualifiedAccess>]
-    /// Functions for interacting with a generic command/request agent with error handling used to
-    /// serialise posted commands and requests which are defined by closures.
+    /// Functions for creating and interacting with a generic command/request agent with error
+    /// handling used to serialise posted commands and requests which are defined by closures.
     module CommandRequestAgent =
 
         /// Returns a string describing the message.
@@ -42,16 +43,16 @@ module CommandRequestAgent =
             | ObjectRequest (description, _, _) -> description
             | Close _                           -> "Close"
 
-        /// Starts a new command/request agent with the given name (used for logging purposes) and 
-        /// start-up function. The start-up function may fail, in which case the agent goes into a 
-        /// failed state, returning failure results to future commands and requests. Furthermore,
-        /// the processing of any given message may fail, in which case the agent will immediately
-        /// enter the failed state and return failure to all future messages if it is set to persist
-        /// failure.
-        let create (name : string) persistFailure startupFunc = 
-            CommandRequestAgent
-            <| Agent.Start(fun (mailbox : Agent<CommandRequestMessage>) ->
-                let log = LogManager.GetLogger name // create a logger
+        /// Asynchronously starts a new command/request agent with the given name (function of
+        /// state, used for logging purposes) and initialisation workflow. The initialisation
+        /// may fail, in which case this workflow will return failure. Furthermore, the
+        /// processingof any given message may fail. If the agent is set to persist failure,
+        /// then it will enter afailed state and return failure to all future messages.
+        let create<'State> (nameFunc : 'State -> string) persistFailure init = asyncChoice { 
+            let! state = init () // perform initialisation
+            return CommandRequestAgent // if it succeeds, start the mailbox processing loop
+            <| Agent.Start(fun (mailbox : Agent<CommandRequestMessage<'State>>) ->
+                let log = LogManager.GetLogger (nameFunc state) // create a logger
                 
                 let logResponse description = function
                     | Success s -> sprintf "Successfully responded to message \"%s\" with %A." description s |> log.Debug
@@ -63,7 +64,7 @@ module CommandRequestAgent =
 
                     // perform the closing function and respond accordingly
                     let response =
-                        match closeFunc () with
+                        match closeFunc state with
                         | Failure f ->
                             fail <| sprintf "Failed to close agent due to error: %s" f
                         | Success () when mailbox.CurrentQueueLength <> 0 ->
@@ -104,7 +105,7 @@ module CommandRequestAgent =
                         do! closeAgent closeFunc replyChannel }
 
                 /// Default message-processing loop.
-                let rec loop () = async {
+                let rec loop state = async {
                     let! message = mailbox.Receive()
                     sprintf "Received message: %s." (messageDescription message) |> log.Debug
                 
@@ -113,23 +114,23 @@ module CommandRequestAgent =
                     let continueAfter response = async { 
                         match response with
                         | Failure f when persistFailure -> return! failed f
-                        | _                                -> return! loop () }
+                        | _                             -> return! loop state }
 
                     match message with 
                     | Command (_, commandFunc, replyChannel) ->
-                        let response = commandFunc ()
+                        let response = commandFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! continueAfter response
 
                     | ValueRequest (_, requestFunc, replyChannel) ->
-                        let response = requestFunc ()
+                        let response = requestFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! continueAfter response
 
                     | ObjectRequest (_, requestFunc, replyChannel) ->
-                        let response = requestFunc ()
+                        let response = requestFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! continueAfter response
@@ -137,15 +138,8 @@ module CommandRequestAgent =
                     | Close (closeFunc, replyChannel) ->
                         // stop looping once the close message is received
                         do! closeAgent closeFunc replyChannel }
-            
-                async { 
-                    // perform start-up
-                    match startupFunc () with
-                    | Success () -> do! loop () // enter the default loop if start-up is successful
-                    | Failure f  -> 
-                        // enter the failure loop otherwise
-                        let error = sprintf "Failed to start agent due to error: %s" f
-                        do! failed error } )
+                
+                loop state) }
 
         /// Posts a command to the message queue which will be executed by calling the provided
         /// function. The command may succeed or fail, which will be reflected in the asynchronous
