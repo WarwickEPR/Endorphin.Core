@@ -21,6 +21,10 @@ module Resolution =
         | Resolution_15bit -> [ ChannelA ; ChannelB ] |> Set.ofList
         | Resolution_16bit -> [ ChannelA ] |> Set.ofList
 
+    let maximumAdcCounts = function
+        | Resolution_8bit -> 0x7F00s
+        | _               -> 0x7FFFs
+
 [<RequireQualifiedAccess>]
 module Timebase =
     let fastestForResolution =
