@@ -32,15 +32,15 @@ let showTimeChart acquisition = async {
         
     let chart = 
         Chart.Combine [ 
-            Streaming.Signals.sampleByTime (ChannelA, NoDownsamplingBuffer) acquisition
+            Streaming.Signal.voltageByTime (ChannelA, NoDownsamplingBuffer) acquisition
             |> Observable.observeOn uiContext
             |> LiveChart.FastLineIncremental
 
-            Streaming.Signals.sampleByTime (ChannelB, NoDownsamplingBuffer) acquisition
+            Streaming.Signal.voltageByTime (ChannelB, NoDownsamplingBuffer) acquisition
             |> Observable.observeOn uiContext
             |> LiveChart.FastLineIncremental ]
         |> Chart.WithXAxis(Title = "Time")
-        |> Chart.WithYAxis(Title = "ADC coounts")
+        |> Chart.WithYAxis(Title = "Voltage")
 
     new ChartTypes.ChartControl(chart, Dock = DockStyle.Fill)
     |> form.Controls.Add
@@ -52,11 +52,11 @@ let showChartXY acquisition = async {
     do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
 
     let chartXY =
-        Streaming.Signals.sampleXY (ChannelA, NoDownsamplingBuffer) (ChannelB, NoDownsamplingBuffer) acquisition
+        Streaming.Signal.voltageXY (ChannelA, NoDownsamplingBuffer) (ChannelB, NoDownsamplingBuffer) acquisition
         |> Observable.observeOn uiContext
         |> LiveChart.FastLineIncremental
-        |> Chart.WithXAxis(Title = "Channel A ADC counts")
-        |> Chart.WithYAxis(Title = "Channel B ADC counts")
+        |> Chart.WithXAxis(Title = "Channel A voltage")
+        |> Chart.WithYAxis(Title = "Channel B voltage")
 
     new ChartTypes.ChartControl(chartXY, Dock = DockStyle.Fill)
     |> form.Controls.Add

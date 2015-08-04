@@ -188,12 +188,25 @@ module Streaming =
             stop acquisitionHandle
             waitToFinish acquisitionHandle
 
-    module Signals =
+    module Signal =
         let private takeUntilFinished acquisition (obs : IObservable<'T>) =
             obs.TakeUntil ((Acquisition.status acquisition).LastAsync())
         
         let private time interval index = (Interval.asSeconds interval) * (float index)
         
+        let private adcCountToVoltage (inputChannel, _) acquisition = 
+            let channelSettings = Inputs.settingsForChannel inputChannel acquisition.Parameters.Inputs
+            match channelSettings with
+            | EnabledChannel settings ->
+                let (VoltageInVolts voltageRange)   = Range.voltage settings.Range
+                let (VoltageInVolts analogueOffset) = settings.AnalogueOffset
+                let maximumAdcCounts                = Resolution.maximumAdcCounts acquisition.Parameters.Resolution
+                fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
+            | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel
+
+        let private adcCountsToVoltages (inputs : (InputChannel * BufferDownsampling) array) acquisition =
+            Array.mapi (fun i adcCount -> adcCountToVoltage inputs.[i] acquisition adcCount)
+
         let private takeInputs inputs samples = seq {
             let (SampleCount length) = samples.Length
             for i in 0 .. length - 1 ->
@@ -207,58 +220,123 @@ module Streaming =
         let takeXYFromIndexed n m = Observable.map (fun (_, samples) -> (Array.get samples n, Array.get samples m))
         let scan signal           = Observable.scan List.cons List.empty signal |> Observable.map Seq.ofList
 
-        let sample input acquisition =
+        let private adcCountEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
             |> Event.collectSeq Seq.ofArray
+
+        let adcCount input acquisition =
+            adcCountEvent input acquisition
             |> takeUntilFinished acquisition
 
-        let sampleBy f input acquisition =
-            acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.find input)
-            |> Event.collectSeq Seq.ofArray
-            |> Event.mapi (fun i sample -> (f i, sample))
+        let voltage input acquisition =
+            adcCountEvent input acquisition
+            |> Event.map (adcCountToVoltage input acquisition)
             |> takeUntilFinished acquisition
 
-        let sampleByIndex = sampleBy id
-        let sampleByTime input acquisition = sampleBy (time acquisition.Parameters.SampleInterval) input acquisition
+        let adcCountBy f input acquisition =
+            adcCountEvent input acquisition
+            |> Event.mapi (fun i adcCount -> (f i, adcCount))
+            |> takeUntilFinished acquisition
+
+        let voltageBy f input acquisition =
+            adcCountEvent input acquisition
+            |> Event.mapi (fun i adcCount -> (f i, adcCountToVoltage input acquisition adcCount))
+            |> takeUntilFinished acquisition
+
+        let adcCountByIndex = adcCountBy id
+        let adcCountByTime input acquisition = adcCountBy (time acquisition.Parameters.SampleInterval) input acquisition
+
+        let voltageByIndex = voltageBy id
+        let voltageByTime input acquisition = voltageBy (time acquisition.Parameters.SampleInterval) input acquisition
         
-        let sampleMany inputs acquisition =
+        let private adcCountManyEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (takeInputs inputs)
+
+        let adcCountMany inputs acquisition =
+            adcCountManyEvent inputs acquisition
             |> takeUntilFinished acquisition
-            
-        let sampleManyBy f inputs acquisition =
-            acquisition.SamplesObserved.Publish
-            |> Event.collectSeq (takeInputs inputs)
+
+        let voltageMany inputs acquisition =
+            adcCountManyEvent inputs acquisition
+            |> Event.map (adcCountsToVoltages inputs acquisition)
+            |> takeUntilFinished acquisition
+
+        let adcCountManyBy f inputs acquisition =
+            adcCountManyEvent inputs acquisition
             |> Event.mapi (fun i samples -> (f i, samples))
             |> takeUntilFinished acquisition
 
-        let sampleManyByIndex = sampleManyBy id
-        let sampleManyByTime inputs acquisition = sampleManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+        let voltageManyBy f inputs acquisition =
+            adcCountManyEvent inputs acquisition
+            |> Event.mapi (fun i adcCounts -> (f i, adcCountsToVoltages inputs acquisition adcCounts))
+            |> takeUntilFinished acquisition
 
-        let sampleXY xInput yInput acquisition =
-            sampleMany [| xInput ; yInput |] acquisition
+        let adcCountManyByIndex = adcCountManyBy id
+        let adcCountManyByTime inputs acquisition = adcCountManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+
+        let voltageManyByInex = voltageManyBy id
+        let voltageManyByTime inputs acquisition = voltageManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+
+        let adcCountXY xInput yInput acquisition =
+            adcCountMany [| xInput ; yInput |] acquisition
             |> takeXY 0 1
 
-        let sampleByBlock input acquisition =
+        let voltageXY xInput yInput acquisition =
+            voltageMany [| xInput ; yInput |] acquisition
+            |> takeXY 0 1
+
+        let private adcCountByBlockEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
+
+        let adcCountByBlock input acquisition =
+            adcCountByBlockEvent input acquisition
             |> takeUntilFinished acquisition
 
-        let sampleManyByBlock inputList acquisition =
+        let voltageByBlock input acquisition =
+            adcCountByBlockEvent input acquisition
+            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> takeUntilFinished acquisition
+
+        let private adcCountManyByBlockEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.findArray inputList)
+            |> Event.map (fun samples -> samples.Samples |> Map.findArray inputs)
+
+        let adcCountManyByBlock inputs acquisition =
+            adcCountManyByBlockEvent inputs acquisition
             |> takeUntilFinished acquisition
 
-        let windowLatest n input acquisition =
+        let voltageManyByBlock inputs acquisition = 
+            adcCountManyByBlockEvent inputs acquisition
+            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
+            |> takeUntilFinished acquisition
+
+        let private adcCountWindowedEvent n input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.windowMapSeq n (fun samples -> samples.Samples |> Map.find input)
+
+        let adcCountWindowed n input acquisition =
+            adcCountWindowedEvent n input acquisition
             |> takeUntilFinished acquisition
 
-        let windowLatestMany n inputs acquisition =
+        let voltageWindowed n input acquisition =
+            adcCountWindowedEvent n input acquisition
+            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> takeUntilFinished acquisition
+
+        let private adcCountManyWindowedEvent n inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.windowMapSeq n (takeInputs inputs)
+
+        let adcCountManyWindowed n inputs acquisition =
+            adcCountWindowedEvent n inputs acquisition
+            |> takeUntilFinished acquisition
+
+        let voltageManyWindowed n inputs acquisition =
+            adcCountManyWindowedEvent n inputs acquisition
+            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         let voltageOverflow inputChannel acquisition =
