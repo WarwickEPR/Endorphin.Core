@@ -48,7 +48,7 @@ module CommandRequestAgent =
         /// may fail, in which case this workflow will return failure. Furthermore, the
         /// processingof any given message may fail. If the agent is set to persist failure,
         /// then it will enter afailed state and return failure to all future messages.
-        let create<'State> (nameFunc : 'State -> string) persistFailure init = asyncChoice { 
+        let create<'State> (nameFunc : 'State -> string) persistFailure (init : unit -> AsyncChoice<'State, string>) = asyncChoice { 
             let! state = init () // perform initialisation
             return CommandRequestAgent // if it succeeds, start the mailbox processing loop
             <| Agent.Start(fun (mailbox : Agent<CommandRequestMessage<'State>>) ->
