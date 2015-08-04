@@ -8,13 +8,14 @@ open ExtCore.Control
 open Endorphin.Core
 
 module Streaming =
-    type StreamStopOptions = DidAutoStop of didAutoStop : bool
+    type StreamStopOptions = { AcquisitionDidAutoStop : bool }
     
     type StreamStatus =
         | PreparingStream
         | Streaming of sampleInterval : Interval
         | FinishedStream of options : StreamStopOptions
         | FailedStream of error : string
+        | CancelledStream
 
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
@@ -42,13 +43,13 @@ module Streaming =
               DownsamplingRatio = None
               Inputs            = Inputs.none }
 
-        let withResolution resolution (parameters : StreamingParameters) = { parameters with Resolution = resolution }
-        let withSampleInterval sampleInterval (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
-        let withBufferLength bufferLength (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
-        let withMemorySegment memorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
-        let withNextMemorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
-        let withTrigger trigger (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
-        let withManualStop (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
+        let withResolution resolution                               (parameters : StreamingParameters) = { parameters with Resolution = resolution }
+        let withSampleInterval sampleInterval                       (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
+        let withBufferLength bufferLength                           (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
+        let withMemorySegment memorySegment                         (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
+        let withNextMemorySegment                                   (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
+        let withTrigger trigger                                     (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
+        let withManualStop                                          (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
         let withAutoStop maxPreTriggerSamples maxPostTriggerSamples (parameters : StreamingParameters) = { parameters with StreamStop = AutoStop(maxPreTriggerSamples, maxPostTriggerSamples) }
     
         let withDownsampling downsamplingRatio inputs (parameters : StreamingParameters) =
@@ -85,7 +86,8 @@ module Streaming =
                 acquisition.StatusChanged.Publish,
                 (fun status -> 
                     match status with
-                    | FinishedStream _ -> true
+                    | FinishedStream _ 
+                    | CancelledStream  -> true
                     | _                -> false),
                 (fun status -> 
                     match status with
@@ -130,7 +132,7 @@ module Streaming =
         let private handleStreamingValuesReady acquisition streamingValuesReady =
             if not acquisition.StopCapability.IsCancellationRequested then
                 if  streamingValuesReady.DidAutoStop then
-                    acquisition.StopCapability.Cancel (DidAutoStop true)
+                    acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
 
                 if streamingValuesReady.NumberOfSamples <> (SampleCount 0) then
                     let sampleBlock = createSampleBlock streamingValuesReady acquisition
@@ -141,51 +143,52 @@ module Streaming =
 
         let rec private pollUntilFinished acquisition = asyncChoice {
             if not acquisition.StopCapability.IsCancellationRequested then
-                let! availability = 
+                let! __ = 
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
                     <| handleStreamingValuesReady acquisition
             
                 do! Async.Sleep 100 |> AsyncChoice.liftAsync
                 do! pollUntilFinished acquisition }
-
-        let private finishAcquisition acquisition acquisitionResult = async {
-            let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
-            match acquisitionResult, stopResult with
-            | Success (), Success () ->
-                acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
-                return succeed ()
-            | _, Failure message ->
-                acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
-                return fail message
-            | Failure message, _ ->
-                acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed: %s" message)
-                return fail message }
         
-        let start acquisition =
+        let start acquisition : AsyncChoice<StreamingAcquisitionHandle, string> =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
         
-            let acquisitionWorkflow = asyncChoice {
-                use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
-                do! prepareDevice acquisition
-                do! startStreaming acquisition
-                do! pollUntilFinished acquisition }
+            let acquisitionWorkflow = async { 
+                let! acquisitionResult = asyncChoice {
+                    use! __ = AsyncChoice.liftAsync <| Async.OnCancel(fun () ->
+                        Async.StartWithContinuations(PicoScope.Acquisition.stop acquisition.PicoScope,
+                            (fun _ -> acquisition.StatusChanged.Trigger CancelledStream), 
+                            ignore, ignore)) 
 
-            asyncChoice {
-                let! waitToStop = acquisitionWorkflow |> Async.StartChild |> AsyncChoice.liftAsync 
+                    use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
+                    do! prepareDevice acquisition
+                    do! startStreaming acquisition
+                    do! pollUntilFinished acquisition
+                    do! PicoScope.Acquisition.stop acquisition.PicoScope }
+
+                match acquisitionResult with
+                | Success () ->
+                    acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
+                    return succeed ()
+                | Failure message ->
+                    acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
+                    return fail message }
+
+            async {
+                let! waitToStop = acquisitionWorkflow |> Async.StartChild
                 return StreamingAcquisitionHandle (acquisition, waitToStop) }
+            |> AsyncChoice.liftAsync
     
-        let waitToFinish (StreamingAcquisitionHandle (acquisition, waitToStop)) = async {
-            let! acquisitionResult = waitToStop
-            return! finishAcquisition acquisition acquisitionResult }       
+        let waitToFinish (StreamingAcquisitionHandle (acquisition, waitToStop)) = waitToStop   
               
         let stop (StreamingAcquisitionHandle (acquisition, waitToStop)) =
             if not acquisition.StopCapability.IsCancellationRequested then
-                acquisition.StopCapability.Cancel (DidAutoStop false)
+                acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
 
         let stopAndFinish acquisitionHandle =
             stop acquisitionHandle
-            waitToFinish acquisitionHandle 
+            waitToFinish acquisitionHandle
 
     module Signals =
         let private takeUntilFinished acquisition (obs : IObservable<'T>) =
