@@ -25,8 +25,8 @@ module internal IO =
     [<AutoOpen>]
     module Error =
         /// Parse an error message into an error code and the associated message.
-        let private parseError (str : string) =
-            let parts = str.Split [|','|]
+        let internal parseError (str : string) =
+            let parts = str.Split ([|','|], 2) // split only on the first comma
             if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
         
             match parts.[0] with
