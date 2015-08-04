@@ -168,12 +168,10 @@ module Streaming =
                     do! PicoScope.Acquisition.stop acquisition.PicoScope }
 
                 match acquisitionResult with
-                | Success () ->
-                    acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
-                    return succeed ()
-                | Failure message ->
-                    acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
-                    return fail message }
+                | Success () -> acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
+                | Failure message -> acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
+                
+                return acquisitionResult }
 
             async {
                 let! waitToStop = acquisitionWorkflow |> Async.StartChild
