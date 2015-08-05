@@ -200,4 +200,10 @@ module Control =
         let printCompressedExperiment experiment = asyncChoice {
             let! compressed = toCompressedExperiment experiment
             printCompressedExperiment compressed }
+
+        /// Print out the sequence files used by each experiment in order.
+        let printExperimentSequences stored =
+            stored.StoredExperiments
+            |> Array.map extractStoredSequenceId
+            |> Array.iter (printfn "%s")
 #endif
