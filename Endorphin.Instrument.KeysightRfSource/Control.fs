@@ -5,8 +5,9 @@ open Hashing
 
 module Control =
     [<AutoOpen>]
-    module Waveform =
+    module Storage =
         open Waveform.Translate
+        open RfPulse.Translate
 
         /// Concatenate two error strings into one string.
         let private addErrorStrings str1 str2 = str1 + " AND ALSO " + str2
@@ -112,6 +113,45 @@ module Control =
                     yield (id, el) }
             storeSequenceSequenceById instrument sequence'
 
+        /// Store an experiment onto the machine as a set of necessary sequences and samples.
+        let storeExperiment instrument experiment = asyncChoice {
+            let! encoded = toEncodedExperiment experiment
+            let! storedSegments = storeSegmentSequenceById instrument encoded.Segments
+            let! storedSequences =
+                encoded.Sequences
+                |> Seq.map (fun (id, sqn) -> (id, toRegularSequence sqn))
+                |> storeSequenceSequenceById instrument
+            let! storedExperiments =
+                encoded.Experiments
+                |> Seq.map (fun (id, exp) -> (id, toRegularSequence exp))
+                |> storeSequenceSequenceById instrument
+            return {
+                StoredExperiments= storedExperiments
+                StoredSegments   = storedSegments
+                StoredSequences  = storedSequences
+                ShotsPerPoint = encoded.Metadata.ShotsPerPoint
+                Triggering = encoded.Metadata.TriggerSource } }
+
+#if DEBUG
+        /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
+        let printCompiledExperiment experiment = asyncChoice {
+            let! compiled = toCompiledExperiment experiment
+            printCompiledExperiment compiled }
+
+        /// In debug mode, compress the experiment, then print it out, rather than writing to the machine.
+        let printCompressedExperiment experiment = asyncChoice {
+            let! compressed = toCompressedExperiment experiment
+            printCompressedExperiment compressed }
+
+        /// Print out the sequence files used by each experiment in order.
+        let printExperimentSequences stored =
+            stored.StoredExperiments
+            |> Array.map extractStoredSequenceId
+            |> Array.iter (printfn "%s")
+#endif
+
+    [<AutoOpen>]
+    module Playback =
         /// Key to select a segment or a sequence from the machine
         /// Command reference p.355.
         let private selectArbFileKey = ":RAD:ARB:WAV"
@@ -164,46 +204,3 @@ module Control =
             let! stored = storeSequence instrument sequence
             do! playStoredSequence instrument stored
             return stored }
-
-
-    /// Public functions for writing user-input experiments to the machine.
-    [<AutoOpen>]
-    module RfPulse =
-        open Endorphin.Instrument.Keysight.RfPulse.Translate
-
-        /// Store an experiment onto the machine as a set of necessary sequences and samples.
-        let storeExperiment instrument experiment = asyncChoice {
-            let! encoded = toEncodedExperiment experiment
-            let! storedSegments = storeSegmentSequenceById instrument encoded.Segments
-            let! storedSequences =
-                encoded.Sequences
-                |> Seq.map (fun (id, sqn) -> (id, toRegularSequence sqn))
-                |> storeSequenceSequenceById instrument
-            let! storedExperiments =
-                encoded.Experiments
-                |> Seq.map (fun (id, exp) -> (id, toRegularSequence exp))
-                |> storeSequenceSequenceById instrument
-            return {
-                StoredExperiments= storedExperiments
-                StoredSegments   = storedSegments
-                StoredSequences  = storedSequences
-                ShotsPerPoint = encoded.Metadata.ShotsPerPoint
-                Triggering = encoded.Metadata.TriggerSource } }
-
-#if DEBUG
-        /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
-        let printCompiledExperiment experiment = asyncChoice {
-            let! compiled = toCompiledExperiment experiment
-            printCompiledExperiment compiled }
-
-        /// In debug mode, compress the experiment, then print it out, rather than writing to the machine.
-        let printCompressedExperiment experiment = asyncChoice {
-            let! compressed = toCompressedExperiment experiment
-            printCompressedExperiment compressed }
-
-        /// Print out the sequence files used by each experiment in order.
-        let printExperimentSequences stored =
-            stored.StoredExperiments
-            |> Array.map extractStoredSequenceId
-            |> Array.iter (printfn "%s")
-#endif
