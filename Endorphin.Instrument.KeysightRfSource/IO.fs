@@ -70,8 +70,26 @@ module internal IO =
 
     /// Create an ASCII string representation of a command, ready for writing to the instrument.
     let private createCommandBytes valueMap (key : string) value =
-        let bytesKey = System.Text.Encoding.ASCII.GetBytes key
-        Array.concat [ bytesKey ; " "B; (valueMap value); "\n"B ]
+        let bytesKey = Encoding.ASCII.GetBytes key
+        Array.concat [ bytesKey ; " "B; (valueMap value) ]
+
+    /// Concatenate a sequence of command strings into one writeable command.
+    let private concatenateCommandStrings = String.concat ";"
+
+    /// Concatenate a sequence of command byte arrays into one writeable command.
+    let private concatenateCommandBytes commands =
+        let length = Seq.length commands
+        // start with length to include space for the semi-colons.
+        let size = commands |> Seq.fold (fun count arr -> count + Array.length arr) length
+        let arr = Array.create size 0uy
+        let mutable index = 0
+        let action command =
+            let len = Array.length command
+            arr.[index .. (index + len - 1)] <- command
+            arr.[index + len] <- ';'B
+            index <- index + len + 1
+        Seq.iter action commands
+        arr
 
     /// Generic function for writing any command to an RF source, then query the error queue.
     let private writeCommand writer (RfSource rfSource) command = asyncChoice {
@@ -82,6 +100,14 @@ module internal IO =
     /// Generic function to create a command, then write that value to the machine.
     let private setValue creater writer valueMap key rfSource value =
         creater valueMap key value
+        |> writeCommand writer rfSource
+
+    /// Generic function to write a whole sequence of commands, given a sequence each of valueMaps,
+    /// keys and values.
+    let private setValueSequence creater collecter writer commands rfSource =
+        commands
+        |> Seq.map (fun (map, key, value) -> creater map key value)
+        |> collecter
         |> writeCommand writer rfSource
 
     /// Set a quantity on the machine to a certain value by covnerting an internal
@@ -96,6 +122,14 @@ module internal IO =
     /// when encoded to UTF-8.
     let setValueBytes valueMap key rfSource value =
         setValue createCommandBytes Visa.writeBytes valueMap key rfSource value
+
+    /// Write a sequence of commands as one single command in string format.
+    let setValueStringSequence commands rfSource =
+        setValueSequence createCommandString concatenateCommandStrings Visa.writeString commands rfSource
+
+    /// Write a sequence of commands as one single command in bytes format.
+    let setValueBytesSequence commands rfSource =
+        setValueSequence createCommandBytes concatenateCommandBytes Visa.writeBytes commands rfSource
 
     /// Write a key without a value to the machine.  Useful for "delete all" style functions.
     let writeKey key rfSource = setValueString (fun _ -> "") key rfSource None
