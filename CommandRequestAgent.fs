@@ -153,7 +153,7 @@ module CommandRequestAgent =
         /// reply. If the request is successful, it returns an object type. All future messages will
         /// automatically result in failure if the command fails and the agent is set to persist
         /// failure. The supplied description is used for logging.
-        let performObjectRequest<'Result when 'Result :> obj> description (requestFunc : unit -> Choice<'Result, string>) (CommandRequestAgent agent) = async {
+        let performObjectRequest<'State, 'Result when 'Result :> obj> description (requestFunc : 'State -> Choice<'Result, string>) (CommandRequestAgent agent) = async {
             let castRequestFunc = requestFunc >> Choice.map (fun s -> s :> obj)
             let! response = agent.PostAndAsyncReply (fun replyChannel -> ObjectRequest(description, castRequestFunc, replyChannel))
             return response |> Choice.map (fun s -> s :?> 'Result) }
@@ -163,7 +163,7 @@ module CommandRequestAgent =
         /// reply. If the request is successful, it returns a value type. All future messages will
         /// automatically result in failure if the command fails and the agent is set to persist
         /// failure. The supplied description is used for logging.    
-        let performValueRequest<'Result when 'Result :> ValueType> description (requestFunc : unit -> Choice<'Result, string>) (CommandRequestAgent agent) = async {
+        let performValueRequest<'State, 'Result when 'Result :> ValueType> description (requestFunc : 'State -> Choice<'Result, string>) (CommandRequestAgent agent) = async {
             let castRequestFunc = requestFunc >> Choice.map (fun s -> s :> ValueType)
             let! response = agent.PostAndAsyncReply (fun replyChannel ->ValueRequest(description, castRequestFunc, replyChannel))
             return response |> Choice.map (fun s -> s :?> 'Result) }
