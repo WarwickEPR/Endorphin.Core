@@ -494,6 +494,9 @@ module RfPulse =
         /// Debugging functions for printing out experiments after they've been compiled.
         [<AutoOpen>]
         module Print =
+            /// Depth of an indent.
+            let private depth = 4
+
             /// Get a compiled experiment.
             let toCompiledExperiment experiment = asyncChoice {
                 let! verified = verify experiment
@@ -532,17 +535,14 @@ module RfPulse =
             /// Pretty print a pending sequence.
             let rec printPendingSequence indent segMap seqMap sequence =
                 let printEl = printPendingSequenceElement indent segMap seqMap
-                sequence
-                |> List.iter (fun el -> printfn "%s-------" (getIndent indent); printEl el)
+                sequence |> List.iter printEl
             and private printPendingSequenceElement indent segMap seqMap = function
                 | PendingSegment (SegmentId id, reps) ->
-                    printfn "%s%s" (getIndent (indent + 4)) id
-                    printSegment (indent + 4) (Map.find id segMap)
-                    printfn "%s%d" (getIndent (indent + 4)) reps
+                    printfn "%s%s * %d" (getIndent indent) id reps
+                    printSegment (indent + depth) (Map.find id segMap)
                 | PendingSequence (SequenceId id, reps) ->
-                    printfn "%s%s" (getIndent (indent + 4)) id
-                    printPendingSequence (indent + 4) segMap seqMap (Map.find id seqMap)
-                    printfn "%s%d" (getIndent (indent + 4)) reps
+                    printfn "%s%s * %d" (getIndent indent) id reps
+                    printPendingSequence (indent + depth) segMap seqMap (Map.find id seqMap)
 
             /// Pretty-print out a compiled experiment.
             let printCompiledExperiment (compiled : CompiledExperiment) =
@@ -552,7 +552,7 @@ module RfPulse =
             /// Pretty-print out a compressed experiment.
             let printCompressedExperiment (compressed : CompressedExperiment) =
                 let helper item =
-                    printfn "%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
-                    printPendingSequence 0 compressed.Segments compressed.Sequences item
+                    printfn "\n%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
+                    printPendingSequence depth compressed.Segments compressed.Sequences item
                 List.iter helper compressed.CompressedExperiments
 #endif
