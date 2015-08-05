@@ -13,6 +13,18 @@ module Resolution =
         | Resolution_15bit -> 15<bits>
         | Resolution_16bit -> 16<bits>
 
+    let internal availableChannels =
+        function
+        | Resolution_8bit
+        | Resolution_12bit 
+        | Resolution_14bit -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
+        | Resolution_15bit -> [ ChannelA ; ChannelB ] |> Set.ofList
+        | Resolution_16bit -> [ ChannelA ] |> Set.ofList
+
+    let maximumAdcCounts = function
+        | Resolution_8bit -> 0x7F00s
+        | _               -> 0x7FFFs
+
 [<RequireQualifiedAccess>]
 module Timebase =
     let fastestForResolution =

@@ -8,13 +8,14 @@ open ExtCore.Control
 open Endorphin.Core
 
 module Streaming =
-    type StreamStopOptions = DidAutoStop of didAutoStop : bool
+    type StreamStopOptions = { AcquisitionDidAutoStop : bool }
     
     type StreamStatus =
         | PreparingStream
         | Streaming of sampleInterval : Interval
         | FinishedStream of options : StreamStopOptions
         | FailedStream of error : string
+        | CancelledStream
 
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
@@ -42,13 +43,13 @@ module Streaming =
               DownsamplingRatio = None
               Inputs            = Inputs.none }
 
-        let withResolution resolution (parameters : StreamingParameters) = { parameters with Resolution = resolution }
-        let withSampleInterval sampleInterval (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
-        let withBufferLength bufferLength (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
-        let withMemorySegment memorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
-        let withNextMemorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
-        let withTrigger trigger (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
-        let withManualStop (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
+        let withResolution resolution                               (parameters : StreamingParameters) = { parameters with Resolution = resolution }
+        let withSampleInterval sampleInterval                       (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
+        let withBufferLength bufferLength                           (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
+        let withMemorySegment memorySegment                         (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
+        let withNextMemorySegment                                   (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
+        let withTrigger trigger                                     (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
+        let withManualStop                                          (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
         let withAutoStop maxPreTriggerSamples maxPostTriggerSamples (parameters : StreamingParameters) = { parameters with StreamStop = AutoStop(maxPreTriggerSamples, maxPostTriggerSamples) }
     
         let withDownsampling downsamplingRatio inputs (parameters : StreamingParameters) =
@@ -85,7 +86,8 @@ module Streaming =
                 acquisition.StatusChanged.Publish,
                 (fun status -> 
                     match status with
-                    | FinishedStream _ -> true
+                    | FinishedStream _ 
+                    | CancelledStream  -> true
                     | _                -> false),
                 (fun status -> 
                     match status with
@@ -130,7 +132,7 @@ module Streaming =
         let private handleStreamingValuesReady acquisition streamingValuesReady =
             if not acquisition.StopCapability.IsCancellationRequested then
                 if  streamingValuesReady.DidAutoStop then
-                    acquisition.StopCapability.Cancel (DidAutoStop true)
+                    acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
 
                 if streamingValuesReady.NumberOfSamples <> (SampleCount 0) then
                     let sampleBlock = createSampleBlock streamingValuesReady acquisition
@@ -141,58 +143,70 @@ module Streaming =
 
         let rec private pollUntilFinished acquisition = asyncChoice {
             if not acquisition.StopCapability.IsCancellationRequested then
-                let! availability = 
+                let! __ = 
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
                     <| handleStreamingValuesReady acquisition
             
                 do! Async.Sleep 100 |> AsyncChoice.liftAsync
                 do! pollUntilFinished acquisition }
-
-        let private finishAcquisition acquisition acquisitionResult = async {
-            let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
-            match acquisitionResult, stopResult with
-            | Success (), Success () ->
-                acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
-                return succeed ()
-            | _, Failure message ->
-                acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
-                return fail message
-            | Failure message, _ ->
-                acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed: %s" message)
-                return fail message }
         
-        let start acquisition =
+        let start acquisition : AsyncChoice<StreamingAcquisitionHandle, string> =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
         
-            let acquisitionWorkflow = asyncChoice {
-                use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
-                do! prepareDevice acquisition
-                do! startStreaming acquisition
-                do! pollUntilFinished acquisition }
+            let acquisitionWorkflow = async { 
+                let! acquisitionResult = asyncChoice {
+                    use! __ = AsyncChoice.liftAsync <| Async.OnCancel(fun () ->
+                        Async.StartWithContinuations(PicoScope.Acquisition.stop acquisition.PicoScope,
+                            (fun _ -> acquisition.StatusChanged.Trigger CancelledStream), 
+                            ignore, ignore)) 
 
-            asyncChoice {
-                let! waitToStop = acquisitionWorkflow |> Async.StartChild |> AsyncChoice.liftAsync 
+                    use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
+                    do! prepareDevice acquisition
+                    do! startStreaming acquisition
+                    do! pollUntilFinished acquisition
+                    do! PicoScope.Acquisition.stop acquisition.PicoScope }
+
+                match acquisitionResult with
+                | Success () -> acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
+                | Failure message -> acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
+                
+                return acquisitionResult }
+
+            async {
+                let! waitToStop = acquisitionWorkflow |> Async.StartChild
                 return StreamingAcquisitionHandle (acquisition, waitToStop) }
+            |> AsyncChoice.liftAsync
     
-        let waitToFinish (StreamingAcquisitionHandle (acquisition, waitToStop)) = async {
-            let! acquisitionResult = waitToStop
-            return! finishAcquisition acquisition acquisitionResult }       
+        let waitToFinish (StreamingAcquisitionHandle (acquisition, waitToStop)) = waitToStop   
               
         let stop (StreamingAcquisitionHandle (acquisition, waitToStop)) =
             if not acquisition.StopCapability.IsCancellationRequested then
-                acquisition.StopCapability.Cancel (DidAutoStop false)
+                acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
 
         let stopAndFinish acquisitionHandle =
             stop acquisitionHandle
-            waitToFinish acquisitionHandle 
+            waitToFinish acquisitionHandle
 
-    module Signals =
+    module Signal =
         let private takeUntilFinished acquisition (obs : IObservable<'T>) =
             obs.TakeUntil ((Acquisition.status acquisition).LastAsync())
         
         let private time interval index = (Interval.asSeconds interval) * (float index)
         
+        let private adcCountToVoltage (inputChannel, _) acquisition = 
+            let channelSettings = Inputs.settingsForChannel inputChannel acquisition.Parameters.Inputs
+            match channelSettings with
+            | EnabledChannel settings ->
+                let (VoltageInVolts voltageRange)   = Range.voltage settings.Range
+                let (VoltageInVolts analogueOffset) = settings.AnalogueOffset
+                let maximumAdcCounts                = Resolution.maximumAdcCounts acquisition.Parameters.Resolution
+                fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
+            | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel
+
+        let private adcCountsToVoltages (inputs : (InputChannel * BufferDownsampling) array) acquisition =
+            Array.mapi (fun i adcCount -> adcCountToVoltage inputs.[i] acquisition adcCount)
+
         let private takeInputs inputs samples = seq {
             let (SampleCount length) = samples.Length
             for i in 0 .. length - 1 ->
@@ -206,58 +220,123 @@ module Streaming =
         let takeXYFromIndexed n m = Observable.map (fun (_, samples) -> (Array.get samples n, Array.get samples m))
         let scan signal           = Observable.scan List.cons List.empty signal |> Observable.map Seq.ofList
 
-        let sample input acquisition =
+        let private adcCountEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
             |> Event.collectSeq Seq.ofArray
+
+        let adcCount input acquisition =
+            adcCountEvent input acquisition
             |> takeUntilFinished acquisition
 
-        let sampleBy f input acquisition =
-            acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.find input)
-            |> Event.collectSeq Seq.ofArray
-            |> Event.mapi (fun i sample -> (f i, sample))
+        let voltage input acquisition =
+            adcCountEvent input acquisition
+            |> Event.map (adcCountToVoltage input acquisition)
             |> takeUntilFinished acquisition
 
-        let sampleByIndex = sampleBy id
-        let sampleByTime input acquisition = sampleBy (time acquisition.Parameters.SampleInterval) input acquisition
+        let adcCountBy f input acquisition =
+            adcCountEvent input acquisition
+            |> Event.mapi (fun i adcCount -> (f i, adcCount))
+            |> takeUntilFinished acquisition
+
+        let voltageBy f input acquisition =
+            adcCountEvent input acquisition
+            |> Event.mapi (fun i adcCount -> (f i, adcCountToVoltage input acquisition adcCount))
+            |> takeUntilFinished acquisition
+
+        let adcCountByIndex = adcCountBy id
+        let adcCountByTime input acquisition = adcCountBy (time acquisition.Parameters.SampleInterval) input acquisition
+
+        let voltageByIndex = voltageBy id
+        let voltageByTime input acquisition = voltageBy (time acquisition.Parameters.SampleInterval) input acquisition
         
-        let sampleMany inputs acquisition =
+        let private adcCountManyEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (takeInputs inputs)
+
+        let adcCountMany inputs acquisition =
+            adcCountManyEvent inputs acquisition
             |> takeUntilFinished acquisition
-            
-        let sampleManyBy f inputs acquisition =
-            acquisition.SamplesObserved.Publish
-            |> Event.collectSeq (takeInputs inputs)
+
+        let voltageMany inputs acquisition =
+            adcCountManyEvent inputs acquisition
+            |> Event.map (adcCountsToVoltages inputs acquisition)
+            |> takeUntilFinished acquisition
+
+        let adcCountManyBy f inputs acquisition =
+            adcCountManyEvent inputs acquisition
             |> Event.mapi (fun i samples -> (f i, samples))
             |> takeUntilFinished acquisition
 
-        let sampleManyByIndex = sampleManyBy id
-        let sampleManyByTime inputs acquisition = sampleManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+        let voltageManyBy f inputs acquisition =
+            adcCountManyEvent inputs acquisition
+            |> Event.mapi (fun i adcCounts -> (f i, adcCountsToVoltages inputs acquisition adcCounts))
+            |> takeUntilFinished acquisition
 
-        let sampleXY xInput yInput acquisition =
-            sampleMany [| xInput ; yInput |] acquisition
+        let adcCountManyByIndex = adcCountManyBy id
+        let adcCountManyByTime inputs acquisition = adcCountManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+
+        let voltageManyByInex = voltageManyBy id
+        let voltageManyByTime inputs acquisition = voltageManyBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+
+        let adcCountXY xInput yInput acquisition =
+            adcCountMany [| xInput ; yInput |] acquisition
             |> takeXY 0 1
 
-        let sampleByBlock input acquisition =
+        let voltageXY xInput yInput acquisition =
+            voltageMany [| xInput ; yInput |] acquisition
+            |> takeXY 0 1
+
+        let private adcCountByBlockEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
+
+        let adcCountByBlock input acquisition =
+            adcCountByBlockEvent input acquisition
             |> takeUntilFinished acquisition
 
-        let sampleManyByBlock inputList acquisition =
+        let voltageByBlock input acquisition =
+            adcCountByBlockEvent input acquisition
+            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> takeUntilFinished acquisition
+
+        let private adcCountManyByBlockEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.findArray inputList)
+            |> Event.map (fun samples -> samples.Samples |> Map.findArray inputs)
+
+        let adcCountManyByBlock inputs acquisition =
+            adcCountManyByBlockEvent inputs acquisition
             |> takeUntilFinished acquisition
 
-        let windowLatest n input acquisition =
+        let voltageManyByBlock inputs acquisition = 
+            adcCountManyByBlockEvent inputs acquisition
+            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
+            |> takeUntilFinished acquisition
+
+        let private adcCountWindowedEvent n input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.windowMapSeq n (fun samples -> samples.Samples |> Map.find input)
+
+        let adcCountWindowed n input acquisition =
+            adcCountWindowedEvent n input acquisition
             |> takeUntilFinished acquisition
 
-        let windowLatestMany n inputs acquisition =
+        let voltageWindowed n input acquisition =
+            adcCountWindowedEvent n input acquisition
+            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> takeUntilFinished acquisition
+
+        let private adcCountManyWindowedEvent n inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.windowMapSeq n (takeInputs inputs)
+
+        let adcCountManyWindowed n inputs acquisition =
+            adcCountWindowedEvent n inputs acquisition
+            |> takeUntilFinished acquisition
+
+        let voltageManyWindowed n inputs acquisition =
+            adcCountManyWindowedEvent n inputs acquisition
+            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         let voltageOverflow inputChannel acquisition =

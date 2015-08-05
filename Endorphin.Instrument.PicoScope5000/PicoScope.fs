@@ -6,9 +6,12 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Parsing
 open StatusCodes
 open NativeModel
+open Endorphin.Core.CommandRequestAgent
 
 [<RequireQualifiedAccess>]
 module PicoScope =
+    let private serialNumber device = device.SerialNumber
+    let private handle device = device.Handle 
     
     [<AutoOpen>]
     module private Logging =
@@ -21,10 +24,15 @@ module PicoScope =
             do! checkStatus status
             return value }
 
-        let private log = log4net.LogManager.GetLogger "PicoScope 5000"
+        let checkInitialisationStatus =
+            function
+            | Ok                            -> succeed MainsPower
+            | PowerSourceStatus powerSource -> succeed powerSource
+            | Error message                 -> fail message
+
+        let private log = log4net.LogManager.GetLogger typeof<PicoScope5000>
+        
         let logOp = log.Info
-        let logDeviceOp (picoScope : PicoScope5000) message =
-            sprintf "[%A] %s" picoScope message |> logOp
 
         let logQueryResult successMessageFunc failureMessageFunc input =
             match input with
@@ -32,54 +40,44 @@ module PicoScope =
             | Failure error -> failureMessageFunc error |> log.Error
             input
 
-        let logDeviceQueryResult (picoScope : PicoScope5000) successMessageFunc failureMessageFunc =
-            logQueryResult 
-                (fun value -> sprintf "[%A] %s" picoScope (successMessageFunc value))
-                (fun error -> sprintf "[%A] %s" picoScope (failureMessageFunc error))
-
-        let logDeviceOpResult picoScope successMessage = logDeviceQueryResult picoScope (fun _ -> successMessage)
-
-    let private handle (PicoScope5000 h) = h
-
-    let openInstrument serial =
-        if serial <> null then sprintf "Opening instrument %s with resolution: %A." serial Resolution_8bit |> logOp
-        else sprintf "Opening first available instrument with resolution: %A." Resolution_8bit |> logOp
+    let openDevice serial =
+        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") true (fun () -> asyncChoice {
+            if serial <> null 
+            then sprintf "Opening device %s with resolution: %A." serial Resolution_8bit |> logOp
+            else sprintf "Opening first available device with resolution: %A." Resolution_8bit |> logOp
         
-        let mutable handle = 0s 
-        let status = NativeApi.OpenUnit (&handle, serial, resolutionEnum Resolution_8bit)
-        
-        match status with
-        | PowerSourceStatus powerSource -> logOp <| sprintf "Opened instrument with power source: %A." powerSource
-                                           succeed <| (PicoScope5000 handle)
-        | Ok                            -> succeed <| (PicoScope5000 handle)
-        | error                         -> fail    <| statusMessage error
-        |> logQueryResult
-            (sprintf "Successfully opened instrument: %A.")
-            (sprintf "Failed to open instrument: %s.")
-        |> AsyncChoice.liftChoice
+            let mutable handle = 0s 
+            let! powerSource = 
+                NativeApi.OpenUnit (&handle, serial, resolutionEnum Resolution_8bit)
+                |> checkInitialisationStatus
 
-    let openFirst () = openInstrument null
+            let resultLength = 32s
+            let result = new StringBuilder(int resultLength)
+            let mutable requiredLength = 0s
+            let! serial =
+                NativeApi.GetUnitInfo(handle, result, resultLength, &requiredLength, DeviceInfoEnum.SerialNumber)
+                |> checkStatusAndReturn (result.ToString())
+                |> logQueryResult
+                    (sprintf "Successfully opened device with power source %A: %s." powerSource)
+                    (sprintf "Failed to open device: %s.")
 
-    let pingInstrument picoScope =
-        logDeviceOp picoScope "Pinging instrument."
-        NativeApi.PingUnit (handle picoScope)
-        |> checkStatus
-        |> logDeviceOpResult picoScope
-            ("Successfully pinged instrument.")
-            (sprintf "Failed to ping instrument: %s.")
-        |> AsyncChoice.liftChoice
+            return { SerialNumber = serial ; Handle = handle } })
+        |> AsyncChoice.map PicoScope5000
 
-    let closeInstrument picoScope =
-        logDeviceOp picoScope "Closing instrument." 
-        NativeApi.CloseUnit (handle picoScope)
-        |> checkStatus
-        |> logDeviceOpResult picoScope
-            ("Successfully closed instrument.")
-            (sprintf "Failed to close instrument: %s.")
-        |> AsyncChoice.liftChoice
+    let openFirst () = openDevice null
 
-    let enumerateInstruments () =
-        sprintf "Enumerating connected instruments." |> logOp
+    let pingDevice (PicoScope5000 picoScope) =
+        picoScope
+        |> CommandRequestAgent.performCommand "Ping" (fun device ->
+            NativeApi.PingUnit (handle device) |> checkStatus)
+
+    let close (PicoScope5000 picoScope) =
+        picoScope
+        |> CommandRequestAgent.close (fun device ->
+            NativeApi.CloseUnit (handle device) |> checkStatus)
+
+    let enumerateDevices () =
+        sprintf "Enumerating connected devices." |> logOp
         let mutable count = 0s
         let mutable stringLength = 32s
         let serials = new StringBuilder(int stringLength)
@@ -91,125 +89,91 @@ module PicoScope =
         | error       -> fail    <| statusMessage error
         |> logQueryResult
             (Seq.length >> sprintf "Found %d connected devices.")
-            (sprintf "Failed to enumerate instruments: %s.")
+            (sprintf "Failed to enumerate devices: %s.")
         |> AsyncChoice.liftChoice
 
-    let setLedFlash picoScope ledFlash =
-        sprintf "Setting LED flash: %A." ledFlash |> logDeviceOp picoScope
-        NativeApi.FlashLed (handle picoScope, ledFlashCounts ledFlash)
-        |> checkStatus
-        |> logDeviceOpResult picoScope
-            ("Successfully set LED flash.")
-            (sprintf "Failed to set LED flash: %s.")
-        |> AsyncChoice.liftChoice
+    let setLedFlash (PicoScope5000 picoScope) ledFlash =
+        picoScope
+        |> CommandRequestAgent.performCommand (sprintf "Set LED flash: %A" ledFlash) (fun device ->
+            NativeApi.FlashLed (handle device, ledFlashCounts ledFlash) |> checkStatus)
 
-    let setPowerSource picoScope powerSource =
-        sprintf "Setting power source: %A." powerSource |> logDeviceOp picoScope
-        NativeApi.ChangePowerSource (handle picoScope, powerSourceStatusCode powerSource)
-        |> checkStatus
-        |> logDeviceOpResult picoScope
-            ("Successfully changed power source.")
-            (sprintf "Failed to change power source: %s.")
-        |> AsyncChoice.liftChoice
+    let setPowerSource (PicoScope5000 picoScope) powerSource =
+        picoScope
+        |> CommandRequestAgent.performCommand (sprintf "Set power source: %A" powerSource) (fun device -> 
+            NativeApi.ChangePowerSource (handle device, powerSourceStatusCode powerSource) |> checkStatus)
 
-    let queryPowerSource picoScope =
-        "Querying power source." |> logDeviceOp picoScope
-        let response = NativeApi.CurrentPowerSource (handle picoScope)
-        match response with
-        | PowerSourceStatus powerSource -> succeed <| powerSource
-        | error                         -> fail    <| statusMessage error
-        |> logDeviceQueryResult picoScope
-            (sprintf "Power source: %A.")
-            (sprintf "Failed to query power source: %s.")
-        |> AsyncChoice.liftChoice
+    let queryPowerSource (PicoScope5000 picoScope) =
+        picoScope
+        |> CommandRequestAgent.performObjectRequest "Query power source" (fun device ->
+            let response = NativeApi.CurrentPowerSource (handle device)
+            match response with
+            | PowerSourceStatus powerSource -> succeed <| powerSource
+            | error                         -> fail    <| statusMessage error)
                         
-    let queryDeviceInfo picoScope deviceInfo =
-        sprintf "Querying device information: %A." deviceInfo |> logDeviceOp picoScope
-        let resultLength = 32s
-        let result = new StringBuilder(int resultLength)
-        let mutable requiredLength = 0s
-        NativeApi.GetUnitInfo(handle picoScope, result, resultLength, &requiredLength, deviceInfoEnum deviceInfo)
-        |> checkStatusAndReturn (result.ToString())
-        |> logDeviceQueryResult picoScope
-            (sprintf "%A: %s." deviceInfo)
-            (sprintf "Failed to query device info: %s.")
-        |> AsyncChoice.liftChoice
+    let queryDeviceInfo (PicoScope5000 picoScope) deviceInfo =
+        picoScope
+        |> CommandRequestAgent.performObjectRequest (sprintf "Query device information: %A" deviceInfo) (fun device ->
+            let resultLength = 32s
+            let result = new StringBuilder(int resultLength)
+            let mutable requiredLength = 0s
+            NativeApi.GetUnitInfo(handle device, result, resultLength, &requiredLength, deviceInfoEnum deviceInfo)
+            |> checkStatusAndReturn (result.ToString()))
 
     module Sampling =
-        let setResolution picoScope resolution =
-            sprintf "Setting device resolution: %A" resolution |> logDeviceOp picoScope
-            NativeApi.SetDeviceResolution(handle picoScope, resolutionEnum resolution) 
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully set device resolution")
-                (sprintf "Failed to set device resolution: %s.")
-            |> AsyncChoice.liftChoice
+        let setResolution (PicoScope5000 picoScope) resolution =
+            picoScope
+            |> CommandRequestAgent.performCommand (sprintf "Set device resolution: %A" resolution) (fun device ->
+                NativeApi.SetDeviceResolution(handle device, resolutionEnum resolution) |> checkStatus)
 
-        let queryResolution picoScope =
-            "Querying device resolution." |> logDeviceOp picoScope
-            let mutable resolution = ResolutionEnum._8bit
-            NativeApi.GetDeviceResolution(handle picoScope, &resolution)
-            |> checkStatusAndReturn (parseResolution resolution)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained device resolution: %A.")
-                (sprintf "Failed to query device resolution: %s.")
-            |> AsyncChoice.liftChoice
+        let queryResolution (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest "Query device resolution" (fun device ->
+                let mutable resolution = ResolutionEnum._8bit
+                NativeApi.GetDeviceResolution(handle device, &resolution)
+                |> checkStatusAndReturn (parseResolution resolution))
 
-        let queryMinimumAdcCount picoScope =
-            "Querying minimum ADC count value." |> logDeviceOp picoScope
-            let mutable adcCount : AdcCount = 0s
-            NativeApi.MinimumValue(handle picoScope, &adcCount)
-            |> checkStatusAndReturn adcCount
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained minimum ADC count value: %d.")
-                (sprintf "Failed to query minimum ADC count: %s.")
-            |> AsyncChoice.liftChoice
+        let queryMinimumAdcCount (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performValueRequest "Query minimum ADC count value" (fun device ->
+                let mutable adcCount : AdcCount = 0s
+                NativeApi.MinimumValue(handle device, &adcCount)
+                |> checkStatusAndReturn adcCount)
 
-        let queryMaximumAdcCount picoScope =
-            "Querying maximum ADC count value." |> logDeviceOp picoScope
-            let mutable adcCount : AdcCount = 0s
-            NativeApi.MaximumValue(handle picoScope, &adcCount)
-            |> checkStatusAndReturn adcCount
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained maximum ADC count value: %d.")
-                (sprintf "Failed to query maximum ADC count: %s.")
+        let queryMaximumAdcCount (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performValueRequest "Query maximum ADC count value." (fun device ->
+                let mutable adcCount : AdcCount = 0s
+                NativeApi.MaximumValue(handle device, &adcCount)
+                |> checkStatusAndReturn adcCount)
 
-        let queryMaximumDownsamplingRatio picoScope (SampleIndex unaggregatedSamples) downsamplingMode (MemorySegment segment) =
-            sprintf "Querying maximum downsampling ratio for %A mode, %d samples and %A."
-                downsamplingMode unaggregatedSamples segment |> logDeviceOp picoScope
-            let mutable downsamplingRatio = 0u
-            NativeApi.GetMaximumDownsamplingRatio(handle picoScope, unaggregatedSamples, &downsamplingRatio, downsamplingModeEnum downsamplingMode, segment)
-            |> checkStatusAndReturn (DownsamplingRatio downsamplingRatio)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained maximum downsampling ratio: %A.")
-                (sprintf "Failed to query maximum downsampling ratio: %s.")
-            |> AsyncChoice.liftChoice
+        let queryMaximumDownsamplingRatio (PicoScope5000 picoScope) (SampleIndex unaggregatedSamples) downsamplingMode (MemorySegment segment) =
+            let description = sprintf "Query maximum downsampling ratio for %A mode, %d samples and %A"
+                                downsamplingMode unaggregatedSamples segment
+            picoScope
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
+                let mutable downsamplingRatio = 0u
+                NativeApi.GetMaximumDownsamplingRatio(handle device, unaggregatedSamples, &downsamplingRatio, downsamplingModeEnum downsamplingMode, segment)
+                |> checkStatusAndReturn (DownsamplingRatio downsamplingRatio))
 
-        let queryMaximumMemorySegments picoScope =
-            "Querying maximum number of memory segments." |> logDeviceOp picoScope
-            let mutable index = 0u 
-            NativeApi.GetMaximumNumberOfSegments(handle picoScope, &index)
-            |> checkStatusAndReturn (MemorySegment index)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained maximum number of memory segments: %A.")
-                (sprintf "Failed to query maximum number of memory segments: %s.")
-            |> AsyncChoice.liftChoice
+        let queryMaximumMemorySegments (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest "Query maximum number of memory segments" (fun device ->
+                let mutable index = 0u 
+                NativeApi.GetMaximumNumberOfSegments(handle device, &index)
+                |> checkStatusAndReturn (MemorySegment index))
 
-        let private queryIntervalAndMaxSamples picoScope (Timebase timebase) (MemorySegment index)  = 
-            sprintf "Querying sample interval and maximum sample count for timebase %d and segment index %d."
-                timebase index |> logDeviceOp picoScope
-            let mutable interval = 0
-            let mutable maxSamples = 0
-            let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
-            NativeApi.GetTimebase(handle picoScope, timebase, 0, &interval, &maxSamples, index)
-            |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), SampleCount maxSamples)
-            |> logDeviceQueryResult picoScope 
-                (sprintf "Obtained sample interval and maximum number of samples for times: %A.")
-                (sprintf "Failed to query sample interval and maximum number of samples: %s.")
-            |> AsyncChoice.liftChoice
+        let private queryIntervalAndMaxSamples (PicoScope5000 picoScope) (Timebase timebase) (MemorySegment index)  = 
+            let description = sprintf "Query sample interval and maximum sample count for timebase %d and segment index %d"
+                                timebase index
+            picoScope
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
+                let mutable interval = 0
+                let mutable maxSamples = 0
+                let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
+                NativeApi.GetTimebase(handle device, timebase, 0, &interval, &maxSamples, index)
+                |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), SampleCount maxSamples))
 
         let queryTimebaseParameters picoScope timebase segment =
-            sprintf "Querying parameters parameters for %A and %A." timebase segment |> logDeviceOp picoScope
             asyncChoice {
                 let! resolution = queryResolution picoScope
                 let! (interval, maxSamples) = queryIntervalAndMaxSamples picoScope timebase segment
@@ -218,209 +182,157 @@ module PicoScope =
                       Resolution     = resolution 
                       MaximumSamples = maxSamples
                       SampleInterval = interval } }
-            |> (Async.map <|
-                logDeviceQueryResult picoScope
-                    (sprintf "Successfully obtained timebase parameters: %A.")
-                    (sprintf "Failed to obtain timebase parameters: %s."))
 
-        let segmentMemory picoScope (MemorySegment numberOfSegments) =
-            sprintf "Segmenting device memory into %d segments." numberOfSegments |> logDeviceOp picoScope
-            let mutable samplesPerSegment = 0
-            NativeApi.MemorySegments(handle picoScope, numberOfSegments, &samplesPerSegment)
-            |> checkStatusAndReturn (SampleCount samplesPerSegment)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Successfully segmented device memory: maximum number of samples per segment: %A.")
-                (sprintf "Failed to segment device memory: %s.")
-            |> AsyncChoice.liftChoice
+        let segmentMemory (PicoScope5000 picoScope) (MemorySegment numberOfSegments) =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest (sprintf "Segmenting device memory into %d segments." numberOfSegments)
+                (fun device ->
+                    let mutable samplesPerSegment = 0
+                    NativeApi.MemorySegments(handle device, numberOfSegments, &samplesPerSegment)
+                    |> checkStatusAndReturn (SampleCount samplesPerSegment))
 
     module ChannelSettings =
-        let private availableChannelsForResolution =
-            function
-            | Resolution_8bit
-            | Resolution_12bit 
-            | Resolution_14bit -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
-            | Resolution_15bit -> [ ChannelA ; ChannelB ] |> Set.ofList
-            | Resolution_16bit -> [ ChannelA ] |> Set.ofList
-
         let queryAvailableChannels picoScope =
             asyncChoice {
                 let! modelNumber = queryDeviceInfo picoScope ModelNumber
                 let! resolution = Sampling.queryResolution picoScope
-                let availableChannels = availableChannelsForResolution resolution
+                let availableChannels = Resolution.availableChannels resolution
                 match int <| modelNumber.[1].ToString() with
                 | 2 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ]))
                 | 4 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ; ChannelC ; ChannelD ]))
                 | _ -> return! fail    <| sprintf "Unexpected model number: %s." modelNumber }
 
-        let queryAvailableAnalogueOffsetRange picoScope range coupling =
-            sprintf "Querying available analogue offset range for input range %A with %A coupling." range coupling |> logDeviceOp picoScope
-            let mutable maxOffset = 0.0f
-            let mutable minOffset = 0.0f
-            let volts = LanguagePrimitives.Float32WithMeasure<V>
-            NativeApi.GetAnalogueOffset(handle picoScope, rangeEnum range, couplingEnum coupling, &maxOffset, &minOffset)
-            |> checkStatusAndReturn (VoltageInVolts (volts maxOffset), VoltageInVolts (volts minOffset))
-            |> logDeviceQueryResult picoScope
-                (fun ((VoltageInVolts max), (VoltageInVolts min)) -> sprintf "Channel offset range: %f V to %f V." (float min) (float max))
-                (sprintf "Failed to query channel offset range: %s.")
-            |> AsyncChoice.liftChoice
+        let queryAvailableAnalogueOffsetRange (PicoScope5000 picoScope) range coupling =
+            let description = sprintf "Query available analogue offset range for input range %A with %A coupling" range coupling
+            picoScope
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
+                let mutable maxOffset = 0.0f
+                let mutable minOffset = 0.0f
+                let volts = LanguagePrimitives.Float32WithMeasure<V>
+                NativeApi.GetAnalogueOffset(handle device, rangeEnum range, couplingEnum coupling, &maxOffset, &minOffset)
+                |> checkStatusAndReturn (VoltageInVolts (volts maxOffset), VoltageInVolts (volts minOffset)))
 
-        let queryAvaiableChannelRanges picoScope inputChannel =
-            sprintf "Querying available input ranges for channel %A." inputChannel |> logDeviceOp picoScope
-            let mutable rangesLength = 12
-            let ranges = Array.zeroCreate rangesLength
-            NativeApi.GetChannelInformation(handle picoScope, ChannelInfoEnum.VoltageOffsetRanges, 0, ranges, &rangesLength, inputChannelEnum inputChannel)
-            |> checkStatusAndReturn (ranges |> Array.toSeq |> Seq.map parseRange |> Seq.take rangesLength |> Set.ofSeq)
-            |> logDeviceQueryResult picoScope 
-                (Set.count >> sprintf "Obtained %d input ranges.")
-                (sprintf "Failed to query available input ranges: %s.")
-            |> AsyncChoice.liftChoice
+        let queryAvaiableChannelRanges (PicoScope5000 picoScope) inputChannel =
+            let description = sprintf "Query available input ranges for channel %A" inputChannel
+            picoScope 
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
+                let mutable rangesLength = 12
+                let ranges = Array.zeroCreate rangesLength
+                NativeApi.GetChannelInformation(handle device, ChannelInfoEnum.VoltageOffsetRanges, 0, ranges, &rangesLength, inputChannelEnum inputChannel)
+                |> checkStatusAndReturn (ranges |> Array.toSeq |> Seq.map parseRange |> Seq.take rangesLength |> Set.ofSeq))
 
-        let private setBandwidthFilter picoScope inputChannel bandwidthLimit =
-            sprintf "Setting bandwidth %A to channel %A." inputChannel bandwidthLimit |> logDeviceOp picoScope
-            NativeApi.SetBandwidthFilter(handle picoScope, inputChannelEnum inputChannel, bandwidthLimitEnum bandwidthLimit)
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully set bandwidth filter.")
-                (sprintf "Failed to set bandwidth filter: %s.")
-            |> AsyncChoice.liftChoice
+        let private setBandwidthFilter (PicoScope5000 picoScope) inputChannel bandwidthLimit =
+            let description = sprintf "Set bandwidth %A to channel %A" inputChannel bandwidthLimit
+            picoScope
+            |> CommandRequestAgent.performCommand description (fun device ->
+                NativeApi.SetBandwidthFilter(handle device, inputChannelEnum inputChannel, bandwidthLimitEnum bandwidthLimit)
+                |> checkStatus)
                     
-        let private setChannelInputSettings picoScope inputChannel inputSettings =
-            sprintf "Enabling channel %A and setting input settings : %A." inputChannel inputSettings |> logDeviceOp picoScope
-            let coupling  = couplingEnum inputSettings.Coupling
-            let range     = rangeEnum inputSettings.Range
-            let offset    = voltageFloatInVolts inputSettings.AnalogueOffset
-            NativeApi.SetChannel(handle picoScope, inputChannelEnum inputChannel, 1s, coupling, range, offset) 
-            |> checkStatus 
-            |> logDeviceOpResult picoScope
-                ("Successfully set input settings.")
-                (sprintf "Failed to set input settings: %s.")
-            |> AsyncChoice.liftChoice
+        let private setChannelInputSettings (PicoScope5000 picoScope) inputChannel inputSettings =
+            let description = sprintf "Enable channel %A and setting input settings: %A" inputChannel inputSettings
+            picoScope
+            |> CommandRequestAgent.performCommand description (fun device ->
+                let coupling  = couplingEnum inputSettings.Coupling
+                let range     = rangeEnum inputSettings.Range
+                let offset    = voltageFloatInVolts inputSettings.AnalogueOffset
+                NativeApi.SetChannel(handle device, inputChannelEnum inputChannel, 1s, coupling, range, offset) 
+                |> checkStatus)
 
         let private setChannelEnabled picoScope inputChannel inputSettings =
             asyncChoice {
                 do! setChannelInputSettings picoScope inputChannel inputSettings
                 do! setBandwidthFilter picoScope inputChannel inputSettings.BandwidthLimit }
         
-        let private setChannelDisabled picoScope inputChannel =
-            sprintf "Disabling channel %A." inputChannel |> logDeviceOp picoScope
-            NativeApi.SetChannel(handle picoScope, inputChannelEnum inputChannel, 0s, CouplingEnum.DC, RangeEnum._10V, 0.0f) 
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully disabled channel.")
-                (sprintf "Failed to disable channel: %s.")
-            |> AsyncChoice.liftChoice
+        let private setChannelDisabled (PicoScope5000 picoScope) inputChannel =
+            picoScope
+            |> CommandRequestAgent.performCommand (sprintf "Disable channel %A" inputChannel) (fun device ->
+                NativeApi.SetChannel(handle device, inputChannelEnum inputChannel, 0s, CouplingEnum.DC, RangeEnum._10V, 0.0f) 
+                |> checkStatus)
 
         let private setChannelSettings picoScope inputChannel channelSettings =
-            sprintf "Setting channel %A settings: %A." inputChannel channelSettings |> logDeviceOp picoScope
             match channelSettings with
             | EnabledChannel inputSettings -> setChannelEnabled  picoScope inputChannel inputSettings
             | DisabledChannel              -> setChannelDisabled picoScope inputChannel
-            |> (Async.map <| 
-                logDeviceOpResult picoScope
-                    ("Successfully set channel settings.")
-                    (sprintf "Failed to set channel settings: %s."))
 
         let setAcquisitionInputChannels picoScope acquisition =
-            sprintf "Setting input channel settings for acquisition: %A." acquisition.InputSettings |> logDeviceOp picoScope
             asyncChoice {
                 let requiredChannels   = Map.keys acquisition.InputSettings
                 let! availableChannels = queryAvailableChannels picoScope
                 if not (Set.isSubset requiredChannels availableChannels) then
-                    return! fail "The specified acquisition inputs require input channels which are not available on the current device." 
+                    return! fail
+                    <| "The specified acquisition inputs require input channels which are not available on the current device." 
                 for channel in availableChannels do
                     do! Inputs.settingsForChannel channel acquisition
                         |> setChannelSettings picoScope channel }
-            |> (Async.map <| 
-                logDeviceOpResult picoScope
-                    ("Successfully set input channel settings for acquisition.")
-                    (sprintf "Failed to set input channel settings for acquisition: %s"))
-
 
     module Triggering = 
-        let private setAutoTrigger picoScope (AutoTriggerDelayInMilliseconds delay) =
-            sprintf "Setting auto-trigger with delay: %d ms." (int16 delay) |> logDeviceOp picoScope
-            NativeApi.SetSimpleTrigger(handle picoScope, 0s, ChannelEnum.A, 0s, ThresholdDirectionEnum.None, 0u, int16 delay)
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully set auto-trigger.")
-                (sprintf "Failed to set auto-trigger delay: %s.")
-            |> AsyncChoice.liftChoice
+        let private setAutoTrigger (PicoScope5000 picoScope) (AutoTriggerDelayInMilliseconds delay) =
+            let description = sprintf "Set auto-trigger with delay: %d ms" (int16 delay)
+            picoScope
+            |> CommandRequestAgent.performCommand description (fun device -> 
+                NativeApi.SetSimpleTrigger(handle device, 0s, ChannelEnum.A, 0s, ThresholdDirectionEnum.None, 0u, int16 delay)
+                |> checkStatus)
 
-        let private setSimpleTrigger picoScope simpleTriggerSettings =
-            sprintf "Setting simple trigger settings: %A." simpleTriggerSettings |> logDeviceOp picoScope
-            let channel = triggerChannelEnum simpleTriggerSettings.TriggerChannel
-            let threshold                  = simpleTriggerSettings.AdcThreshold
-            let thresholdDirection = levelThresholdEnum simpleTriggerSettings.ThresholdDirection
-            let (SampleIndex startSample)  = simpleTriggerSettings.StartSample
-            let delay = autoTriggerDelayIntInMilliseconds simpleTriggerSettings.AutoTrigger
-            NativeApi.SetSimpleTrigger(handle picoScope, 1s, channel, threshold, thresholdDirection, startSample, delay)
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully set simple trigger settings.")
-                (sprintf "Failed to set simple trigger settings: %s.")
-            |> AsyncChoice.liftChoice
+        let private setSimpleTrigger (PicoScope5000 picoScope) simpleTriggerSettings =
+            let description = sprintf "Set simple trigger settings: %A" simpleTriggerSettings
+            picoScope
+            |> CommandRequestAgent.performCommand description (fun device ->
+                let channel = triggerChannelEnum simpleTriggerSettings.TriggerChannel
+                let threshold                  = simpleTriggerSettings.AdcThreshold
+                let thresholdDirection = levelThresholdEnum simpleTriggerSettings.ThresholdDirection
+                let (SampleIndex startSample)  = simpleTriggerSettings.StartSample
+                let delay = autoTriggerDelayIntInMilliseconds simpleTriggerSettings.AutoTrigger
+                NativeApi.SetSimpleTrigger(handle device, 1s, channel, threshold, thresholdDirection, startSample, delay)
+                |> checkStatus)
 
         let setTriggerSettings picoScope triggerSettings =
             match triggerSettings with
             | SimpleTrigger simpleTriggerSettings -> setSimpleTrigger picoScope simpleTriggerSettings
             | AutoTrigger delay                   -> setAutoTrigger   picoScope delay
 
-        let queryTriggerStatus picoScope =
-            "Querying trigger status." |> logDeviceOp picoScope
-            let mutable triggerEnabled = 0s
-            let mutable pwqEnabled = 0s
-            NativeApi.IsTriggerOrPulseWidthQualifierEnabled(handle picoScope, &triggerEnabled, &pwqEnabled)
-            |> checkStatusAndReturn { TriggerState = parseToggleState triggerEnabled ; PulseWidthQualifierState = parseToggleState pwqEnabled }
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained trigger status: %A.")
-                (sprintf "Failed to query trigger status: %s.")
-            |> AsyncChoice.liftChoice
+        let queryTriggerStatus (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest "Query trigger status" (fun device ->
+                let mutable triggerEnabled = 0s
+                let mutable pwqEnabled = 0s
+                NativeApi.IsTriggerOrPulseWidthQualifierEnabled(handle device, &triggerEnabled, &pwqEnabled)
+                |> checkStatusAndReturn
+                    { TriggerState = parseToggleState triggerEnabled ; PulseWidthQualifierState = parseToggleState pwqEnabled })
 
     module internal DataBuffers =
-        let setDataBuffer picoScope inputChannel downsamplingMode (MemorySegment index) acquisitionBuffer =
-            sprintf "Setting data buffer for channel %A with downsampling mode %A on memory segment %d." inputChannel downsamplingMode index |> logDeviceOp picoScope
-            match acquisitionBuffer with
-            | SingleBuffer buffer ->
-                NativeApi.SetDataBuffer(handle picoScope, inputChannelEnum inputChannel, buffer, buffer.Length, index, downsamplingModeEnum downsamplingMode)
-                |> checkStatus
-            | BufferPair (bufferMax, bufferMin) ->
-                NativeApi.SetDataBuffers(handle picoScope, inputChannelEnum inputChannel, bufferMax, bufferMin, bufferMax.Length, index,    
-                    downsamplingModeEnum downsamplingMode)
-                |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully set data buffer.")
-                (sprintf "Failed to set data buffer: %s.")
-            |> AsyncChoice.liftChoice
+        let setDataBuffer (PicoScope5000 picoScope) inputChannel downsamplingMode (MemorySegment index) acquisitionBuffer =
+            let description = sprintf "Set data buffer for channel %A with downsampling mode %A on memory segment %d"
+                                inputChannel downsamplingMode index
+            picoScope
+            |> CommandRequestAgent.performCommand description (fun device ->
+                match acquisitionBuffer with
+                | SingleBuffer buffer ->
+                    NativeApi.SetDataBuffer(handle device, inputChannelEnum inputChannel, buffer, buffer.Length, index, downsamplingModeEnum downsamplingMode)
+                    |> checkStatus
+                | BufferPair (bufferMax, bufferMin) ->
+                    NativeApi.SetDataBuffers(handle device, inputChannelEnum inputChannel, bufferMax, bufferMin, bufferMax.Length, index,    
+                        downsamplingModeEnum downsamplingMode)
+                    |> checkStatus)
 
     module internal Acquisition =
-        let stop picoScope =
-            "Stopping acquisition." |> logDeviceOp picoScope 
-            NativeApi.Stop (handle picoScope)
-            |> checkStatus
-            |> logDeviceOpResult picoScope
-                ("Successfully stopped acquisition")
-                (sprintf "Failed to stop acquisition: %s.")
-            |> AsyncChoice.liftChoice
+        let stop (PicoScope5000 picoScope) =
+            picoScope 
+            |> CommandRequestAgent.performCommand "Stop acquisition" (fun device ->
+                NativeApi.Stop (handle device) |> checkStatus)
 
-        let queryNumberOfCaptures picoScope =
-            "Querying number of captures." |> logDeviceOp picoScope
-            let mutable index = 0u
-            NativeApi.GetNumberOfCaptures(handle picoScope, &index)
-            |> checkStatusAndReturn (MemorySegment index)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained number of captures: %A.")
-                (sprintf "Failed to query number of captures: %s.")
-            |> AsyncChoice.liftChoice
+        let queryNumberOfCaptures (PicoScope5000 picoScope) =
+            picoScope 
+            |> CommandRequestAgent.performObjectRequest "Query number of captures" (fun device ->
+                let mutable index = 0u
+                NativeApi.GetNumberOfCaptures(handle device, &index)
+                |> checkStatusAndReturn (MemorySegment index))
 
-        let queryNumberOfProcessedCaptures picoScope =
-            "Querying number of processed captures" |> logDeviceOp picoScope
-            let mutable index = 0u
-            NativeApi.GetNumberOfProcessedCaptures(handle picoScope, &index)
-            |> checkStatusAndReturn (MemorySegment index)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained number of processed captures: %A.")
-                (sprintf "Failed to query number of processed captures: %s.")
-            |> AsyncChoice.liftChoice
+        let queryNumberOfProcessedCaptures (PicoScope5000 picoScope) =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest "Query number of processed captures" (fun device ->
+                let mutable index = 0u
+                NativeApi.GetNumberOfProcessedCaptures(handle device, &index)
+                |> checkStatusAndReturn (MemorySegment index))
 
         let private voltageOverflowChannels overflowBits =
             // determine whether any of the corresponding voltage overflow flags is set using the appropriate 
@@ -430,7 +342,7 @@ module PicoScope =
             |> List.map parseInputChannel
             |> Set.ofList
 
-        let pollStreamingLatestValues picoScope callback =
+        let pollStreamingLatestValues (PicoScope5000 picoScope) callback =
             let picoScopeCallback = // define the callback as required by the PicoScope API
                 PicoScopeStreamingReady(fun _ numberOfSamples startIndex overflowBits triggeredAt triggered didAutoStop _ ->
                     // wrap the values in a StreamingValuesReady record and send them to the user callback
@@ -440,29 +352,25 @@ module PicoScope =
                       TriggerPosition = parseTriggerPosition (triggered <> 0s) (SampleIndex triggeredAt)
                       DidAutoStop = didAutoStop <> 0s } |> callback)
             
-            "Polling for latest streaming values..." |> logDeviceOp picoScope
-            let response = NativeApi.GetStreamingLatestValues(handle picoScope, picoScopeCallback, System.IntPtr.Zero)
-            match response with
-            | AvailabilityStatus status -> succeed <| status
-            | error                     -> fail    <| statusMessage error
-            |> logDeviceOpResult picoScope
-                ("Successfully polled for latest streaming values.")
-                (sprintf "Failed to poll for latest streaming values: %A.")
-            |> AsyncChoice.liftChoice
+            picoScope
+            |> CommandRequestAgent.performObjectRequest "Poll for latest streaming values" (fun device ->
+                let response = NativeApi.GetStreamingLatestValues(handle device, picoScopeCallback, System.IntPtr.Zero)
+                match response with
+                | AvailabilityStatus status -> succeed <| status
+                | error                     -> fail    <| statusMessage error)
 
-        let queryAvailableStreamingValues picoScope =
-            "Querying number of available streaming values after acquisition." |> logDeviceOp picoScope
-            let mutable sampleIndex = 0u
-            NativeApi.NumberOfStreamingValues(handle picoScope, &sampleIndex)
-            |> checkStatusAndReturn (SampleIndex sampleIndex)
-            |> logDeviceQueryResult picoScope
-                (sprintf "Obtained number of available streaming samples: %A.")
-                (sprintf "Failed to query number of available streaming samples: %s.")
-            |> AsyncChoice.liftChoice
+        let queryAvailableStreamingValues (PicoScope5000 picoScope) =
+            let description = "Query number of available streaming values after acquisition"
+            picoScope
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
+                let mutable sampleIndex = 0u
+                NativeApi.NumberOfStreamingValues(handle device, &sampleIndex)
+                |> checkStatusAndReturn (SampleIndex sampleIndex))
 
-        let startStreaming picoScope streamingParameters =
-            asyncChoice { 
-                sprintf "Starting streaming acquisition: %A." streamingParameters |> logDeviceOp picoScope
+        let startStreaming (PicoScope5000 picoScope) streamingParameters =
+            let description = sprintf "Start streaming acquisition: %A" streamingParameters
+            picoScope
+            |> CommandRequestAgent.performObjectRequest description (fun device ->
                 let (timeUnit, requestedInterval)                     = timeUnitEnumAndInterval streamingParameters.SampleInterval
                 let (autoStop, preTriggerSamples, postTriggerSamples) = streamStopParameters streamingParameters.StreamStop
                 let (SampleIndex bufferLength)                        = streamingParameters.BufferLength
@@ -478,9 +386,6 @@ module PicoScope =
                     | None                                       -> 1u
 
                 let mutable hardwareInterval = uint32 requestedInterval
-                return! NativeApi.RunStreaming(handle picoScope, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples, autoStop, 
-                                               downsamplingRatio, downsamplingMode, bufferLength)
-                |> checkStatusAndReturn (parseTimeUnitWithInterval (timeUnit, int hardwareInterval))
-                |> logDeviceQueryResult picoScope
-                    (sprintf "Successfully started streaming acquisition with sample interval: %A.")
-                    (sprintf "Failed to start streaming acquisition: %s.") }
+                NativeApi.RunStreaming(handle device, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples,
+                                        autoStop, downsamplingRatio, downsamplingMode, bufferLength)
+                |> checkStatusAndReturn (parseTimeUnitWithInterval (timeUnit, int hardwareInterval)))
