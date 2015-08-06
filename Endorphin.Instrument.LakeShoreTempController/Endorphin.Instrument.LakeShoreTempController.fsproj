@@ -10,7 +10,7 @@
     <RootNamespace>Endorphin.Instrument.LakeShoreTempController</RootNamespace>
     <AssemblyName>Endorphin.Instrument.LakeShoreTempController</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>Endorphin.Instrument.LakeShoreTempController</Name>
     <TargetFrameworkProfile />
