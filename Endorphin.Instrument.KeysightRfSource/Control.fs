@@ -5,9 +5,14 @@ open Hashing
 
 module Control =
     [<AutoOpen>]
-    module Storage =
+    module Store =
         open Waveform.Translate
         open RfPulse.Translate
+
+        /// How many Segments to write in one chunk when writing a whole sequence of them.
+        let private segmentsPerChunk = 4
+        /// How many Seqeunces to write in one chunk when writing a whole sequence of them.
+        let private sequencesPerChunk = 32
 
         /// Concatenate two error strings into one string.
         let private addErrorStrings str1 str2 = str1 + " AND ALSO " + str2
@@ -20,6 +25,23 @@ module Control =
         /// occur.
         let private parallelizeStorage store instrument sequence =
             parallelizeStorageFold "" addErrorStrings store instrument sequence
+
+        /// Write several storage commands concatenated into one semi-colon separated SCPI command.
+        /// The sequence must be a sequence of identifiers and the data to be written.
+        let private storeConcatenatedById store
+                                          (construct : 'Id -> 'StoredType)
+                                          (instrument : RfSource)
+                                          commands = asyncChoice {
+            do! store commands instrument
+            let sequence = Seq.map (fun (_, _, el) -> el) commands
+            return Seq.map (fun (id, _) -> construct id) sequence |> Array.ofSeq }
+
+        /// Zip a set of valueMaps taking ids and sequences of (id * data), along with a single key, into
+        /// one sequence of the 3-tuple zipped up.
+        let private zipIdCommands valueMapBuilder key sequence =
+            let valueMaps = Seq.map valueMapBuilder sequence
+            let keys = seq {for _ in 1 .. Seq.length sequence -> key }
+            Seq.zip3 valueMaps keys sequence
 
         /// Create an internal stored segment representation.
         let private toStoredSegment id = StoredSegment id
@@ -36,10 +58,12 @@ module Control =
         /// data stored.
         let internal storeSegmentById instrument (id, segment) =
             let encoded = toEncodedSegmentFiles segment id
+            let commands = seq {
+                    yield (waveformDataString, storeDataKey, encoded)
+                    yield (markersDataString, storeDataKey, encoded)
+                    yield (headerDataString, storeDataKey, encoded) }
             asyncChoice {
-                do! IO.setValueBytes waveformDataString storeDataKey instrument encoded
-                do! IO.setValueBytes markersDataString storeDataKey instrument encoded
-                do! IO.setValueBytes headerDataString storeDataKey instrument encoded
+                do! IO.setValueBytesSequence commands instrument
                 return toStoredSegment id }
 
         /// Store the given sequence on the machine, and return a StoredSegment type which can be
@@ -51,42 +75,29 @@ module Control =
         /// Store a sequence of segments and their ids into the volatile memory of the machine.
         /// Returns an array of StoredSegments.
         let internal storeSegmentSequenceById instrument sequence =
-            parallelizeStorage storeSegmentById instrument sequence
+            let encoded = Seq.map (fun (id, seg) -> (id, toEncodedSegmentFiles seg id)) sequence
+            let builder map (_, _) = fun (_, el) -> map el
+            let zipper map = zipIdCommands (builder map) storeDataKey encoded
+            let interleave one two three = seq { yield one; yield two; yield three }
+
+            let waveformCommands = zipper waveformDataString
+            let markersCommands  = zipper markersDataString
+            let headerCommands   = zipper headerDataString
+
+            let commands =
+                Seq.map3 interleave waveformCommands markersCommands headerCommands
+                |> Seq.concat
+                |> Seq.chunkBySize segmentsPerChunk
+            let store = storeConcatenatedById IO.setValueBytesSequence toStoredSegment
+            parallelizeStorage store instrument commands
+            |> AsyncChoice.map Array.concat
 
         /// Store a sequence of segments onto the machine, and return an array of identifiers to those
         /// segments.
         let storeSegmentSequence instrument sequence =
-            let sequence' = seq {
-                for el in sequence do
-                    let id = SegmentId <| hexHash segmentToBytes el
-                    yield (id, el) }
+            let helper el = ((SegmentId <| hexHash segmentToBytes el), el)
+            let sequence' = Seq.map helper sequence
             storeSegmentSequenceById instrument sequence'
-
-        /// Command to delete all waveform, markers and header files stored in the BBG memory
-        /// of the machine (the usual place that they're stored in).
-        /// Command reference p.152.
-        let private deleteAllSegmentsKey = ":MMEM:DEL:WFM"
-        /// Delete all the waveform, markers and header files stored in the BBG memory of the
-        /// machine (the usual storage location).
-        let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey
-        /// Command to delete all sequence files stored in the internal memory of the machine
-        /// (the usual storage location).
-        /// Command reference p.146. Uses ":MEM" rather than ":MMEM" for some reason.
-        let private deleteAllSequencesKey = ":MEM:DEL:SEQ"
-        /// Delete all the sequence files stored in the internal memory of the machine (the usual
-        /// storage location).
-        let deleteAllStoredSequences = IO.writeKey deleteAllSequencesKey
-
-        /// Command to delete any file on the machine by name.  If a waveform file is passed,
-        /// any associated markers and header files are deleted alongside it.
-        /// Command reference p.152.
-        let private deleteFileKey = ":MMEM:DEL:NAME"
-        /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
-        /// file, the markers file and the headers file (if present).
-        let deleteStoredSegment = IO.setValueString storedSegmentFilename deleteFileKey
-        /// Delete a sequence from the machine's internal data storage (the usual storage
-        /// location).
-        let deleteStoredSequence = IO.setValueString storedSequenceFilename deleteFileKey
 
         /// Key to store sequences to the machine.
         /// Command reference p.345.
@@ -102,8 +113,15 @@ module Control =
 
         /// Write a sequence of sequences files to the machine, and return an array of the stored
         /// sequence type.
-        let internal storeSequenceSequenceById instrument sequence =
-            parallelizeStorage storeSequenceById instrument sequence
+        let internal storeSequenceSequenceById instrument (sequence : seq<SequenceId * Sequence>) =
+            let builder (_, _) = fun (id, el) -> sequenceDataString id el
+            let commands =
+                sequence
+                |> zipIdCommands builder storeSequenceKey
+                |> Seq.chunkBySize sequencesPerChunk
+            let store = storeConcatenatedById IO.setValueBytesSequence toStoredSequence
+            parallelizeStorage store instrument commands
+            |> AsyncChoice.map Array.concat
         /// Write a sequence of sequences files to the machine, and return an array of identifiers
         /// to those sequences.
         let storeSequenceSequence instrument sequence =
@@ -132,7 +150,40 @@ module Control =
                 ShotsPerPoint = encoded.Metadata.ShotsPerPoint
                 Triggering = encoded.Metadata.TriggerSource } }
 
+    [<AutoOpen>]
+    module Delete =
+        /// Command to delete all waveform, markers and header files stored in the BBG memory
+        /// of the machine (the usual place that they're stored in).
+        /// Command reference p.152.
+        let private deleteAllSegmentsKey = ":MMEM:DEL:WFM"
+        /// Delete all the waveform, markers and header files stored in the BBG memory of the
+        /// machine (the usual storage location).
+        let deleteAllStoredSegments = IO.writeKey deleteAllSegmentsKey
+
+        /// Command to delete all sequence files stored in the internal memory of the machine
+        /// (the usual storage location).
+        /// Command reference p.146. Uses ":MEM" rather than ":MMEM" for some reason.
+        let private deleteAllSequencesKey = ":MEM:DEL:SEQ"
+        /// Delete all the sequence files stored in the internal memory of the machine (the usual
+        /// storage location).
+        let deleteAllStoredSequences = IO.writeKey deleteAllSequencesKey
+
+        /// Command to delete any file on the machine by name.  If a waveform file is passed,
+        /// any associated markers and header files are deleted alongside it.
+        /// Command reference p.152.
+        let private deleteFileKey = ":MMEM:DEL:NAME"
+        /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
+        /// file, the markers file and the headers file (if present).
+        let deleteStoredSegment = IO.setValueString storedSegmentFilename deleteFileKey
+        /// Delete a sequence from the machine's internal data storage (the usual storage
+        /// location).
+        let deleteStoredSequence = IO.setValueString storedSequenceFilename deleteFileKey
+
 #if DEBUG
+    [<AutoOpen>]
+    module Print =
+        open RfPulse.Translate
+
         /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
         let printCompiledExperiment experiment = asyncChoice {
             let! compiled = toCompiledExperiment experiment
@@ -151,7 +202,7 @@ module Control =
 #endif
 
     [<AutoOpen>]
-    module Playback =
+    module Play =
         /// Key to select a segment or a sequence from the machine
         /// Command reference p.355.
         let private selectArbFileKey = ":RAD:ARB:WAV"
