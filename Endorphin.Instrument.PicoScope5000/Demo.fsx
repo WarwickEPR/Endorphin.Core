@@ -1,7 +1,7 @@
 ﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
-#r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"
-#r "bin/Debug/ExtCore.dll"
+#r "../packages/ExtCore.0.8.45/lib/net45/ExtCore.dll"
 #r "../packages/FSharp.Charting.0.90.9/lib/net40/FSharp.Charting.dll"
+#r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"
 #r "System.Windows.Forms.DataVisualization.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
