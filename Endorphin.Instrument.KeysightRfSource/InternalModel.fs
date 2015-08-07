@@ -3,7 +3,7 @@
 [<AutoOpen>]
 module internal InternalModel =
     [<AutoOpen>]
-    module Waveform =
+    module ARB =
         /// Internal record of an entire recorded segment before being transformed into
         /// machine-readable strings.  Lists are in reverse order for speed.
         type EncodedSegment = {
@@ -18,7 +18,7 @@ module internal InternalModel =
             Header   : byte array }
 
     [<AutoOpen>]
-    module RfPulse =
+    module Experiment =
         /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
         /// the number of pulses in each cycle are the same.
         type VerifiedPulse =
