@@ -149,23 +149,14 @@ module internal Parsing =
     let extractSegmentId (SegmentId id) = id
     /// Get the string representation of a SequenceId.
     let extractSequenceId (SequenceId id) = id
-    /// Get the string representation of a StoredSegment.
-    let extractStoredSegmentId (StoredSegment id) = id |> extractSegmentId
-    /// Get the string representation of a StoredSequence.
-    let extractStoredSequenceId (StoredSequence id) = id |> extractSequenceId
+    /// Get the string representation of a StoredWaveform.
+    let extractStoredWaveformId = function
+        | StoredSegment  s -> extractSegmentId s
+        | StoredSequence s -> extractSequenceId s
 
     /// Get the full file name of a waveform file from the short name stored in the
-    /// StoredSegment.  For example, if the StoredSegment name is "test", then this
+    /// StoredWaveform.  For example, if it is a segment, and the name is "test", then this
     /// function returns "\"WFM1:test\""B.
-    let storedSegmentFilename (segment : StoredSegment) =
-        segment
-        |> extractStoredSegmentId
-        |> waveformFileString
-
-    /// Get the full file name of a sequence file from the short name stored in the
-    /// StoredSequence.  For example, if the StoredSequence name is "test", then this
-    /// function returns "\"SEQ:test\""B.
-    let storedSequenceFilename (sequence : StoredSequence) =
-        sequence
-        |> extractStoredSequenceId
-        |> sequenceFileString
+    let storedWaveformFilename = function
+        | StoredSegment  s -> waveformFileString <| extractSegmentId s
+        | StoredSequence s -> sequenceFileString <| extractSequenceId s

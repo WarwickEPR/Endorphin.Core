@@ -155,9 +155,8 @@ module ARB =
 
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions.
-            let private asciiSequenceElement = function
-                | Segment (segment, reps)   -> (storedSegmentFilename segment,  asciiString reps)
-                | Sequence (sequence, reps) -> (storedSequenceFilename sequence, asciiString reps)
+            let private asciiSequenceElement (el, reps) =
+                (storedWaveformFilename el, asciiString reps)
 
             /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B.
             let private toEncodedSequenceElement (element : SequenceElement) =

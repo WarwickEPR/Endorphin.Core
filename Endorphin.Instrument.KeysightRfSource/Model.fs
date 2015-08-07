@@ -255,29 +255,32 @@ module Model =
         /// A number of samples, generally used as a pulse duration.
         type SampleCount = SampleCount of uint32
 
-        /// The identifier of a segment, stored as a string.
-        type SegmentId = SegmentId of string
-        /// The identifier of a sequence.
-        type SequenceId = SequenceId of string
+        /// The identifier of a segment, before it has been written to the machine.
+        type internal SegmentId = SegmentId of string
+        /// The identifier of a sequence, before it has been written to the machine.
+        type internal SequenceId = SequenceId of string
+
+        type StoredWaveform = 
+            internal
+            | StoredSegment of SegmentId
+            | StoredSequence of SequenceId
 
         /// A single segment in the machine.  Must be at least 60 samples long.
         type Segment = {
             Samples : (Sample * SampleCount) array
             Length  : uint16 }
 
-        /// Representation of the stored segments on the machine.
-        type StoredSegment = internal StoredSegment of name : SegmentId
-        /// Representation of the stored sequences on the machine.
-        type StoredSequence = internal StoredSequence of name : SequenceId
-
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
-        type SequenceElement =
-            | Segment of segment : StoredSegment * repetitions : uint16
-            | Sequence of sequence : StoredSequence * repetitions : uint16
+        type SequenceElement = StoredWaveform * uint16
 
         /// A full sequence to be stored in the machine.
         type Sequence = SequenceElement list
+
+        /// A unified type representing some playable waveform on the machine.
+        type Waveform =
+            | Segment of Segment
+            | Sequence of Sequence
 
     [<AutoOpen>]
     module RfPulse =
@@ -308,9 +311,8 @@ module Model =
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
-            StoredExperiments: StoredSequence array
-            StoredSegments   : StoredSegment array
-            StoredSequences  : StoredSequence array
+            StoredExperiments: StoredWaveform array
+            StoredWaveforms  : StoredWaveform array
             ShotsPerPoint : int
             Triggering : TriggerSource }
 

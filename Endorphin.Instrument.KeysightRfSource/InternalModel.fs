@@ -66,12 +66,15 @@ module internal InternalModel =
             ExperimentPoints : CompiledExperimentPoint list
             Metadata : ExperimentMetadata }
 
+        /// A waveform identifier pointing to a waveform which has not yet been written to disk.
+        type PendingWaveform =
+            | PendingSegment of name : SegmentId
+            | PendingSequence of name : SequenceId
+
         /// An element of a sequence where the dependencies are not yet written to the machine.
         /// Elements may still be pending writing, and not available for playback yet.  This should
         /// not be exposed publically, to prevent accidentally depending on an unwritten file.
-        type PendingSequenceElement =
-            | PendingSegment of name : SegmentId * repetitions : uint16
-            | PendingSequence of name : SequenceId * repetitions : uint16
+        type PendingSequenceElement = PendingWaveform * uint16
 
         /// A sequence where the dependencies are not yet written to the machine. Elements may
         /// still be pending writing, and not available for playback yet.  This should not be

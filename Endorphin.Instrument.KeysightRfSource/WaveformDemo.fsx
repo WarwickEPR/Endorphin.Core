@@ -16,19 +16,18 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Waveform.Configure
 
-let printResult =
-    function
+let printResult = function
     | Success ()    -> printfn "Successfully did things."
     | Failure error -> printfn "Bad things happened: %s" error
 
-let numSamples = 1000
+let numSamples = 1000us
 
 let generateSegment value count =
     let sample =
         defaultIqSample
         |> withAmplitudeAndPhase (float value / float System.Int16.MaxValue) (PhaseInRad 0.0<rad>)
         |> withMarkers { M1 = true; M2 = false; M3 = true; M4 = true }
-    [| for _ in 1 .. count -> sample |]
+    { Samples = [| (sample, SampleCount (uint32 count)) |]; Length = count }
 
 let segmentSequence = seq { for i in 1 .. 100
     -> generateSegment (int16 (32000.0 * float i / 100.0)) numSamples }

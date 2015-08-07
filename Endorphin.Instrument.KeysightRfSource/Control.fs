@@ -45,7 +45,7 @@ module Control =
 
         /// Create an internal stored segment representation.
         let private toStoredSegment id = StoredSegment id
-        /// Create and internal stored sequence representation.
+        /// Create an internal stored sequence representation.
         let private toStoredSequence id = StoredSequence id
 
         /// Command to write file to volatile memory.
@@ -131,6 +131,11 @@ module Control =
                     yield (id, el) }
             storeSequenceSequenceById instrument sequence'
 
+        /// Store a waveform onto the machine.
+        let storeWaveform instrument = function
+            | Segment  s -> storeSegment  instrument s
+            | Sequence s -> storeSequence instrument s
+
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
         let storeExperiment instrument experiment = asyncChoice {
             let! encoded = toEncodedExperiment experiment
@@ -145,8 +150,7 @@ module Control =
                 |> storeSequenceSequenceById instrument
             return {
                 StoredExperiments= storedExperiments
-                StoredSegments   = storedSegments
-                StoredSequences  = storedSequences
+                StoredWaveforms  = Array.append storedSegments storedSequences
                 ShotsPerPoint = encoded.Metadata.ShotsPerPoint
                 Triggering = encoded.Metadata.TriggerSource } }
 
@@ -172,12 +176,9 @@ module Control =
         /// any associated markers and header files are deleted alongside it.
         /// Command reference p.152.
         let private deleteFileKey = ":MMEM:DEL:NAME"
-        /// Delete a segment from the machine's BBG data storage.  Includes deleting the waveform
+        /// Delete a waveform from the machine's data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
-        let deleteStoredSegment = IO.setValueString storedSegmentFilename deleteFileKey
-        /// Delete a sequence from the machine's internal data storage (the usual storage
-        /// location).
-        let deleteStoredSequence = IO.setValueString storedSequenceFilename deleteFileKey
+        let deleteStoredWaveform = IO.setValueString storedWaveformFilename deleteFileKey
 
 #if DEBUG
     [<AutoOpen>]
@@ -197,7 +198,7 @@ module Control =
         /// Print out the sequence files used by each experiment in order.
         let printExperimentSequences stored =
             stored.StoredExperiments
-            |> Array.map extractStoredSequenceId
+            |> Array.map extractStoredWaveformId
             |> Array.iter (printfn "%s")
 #endif
 
@@ -206,10 +207,8 @@ module Control =
         /// Key to select a segment or a sequence from the machine
         /// Command reference p.355.
         let private selectArbFileKey = ":RAD:ARB:WAV"
-        /// Select a segment file on the machine.
-        let selectSegment = IO.setValueString storedSegmentFilename selectArbFileKey
-        /// Select a sequence file on the machine.
-        let selectSequence = IO.setValueString storedSequenceFilename selectArbFileKey
+        /// Select a waveform on the machine.
+        let selectWaveform = IO.setValueString storedWaveformFilename selectArbFileKey
 
         /// Key related to the state of the dual ARB player on the machine. Needs the output
         /// state to also be on before it will start to play.
@@ -234,24 +233,13 @@ module Control =
         /// Turn off the ARB generator of the instrument.
         let turnOffArb = setArbState Off
 
-        /// Begin playing a segment stored on the instrument.
-        let playStoredSegment instrument segment = asyncChoice {
-            do! selectSegment instrument segment
-            do! turnOnArb instrument }
-
-        /// Begin playing a sequence stored on the instrument.
-        let playStoredSequence instrument sequence = asyncChoice {
-            do! selectSequence instrument sequence
+        /// Begin playing a waveform stored on the instrument.
+        let playStoredWaveform instrument stored = asyncChoice {
+            do! selectWaveform instrument stored
             do! turnOnArb instrument }
 
         /// Store a segment file on to the machine, then begin playing it back as soon as possible.
-        let playSegment instrument segment = asyncChoice {
-            let! stored = storeSegment instrument segment
-            do! playStoredSegment instrument stored
-            return stored }
-
-        /// Store a sequence file on to the machine. then begin playing it back as soon as possible.
-        let playSequence instrument sequence = asyncChoice {
-            let! stored = storeSequence instrument sequence
-            do! playStoredSequence instrument stored
+        let playWaveform instrument waveform = asyncChoice {
+            let! stored = storeWaveform instrument waveform
+            do! playStoredWaveform instrument stored
             return stored }
