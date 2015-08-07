@@ -377,7 +377,7 @@ module Sweep =
         let powerStepSweepInDbm start finish =
             { defaultStepSweep with Amplitude = powerSweepInDbm start finish }
 
-    // Apply a configuration
+    // Apply a configuration.
     module Apply =
         open Control
         /// Set up an RF step sweep from a model.
