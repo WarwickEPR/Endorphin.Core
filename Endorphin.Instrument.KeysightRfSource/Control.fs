@@ -6,8 +6,8 @@ open Hashing
 module Control =
     [<AutoOpen>]
     module Store =
-        open Waveform.Translate
-        open RfPulse.Translate
+        open ARB.Translate
+        open Experiment.Translate
 
         /// How many Segments to write in one chunk when writing a whole sequence of them.
         let private segmentsPerChunk = 4
@@ -182,7 +182,7 @@ module Control =
 #if DEBUG
     [<AutoOpen>]
     module Print =
-        open RfPulse.Translate
+        open Experiment.Translate
 
         /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
         let printCompiledExperiment experiment = asyncChoice {

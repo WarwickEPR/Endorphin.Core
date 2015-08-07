@@ -3,7 +3,7 @@
 open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-module Waveform =
+module ARB =
     /// Minimum number of samples needed for a valid Segment on the machine.
     let minimumSegmentLength = 60u
 
@@ -194,8 +194,7 @@ module Waveform =
                 let arr = Array.create (length * 9) 0uy // 5 bytes per sample, 4 bytes per count
                 for i in 0 .. length - 1 do
                     let (sample, SampleCount reps) = segment.Samples.[i]
-                    arr.[(i * 9) + 0 .. (i * 9) + 3] <- iqBytes sample
-                    arr.[(i * 9) + 4]                <- getMarkerByte sample
+                    arr.[(i * 9) + 0 .. (i * 9) + 4] <- sampleToBytes sample
                     arr.[(i * 9) + 5 .. (i * 9) + 8] <- BitConverter.GetBytes reps
                     // endianness doesn't matter here
                 arr // return the byte array we just created

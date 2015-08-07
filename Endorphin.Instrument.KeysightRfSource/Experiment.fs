@@ -1,12 +1,12 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open Waveform
+open ARB
 open Hashing
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
-module RfPulse =
+module Experiment =
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
