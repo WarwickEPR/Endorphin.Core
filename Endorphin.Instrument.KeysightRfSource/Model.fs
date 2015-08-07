@@ -218,8 +218,9 @@ module Model =
             AttentuationProtection : OnOffState
             Mode : AutoManualState }
 
-        /// A completely represented sweep, including the frequency to sweep, the amplitude to sweep,
-        /// how many points to sweep across, the spacings between them, and any associated options.
+        /// A completely represented step sweep, including the frequency to sweep, the amplitude to
+        /// sweep, how many points to sweep across, the spacings between them, and any associated
+        /// options.
         type StepSweep = {
             Frequency : FrequencySweep
             Amplitude : AmplitudeSweep
@@ -232,6 +233,9 @@ module Model =
         type Sweep =
             | NoSweep of frequency : Frequency * amplitude : Amplitude
             | StepSweep of sweep : StepSweep
+
+        /// A sweep file that has been stored in the machine.
+        type StoredSweep = StoredSweep of string
 
     [<AutoOpen>]
     module Waveform =

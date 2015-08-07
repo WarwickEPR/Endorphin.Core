@@ -134,7 +134,7 @@ module internal Parsing =
     let private sequenceFolder = "SEQ:"
 
     /// Build up a full file name string for storing a file.
-    let private fileNameString folder name = String.concat "" ["\""; folder; name; "\""]
+    let fileNameString folder name = String.concat "" ["\""; folder; name; "\""]
 
     /// Total filename string for a waveform file.
     let waveformFileString name = fileNameString waveformFolder name

@@ -42,6 +42,11 @@ module Sweep =
             | List -> "LIST"
             | Step -> "STEP"
 
+        /// Extract the string identifier from a stored sweep type.
+        let storedSweepString (StoredSweep str) = str
+        /// Convert an identifier into a StoredString identifier.
+        let toStoredSweep str = StoredSweep str
+
     module Control =
         open Translate
 
@@ -270,9 +275,24 @@ module Sweep =
             /// Query how many frequencies are in the current list sweep file.
             let queryFrequenciesCount = IO.queryInt frequenciesCountKey
 
-    /// Commands used to control running sweeps
+            /// Key needed to load a list file from memory.
+            /// Command reference p.149, p.154.
+            let private loadListKey = ":MMEM:LOAD:LIST"
+            /// Load a list file into the current list sweep settings.
+            let loadListFile instrument id = IO.setListFile loadListKey instrument (storedSweepString id)
+
+            /// Key needed to store a list file into memory.
+            /// Command reference p.150, p.155.
+            let private storeListKey = ":MMEM:STORE:LIST"
+            /// Store the currently loaded list sweep into a file in the non-volatile memory of the
+            /// machine, so it can be reloaded later.
+            let storeListFileById instrument id = asyncChoice {
+                do! IO.setListFile storeListKey instrument id
+                return toStoredSweep id }
+
+    /// Commands used to control running sweeps.
     module Runtime = 
-        /// Starts an armed sweep waiting on Bus triggering
+        /// Starts an armed sweep waiting on Bus triggering.
         let busTrigger = IO.writeKey "*TRG"
 
         /// Key needed to begin sweeping immediately.

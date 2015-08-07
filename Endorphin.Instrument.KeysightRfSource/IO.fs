@@ -270,3 +270,8 @@ module internal IO =
     let setPolarity = setValueString polarityString
     /// Query the given key for a polarity.
     let queryPolarity = queryValue parsePolarity
+
+    /// Write the given key with the given filename as an argument.
+    let private setFile folder = setValueString (fileNameString folder)
+    /// Write the given key with a list file.
+    let setListFile = setFile ""
