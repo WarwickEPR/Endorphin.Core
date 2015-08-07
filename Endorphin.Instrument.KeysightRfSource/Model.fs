@@ -238,7 +238,7 @@ module Model =
         type StoredSweep = StoredSweep of string
 
     [<AutoOpen>]
-    module Waveform =
+    module ARB =
         /// A record of the 4 markers' states.
         type Markers = {
             M1 : bool
@@ -283,7 +283,7 @@ module Model =
             | Sequence of Sequence
 
     [<AutoOpen>]
-    module RfPulse =
+    module Experiment =
         // Define some type aliases for the pulse types so that it's simple to update the model
         // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
         /// A single rf pulse as a tuple of (phases, duration, increment).

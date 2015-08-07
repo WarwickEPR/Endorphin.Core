@@ -275,11 +275,25 @@ module Sweep =
             /// Query how many frequencies are in the current list sweep file.
             let queryFrequenciesCount = IO.queryInt frequenciesCountKey
 
+            /// Key needed to add waveform entries to the current list sweep.
+            let private listWaveformKey = ":LIST:WAVEFORM"
+            /// Set a single waveform as an element of a list sweep.
+            let setListWaveform instrument stored =
+                stored
+                |> extractStoredWaveformFolderAndId
+                |> IO.setFile listWaveformKey instrument
+            /// Set a sequence of waveforms as elements of a list sweep.
+            let setListWaveformSequence instrument sequence =
+                sequence
+                |> Seq.map extractStoredWaveformFolderAndId
+                |> IO.setFileSequence listWaveformKey instrument
+
             /// Key needed to load a list file from memory.
             /// Command reference p.149, p.154.
             let private loadListKey = ":MMEM:LOAD:LIST"
             /// Load a list file into the current list sweep settings.
-            let loadListFile instrument id = IO.setListFile loadListKey instrument (storedSweepString id)
+            let loadListFile instrument id =
+                IO.setFile loadListKey instrument (listFolder, storedSweepString id)
 
             /// Key needed to store a list file into memory.
             /// Command reference p.150, p.155.
@@ -287,7 +301,7 @@ module Sweep =
             /// Store the currently loaded list sweep into a file in the non-volatile memory of the
             /// machine, so it can be reloaded later.
             let storeListFileById instrument id = asyncChoice {
-                do! IO.setListFile storeListKey instrument id
+                do! IO.setFile storeListKey instrument (listFolder, id)
                 return toStoredSweep id }
 
     /// Commands used to control running sweeps.

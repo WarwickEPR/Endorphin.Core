@@ -272,6 +272,8 @@ module internal IO =
     let queryPolarity = queryValue parsePolarity
 
     /// Write the given key with the given filename as an argument.
-    let private setFile folder = setValueString (fileNameString folder)
-    /// Write the given key with a list file.
-    let setListFile = setFile ""
+    let setFile key instrument (folder, id) = setValueString (fileNameString folder) key instrument id
+    /// Write the given key with a sequence of filenames as arguments.
+    let setFileSequence key instrument sequence =
+        let makeFileName (folder, id) = fileNameString folder id
+        setValueString (csvSeqString makeFileName) key instrument sequence

@@ -125,16 +125,21 @@ module internal Parsing =
         obj.ToString() |> System.Text.Encoding.ASCII.GetBytes
 
     /// String of the folder location for waveforms.
-    let private waveformFolder = "WFM1:"
+    let waveformFolder = Some "WFM1:"
     /// String of the folder location for markers.
-    let private markerFolder   = "MKR1:"
+    let markerFolder   = Some "MKR1:"
     /// String of the folder location for headers.
-    let private headerFolder   = "HDR1:"
+    let headerFolder   = Some "HDR1:"
     /// String of the folder location for sequences.
-    let private sequenceFolder = "SEQ:"
+    let sequenceFolder = Some "SEQ:"
+    /// String of the folder location for list files.
+    let listFolder = None
 
     /// Build up a full file name string for storing a file.
-    let fileNameString folder name = String.concat "" ["\""; folder; name; "\""]
+    let fileNameString folder name =
+        match folder with
+        | Some f -> String.concat "" ["\""; f; name; "\""]
+        | None -> String.concat "" ["\""; name; "\""]
 
     /// Total filename string for a waveform file.
     let waveformFileString name = fileNameString waveformFolder name
@@ -149,6 +154,12 @@ module internal Parsing =
     let extractSegmentId (SegmentId id) = id
     /// Get the string representation of a SequenceId.
     let extractSequenceId (SequenceId id) = id
+
+    /// Get the string representations of the relevant folders and the ids of a StoredWaveform.
+    let extractStoredWaveformFolderAndId = function
+        | StoredSegment  s -> (waveformFolder, extractSegmentId s)
+        | StoredSequence s -> (sequenceFolder, extractSequenceId s)
+
     /// Get the string representation of a StoredWaveform.
     let extractStoredWaveformId = function
         | StoredSegment  s -> extractSegmentId s
