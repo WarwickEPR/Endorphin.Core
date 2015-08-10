@@ -128,8 +128,6 @@ module internal Parsing =
     let waveformFolder = Some "WFM1:"
     /// String of the folder location for markers.
     let markerFolder   = Some "MKR1:"
-    /// String of the folder location for headers.
-    let headerFolder   = Some "HDR1:"
     /// String of the folder location for sequences.
     let sequenceFolder = Some "SEQ:"
     /// String of the folder location for list files.
@@ -145,8 +143,6 @@ module internal Parsing =
     let waveformFileString name = fileNameString waveformFolder name
     /// Total filename string for a markers file.
     let markerFileString name = fileNameString markerFolder name
-    /// Total filename string for a header file.
-    let headerFileString name = fileNameString headerFolder name
     /// Total filename string for a sequence file.
     let sequenceFileString name = fileNameString sequenceFolder name
 

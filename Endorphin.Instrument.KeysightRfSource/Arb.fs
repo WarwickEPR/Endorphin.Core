@@ -131,27 +131,23 @@ module ARB =
             let private dataStorageString (fileName : string) dataString =
                 Array.concat [System.Text.Encoding.ASCII.GetBytes fileName; ","B; dataString]
 
-            /// Produce the full data strings necessary for writing the three different files
-            /// to the machine, given the encoded segment to extract the data from.
+            /// Produce the full data strings necessary for writing the two different files
+            /// to the machine, given the encoded segment to extract the data from.  Ignores
+            /// the header file, but the only bits we usually care about here are more easily
+            /// set by SCPI commands.
             let toEncodedSegmentFiles segment (SegmentId id) =
                 let encodedSegment = toEncodedSegment segment
                 let waveformFilename = waveformFileString id
                 let markerFilename   = markerFileString   id
-                let headerFilename   = headerFileString   id
                 let waveformDataString = dataString encodedSegment.EncodedIQ
                 let markerDataString   = dataString encodedSegment.EncodedMarkers
-                // TODO: fix header data string
-                let headerDataString = "#10"B
                 { Waveform = dataStorageString  waveformFilename waveformDataString
-                  Markers  = dataStorageString  markerFilename   markerDataString
-                  Header   = dataStorageString  headerFilename   headerDataString }
+                  Markers  = dataStorageString  markerFilename   markerDataString }
 
             /// Get the whole string necessary to write a waveform file to the machine.
             let waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
             /// Get the whole string necessary to write a marker file to the machine.
             let markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
-            /// Get the whole string necessary to write a header file to the machine.
-            let headerDataString (encoded : EncodedSegmentFiles) = encoded.Header
 
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions.

@@ -60,8 +60,7 @@ module Control =
             let encoded = toEncodedSegmentFiles segment id
             let commands = seq {
                     yield (waveformDataString, storeDataKey, encoded)
-                    yield (markersDataString, storeDataKey, encoded)
-                    yield (headerDataString, storeDataKey, encoded) }
+                    yield (markersDataString, storeDataKey, encoded) }
             asyncChoice {
                 do! IO.setValueBytesSequence commands instrument
                 return toStoredSegment id }
@@ -78,14 +77,13 @@ module Control =
             let encoded = Seq.map (fun (id, seg) -> (id, toEncodedSegmentFiles seg id)) sequence
             let builder map (_, _) = fun (_, el) -> map el
             let zipper map = zipIdCommands (builder map) storeDataKey encoded
-            let interleave one two three = seq { yield one; yield two; yield three }
+            let interleave one two = seq { yield one; yield two }
 
             let waveformCommands = zipper waveformDataString
             let markersCommands  = zipper markersDataString
-            let headerCommands   = zipper headerDataString
 
             let commands =
-                Seq.map3 interleave waveformCommands markersCommands headerCommands
+                Seq.map2 interleave waveformCommands markersCommands
                 |> Seq.concat
                 |> Seq.chunkBySize segmentsPerChunk
             let store = storeConcatenatedById IO.setValueBytesSequence toStoredSegment

@@ -14,8 +14,7 @@ module internal InternalModel =
         /// Ready to write to machine.
         type EncodedSegmentFiles = {
             Waveform : byte array
-            Markers  : byte array
-            Header   : byte array }
+            Markers  : byte array }
 
     [<AutoOpen>]
     module Experiment =
