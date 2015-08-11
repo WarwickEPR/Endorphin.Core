@@ -56,7 +56,7 @@ module Modulation =
         /// Set the soruce of the modulation.
         let private setSource = IO.setValueString sourceString 
         /// Query the source of the modulation and parse the result.
-        let private querySource = IO.queryValue parseSource
+        let private querySource = IO.queryKeyString parseSource
 
         module Amplitude =
             /// Generate the prefix needed for a certain key based on the subsystem path.
@@ -77,7 +77,7 @@ module Modulation =
             /// Set the type of the ampltiude modulation of the given path.
             let internal setType path = IO.setValueString depthTypeString (typeKey path)
             /// Query the type of the amplitude modulation of the given path.
-            let internal queryType path = IO.queryValue parseDepthType (typeKey path)
+            let internal queryType path = IO.queryKeyString parseDepthType (typeKey path)
 
             /// Key needed for operations on linear depth.
             let private depthLinearKey path = prefix path ":DEPTH"

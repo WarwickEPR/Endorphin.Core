@@ -68,7 +68,7 @@ module Triggering =
         /// Set the type of trigger source, given a trigger type.
         let setSourceType trigger = IO.setValueString triggerSourceTypeString (sourceTypeKey trigger)
         /// Query the type of trigger source, given a trigger type.
-        let querySourceType trigger = IO.queryValue parseTriggerSourceType (sourceTypeKey trigger)
+        let querySourceType trigger = IO.queryKeyString parseTriggerSourceType (sourceTypeKey trigger)
 
         /// Key for the type of external trigger source.
         /// Command reference p.58.
@@ -76,7 +76,7 @@ module Triggering =
         /// Set the type of external trigger source, given a trigger type.
         let setExternalSource trigger = IO.setValueString externalTriggerSourceString (externalSourceKey trigger)
         /// Query the value of the external trigger source, given a trigger type.
-        let queryExternalSource trigger = IO.queryValue parseExternalTriggerSource (externalSourceKey trigger)
+        let queryExternalSource trigger = IO.queryKeyString parseExternalTriggerSource (externalSourceKey trigger)
 
         /// Key for the external slope parity.
         /// Command reference p.59.
@@ -92,7 +92,7 @@ module Triggering =
         /// Set the type of internal trigger source, given a trigger type.
         let setInternalSource trigger = IO.setValueString internalTriggerSourceString (internalSourceKey trigger)
         /// Query the value of the internal trigger source, given a trigger type.
-        let queryInternalSource trigger = IO.queryValue parseInternalTriggerSource (internalSourceKey trigger)
+        let queryInternalSource trigger = IO.queryKeyString parseInternalTriggerSource (internalSourceKey trigger)
 
         /// Key for the period of the timer trigger.
         /// Command reference p.215.

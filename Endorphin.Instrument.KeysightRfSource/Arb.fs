@@ -242,20 +242,20 @@ module ARB =
                 let helper str =
                     match String.toUpper str with
                         | "CONT" | "CONTINUOUS" ->
-                            IO.queryValue parseArbContinuousMode arbContinuousModeKey instrument
+                            IO.queryKeyString parseArbContinuousMode arbContinuousModeKey instrument
                             |> AsyncChoice.map ArbContinuous
                         | "SING" | "SINGLE" ->
                             let reps = IO.queryUint16 arbSingleRepeatsKey instrument
-                            let retrigger = IO.queryValue parseArbRetriggerMode arbRetriggerModeKey instrument
+                            let retrigger = IO.queryKeyString parseArbRetriggerMode arbRetriggerModeKey instrument
                             AsyncChoice.map2 (fun a b -> ArbSingle (a, b)) reps retrigger
                         | "GATE" ->
                             IO.queryLowHighState arbGatePolarityKey instrument
                             |> AsyncChoice.map ArbGate
                         | "SADV" | "SADVANCE" ->
-                            IO.queryValue parseArbSegmentAdvanceMode arbSegmentAdvanceModeKey instrument
+                            IO.queryKeyString parseArbSegmentAdvanceMode arbSegmentAdvanceModeKey instrument
                             |> AsyncChoice.map ArbSegmentAdvance
                         | str -> failwithf "Unexpected ARB trigger type string: %s" str
-                let! triggerType = IO.queryValue (fun str -> str) arbTriggerModeTypeKey instrument
+                let! triggerType = IO.queryKeyString (fun str -> str) arbTriggerModeTypeKey instrument
                 return! helper triggerType }
 
             /// Set the type of the source of the dual ARB triggering system.
@@ -293,12 +293,12 @@ module ARB =
 
             /// Query the source of the dual ARB's triggering system.
             let private queryArbTriggerSource instrument mode = asyncChoice {
-                let! sourceType = IO.queryValue (fun str -> str) arbTriggerSourceTypeKey instrument
+                let! sourceType = IO.queryKeyString (fun str -> str) arbTriggerSourceTypeKey instrument
                 match String.toUpper sourceType with
                 | "KEY" -> return ArbKey
                 | "BUS" -> return ArbBus
                 | "EXT" ->
-                    let! connector = IO.queryValue parseArbExternalConnector arbTriggerSourceLocationKey instrument
+                    let! connector = IO.queryKeyString parseArbExternalConnector arbTriggerSourceLocationKey instrument
                     let! polarity =
                         match mode with
                         | ArbGate _ -> AsyncChoice.liftChoice <| succeed None
