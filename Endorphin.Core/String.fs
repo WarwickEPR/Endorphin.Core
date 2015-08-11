@@ -5,7 +5,8 @@ open System.Text
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Collections
 
-module StringUtils =
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module String =
     
     /// Partial active pattern which returns the list of matches (excluding the complete pattern)
     /// for a regular expression.
