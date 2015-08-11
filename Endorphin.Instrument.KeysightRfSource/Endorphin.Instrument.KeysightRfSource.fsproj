@@ -62,8 +62,8 @@
     <Compile Include="Source.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
-    <Compile Include="Waveform.fs" />
-    <Compile Include="RfPulse.fs" />
+    <Compile Include="ARB.fs" />
+    <Compile Include="Experiment.fs" />
     <Compile Include="Control.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Scripts\load-references.fsx" />

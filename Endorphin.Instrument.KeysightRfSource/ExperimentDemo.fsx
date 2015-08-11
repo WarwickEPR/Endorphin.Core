@@ -6,15 +6,13 @@
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Endorphin.Instrument.Keysight
-open log4net.Config
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Control
 
 // BasicConfigurator.Configure()
 
-let printResult =
-    function
+let printResult = function
     | Success ()    -> printfn "Successfully did things."
     | Failure error -> printfn "Bad things happened: %s" error
 
@@ -29,11 +27,11 @@ let phaseCycle2 =
     |> PhaseCycle
 
 let pulses = seq {
-    yield Rf (phaseCycle1, SampleCount 60, SampleCount 10)
-    yield Delay (SampleCount 60, SampleCount 10)
+    yield Rf (phaseCycle1, SampleCount 60u, SampleCount 10u)
+    yield Delay (SampleCount 60u, SampleCount 10u)
     yield Trigger { M1 = true; M2 = false; M3 = true; M4 = false }
-    yield Rf (phaseCycle2, SampleCount 60, SampleCount 60)
-    yield Marker ( { M1 = false; M2 = true; M3 = false; M4 = true }, SampleCount 120, SampleCount 0)
+    yield Rf (phaseCycle2, SampleCount 60u, SampleCount 60u)
+    yield Marker ( { M1 = false; M2 = true; M3 = false; M4 = true }, SampleCount 120u, SampleCount 0u)
 }
 
 let experiment = {
@@ -47,7 +45,7 @@ asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
 
     let! storedExperiment = storeExperiment keysight experiment
-    printfn "%A" storedExperiment
+    do! printCompressedExperiment experiment
 
     (*
     do! deleteAllStoredSegments keysight

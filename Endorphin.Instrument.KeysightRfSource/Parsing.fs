@@ -120,28 +120,43 @@ module internal Parsing =
         | Square   -> "SQU"
         | Ramp _   -> "RAMP"
 
+    /// Convert an internal representation of a low/high state into a machine
+    /// representation.
+    let lowHighStateString = function
+        | Low -> "LOW"
+        | High -> "HIGH"
+
+    /// Convert a machine representation of a low/high state into an internal
+    /// representation.
+    let parseLowHighState str =
+        match String.toUpper str with
+        | "LOW" -> Low
+        | "HIGH" -> High
+        | _ -> failwithf "Unexpected low/high state string: %s" str
+
     /// Make an ASCII string out of an object's ToString() method.
     let asciiString obj =
         obj.ToString() |> System.Text.Encoding.ASCII.GetBytes
 
     /// String of the folder location for waveforms.
-    let private waveformFolder = "WFM1:"
+    let waveformFolder = Some "WFM1:"
     /// String of the folder location for markers.
-    let private markerFolder   = "MKR1:"
-    /// String of the folder location for headers.
-    let private headerFolder   = "HDR1:"
+    let markerFolder   = Some "MKR1:"
     /// String of the folder location for sequences.
-    let private sequenceFolder = "SEQ:"
+    let sequenceFolder = Some "SEQ:"
+    /// String of the folder location for list files.
+    let listFolder = None
 
     /// Build up a full file name string for storing a file.
-    let private fileNameString folder name = String.concat "" ["\""; folder; name; "\""]
+    let fileNameString folder name =
+        match folder with
+        | Some f -> String.concat "" ["\""; f; name; "\""]
+        | None -> String.concat "" ["\""; name; "\""]
 
     /// Total filename string for a waveform file.
     let waveformFileString name = fileNameString waveformFolder name
     /// Total filename string for a markers file.
     let markerFileString name = fileNameString markerFolder name
-    /// Total filename string for a header file.
-    let headerFileString name = fileNameString headerFolder name
     /// Total filename string for a sequence file.
     let sequenceFileString name = fileNameString sequenceFolder name
 
@@ -149,23 +164,20 @@ module internal Parsing =
     let extractSegmentId (SegmentId id) = id
     /// Get the string representation of a SequenceId.
     let extractSequenceId (SequenceId id) = id
-    /// Get the string representation of a StoredSegment.
-    let extractStoredSegmentId (StoredSegment id) = id |> extractSegmentId
-    /// Get the string representation of a StoredSequence.
-    let extractStoredSequenceId (StoredSequence id) = id |> extractSequenceId
+
+    /// Get the string representations of the relevant folders and the ids of a StoredWaveform.
+    let extractStoredWaveformFolderAndId = function
+        | StoredSegment  s -> (waveformFolder, extractSegmentId s)
+        | StoredSequence s -> (sequenceFolder, extractSequenceId s)
+
+    /// Get the string representation of a StoredWaveform.
+    let extractStoredWaveformId = function
+        | StoredSegment  s -> extractSegmentId s
+        | StoredSequence s -> extractSequenceId s
 
     /// Get the full file name of a waveform file from the short name stored in the
-    /// StoredSegment.  For example, if the StoredSegment name is "test", then this
+    /// StoredWaveform.  For example, if it is a segment, and the name is "test", then this
     /// function returns "\"WFM1:test\""B.
-    let storedSegmentFilename (segment : StoredSegment) =
-        segment
-        |> extractStoredSegmentId
-        |> waveformFileString
-
-    /// Get the full file name of a sequence file from the short name stored in the
-    /// StoredSequence.  For example, if the StoredSequence name is "test", then this
-    /// function returns "\"SEQ:test\""B.
-    let storedSequenceFilename (sequence : StoredSequence) =
-        sequence
-        |> extractStoredSequenceId
-        |> sequenceFileString
+    let storedWaveformFilename = function
+        | StoredSegment  s -> waveformFileString <| extractSegmentId s
+        | StoredSequence s -> sequenceFileString <| extractSequenceId s

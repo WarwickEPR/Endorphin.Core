@@ -218,8 +218,9 @@ module Model =
             AttentuationProtection : OnOffState
             Mode : AutoManualState }
 
-        /// A completely represented sweep, including the frequency to sweep, the amplitude to sweep,
-        /// how many points to sweep across, the spacings between them, and any associated options.
+        /// A completely represented step sweep, including the frequency to sweep, the amplitude to
+        /// sweep, how many points to sweep across, the spacings between them, and any associated
+        /// options.
         type StepSweep = {
             Frequency : FrequencySweep
             Amplitude : AmplitudeSweep
@@ -233,8 +234,11 @@ module Model =
             | NoSweep of frequency : Frequency * amplitude : Amplitude
             | StepSweep of sweep : StepSweep
 
+        /// A sweep file that has been stored in the machine.
+        type StoredSweep = StoredSweep of string
+
     [<AutoOpen>]
-    module Waveform =
+    module ARB =
         /// A record of the 4 markers' states.
         type Markers = {
             M1 : bool
@@ -251,32 +255,86 @@ module Model =
         /// A number of samples, generally used as a pulse duration.
         type SampleCount = SampleCount of uint32
 
-        /// The identifier of a segment, stored as a string.
-        type SegmentId = SegmentId of string
-        /// The identifier of a sequence.
-        type SequenceId = SequenceId of string
+        /// The identifier of a segment, before it has been written to the machine.
+        type internal SegmentId = SegmentId of string
+        /// The identifier of a sequence, before it has been written to the machine.
+        type internal SequenceId = SequenceId of string
+
+        type StoredWaveform = 
+            internal
+            | StoredSegment of SegmentId
+            | StoredSequence of SequenceId
 
         /// A single segment in the machine.  Must be at least 60 samples long.
         type Segment = {
             Samples : (Sample * SampleCount) array
             Length  : uint16 }
 
-        /// Representation of the stored segments on the machine.
-        type StoredSegment = internal StoredSegment of name : SegmentId
-        /// Representation of the stored sequences on the machine.
-        type StoredSequence = internal StoredSequence of name : SequenceId
-
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
-        type SequenceElement =
-            | Segment of segment : StoredSegment * repetitions : uint16
-            | Sequence of sequence : StoredSequence * repetitions : uint16
+        type SequenceElement = StoredWaveform * uint16
 
         /// A full sequence to be stored in the machine.
         type Sequence = SequenceElement list
 
+        /// A unified type representing some playable waveform on the machine.
+        type Waveform =
+            | Segment of Segment
+            | Sequence of Sequence
+
+        /// A state which can either be low or high.
+        type LowHighState = Low | High
+
+        /// The mode of a continuous trigger in the dual ARB system.  "Free" means that playback begins
+        /// immediately once the ARB is turned on, without waiting for a trigger, then repeats that
+        /// waveform until something tells it to stop, and ignore subsequent triggers.  "Trigger" does
+        /// the same, but waits for an initial trigger.  "Reset" is like "Trigger", but subsequent triggers
+        /// reset the waveform to the beginning.
+        type ArbContinuousMode =
+            | ArbContinuousFree
+            | ArbContinuousTrigger
+            | ArbContinuousReset
+
+        /// The mode of a segment advance type trigger in the dual ARB system.  "Single" means that on
+        /// trigger, the next segment in the sequence plays once, ignoring the repetition count listed in
+        /// its sequence.  Sequence repetitions are NOT ignored.  "Continuous" means that the segment plays
+        /// in a loop until the next trigger moves it on.  This also ignores the repetition count of the
+        /// segment.
+        type ArbSegmentAdvanceMode =
+            | ArbSegmentAdvanceSingle
+            | ArbSegmentAdvanceContinuous
+
+        /// The behaviour of the system when a second trigger is received while in single trigger mode.
+        /// "No retrigger" ignores all subsequent triggers. "Buffered retrigger" plays the segment again
+        /// once it has finished. "Restart retrigger" immediately resets the segment to the beginning and
+        /// starts it.
+        type ArbRetriggerMode =
+            | NoRetrigger
+            | BufferedRetrigger
+            | RestartRetrigger
+
+        /// The type of triggering to use for the dual ARB system.
+        type ArbTriggerMode =
+            | ArbContinuous of mode : ArbContinuousMode
+            | ArbSingle of repeats : uint16 * retrigger : ArbRetriggerMode
+            | ArbGate of polarity : LowHighState
+            | ArbSegmentAdvance of mode : ArbSegmentAdvanceMode
+
+        /// Physical location of the external source for the dual ARB system triggering.
+        type ArbExternalConnector = ArbBnc | ArbAux
+
+        /// The source to use to trigger the dual ARB system.
+        type ArbTriggerSource =
+            | ArbKey
+            | ArbBus
+            | ArbExternal of
+                connector : ArbExternalConnector * polarity : Polarity option * delay : Duration option
+
+        /// Complete triggering information for the dual ARB system.
+        type ArbTrigger = ArbTrigger of mode : ArbTriggerMode * source : ArbTriggerSource
+
     [<AutoOpen>]
-    module RfPulse =
+    module Experiment =
         // Define some type aliases for the pulse types so that it's simple to update the model
         // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
         /// A single rf pulse as a tuple of (phases, duration, increment).
@@ -300,14 +358,13 @@ module Model =
             Pulses : Pulse seq
             Repetitions : int
             Triggering : TriggerSource
-            ShotsPerPoint : int }
+            ShotsPerPoint : uint16 }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
-            StoredExperiments: StoredSequence array
-            StoredSegments   : StoredSegment array
-            StoredSequences  : StoredSequence array
-            ShotsPerPoint : int
+            StoredExperiments: StoredWaveform array
+            StoredWaveforms  : StoredWaveform array
+            ShotsPerPoint : uint16
             Triggering : TriggerSource }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.

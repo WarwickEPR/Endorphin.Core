@@ -1,12 +1,12 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open Waveform
+open ARB
 open Hashing
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
-module RfPulse =
+module Experiment =
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
@@ -72,7 +72,7 @@ module RfPulse =
                         fail "Must do the experiment at least once!"
                     else
                         succeed ()
-                do! if experiment.ShotsPerPoint < 1 then
+                do! if experiment.ShotsPerPoint = 0us then
                         fail "Must have at least one shot per point!"
                     else
                         succeed ()
@@ -255,12 +255,12 @@ module RfPulse =
             /// along the way to make up a whole integer.
             let private listToPrepend construct id curCount newCount =
                 let (quotient, remainder) = intByUint16 newCount
-                let maxReps = [ for _ in 1 .. quotient -> construct (id, UInt16.MaxValue) ]
+                let maxReps = [ for _ in 1 .. quotient -> (construct id, UInt16.MaxValue) ]
                 let overflow =
                     if int curCount + int remainder < int UInt16.MaxValue then
-                        [ construct (id, curCount + remainder) ]
+                        [ (construct id, curCount + remainder) ]
                     else
-                        [ construct (id, curCount); construct (id, remainder) ]
+                        [ (construct id, curCount); (construct id, remainder) ]
                 overflow @ maxReps
 
             /// Attempt to take "count" number of samples from the next repetition of samples in a
@@ -288,7 +288,7 @@ module RfPulse =
                     | 0u ->
                         let segment = { Samples = Array.ofList <| List.rev acc; Length = (uint16 count) }
                         let id = hexHash segmentToBytes segment
-                        ({ Element = PendingSegment (SegmentId id, uint16 reps)
+                        ({ Element = (PendingSegment (SegmentId id), uint16 reps)
                            Segments = Map.add id segment Map.empty
                            Sequences = Map.empty },
                          { CompiledData = input
@@ -322,9 +322,10 @@ module RfPulse =
                 splitCompiledExperiment count reps compiled
 
             /// Get the string of an id from an element.
-            let private elementId = function
-                | PendingSegment (SegmentId id, _) -> id
-                | PendingSequence (SequenceId id, _) -> id
+            let elementId (el, _) =
+                match el with
+                | PendingSegment (SegmentId id) -> id
+                | PendingSequence (SequenceId id) -> id
 
             /// Find the most recent id - during the compression, the most recent one is
             /// first in the list, since the list is built up in reverse order.
@@ -334,7 +335,7 @@ module RfPulse =
                 | Some s ->
                     match List.tryHead s with
                     | None -> None
-                    | Some id -> Some (elementId id)
+                    | Some el -> Some (elementId el)
 
             /// Increase the number of reps on the last segment in a CompressedExperiment.
             let private increaseLastReps compressed reps =
@@ -344,9 +345,9 @@ module RfPulse =
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 let curExperiment' =
                     match curExperiment with
-                    | PendingSegment (id, count) :: tail ->
+                    | (PendingSegment id, count) :: tail ->
                         (listToPrepend PendingSegment id count (int reps)) @ tail
-                    | PendingSequence (id, count) :: tail ->
+                    | (PendingSequence id, count) :: tail ->
                         (listToPrepend PendingSequence id count (int reps)) @ tail
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 { compressed with CompressedExperiments = (curExperiment' :: tailExperiments) }
@@ -368,10 +369,8 @@ module RfPulse =
                   CompressedExperiments = experiments
                   Metadata = compressed.Metadata }
 
-            /// Get the number of repetitions from the given CompressedElement.
-            let private elementReps = function
-                | PendingSegment (_, reps) -> reps
-                | PendingSequence (_, reps) -> reps
+            /// Get the number of repetitions from the given PendingSequenceElement.
+            let private elementReps = snd
 
             /// Prepend some Segment onto a CompressedExperiment.
             let private consToExperiment compressed element =
@@ -417,20 +416,15 @@ module RfPulse =
         module Encode =
             /// Convert a PendingSequence element into a byte array of the name followed by the
             /// number of repetitions.
-            let private elementToByteArray = function
-                | PendingSegment (SegmentId name, reps) ->
-                    Array.concat [Text.Encoding.ASCII.GetBytes name; BitConverter.GetBytes reps]
-                | PendingSequence (SequenceId name, reps) ->
-                    Array.concat [Text.Encoding.ASCII.GetBytes name; BitConverter.GetBytes reps]
+            let private elementToByteArray (el, reps : uint16) =
+                Array.concat [Text.Encoding.ASCII.GetBytes (elementId (el, reps)); BitConverter.GetBytes reps]
 
             /// Get the number of bytes needed to encode one element.  Since names are created by
             /// the program, and the maximum size of the number of reps is constant, this function
             /// will return a constant.
-            let private elementByteCount = function
-                | PendingSegment (SegmentId name, reps) ->
-                    (Text.Encoding.ASCII.GetByteCount name) + (BitConverter.GetBytes reps).Length
-                | PendingSequence (SequenceId name, reps) ->
-                    (Text.Encoding.ASCII.GetByteCount name) + (BitConverter.GetBytes reps).Length
+            let private elementByteCount (el, reps : uint16) =
+                (Text.Encoding.ASCII.GetByteCount (elementId (el, reps)))
+                + (BitConverter.GetBytes reps).Length
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
@@ -480,9 +474,10 @@ module RfPulse =
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
             /// storing all of the dependencies at the same time.
-            let private toRegularSequenceElement = function
-                | PendingSegment (name, reps) -> Segment (StoredSegment name, reps)
-                | PendingSequence (name, reps) -> Sequence (StoredSequence name, reps)
+            let private toRegularSequenceElement (el, reps) =
+                match el with
+                | PendingSegment  s -> (StoredSegment  s, reps)
+                | PendingSequence s -> (StoredSequence s, reps)
 
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
@@ -537,10 +532,10 @@ module RfPulse =
                 let printEl = printPendingSequenceElement indent segMap seqMap
                 sequence |> List.iter printEl
             and private printPendingSequenceElement indent segMap seqMap = function
-                | PendingSegment (SegmentId id, reps) ->
+                | (PendingSegment (SegmentId id), reps) ->
                     printfn "%s%s * %d" (getIndent indent) id reps
                     printSegment (indent + depth) (Map.find id segMap)
-                | PendingSequence (SequenceId id, reps) ->
+                | (PendingSequence (SequenceId id), reps) ->
                     printfn "%s%s * %d" (getIndent indent) id reps
                     printPendingSequence (indent + depth) segMap seqMap (Map.find id seqMap)
 

@@ -3,7 +3,7 @@
 [<AutoOpen>]
 module internal InternalModel =
     [<AutoOpen>]
-    module Waveform =
+    module ARB =
         /// Internal record of an entire recorded segment before being transformed into
         /// machine-readable strings.  Lists are in reverse order for speed.
         type EncodedSegment = {
@@ -14,11 +14,10 @@ module internal InternalModel =
         /// Ready to write to machine.
         type EncodedSegmentFiles = {
             Waveform : byte array
-            Markers  : byte array
-            Header   : byte array }
+            Markers  : byte array }
 
     [<AutoOpen>]
-    module RfPulse =
+    module Experiment =
         /// A verified pulse, identical to the regular pulse, but we're sure that (for example)
         /// the number of pulses in each cycle are the same.
         type VerifiedPulse =
@@ -39,7 +38,7 @@ module internal InternalModel =
             /// Where the next point of the experiment should be triggered from.
             TriggerSource : TriggerSource
             /// How many times to run the experiment at each increment and phase.
-            ShotsPerPoint : int }
+            ShotsPerPoint : uint16 }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the
@@ -66,12 +65,15 @@ module internal InternalModel =
             ExperimentPoints : CompiledExperimentPoint list
             Metadata : ExperimentMetadata }
 
+        /// A waveform identifier pointing to a waveform which has not yet been written to disk.
+        type PendingWaveform =
+            | PendingSegment of name : SegmentId
+            | PendingSequence of name : SequenceId
+
         /// An element of a sequence where the dependencies are not yet written to the machine.
         /// Elements may still be pending writing, and not available for playback yet.  This should
         /// not be exposed publically, to prevent accidentally depending on an unwritten file.
-        type PendingSequenceElement =
-            | PendingSegment of name : SegmentId * repetitions : uint16
-            | PendingSequence of name : SequenceId * repetitions : uint16
+        type PendingSequenceElement = PendingWaveform * uint16
 
         /// A sequence where the dependencies are not yet written to the machine. Elements may
         /// still be pending writing, and not available for playback yet.  This should not be

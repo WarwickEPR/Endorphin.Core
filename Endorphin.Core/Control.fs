@@ -63,6 +63,13 @@ module AsyncChoice =
             | Success s -> succeed ()
             | Failure f -> fail f }
 
+    /// Build a new AsyncChoice workflow whose Choice1Of2 is the result of apply the mapping function
+    /// to the Choice1Of2 values of the two passed workflows, propagating any failures if necessary.
+    let map2 (mapping : 'A -> 'B -> 'C) a b : AsyncChoice<'C, 'Error> = asyncChoice {
+        let! a' = a
+        let! b' = b
+        return mapping a' b' }
+
     /// Fold an array of Choice<'T, 'Error> into a single Choice<'T [], 'EState>, depending on a
     /// folding function to fold the errors into the desried form.
     let private foldChoices (folder : 'EState -> 'Error -> 'EState)

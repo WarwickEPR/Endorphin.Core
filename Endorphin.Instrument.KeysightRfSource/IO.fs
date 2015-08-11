@@ -197,6 +197,26 @@ module internal IO =
     /// Query the given key for a plain integer value.
     let queryInt = queryValue int
 
+    /// Set the quantity represented by the given key to have the unsigned 32-bit integer value given.
+    let setUint32 = setValueString (fun (i : uint32) -> i.ToString())
+    /// Query the given key for a plain uint32 value.
+    let queryUint32 = queryValue uint32
+
+    /// Set the quantity represented by the given key to have the unsigned 8-bit integer value given.
+    let setUint8 = setValueString (fun (i : uint8) -> i.ToString())
+    /// Query the given key for a plain uint8 value.
+    let queryUint8 = queryValue uint8
+
+    /// Set the quantity represented by the given key to have the unsigned byte value given.
+    let setByte = setValueString (fun (i : byte) -> i.ToString())
+    /// Query the given key for a plain byte value.
+    let queryByte = queryValue byte
+
+    /// Set the quantity represented by the given key to have the unsigned 16-bit integer value given.
+    let setUint16 = setValueString (fun (i : uint16) -> i.ToString())
+    /// Query the given key for a plain uint16 value.
+    let queryUint16 = queryValue uint16
+
     /// Set the frequency represented by the given key to have the given value.
     let setFrequency = setValueString frequencyString
     /// Query the given key for a frequency value.
@@ -270,3 +290,15 @@ module internal IO =
     let setPolarity = setValueString polarityString
     /// Query the given key for a polarity.
     let queryPolarity = queryValue parsePolarity
+
+    /// Write the given key with the given filename as an argument.
+    let setFile key instrument (folder, id) = setValueString (fileNameString folder) key instrument id
+    /// Write the given key with a sequence of filenames as arguments.
+    let setFileSequence key instrument sequence =
+        let makeFileName (folder, id) = fileNameString folder id
+        setValueString (csvSeqString makeFileName) key instrument sequence
+
+    /// Write the given key with the given low/high state.
+    let setLowHighState = setValueString lowHighStateString
+    /// Query the given key for a low/high state.
+    let queryLowHighState = queryValue parseLowHighState
