@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Core
 
 open System
+open System.Reactive.Linq
 
 /// Internal support functions for the library of transformations to events and observables defined
 /// below.
@@ -143,3 +144,27 @@ module Observable =
     /// contains the most recent elements up to its specified size.
     let bufferCountOverlapped count source =
         Support.addToObservable source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
+
+    /// Builds a new observable sequence which completes when the supplied predicate is true for an
+    /// observation of the source observable. Otherwise it propagates the source elements.
+    let completeOn predicate (source : IObservable<_>) =
+        Observable.Create(fun (observer : IObserver<_>) ->
+            source.Subscribe( 
+                (fun x -> 
+                    if predicate x 
+                    then observer.OnCompleted()
+                    else observer.OnNext x),
+                (fun exn -> observer.OnError exn),
+                (fun ()  -> observer.OnCompleted())))
+    
+    /// Builds a new observable sequence which throws an error when the supplied error selector returns
+    /// Some error. Otherwise it propagates the source elements.
+    let errorOn errorSelector (source : IObservable<_>) =        
+        Observable.Create(fun (observer : IObserver<_>) ->
+            source.Subscribe( 
+                (fun x -> 
+                    match errorSelector x with
+                    | Some exn -> observer.OnError exn
+                    | None     -> observer.OnNext x),
+                (fun exn -> observer.OnError exn),
+                (fun ()  -> observer.OnCompleted())))
