@@ -158,6 +158,5 @@ $RECYCLE.BIN/
 # VS reference loading files
 load-references.fsx
 load-project.fsx
-packages.config
 
 Testing.fsx
