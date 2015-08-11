@@ -57,7 +57,6 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="Hashing.fs" />
     <Compile Include="IO.fs" />
-    <None Include="app.config" />
     <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
@@ -67,6 +66,7 @@
     <Compile Include="RfPulse.fs" />
     <Compile Include="Control.fs" />
     <Compile Include="RfSource.fs" />
+    <None Include="app.config" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
     <None Include="Demo.fsx" />
