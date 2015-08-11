@@ -304,12 +304,34 @@ module Model =
             | ArbSegmentAdvanceSingle
             | ArbSegmentAdvanceContinuous
 
+        /// The behaviour of the system when a second trigger is received while in single trigger mode.
+        /// "No retrigger" ignores all subsequent triggers. "Buffered retrigger" plays the segment again
+        /// once it has finished. "Restart retrigger" immediately resets the segment to the beginning and
+        /// starts it.
+        type ArbRetriggerMode =
+            | NoRetrigger
+            | BufferedRetrigger
+            | RestartRetrigger
+
         /// The type of triggering to use for the dual ARB system.
-        type ArbTrigger =
-            | Continuous of mode : ArbContinuousMode
-            | Single of repeats : uint16
-            | Gate of polarity : LowHighState
-            | SegmentAdvance of mode : ArbSegmentAdvanceMode
+        type ArbTriggerMode =
+            | ArbContinuous of mode : ArbContinuousMode
+            | ArbSingle of repeats : uint16 * retrigger : ArbRetriggerMode
+            | ArbGate of polarity : LowHighState
+            | ArbSegmentAdvance of mode : ArbSegmentAdvanceMode
+
+        /// Physical location of the external source for the dual ARB system triggering.
+        type ArbExternalConnector = ArbBnc | ArbAux
+
+        /// The source to use to trigger the dual ARB system.
+        type ArbTriggerSource =
+            | ArbKey
+            | ArbBus
+            | ArbExternal of
+                connector : ArbExternalConnector * polarity : Polarity option * delay : Duration option
+
+        /// Complete triggering information for the dual ARB system.
+        type ArbTrigger = ArbTrigger of mode : ArbTriggerMode * source : ArbTriggerSource
 
     [<AutoOpen>]
     module Experiment =
