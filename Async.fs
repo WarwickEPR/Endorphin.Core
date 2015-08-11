@@ -58,57 +58,6 @@ type MailboxProcessor<'T> with
                 let! reply = agent.PostAndAsyncReply buildMessage
                 continuator.Post(Choice1Of3 reply) }, requestCancellationCapability.Token)) }
 
-type Async with
-
-    /// Creates an asynchronous workflow that will be resumed when the specified observables produces a
-    /// value. The workflow will return the value produced by the observable.
-    static member AwaitObservable (ev1:IObservable<'T1>) =
-        async {
-            let! token = Async.CancellationToken // capture the current cancellation token
-            return! Async.FromContinuations(fun (cont, econt, ccont) ->
-                // start a new mailbox processor which will await the result
-                Agent.Start((fun (mailbox : Agent<Choice<'T1, exn, OperationCanceledException>>) ->
-                    async {
-                        // register a callback with the cancellation token which posts a cancellation message
-                        #if NET40
-                        use __ = token.Register((fun _ ->
-                            mailbox.Post (Choice3Of3 (new OperationCanceledException("The opeartion was cancelled.")))))
-                        #else
-                        use __ = token.Register((fun _ ->
-                            mailbox.Post (Choice3Of3 (new OperationCanceledException("The opeartion was cancelled.")))), null)
-                        #endif
-            
-                        // subscribe to the observable: if an error occurs post an error message and post the result otherwise
-                        use __ = 
-                            ev1.Subscribe({ new IObserver<'T1> with
-                                member __.OnNext result = mailbox.Post (Choice1Of3 result)
-                                member __.OnError exn = mailbox.Post (Choice2Of3 exn)
-                                member __.OnCompleted () =
-                                    let msg = "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
-                                    mailbox.Post (Choice3Of3 (new OperationCanceledException(msg))) })
-                            
-                        // wait for the first of these messages and call the appropriate continuation function
-                        let! message = mailbox.Receive()
-                        match message with
-                        | Choice1Of3 reply -> cont reply
-                        | Choice2Of3 exn -> econt exn
-                        | Choice3Of3 exn -> ccont exn })) |> ignore) }
-
-/// Extensions methods for System.Threading.Synchronization context as described in the following
-/// blog post: http://blogs.msdn.com/b/dsyme/archive/2010/01/10/async-and-parallel-design-patterns-in-f-reporting-progress-with-events-plus-twitter-sample.aspx
-type SynchronizationContext with
-        
-    /// A standard helper extension method to raise an event on the GUI thread.
-    member syncContext.RaiseEvent (event: Event<_>) args =
-        syncContext.Post((fun _ -> event.Trigger args), state=null)
-        
-    /// A standard helper extension method to capture the current synchronization context.
-    /// If none is present, use a context that executes work in the thread pool.
-    static member CaptureCurrent () =
-        match SynchronizationContext.Current with
-        | null -> new SynchronizationContext()
-        | ctxt -> ctxt
-
 /// Type alias for System.Threading.ManualResetEvent to avoid confusion between wait handles and events.
 type ManualResetHandle = ManualResetEvent
 
