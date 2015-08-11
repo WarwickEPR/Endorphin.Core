@@ -70,10 +70,10 @@
     <None Include="Scripts\load-project.fsx" />
     <None Include="WaveformDemo.fsx" />
     <None Include="ExperimentDemo.fsx" />
+    <None Include="Demo.fsx" />
     <None Include="app.config" />
     <None Include="app.config" />
     <Content Include="packages.config" />
-    <None Include="Demo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
