@@ -68,12 +68,12 @@
     <Compile Include="RfSource.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
-    <None Include="Demo.fsx" />
     <None Include="WaveformDemo.fsx" />
-    <None Include="app.config" />
     <None Include="ExperimentDemo.fsx" />
     <None Include="app.config" />
+    <None Include="app.config" />
     <Content Include="packages.config" />
+    <None Include="Demo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
