@@ -66,6 +66,22 @@ module ARB =
             |> withI (int16 (amplitude * Math.Cos phaseAngle))
             |> withQ (int16 (amplitude * Math.Sin phaseAngle))
 
+        /// The default clock rate for the dual ARB system.
+        let defaultArbClockFrequency = FrequencyInHz 150.0e6<Hz>
+
+        /// Key for use with the dual ARB clock frequency.
+        /// Command reference p.344.
+        let private dualArbClockKey = ":RADIO:ARB:SCLOCK:RATE"
+        /// Set the dual ARB clock frequency to the value specified.
+        let setDualArbClock = IO.setFrequency dualArbClockKey
+        /// Query the current value of the dual ARB clock frequency.
+        let queryDualArbClock = IO.queryFrequency dualArbClockKey
+
+        /// Key for saving header files of waveform segments in the dual ARB system.
+        let private dualArbSaveHeaderKey = ":RADIO:ARB:HEADER:SAVE"
+        /// Save the current dual ARB settings to the header file of the currently selected waveform.
+        let setHeaderFile = IO.writeKey dualArbSaveHeaderKey
+
     /// Functions for encoding segments and samples into a writeable form.
     [<AutoOpen>]
     module internal Translate =

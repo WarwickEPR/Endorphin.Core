@@ -1,13 +1,21 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open ExtCore.Control
+open ARB
 open Hashing
+open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Control =
     [<AutoOpen>]
     module Store =
         open ARB.Translate
         open Experiment.Translate
+
+        /// Key to select a segment or a sequence from the machine
+        /// Command reference p.355.
+        let private selectArbFileKey = ":RAD:ARB:WAV"
+        /// Select a waveform on the machine.
+        let selectWaveform = IO.setValueString storedWaveformFilename selectArbFileKey
 
         /// How many Segments to write in one chunk when writing a whole sequence of them.
         let private segmentsPerChunk = 4
@@ -48,6 +56,13 @@ module Control =
         /// Create an internal stored sequence representation.
         let private toStoredSequence id = StoredSequence id
 
+        /// Set the header file of the given waveform to have the currently set ARB settings, except
+        /// also with the passed 
+        let private setHeaderArbClockFrequency instrument frequency waveform = asyncChoice {
+            do! selectWaveform instrument waveform
+            do! setDualArbClock instrument frequency
+            do! setHeaderFile instrument }
+
         /// Command to write file to volatile memory.
         /// Command reference p.133, p.151. p.133 is technically for the ":MEM:DATA" command rather
         /// than the ":MMEM:DATA" command, but they are identical, and the former has more
@@ -63,7 +78,9 @@ module Control =
                     yield (markersDataString, storeDataKey, encoded) }
             asyncChoice {
                 do! IO.setValueBytesSequence commands instrument
-                return toStoredSegment id }
+                let stored = toStoredSegment id
+                do! setHeaderArbClockFrequency instrument defaultArbClockFrequency stored
+                return stored }
 
         /// Store the given sequence on the machine, and return a StoredSegment type which can be
         /// used to identify the segment internally.
@@ -73,22 +90,24 @@ module Control =
 
         /// Store a sequence of segments and their ids into the volatile memory of the machine.
         /// Returns an array of StoredSegments.
-        let internal storeSegmentSequenceById instrument sequence =
+        let internal storeSegmentSequenceById instrument sequence = asyncChoice {
             let encoded = Seq.map (fun (id, seg) -> (id, toEncodedSegmentFiles seg id)) sequence
             let builder map (_, _) = fun (_, el) -> map el
             let zipper map = zipIdCommands (builder map) storeDataKey encoded
             let interleave one two = seq { yield one; yield two }
-
             let waveformCommands = zipper waveformDataString
             let markersCommands  = zipper markersDataString
-
             let commands =
                 Seq.map2 interleave waveformCommands markersCommands
                 |> Seq.concat
                 |> Seq.chunkBySize segmentsPerChunk
             let store = storeConcatenatedById IO.setValueBytesSequence toStoredSegment
-            parallelizeStorage store instrument commands
-            |> AsyncChoice.map Array.concat
+            let! waveforms =
+                parallelizeStorage store instrument commands
+                |> AsyncChoice.map Array.concat
+            for waveform in waveforms do
+                do! setHeaderArbClockFrequency instrument defaultArbClockFrequency waveform
+            return waveforms }
 
         /// Store a sequence of segments onto the machine, and return an array of identifiers to those
         /// segments.
@@ -103,7 +122,10 @@ module Control =
         /// Write a sequence file to the machine and returns the stored sequence type.
         let internal storeSequenceById instrument (id, sequence) = asyncChoice {
             do! IO.setValueBytes (sequenceDataString id) storeSequenceKey instrument sequence
-            return toStoredSequence id }
+            let stored = toStoredSequence id
+            do! setHeaderArbClockFrequency instrument defaultArbClockFrequency stored
+            return stored }
+
         /// Write a sequence to the machine, and return an identifier for that sequence.
         let storeSequence instrument sequence =
             let id = SequenceId <| hexHash sequenceToBytes sequence
@@ -111,15 +133,20 @@ module Control =
 
         /// Write a sequence of sequences files to the machine, and return an array of the stored
         /// sequence type.
-        let internal storeSequenceSequenceById instrument (sequence : seq<SequenceId * Sequence>) =
+        let internal storeSequenceSequenceById instrument (sequence : seq<SequenceId * Sequence>) = asyncChoice {
             let builder (_, _) = fun (id, el) -> sequenceDataString id el
             let commands =
                 sequence
                 |> zipIdCommands builder storeSequenceKey
                 |> Seq.chunkBySize sequencesPerChunk
             let store = storeConcatenatedById IO.setValueBytesSequence toStoredSequence
-            parallelizeStorage store instrument commands
-            |> AsyncChoice.map Array.concat
+            let! sequences =
+                parallelizeStorage store instrument commands
+                |> AsyncChoice.map Array.concat
+            for sequence in sequences do
+                do! setHeaderArbClockFrequency instrument defaultArbClockFrequency sequence
+            return sequences }
+
         /// Write a sequence of sequences files to the machine, and return an array of identifiers
         /// to those sequences.
         let storeSequenceSequence instrument sequence =
@@ -202,12 +229,6 @@ module Control =
 
     [<AutoOpen>]
     module Play =
-        /// Key to select a segment or a sequence from the machine
-        /// Command reference p.355.
-        let private selectArbFileKey = ":RAD:ARB:WAV"
-        /// Select a waveform on the machine.
-        let selectWaveform = IO.setValueString storedWaveformFilename selectArbFileKey
-
         /// Key related to the state of the dual ARB player on the machine. Needs the output
         /// state to also be on before it will start to play.
         /// Command reference p.356.
