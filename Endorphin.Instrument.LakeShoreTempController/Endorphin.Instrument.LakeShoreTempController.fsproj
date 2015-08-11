@@ -58,6 +58,7 @@
     <Compile Include="IO.fs" />
     <Compile Include="TempController.fs" />
     <None Include="Demo.fsx" />
+    <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ExtCore">
