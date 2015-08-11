@@ -3,7 +3,7 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 
-open Endorphin.Core.StringUtils
+open Endorphin.Core.String
 open ExtCore.Control
 
 [<AutoOpen>]
