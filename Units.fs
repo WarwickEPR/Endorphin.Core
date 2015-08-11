@@ -5,10 +5,20 @@ module Units =
 
     [<AutoOpen>]
     module Time =
+
+        /// Femtoseconds.
         [<Measure>] type fs
+
+        /// Picoseconds.
         [<Measure>] type ps
+
+        /// Nanoseconds.
         [<Measure>] type ns
+
+        /// Microseconds.
         [<Measure>] type us
+
+        /// Milliseconds.
         [<Measure>] type ms
 
         let secondsPerMillisecond =  1.0e-3<s/ms>
