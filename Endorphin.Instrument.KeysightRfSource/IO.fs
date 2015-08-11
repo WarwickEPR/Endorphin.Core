@@ -1,7 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open ExtCore.Control
-open Endorphin.Core.StringUtils
+open Endorphin.Core.String
 open Endorphin.Core.NationalInstruments
 open System.Text
 
