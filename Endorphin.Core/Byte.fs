@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Core
 
-[<RequireQualifiedAccess>]
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 /// Byte-processing utilities
 module Byte = 
     
