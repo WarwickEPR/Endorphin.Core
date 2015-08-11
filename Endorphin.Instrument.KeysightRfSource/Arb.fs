@@ -463,14 +463,6 @@ module ARB =
                 else
                     bytes
 
-            /// Decompress the I and Q data back into a 2-tuple of I and Q.
-            let private getIQ (array : byte []) =
-                let bytesI = toHostOrder [| array.[0]; array.[1] |]
-                let intI   = BitConverter.ToInt16 (bytesI, 0)
-                let bytesQ = toHostOrder [| array.[2]; array.[3] |]
-                let intQ   = BitConverter.ToInt16 (bytesQ, 0)
-                (intI, intQ)
-
             /// Decompress the markers back into a 4-tuple of the 4 Boolean markers.
             let private getMarkers markers =
                 { M1 = Convert.ToBoolean(markers &&& 0x1uy)
@@ -479,43 +471,38 @@ module ARB =
                   M4 = Convert.ToBoolean(markers &&& 0x8uy) }
 
             /// Decode an encoded sample back into the internal representation of a sample.
-            let private toSample encodedIQ encodedMarkers =
-                let (I, Q) = getIQ encodedIQ
-                let markers = getMarkers encodedMarkers
-                { I = I
-                  Q = Q
-                  Markers = markers }
+            let parseSample i q markers = { I = i; Q = q; Markers = markers }
 
-            /// Test if two values are equal.
-            let private isEqual a b = (a = b)
+            /// Get only the interesting bits of the datablock, removing the "#", the number of
+            /// digits, and the data length.
+            let private stripMetadata (data : byte array) =
+                /// datablock is of form "#<digits><length><data>"
+                data.[2 .. (Array.length data - 1)]
 
-            /// Find the index of the first occurence of a search term in an array.
-            let private firstOccurence term = Array.findIndex (isEqual term)
+            /// Parse a waveform file into a tuple of i and q data arrays.
+            let parseWaveformFile (data : byte array) =
+                let data' = data |> stripMetadata
+                let numSamples = (Array.length data') / 4
+                let i = Array.create numSamples 0s
+                let q = Array.create numSamples 0s
+                let rec loop = function
+                    | index when index = numSamples -> (i, q)
+                    | index ->
+                        i.[index] <-
+                            BitConverter.ToInt16(toHostOrder data'.[(4 * index)     .. (4 * index + 1)], 0)
+                        q.[index] <-
+                            BitConverter.ToInt16(toHostOrder data'.[(4 * index + 2) .. (4 * index + 3)], 0)
+                        loop (index + 1)
+                loop 0
 
-            /// Get a slice of an array, including the indexes start and finish.
-            let private splitArray start finish (array : 'a []) =
-                [| for i in start .. finish -> array.[i] |]
-
-            /// Get the file name out of the encoded data string.
-            let private parseBytesFilename data =
-                // String is of form "\"WFM1:filename\",#..."B
-                // Find index of the first character after the colon
-                let start  = (firstOccurence ':'B data) + 1
-                // Find index of the end of the file name by counting back from the comma
-                // findIndex finds the first instance, so searching for '\"'B would find the
-                // wrong place
-                let finish = (firstOccurence ','B data) - 2
-                splitArray start finish data
-
-            /// Get the length of the data to be read.
-            let private getDataLength data =
-                // Get index of the start of the data string
-                let start = (firstOccurence '#'B data) + 1
-                let digits = int data.[start]
-                // Not the fastest way, but should be the most accurate
-                data
-                |> splitArray (start + 1) (start + digits)
-                |> Text.Encoding.UTF8.GetString
-                |> int
-                // Could do it like this if it's faster, but we could have cruft after the data
-                // (Array.length data) - (start + digits + 1)
+            /// Parse a marker file into an array of markers.
+            let parseMarkerFile (data : byte array) =
+                let data' = data |> stripMetadata
+                let numSamples = (Array.length data')
+                let markers = Array.create numSamples defaultMarkers
+                let rec loop = function
+                    | index when index = numSamples -> markers
+                    | index ->
+                        markers.[index] <- getMarkers data'.[index]
+                        loop (index + 1)
+                loop 0

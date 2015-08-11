@@ -88,6 +88,33 @@ module Control =
             let id = SegmentId <| hexHash segmentToBytes segment
             storeSegmentById instrument (id, segment)
 
+        /// Query a waveform file of a segment for its datablock.
+        let private queryWaveformFile instrument id =
+            IO.queryFileBytes parseWaveformFile storeDataKey instrument (waveformFolder, id)
+
+        /// Query a marker file of a segment for its datablock.
+        let private queryMarkerFile instrument id =
+            IO.queryFileBytes parseMarkerFile storeDataKey instrument (markerFolder, id)
+
+        /// Query a pair of segment files (waveform and markers) for their segment.
+        let private querySegment instrument id = asyncChoice {
+            let! (i, q) = queryWaveformFile instrument id
+            let! markers = queryMarkerFile instrument id
+            let samples = Array.map3 parseSample i q markers
+            let incrementSampleCount (SampleCount i) = SampleCount (i + 1u)
+            let rec loop acc lastId accI = function
+                | i when i = Array.length samples ->
+                    Segment { Samples = acc; Length = uint16 <| Array.length samples }
+                | i ->
+                    let curId = hexHash sampleToBytes samples.[i]
+                    if curId = lastId then
+                        acc.[accI] <- (fst acc.[accI], incrementSampleCount <| snd acc.[accI])
+                        loop acc lastId accI (i + 1)
+                    else
+                        let acc' = Array.append acc [| (samples.[i], SampleCount 1u) |]
+                        loop acc' curId (accI + 1) (i + 1)
+            return loop [||] "" 0 0 }
+
         /// Store a sequence of segments and their ids into the volatile memory of the machine.
         /// Returns an array of StoredSegments.
         let internal storeSegmentSequenceById instrument sequence = asyncChoice {
