@@ -1,11 +1,12 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
-open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
-open System.Reactive.Linq
-open log4net
-open ExtCore.Control
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+
 open Endorphin.Core
+open ExtCore.Control
+open FSharp.Control.Reactive
+open log4net
 
 module Streaming =
     type StreamStopOptions = { AcquisitionDidAutoStop : bool }
@@ -15,13 +16,13 @@ module Streaming =
         | Streaming of sampleInterval : Interval
         | FinishedStream of options : StreamStopOptions
         | FailedStream of error : string
-        | CancelledStream
+        | CancelledStream of exn : OperationCanceledException
 
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
                    Length           : SampleCount
                    VoltageOverflows : Set<InputChannel> }
-                   
+
     type StreamingAcquisition =
         private { Parameters      : StreamingParameters
                   PicoScope       : PicoScope5000
@@ -30,7 +31,9 @@ module Streaming =
                   StatusChanged   : Event<StreamStatus>
                   SamplesObserved : Event<StreamingSamples> }
 
-    type StreamingAcquisitionHandle = private StreamingAcquisitionHandle of acquisition : StreamingAcquisition * waitToStop : AsyncChoice<unit, string>
+    type StreamingAcquisitionHandle = 
+        private { Acquisition  : StreamingAcquisition 
+                  WaitToFinish : AsyncChoice<unit, string> }
 
     module Parameters =
         let create resolution sampleInterval bufferLength =
@@ -82,17 +85,14 @@ module Streaming =
               SamplesObserved = new Event<StreamingSamples>() }
 
         let status acquisition =
-            Endorphin.Core.Observable.createFromStatusEvent(
-                acquisition.StatusChanged.Publish,
-                (fun status -> 
-                    match status with
-                    | FinishedStream _ 
-                    | CancelledStream  -> true
-                    | _                -> false),
-                (fun status -> 
-                    match status with
-                    | FailedStream message -> Some (Exception message)
-                    | _                    -> None ))
+            acquisition.StatusChanged.Publish
+            |> Observable.completeOn (function
+                | FinishedStream _ 
+                | CancelledStream _ -> true
+                | _                 -> false)
+            |> Observable.errorOn (function
+                | FailedStream message -> Some (Exception message)
+                | _                    -> None)
 
         let private prepareDevice acquisition =
             asyncChoice {
@@ -131,10 +131,11 @@ module Streaming =
 
         let private handleStreamingValuesReady acquisition streamingValuesReady =
             if not acquisition.StopCapability.IsCancellationRequested then
-                if  streamingValuesReady.DidAutoStop then
+                if streamingValuesReady.DidAutoStop then
                     acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
 
-                if streamingValuesReady.NumberOfSamples <> (SampleCount 0) then
+                if streamingValuesReady.NumberOfSamples <> SampleCount 0 then
+
                     let sampleBlock = createSampleBlock streamingValuesReady acquisition
                     Async.StartWithContinuations(
                         copySampleBlockValues streamingValuesReady acquisition sampleBlock,
@@ -146,51 +147,69 @@ module Streaming =
                 let! __ = 
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
                     <| handleStreamingValuesReady acquisition
-            
-                do! Async.Sleep 100 |> AsyncChoice.liftAsync
+                
                 do! pollUntilFinished acquisition }
         
         let start acquisition : AsyncChoice<StreamingAcquisitionHandle, string> =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
-        
-            let acquisitionWorkflow = async { 
-                let! acquisitionResult = asyncChoice {
-                    use! __ = AsyncChoice.liftAsync <| Async.OnCancel(fun () ->
-                        Async.StartWithContinuations(PicoScope.Acquisition.stop acquisition.PicoScope,
-                            (fun _ -> acquisition.StatusChanged.Trigger CancelledStream), 
-                            ignore, ignore)) 
 
-                    use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
-                    do! prepareDevice acquisition
-                    do! startStreaming acquisition
-                    do! pollUntilFinished acquisition
-                    do! PicoScope.Acquisition.stop acquisition.PicoScope }
+            let finishAcquisition cont acquisitionResult = Async.StartImmediate <| async {
+                let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
+                match acquisitionResult, stopResult with
+                | Success (), Success () -> 
+                    acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
+                    cont (succeed ())
+                | _, Failure f -> 
+                    let error = sprintf "Acquisition failed to stop: %s" f
+                    acquisition.StatusChanged.Trigger (FailedStream error)
+                    cont (fail error)
+                | Failure f, _ ->
+                    acquisition.StatusChanged.Trigger (FailedStream f)
+                    cont (fail f) }
 
-                match acquisitionResult with
-                | Success () -> acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
-                | Failure message -> acquisition.StatusChanged.Trigger (FailedStream <| sprintf "Acquisition failed to stop: %s" message)
-                
-                return acquisitionResult }
+            let stopAcquisitionAfterCancellation ccont econt exn = Async.StartImmediate <| async { 
+                let! stopResult =  PicoScope.Acquisition.stop acquisition.PicoScope
+                match stopResult with
+                | Success () ->
+                    acquisition.StatusChanged.Trigger (CancelledStream exn)
+                    ccont exn
+                | Failure f ->
+                    let error = sprintf "Acquisition failed to stop after cancellation: %s" f
+                    acquisition.StatusChanged.Trigger (FailedStream error)
+                    econt (Exception error) }
+
+            let acquisitionWorkflow cancellationToken =
+                Async.FromContinuations (fun (cont, econt, ccont) ->
+                    Async.StartWithContinuations(
+                        asyncChoice {
+                            use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
+                            do! prepareDevice acquisition
+                            do! startStreaming acquisition
+                            do! pollUntilFinished acquisition }, 
+                    
+                        finishAcquisition cont, econt, stopAcquisitionAfterCancellation ccont econt,
+                        cancellationToken))
 
             async {
-                let! waitToStop = acquisitionWorkflow |> Async.StartChild
-                return StreamingAcquisitionHandle (acquisition, waitToStop) }
+                let! cancellationToken = Async.CancellationToken
+                let! waitToFinish = Async.StartChild (acquisitionWorkflow cancellationToken)
+                return { Acquisition = acquisition ; WaitToFinish = waitToFinish } }
             |> AsyncChoice.liftAsync
     
-        let waitToFinish (StreamingAcquisitionHandle (acquisition, waitToStop)) = waitToStop   
+        let waitToFinish acquisitionHandle = acquisitionHandle.WaitToFinish   
               
-        let stop (StreamingAcquisitionHandle (acquisition, waitToStop)) =
-            if not acquisition.StopCapability.IsCancellationRequested then
-                acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
+        let stop acquisitionHandle =
+            if not acquisitionHandle.Acquisition.StopCapability.IsCancellationRequested then
+                acquisitionHandle.Acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
 
         let stopAndFinish acquisitionHandle =
             stop acquisitionHandle
             waitToFinish acquisitionHandle
 
     module Signal =
-        let private takeUntilFinished acquisition (obs : IObservable<'T>) =
-            obs.TakeUntil ((Acquisition.status acquisition).LastAsync())
+        let private takeUntilFinished acquisition =
+            Observable.takeUntilOther (Observable.last (Acquisition.status acquisition))
         
         let private time interval index = (Interval.asSeconds interval) * (float index)
         
@@ -218,7 +237,7 @@ module Streaming =
         let nthIndexed n          = Observable.map (fun (t, samples) -> (t, Array.get samples n))
         let takeXY n m            = Observable.map (fun samples      -> (Array.get samples n, Array.get samples m))
         let takeXYFromIndexed n m = Observable.map (fun (_, samples) -> (Array.get samples n, Array.get samples m))
-        let scan signal           = Observable.scan List.cons List.empty signal |> Observable.map Seq.ofList
+        let scan signal           = Observable.fold List.cons List.empty signal |> Observable.map Seq.ofList
 
         let private adcCountEvent input acquisition =
             acquisition.SamplesObserved.Publish
@@ -313,29 +332,31 @@ module Streaming =
             |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
-        let private adcCountWindowedEvent windowSize input acquisition =
+        let private adcCountBufferedEvent count input acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.windowMapSeq windowSize (fun samples -> samples.Samples |> Map.find input)
+            |> Event.collectSeq (fun samples -> samples.Samples |> Map.find input)
+            |> Event.bufferCountOverlapped count
 
-        let adcCountWindowed windowSize input acquisition =
-            adcCountWindowedEvent windowSize input acquisition
+        let adcCountBuffered count input acquisition =
+            adcCountBufferedEvent count input acquisition
             |> takeUntilFinished acquisition
 
-        let voltageWindowed windowSize input acquisition =
-            adcCountWindowedEvent windowSize input acquisition
+        let voltageBuffered windowSize input acquisition =
+            adcCountBufferedEvent windowSize input acquisition
             |> Event.map (Array.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
-        let private adcCountsWindowedEvent windowSize inputs acquisition =
+        let private adcCountsBufferedEvent count inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.windowMapSeq windowSize (takeInputs inputs)
+            |> Event.collectSeq (takeInputs inputs)
+            |> Event.bufferCountOverlapped count
 
-        let adcCountsWindowed windowSize inputs acquisition =
-            adcCountWindowedEvent windowSize inputs acquisition
+        let adcCountsBuffered ount inputs acquisition =
+            adcCountBufferedEvent ount inputs acquisition
             |> takeUntilFinished acquisition
 
-        let voltagesWindowed windowSize inputs acquisition =
-            adcCountsWindowedEvent windowSize inputs acquisition
+        let voltagesBuffered count inputs acquisition =
+            adcCountsBufferedEvent count inputs acquisition
             |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 

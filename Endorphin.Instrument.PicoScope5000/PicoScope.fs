@@ -41,7 +41,7 @@ module PicoScope =
             input
 
     let openDevice serial =
-        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") true (fun () -> asyncChoice {
+        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") false (fun () -> asyncChoice {
             if serial <> null 
             then sprintf "Opening device %s with resolution: %A." serial Resolution_8bit |> logOp
             else sprintf "Opening first available device with resolution: %A." Resolution_8bit |> logOp
