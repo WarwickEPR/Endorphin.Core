@@ -260,6 +260,7 @@ module Model =
         /// The identifier of a sequence, before it has been written to the machine.
         type internal SequenceId = SequenceId of string
 
+        /// A waveform that has been stored in the machine.
         type StoredWaveform = 
             internal
             | StoredSegment of SegmentId
