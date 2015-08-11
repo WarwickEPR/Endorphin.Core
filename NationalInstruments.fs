@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Core
 
-open Endorphin.Core.StringUtils
+open Endorphin.Core.String
 open ExtCore.Control
 open NationalInstruments.VisaNS
 open log4net
