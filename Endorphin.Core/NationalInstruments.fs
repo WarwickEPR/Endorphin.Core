@@ -93,7 +93,7 @@ module NationalInstruments =
                     <| Async.OnCancel(fun() ->
                         session.Terminate()
                         session.Clear())
-                do! session.WriteBytesAsync message
+                do! session.WriteAsync message
                 return! session.ReadBytesAsync() }
     
     [<AutoOpen>]
@@ -107,7 +107,7 @@ module NationalInstruments =
                        QueryString : string -> AsyncChoice<string, string>
                        ReadBytes   : unit -> AsyncChoice<byte [], string>
                        WriteBytes  : byte array -> unit
-                       QueryBytes  : byte array -> AsyncChoice<byte array, string>
+                       QueryBytes  : string -> AsyncChoice<byte array, string>
                        Close       : unit -> AsyncChoice<unit, string> } 
 
     [<RequireQualifiedAccess>]
@@ -128,7 +128,7 @@ module NationalInstruments =
             | QueryString  of visaCommand : string * replyChannel : AsyncChoiceReplyChannel<string,string>
             | ReadBytes    of replyChannel  : AsyncChoiceReplyChannel<byte [],string>
             | WriteBytes   of visaCommand  : byte []
-            | QueryBytes   of visaCommand  : byte [] * replyChannel : AsyncChoiceReplyChannel<byte [], string>
+            | QueryBytes   of visaCommand  : string * replyChannel : AsyncChoiceReplyChannel<byte [], string>
             | CloseSession of replyChannel : AsyncChoiceReplyChannel<unit,string>
 
         /// Returns a description of the given VisaMessage.
@@ -138,7 +138,7 @@ module NationalInstruments =
             | QueryString (msg, _) -> sprintf "Query response after writing string to session: \"%s\"" (truncateString msg)
             | ReadBytes _          -> "Read bytes from session"
             | WriteBytes msg       -> sprintf "Write bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
-            | QueryBytes (msg, _)  -> sprintf "Query response after writing bytes to session: \"%s\"" (truncateString <| bytesToHexidecimalString msg)
+            | QueryBytes (msg, _)  -> sprintf "Query response after writing bytes to session: \"%s\"" (truncateString msg)
             | CloseSession _       -> "Close session"
 
         /// Creates an agent which establishes a MessageBasedSession to the specified VISA address
