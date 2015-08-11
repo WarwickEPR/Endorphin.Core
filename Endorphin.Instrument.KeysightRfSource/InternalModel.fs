@@ -38,7 +38,7 @@ module internal InternalModel =
             /// Where the next point of the experiment should be triggered from.
             TriggerSource : TriggerSource
             /// How many times to run the experiment at each increment and phase.
-            ShotsPerPoint : int }
+            ShotsPerPoint : uint16 }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the

@@ -282,6 +282,35 @@ module Model =
             | Segment of Segment
             | Sequence of Sequence
 
+        /// A state which can either be low or high.
+        type LowHighState = Low | High
+
+        /// The mode of a continuous trigger in the dual ARB system.  "Free" means that playback begins
+        /// immediately once the ARB is turned on, without waiting for a trigger, then repeats that
+        /// waveform until something tells it to stop, and ignore subsequent triggers.  "Trigger" does
+        /// the same, but waits for an initial trigger.  "Reset" is like "Trigger", but subsequent triggers
+        /// reset the waveform to the beginning.
+        type ArbContinuousMode =
+            | ArbContinuousFree
+            | ArbContinuousTrigger
+            | ArbContinuousReset
+
+        /// The mode of a segment advance type trigger in the dual ARB system.  "Single" means that on
+        /// trigger, the next segment in the sequence plays once, ignoring the repetition count listed in
+        /// its sequence.  Sequence repetitions are NOT ignored.  "Continuous" means that the segment plays
+        /// in a loop until the next trigger moves it on.  This also ignores the repetition count of the
+        /// segment.
+        type ArbSegmentAdvanceMode =
+            | ArbSegmentAdvanceSingle
+            | ArbSegmentAdvanceContinuous
+
+        /// The type of triggering to use for the dual ARB system.
+        type ArbTrigger =
+            | Continuous of mode : ArbContinuousMode
+            | Single of repeats : uint16
+            | Gate of polarity : LowHighState
+            | SegmentAdvance of mode : ArbSegmentAdvanceMode
+
     [<AutoOpen>]
     module Experiment =
         // Define some type aliases for the pulse types so that it's simple to update the model
@@ -307,13 +336,13 @@ module Model =
             Pulses : Pulse seq
             Repetitions : int
             Triggering : TriggerSource
-            ShotsPerPoint : int }
+            ShotsPerPoint : uint16 }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
             StoredExperiments: StoredWaveform array
             StoredWaveforms  : StoredWaveform array
-            ShotsPerPoint : int
+            ShotsPerPoint : uint16
             Triggering : TriggerSource }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.

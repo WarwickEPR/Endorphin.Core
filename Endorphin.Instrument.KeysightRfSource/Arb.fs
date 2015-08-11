@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open System
+open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module ARB =
@@ -81,6 +82,107 @@ module ARB =
         let private dualArbSaveHeaderKey = ":RADIO:ARB:HEADER:SAVE"
         /// Save the current dual ARB settings to the header file of the currently selected waveform.
         let setHeaderFile = IO.writeKey dualArbSaveHeaderKey
+
+        [<AutoOpen>]
+        module Trigger =
+            /// Key for the type of the dual ARB system's trigger.
+            /// Command reference p.347.
+            let private arbTriggerTypeKey = ":RADIO:ARB:TRIGGER:TYPE"
+
+            /// Key for the mode of the continuous trigger of the dual ARB system.
+            /// Command reference p.349.
+            let private arbContinuousModeKey = ":RADIO:ARB:TRIGGER:TYPE:CONTINUOUS"
+
+            /// Key for the number of repeats in the dual ARB single trigger mode.
+            /// Command reference p.351.
+            let private arbSingleRepeatsKey = ":RADIO:ARB:TRIGGER:TYPE:SINGLE:REPEAT"
+
+            /// Key for the polarity of the gate-type trigger of the dual ARB system.
+            /// Command reference p.350.
+            let private arbGatePolarityKey = ":RADIO:ARB:TRIGGER:TYPE:GATE"
+
+            /// Key for the mode of the segment advance type trigger of the dual ARB system.
+            /// Command reference p.350.
+            let private arbSegmentAdvanceModeKey = ":RADIO:ARB:TRIGGER:TYPE:SADVANCE"
+
+            /// Get a machine-readable string representation of the ARB trigger type.
+            let private arbTriggerTypeString = function
+                | Continuous _ -> "CONT"
+                | Single _ -> "SING"
+                | Gate _ -> "GATE"
+                | SegmentAdvance _ -> "SADV"
+
+            /// Convert an internal representation of the continuous type mode of the dual ARB triggering
+            /// system into a machine representation.
+            let private arbContinuousModeString = function
+                | ArbContinuousFree -> "FREE"
+                | ArbContinuousTrigger -> "TRIGGER"
+                | ArbContinuousReset -> "RESET"
+
+            /// Convert a machine representation of the continuous type mode of the dual ARB triggering
+            /// system into an internal representation.
+            let private parseArbContinuousMode str =
+                match String.toUpper str with
+                | "FREE" -> ArbContinuousFree
+                | "TRIG" | "TRIGGER" -> ArbContinuousTrigger
+                | "RES" | "RESET" -> ArbContinuousReset
+                | _ -> failwithf "Unexpected ARB continuous mode trigger type string: %s" str
+
+            /// Convert an internal representation of the segment advance type mode of the dual ARB
+            /// triggering system into a machine representation.
+            let private arbSegmentAdvanceModeString = function
+                | ArbSegmentAdvanceSingle -> "SINGLE"
+                | ArbSegmentAdvanceContinuous -> "CONTINUOUS"
+
+            /// Convert a machine representation of the segment advance type mode of the dual ARB
+            /// triggering system into a machine representation.
+            let private parseArbSegmentAdvanceMode str =
+                match String.toUpper str with
+                | "SING" | "SINGLE" -> ArbSegmentAdvanceSingle
+                | "CONT" | "CONTINUOUS" -> ArbSegmentAdvanceContinuous
+                | _ -> failwithf "Unexpected ARB segment advance mode trigger type string: %s" str
+
+            /// Set the type of the ARB trigger to the given type.
+            let internal setArbTriggerType = IO.setValueString arbTriggerTypeString arbTriggerTypeKey
+
+            /// Set the mode of the dual ARB continuous trigger.
+            let internal setArbContinuousMode = IO.setValueString arbContinuousModeString arbContinuousModeKey
+            /// Set the number of repeats per point in the dual ARB single trigger mode.
+            let internal setArbSingleRepeats = IO.setUint16 arbSingleRepeatsKey
+            /// Set the polarity of the gating trigger in the dual ARB system.
+            let internal setArbGatePolarity = IO.setLowHighState arbGatePolarityKey
+            /// Set the mode of the segment advance trigger of the dual ARB system.
+            let internal setArbSegmentAdvanceMode =
+                IO.setValueString arbSegmentAdvanceModeString arbSegmentAdvanceModeKey
+
+            /// Set the dual ARB trigger to have the value given.
+            let setArbTrigger instrument trigger = asyncChoice {
+                do! setArbTriggerType instrument trigger
+                match trigger with
+                | Continuous mode     -> do! setArbContinuousMode instrument mode
+                | Single reps         -> do! setArbSingleRepeats instrument reps
+                | Gate polarity       -> do! setArbGatePolarity instrument polarity
+                | SegmentAdvance mode -> do! setArbSegmentAdvanceMode instrument mode }
+
+            /// Query the currently set value of the dual ARB system triggering.
+            let queryArbTrigger instrument = asyncChoice {
+                let helper str =
+                    match String.toUpper str with
+                        | "CONT" | "CONTINUOUS" ->
+                            IO.queryValue parseArbContinuousMode arbContinuousModeKey instrument
+                            |> AsyncChoice.map ArbTrigger.Continuous
+                        | "SING" | "SINGLE" ->
+                            IO.queryUint16 arbSingleRepeatsKey instrument
+                            |> AsyncChoice.map ArbTrigger.Single
+                        | "GATE" ->
+                            IO.queryLowHighState arbGatePolarityKey instrument
+                            |> AsyncChoice.map ArbTrigger.Gate
+                        | "SADV" | "SADVANCE" ->
+                            IO.queryValue parseArbSegmentAdvanceMode arbSegmentAdvanceModeKey instrument
+                            |> AsyncChoice.map ArbTrigger.SegmentAdvance
+                        | str -> failwithf "Unexpected ARB trigger type string: %s" str
+                let! triggerType = IO.queryValue (fun str -> str) arbTriggerTypeKey instrument
+                return! helper triggerType }
 
     /// Functions for encoding segments and samples into a writeable form.
     [<AutoOpen>]

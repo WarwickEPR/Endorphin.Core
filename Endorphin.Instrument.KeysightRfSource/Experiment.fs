@@ -72,7 +72,7 @@ module Experiment =
                         fail "Must do the experiment at least once!"
                     else
                         succeed ()
-                do! if experiment.ShotsPerPoint < 1 then
+                do! if experiment.ShotsPerPoint = 0us then
                         fail "Must have at least one shot per point!"
                     else
                         succeed ()

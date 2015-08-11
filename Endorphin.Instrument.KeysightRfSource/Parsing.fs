@@ -120,6 +120,20 @@ module internal Parsing =
         | Square   -> "SQU"
         | Ramp _   -> "RAMP"
 
+    /// Convert an internal representation of a low/high state into a machine
+    /// representation.
+    let lowHighStateString = function
+        | Low -> "LOW"
+        | High -> "HIGH"
+
+    /// Convert a machine representation of a low/high state into an internal
+    /// representation.
+    let parseLowHighState str =
+        match String.toUpper str with
+        | "LOW" -> Low
+        | "HIGH" -> High
+        | _ -> failwithf "Unexpected low/high state string: %s" str
+
     /// Make an ASCII string out of an object's ToString() method.
     let asciiString obj =
         obj.ToString() |> System.Text.Encoding.ASCII.GetBytes
