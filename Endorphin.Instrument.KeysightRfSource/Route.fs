@@ -41,7 +41,6 @@ module Route =
 
         /// Convert an internal representation of a common system routing into a machine representation.
         let private systemOutputSignalCommonString = function
-            | RouteSweepOut -> "SWEEP"
             | RouteSourceSettled -> "SETTLED"
             | RoutePulseVideo -> "PVIDEO"
             | RoutePulseSync -> "PSYNC"
@@ -49,6 +48,7 @@ module Route =
 
         /// Convert an internal representation of a sweep out-only routing into a machine representation.
         let private systemOutputSignalSweepOutString = function
+            | RouteSweepOut -> "SWEEP"
             | RouteSweepRun -> "SRUN"
 
         /// Convert an internal representation of a sweep out routing into a machine representation.
@@ -60,6 +60,7 @@ module Route =
 
         /// Convert an internal representation of a trigger-only routing into a machine representation.
         let private systemOutputSignalTriggerString = function
+            | RouteSweepTriggerOut -> "SWEEP"
             | RouteLxi -> "LXI"
             | RoutePulseBnc -> "PULSE"
             | RouteOtherTrigger -> "TRIG"
@@ -74,11 +75,11 @@ module Route =
         /// Convert a machine representation of a sweep out routing into an internal representation.
         let parseSweepOutSignal str =
             match String.toUpper str with
-            | "SWE" | "SWEEP"     -> RouteSweepOut          :> ISweepOutSignal
             | "SETT" | "SETTLED"  -> RouteSourceSettled     :> ISweepOutSignal
             | "PVID" | "PVIDEO"   -> RoutePulseVideo        :> ISweepOutSignal
             | "PSYN" | "PSYNC"    -> RoutePulseSync         :> ISweepOutSignal
             | "SFD" | "SFDONE"    -> RouteSweptFunctionDone :> ISweepOutSignal
+            | "SWE" | "SWEEP"     -> RouteSweepOut          :> ISweepOutSignal
             | "SRUN"              -> RouteSweepRun          :> ISweepOutSignal
             | "NONE"              -> NoOutputSignal         :> ISweepOutSignal
             | _ -> failwithf "Unexpected sweep out signal string: %s" str
@@ -86,11 +87,11 @@ module Route =
         /// Convert a machine representation of a trigger routing into an internal representation.
         let parseTriggerSignal str =
             match String.toUpper str with
-            | "SWE" | "SWEEP"     -> RouteSweepOut          :> ITriggerSignal
             | "SETT" | "SETTLED"  -> RouteSourceSettled     :> ITriggerSignal
             | "PVID" | "PVIDEO"   -> RoutePulseVideo        :> ITriggerSignal
             | "PSYN" | "PSYNC"    -> RoutePulseSync         :> ITriggerSignal
             | "SFD" | "SFDONE"    -> RouteSweptFunctionDone :> ITriggerSignal
+            | "SWE" | "SWEEP"     -> RouteSweepTriggerOut   :> ITriggerSignal
             | "LXI"               -> RouteLxi               :> ITriggerSignal
             | "PULS" | "PULSE"    -> RoutePulseBnc          :> ITriggerSignal
             | "TRIG" | "TRIGGER1" | "TRIGGER2"
