@@ -425,7 +425,7 @@ module Model =
             interface ITriggerSignal
 
         /// A complete set of output routings to write to the machine.
-        type OutputRouting = {
+        type OutputRouting = internal {
             BbTrig1  : IUserOutputSignal
             BbTrig2  : IUserOutputSignal
             Event1   : IUserOutputSignal

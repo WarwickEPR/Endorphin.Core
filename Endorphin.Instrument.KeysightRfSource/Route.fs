@@ -109,6 +109,37 @@ module Route =
             | _ -> failIncorrectType signal
 
     [<AutoOpen>]
+    module Configure =
+        /// The default output routing that the machine would use after a *RST? command.
+        let defaultOutputRouting = {
+            BbTrig1  = RouteMarker2
+            BbTrig2  = NoOutputSignal
+            Event1   = RouteMarker1
+            PatTrig  = NoOutputSignal
+            SweepOut = RouteSweepOut
+            Trig1    = NoOutputSignal
+            Trig2    = RouteSweepTriggerOut }
+
+        /// Set the routing of the BBTRIG1 connector.
+        let withBasebandTrigger1 value routing = { routing with BbTrig1 = value }
+        /// Set the routing of the BBTRIG2 connector.
+        let withBasebandTrigger2 value routing = { routing with BbTrig2 = value }
+
+        /// Set the routing of the EVENT1 connector.
+        let withEvent1 value routing = { routing with Event1 = value }
+
+        /// Set the routing of the PATTRIG connector.
+        let withPatternTrigger value routing = { routing with PatTrig = value }
+
+        /// Set the routing of the SWEEPOUT connector.
+        let withSweepOut value routing = { routing with SweepOut = value }
+
+        /// Set the routing of the TRIG1 connector.
+        let withTrigger1 value routing = { routing with Trig1 = value }
+        /// Set the routing of the TRIG2 connector.
+        let withTrigger2 value routing = { routing with Trig2 = value }
+
+    [<AutoOpen>]
     module Control =
         /// Key to control the output routing of the BBTRIG 1 BNC.
         /// Command reference p.164.
