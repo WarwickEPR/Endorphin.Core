@@ -190,7 +190,6 @@ module Route =
                 else routing.Input.PatTrig2
             { routing with Input = { PatTrig1 = patTrig1; PatTrig2 = patTrig2 } }
 
-
         /// Set the routing of the BBTRIG1 connector. Overwrites any inputs set to come into this BNC.
         let withBasebandTrigger1 value routing =
             let routing' = unsetRequiredInputs RouteBasebandTrigger1 routing
