@@ -1,0 +1,26 @@
+﻿           GetSerialNumber (out long),      pointer to a long int, void
+		   ChangeChannel(string, byte),     string: Device ID, byte: channel
+		   CheckChannel(byte)
+		   GetIdentification(out string),   pointer to a string
+		   GetTemperature(out float)        pointer to a float
+s       -> GetCommandList (out string[]),   pointer to an array of strings, void
+setk    -> ChangeChannel (string,byte),     string:ID ,Byte:channel, void
+cloop   -> 
+set     ->
+setall  ->
+rk      ->
+measure ->
+monwpa 	->
+fenable	-> 
+fready	-> SetSoftStart(bool), boolean for on or off
+encmode	-> GetEncoder(out Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode, out int, out int, out byte, out float, out float),    pointers to: ???, int time in milliseconds, int steplimit, byte exponent, float closedstep, float openstep
+		   SetEncoder(Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode, int, int, byte, float, float)
+enctime	-> ""
+enclim	-> ""
+encexp	-> ""
+encstol	-> ""
+enstcl	-> ""
+ver		-> GetVersion (out int, out int, out int, out System.Datetime) ?????????????
+ERR?    -> GetCommandError (out string),      pointer to string, void
+light   -> GetDisplayBrightness (out byte),   pointer to a byte, void  
+		   SetDisplayBrightness (byte),       void
