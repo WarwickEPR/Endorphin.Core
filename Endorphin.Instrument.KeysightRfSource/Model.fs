@@ -381,6 +381,8 @@ module Model =
         type ITriggerSignal = interface inherit ISignal end
         /// A signal which is either a marker channel, or no channel.
         type IMarkerSignal = interface inherit ISignal end
+        /// A signal input from one of the specifically user-controlled BNCs.
+        type IUserBncSignal = interface inherit ISignal end
 
         /// Type to denote that no output signal is being sent through a connector.
         type NoSignal =
@@ -389,6 +391,7 @@ module Model =
             interface ISweepOutSignal
             interface ITriggerSignal
             interface IMarkerSignal
+            interface IUserBncSignal
 
         /// A marker signal output.
         type UserSignalMarker =
@@ -428,8 +431,16 @@ module Model =
             | RouteOtherTrigger
             interface ITriggerSignal
 
+        /// A signal coming from one of the user-controlled BNCs.
+        type UserBnc =
+            | RouteBasebandTrigger1
+            | RouteBasebandTrigger2
+            | RouteEvent1
+            | RoutePatternTrigger
+            interface IUserBncSignal
+
         /// A complete set of output routings to write to the machine.
-        type OutputRouting = internal {
+        type internal OutputRouting = {
             BbTrig1  : IUserSignal
             BbTrig2  : IUserSignal
             Event1   : IUserSignal
@@ -438,12 +449,23 @@ module Model =
             Trig1    : ITriggerSignal
             Trig2    : ITriggerSignal }
 
+        /// A complete set of input routings to write to the machine.
+        type internal InputRouting = {
+            PatTrig1 : IUserBncSignal
+            PatTrig2 : IUserBncSignal }
+
         /// A set of internal routings for marker channels.  The same marker can be routed both
         /// internally and externally simultaneously.
-        type InternalRouting = internal {
+        type internal InternalRouting = {
             AltAmplitude : IMarkerSignal
             AlcHold      : IMarkerSignal
             RfBlank      : IMarkerSignal }
+
+        /// A complete set of routings for the machine.
+        type Routing = internal {
+            Output   : OutputRouting
+            Input    : InputRouting
+            Internal : InternalRouting }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {
