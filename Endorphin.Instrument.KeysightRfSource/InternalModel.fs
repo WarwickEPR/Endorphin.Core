@@ -35,10 +35,8 @@ module internal InternalModel =
             PulsesCount : int
             /// How many phases there are in the phase cycle.
             RfPhaseCount : int option
-            /// Where the next point of the experiment should be triggered from.
-            TriggerSource : TriggerSource
-            /// How many times to run the experiment at each increment and phase.
-            ShotsPerPoint : uint16 }
+            /// How long to wait before firing the next shot.
+            ShotRepetitionTime : SampleCount }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the

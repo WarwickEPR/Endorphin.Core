@@ -8,6 +8,9 @@ module ARB =
     /// Minimum number of samples needed for a valid Segment on the machine.
     let minimumSegmentLength = 60u
 
+    /// The shortest length of time a pulse can be, measured in seconds.
+    let shortestPulseDuration = (2.0e-8<s>)/3.0
+
     /// Functions for configuring samples.
     [<AutoOpen>]
     module Configure =

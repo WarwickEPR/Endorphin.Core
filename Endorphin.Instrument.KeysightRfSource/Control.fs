@@ -201,10 +201,8 @@ module Control =
                 |> Seq.map (fun (id, exp) -> (id, toRegularSequence exp))
                 |> storeSequenceSequenceById instrument
             return {
-                StoredExperiments= storedExperiments
-                StoredWaveforms  = Array.append storedSegments storedSequences
-                ShotsPerPoint = encoded.Metadata.ShotsPerPoint
-                Triggering = encoded.Metadata.TriggerSource } }
+                StoredExperiments = storedExperiments
+                StoredWaveforms   = Array.append storedSegments storedSequences } }
 
     [<AutoOpen>]
     module Delete =

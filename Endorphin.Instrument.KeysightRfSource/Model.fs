@@ -358,15 +358,12 @@ module Model =
         type Experiment = {
             Pulses : Pulse seq
             Repetitions : int
-            Triggering : TriggerSource
-            ShotsPerPoint : uint16 }
+            ShotRepetitionTime : Duration }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
             StoredExperiments: StoredWaveform array
-            StoredWaveforms  : StoredWaveform array
-            ShotsPerPoint : uint16
-            Triggering : TriggerSource }
+            StoredWaveforms  : StoredWaveform array }
 
     [<AutoOpen>]
     module Route =

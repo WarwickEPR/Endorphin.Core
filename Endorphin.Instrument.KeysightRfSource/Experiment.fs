@@ -65,6 +65,16 @@ module Experiment =
                     |> checkPhaseCycles
                     |> Choice.liftInsideOption
 
+            /// Convert a duration in seconds into a SampleCount.
+            let private shotRepetitionSampleCount (DurationInSec time) =
+                if time < 0.0<s> then
+                    fail "Must have a non-negative shot repetition time!"
+                else
+                    time / shortestPulseDuration
+                    |> uint32
+                    |> SampleCount
+                    |> succeed
+
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify experiment = choice {
@@ -72,11 +82,12 @@ module Experiment =
                         fail "Must do the experiment at least once!"
                     else
                         succeed ()
-                do! if experiment.ShotsPerPoint = 0us then
-                        fail "Must have at least one shot per point!"
-                    else
-                        succeed ()
-                let pulses = experiment.Pulses |> List.ofSeq
+                let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
+                let shotRepPulse = Delay (shotRepetitionTime, SampleCount 0u)
+                let pulses =
+                    experiment.Pulses
+                    |> Seq.appendSingleton shotRepPulse
+                    |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
                 let! rfPhaseCount = countRfPhases rfPulses
                 return {
@@ -85,8 +96,7 @@ module Experiment =
                     { ExperimentRepetitions = experiment.Repetitions
                       PulsesCount = pulses.Length
                       RfPhaseCount = rfPhaseCount
-                      TriggerSource = experiment.Triggering
-                      ShotsPerPoint = experiment.ShotsPerPoint } } }
+                      ShotRepetitionTime = shotRepetitionTime } } }
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
