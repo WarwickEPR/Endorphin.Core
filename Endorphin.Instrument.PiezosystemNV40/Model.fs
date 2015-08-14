@@ -5,6 +5,14 @@ open Endorphin.Core
 
 [<AutoOpen>]
 module Model = 
+    
+
+    type internal serialConnection = {
+        BaudRate: int
+        DataBits: int
+        StopBits: Piezojena.Protocols.SerialStopBitsKind
+        Parity: Piezojena.Protocols.SerialParity
+        FlowControl: Piezojena.Protocols.SerialFlowControls }
 
     type Channel = 
         | Channel1
@@ -22,8 +30,8 @@ module Model =
         | Closedloop
         | Openloop
 
-    type Posistion = 
-        | X of x : float<um>
-        | Y of y : float<um>
-        | Z of z : float<um>
+    type ActuatorPosition = 
+        | PositionX 
+        | PositionY 
+        | PositionZ 
 

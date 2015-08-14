@@ -15,6 +15,17 @@ module Parsing =
         | 00000011uy -> Channel3
         | uy         -> failwithf "Not a valid channel: %A" uy
 
+    let actuatorPositionEnum = function
+        | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
+        | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
+        | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
+
+    let parseActuatorPosition= function
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X -> PositionX
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y -> PositionY
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z -> PositionZ
+        | _ -> failwithf "Not a valid coordinate axis."
+
     let modeEncoderMode = function
         | Normal               ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal               
         | Interval             ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval     
@@ -25,3 +36,6 @@ module Parsing =
         |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval                 -> Interval            
         |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration -> IntervalAcceleration
         |  str -> failwithf "Not a valid mode: %A" str
+
+
+
