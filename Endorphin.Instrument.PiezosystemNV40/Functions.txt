@@ -4,6 +4,7 @@
 		   GetIdentification(out string),   pointer to a string
 		   GetTemperature(out float)        pointer to a float
 		   GetActuatorCoordinate(out Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate)
+		   SetSoftStart(bool), use to initialise device. 
 s       -> GetCommandList (out string[]),   pointer to an array of strings, void
 setk    -> ChangeChannel (string,byte),     string:ID ,Byte:channel, void
 cloop   -> 

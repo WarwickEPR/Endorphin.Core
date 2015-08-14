@@ -6,6 +6,13 @@ open Endorphin.Core
 [<AutoOpen>]
 module Model = 
    
+    type Piezojena = Piezojena of Piezojena : string
+    let identification (Piezojena ID) = ID 
+
+    type PiezojenaInformation = {
+        SerialString : string  
+        Version :        }
+
     type internal serialConnection = {
         BaudRate: int
         DataBits: int
@@ -26,11 +33,12 @@ module Model =
     type Voltage = Voltage of Voltage : float<V>
 
     type Loop = 
-        | Closedloop
-        | Openloop
+        | ClosedLoop
+        | OpenLoop
 
     type ActuatorPosition = 
         | PositionX 
         | PositionY 
         | PositionZ 
+        | PositionNone
 

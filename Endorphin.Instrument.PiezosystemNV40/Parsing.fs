@@ -19,11 +19,15 @@ module Parsing =
         | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
         | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
         | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
+        | PositionNone -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None
 
     let parseActuatorPosition= function
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X -> PositionX
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y -> PositionY
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z -> PositionZ
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X     -> PositionX
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y     -> PositionY
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z     -> PositionZ
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Phi   -> failwithf "Phi positioning not avalible."
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Theta -> failwithf "Theta positioning not avalible."
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
         | _ -> failwithf "Not a valid coordinate axis."
 
     let modeEncoderMode = function
@@ -37,5 +41,11 @@ module Parsing =
         |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval                 -> Interval            
         |  str -> failwithf "Not a valid mode: %A" str
 
+    let loopBoolean = function
+        | OpenLoop  -> false
+        | ClosedLoop -> true 
 
-
+    let parseLoop = function
+        | false -> OpenLoop
+        | true  -> ClosedLoop
+        | _ -> failwithf "Not a valid boolean."
