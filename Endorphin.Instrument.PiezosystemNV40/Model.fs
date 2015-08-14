@@ -5,8 +5,7 @@ open Endorphin.Core
 
 [<AutoOpen>]
 module Model = 
-    
-
+   
     type internal serialConnection = {
         BaudRate: int
         DataBits: int
@@ -20,10 +19,10 @@ module Model =
         | Channel3
     
     type Mode = 
-        | Normal                  
+        | Normal    
+        | IntervalWithAcceleration              
         | Interval                  
-        | IntervalAcceleration 
-
+ 
     type Voltage = Voltage of Voltage : float<V>
 
     type Loop = 
