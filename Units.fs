@@ -157,3 +157,46 @@ module Units =
         module Microvolts =                  
             let toVolts      (v : float<uV>) = v * voltsPerMicroVolt
             let toMillivolts (v : float<uV>) = v * millivoltsPerMicroVolt
+
+    [<AutoOpen>]
+    module Distance = 
+        [<Measure>] type mm
+        [<Measure>] type um
+        [<Measure>] type nm
+
+        let metresPerMillimetre = 1.0e-3<m/mm>
+        let metresPerMicrometre = 1.0e-6<m/um>
+        let metresPerNanometre  = 1.0e-9<m/nm>
+
+        let millimetresPerMetre      = 1.0e3<m/mm>
+        let millimetresPerMicrometre = 1.0e-3<m/um>
+        let millimetresPerNanometre  = 1.0e-6<m/nm>
+        
+        let micrometresPerMetre      = 1.0e6<m/mm>
+        let micrometresPerMillimetre = 1.0e3<m/um>
+        let micrometresPerNanometre  = 1.0e-3<m/nm>
+
+        let nanometresPerMetre      = 1.0e9<m/mm>
+        let nanometresPerMillimetre = 1.0e6<m/um>
+        let nanometresPerMicrometre = 1.0e3<m/nm>
+
+        module Metres =
+            let toMillimetres (t : float<s>) = t * metresPerMillimetre
+            let toMicrometres (t : float<s>) = t * metresPerMicrometre
+            let toNanometres  (t : float<s>) = t * metresPerNanometre 
+            
+        module Millimetres =
+           let toMetres (t : float<s>)      = t *  millimetresPerMetre     
+           let toMicrometres (t : float<s>) = t *  millimetresPerMicrometre
+           let toNanometres  (t : float<s>) = t *  millimetresPerNanometre 
+      
+        module Micrometres =
+           let toMetres (t : float<s>)      = t * micrometresPerMetre     
+           let toMillimetres (t : float<s>) = t * micrometresPerMillimetre
+           let toNanometres  (t : float<s>) = t * micrometresPerNanometre 
+      
+        module Nanometres =
+            let toMetres (t : float<s>)       = t * nanometresPerMetre      
+            let toMillimetres (t : float<s>)  = t * nanometresPerMillimetre 
+            let toMicrometres  (t : float<s>) = t * nanometresPerMicrometre 
+            
