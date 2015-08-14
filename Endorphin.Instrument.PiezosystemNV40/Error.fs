@@ -3,6 +3,7 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 
+[<AutoOpen>]
 module Error =    
     
     type Error =
@@ -33,8 +34,7 @@ module Error =
         | Underload                 -> "Value out of range, undershoot."
         | TemperatureOutofRange     -> "Temperature out range."
         | _                         -> failwithf "Invalid error."
-
-                                                                                                                                         
+                                                                                                                                  
     let (|Ok|Error|) = function
         | Error.NoError -> Ok  
         | errorCode     -> Error (statusStrings errorCode)

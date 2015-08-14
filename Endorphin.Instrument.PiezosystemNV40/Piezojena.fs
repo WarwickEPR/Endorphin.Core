@@ -47,8 +47,7 @@ module Piezojena =
     let identification (Piezojena ID) = ID 
     
     module PiezojenaInformation= 
-  
 
     let identificationString = 
         let identification = StringBuilder (8) 
-        Piezojena.Protocols.Nv40Multi.Nv40MultiCommon GetIdentification (identification)
+
