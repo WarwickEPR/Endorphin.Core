@@ -14,7 +14,7 @@ module Error =
         | Underload
         | TemperatureOutofRange
 
-    let errorMap = function
+    let private errorMap = function
         | Piezojena.Protocols.Nv40Multi.Nv40MultiErrors.None                      -> NoError
         | Piezojena.Protocols.Nv40Multi.Nv40MultiErrors.ActuatorNotPluggedIn      -> ActuatorUnplugged
         | Piezojena.Protocols.Nv40Multi.Nv40MultiErrors.WrongActuatorType         -> WrongActuatorType

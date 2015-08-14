@@ -23,8 +23,8 @@ module Piezojena =
     let log = log4net.LogManager.GetLogger "PicoHarp 300"
 
     /// Logs the PicoHarp.
-    let internal logDevice (picoHarp : PicoHarp300) message =
-        sprintf "[%A] %s" picoHarp message |> log.Info
+    let internal logDevice (piezojena : Piezojena) message =
+        sprintf "[%A] %s" piezojena message |> log.Info
 
     /// Logs a success or failure message based on result of function. 
     let internal logQueryResult successMessageFunc failureMessageFunc input =
@@ -34,15 +34,15 @@ module Piezojena =
         input 
         
     /// Logs a success or failure message based on result of function using the PicoHarp's index.
-    let internal logDeviceQueryResult (picoHarp : PicoHarp300) successMessageFunc failureMessageFunc =
+    let internal logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
         logQueryResult 
-            (fun value -> sprintf "[%A] %s" picoHarp (successMessageFunc value))
-            (fun error -> sprintf "[%A] %s" picoHarp (failureMessageFunc error))
+            (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
+            (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
 
     let internal logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
     
     /// The device index. 
-    let internal index (PicoHarp300 h) = h
+    let identification (Piezojena ID) = ID 
     
     module initialise =     
        
