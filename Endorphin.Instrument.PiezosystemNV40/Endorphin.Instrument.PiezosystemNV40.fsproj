@@ -51,12 +51,12 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Errors.fs" />
+    <Compile Include="Error.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="Piezojena.fs" />
     <None Include="Script.fsx" />
     <Content Include="Functions.txt" />
-    <Compile Include="Piezojenafs.fs" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>

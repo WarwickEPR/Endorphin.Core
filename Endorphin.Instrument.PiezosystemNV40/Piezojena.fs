@@ -5,6 +5,8 @@ open System.Text
 open Endorphin.Core
 open log4net 
 open ExtCore.Control
+open ExtCore.Control.Choice
+open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
 module Piezojena = 
@@ -44,33 +46,9 @@ module Piezojena =
     /// The device index. 
     let identification (Piezojena ID) = ID 
     
-    module initialise =     
-       
-       /// Returns the device index of a PicoHarp using serial number.
-       /// Stops recursion after deviceIndex > 7 as allowed values are 0..7. 
-        let rec private getDeviceIndex (serial:string) (deviceIndex) = 
-            if deviceIndex > 7 then failwithf "No PicoHarp found."
-            else     
-                let picoHarp300 = PicoHarp300 deviceIndex 
-                let serialNumber = StringBuilder (8)
-                let check = NativeApi.OpenDevice (index picoHarp300, serialNumber) 
-                            |> checkStatus
-                if (serial = string(serialNumber)) then
-                     deviceIndex
-                else 
-                    getDeviceIndex serial (deviceIndex + 1)   
-        
-        let private indexPico (serial:string) = getDeviceIndex serial 0
-        ///  Gets device index, starts with device index 0.
-        let picoHarp (serial:string) = PicoHarp300 (indexPico serial)
+    module PiezojenaInformation= 
+  
 
-        /// Opens the PicoHarp.
-        let openDevice picoHarp300 = 
-            let serial = StringBuilder (8)
-            logDevice picoHarp300 "Opening device."
-            NativeApi.OpenDevice (index picoHarp300, serial) 
-            |> checkStatus 
-            |> logDeviceOpResult picoHarp300 
-                ("Successfully opened the PicoHarp.")
-                (sprintf "Failed to open the PicoHarp: %A.")
-            |> AsyncChoice.liftChoice
+    let identificationString = 
+        let identification = StringBuilder (8) 
+        Piezojena.Protocols.Nv40Multi.Nv40MultiCommon GetIdentification (identification)
