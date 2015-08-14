@@ -56,9 +56,9 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="Piezojena.fs" />
     <None Include="Script.fsx" />
-    <Content Include="Functions.txt" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
+    <Content Include="Functions.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">

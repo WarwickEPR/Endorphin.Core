@@ -48,6 +48,4 @@ module Piezojena =
     
     module PiezojenaInformation= 
 
-    let identificationString = 
-        let identification = StringBuilder (8) 
 
