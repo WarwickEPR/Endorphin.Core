@@ -6,16 +6,16 @@ module Parsing =
     
     /// Converts type channel into bytes. 
     let channelByte = function
-        | Channel1 -> 00000001uy 
-        | Channel2 -> 00000010uy 
-        | Channel3 -> 00000011uy
+        | Channel1 -> 1uy 
+        | Channel2 -> 2uy 
+        | Channel3 -> 3uy
      
     /// Converts channel bytes into type channel.  
     let parseChannel = function
-        | 00000001uy -> Channel1
-        | 00000010uy -> Channel2
-        | 00000011uy -> Channel3
-        | uy         -> failwithf "Not a valid channel: %A" uy
+        | 1uy -> Channel1
+        | 2uy -> Channel2
+        | 3uy -> Channel3
+        | xuy         -> failwithf "Not a valid channel: %A" xuy
 
     /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
     let actuatorPositiontoCoordinate = function

@@ -11,10 +11,18 @@ module Model =
     /// Extracts the string ID from the type Piezojena.
     let identification (Piezojena ID) = ID 
 
+    /// Type used to store software version, version in the form Major.Minor.Build.
+    /// Also stroes the time at which the software version was retrieved.
+    type Version = {
+        Major: int
+        Minor: int
+        Build: int
+        Date: System.DateTime}
+
     /// Type containing Piezojena information.
     type PiezojenaInformation = {
-        SerialString : string  
-        Version :        }
+        SerialString: string  
+        Version: Version}
     
     /// Type containing information nessesary to setup a serial connection with the Piezojena.
     type internal serialConnection = {
