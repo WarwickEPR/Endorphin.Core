@@ -20,7 +20,7 @@ module NativeApi =
     
     [<DllImport(dllName, EntryPoint = "GetSerialNumber")>]
     /// Retrieves the Piezojena's serial number.
-    extern void GetSerialNumber([<Out>] int& serial)
+    extern void GetSerialNumber(int& serial)
     
     [<DllImport(dllName, EntryPoint = "GetVersion")>]
     /// Retrieves the Piezojena's version along with the time the version was retrieved.

@@ -60,13 +60,42 @@ module PiezojenaNV40 =
             |> stringtoStatus 
             |> checkStatus 
             |> logDeviceOpResult piezojena 
-                ("Successfully retrieves the Piezojena's identification string.")
+                ("Successfully retrieved the Piezojena's identification string.")
                 (sprintf "Failed to retrieve the Piezojena's identification string: %A ")
             |> AsyncChoice.liftChoice 
+        
+        /// Retrieves Piezojena serial number. 
+        let getSerialNumber piezojena = 
+            let mutable serial : int = Unchecked.defaultof<_>
+            let errorString = StringBuilder (8)
+            logDevice piezojena "Retrieving Piezojena's serial number."
+            NativeApi.GetSerialNumber (&serial)
+            let error = string (NativeApi.GetCommandError (errorString))
+            error
+            |> stringtoStatus 
+            |> checkStatus 
+            |> logDeviceOpResult piezojena 
+                ("Successfully retrieved the Piezojena's serial number.")
+                (sprintf "Failed to retrieve the Piezojena's serial number: %A ")
+            |> AsyncChoice.liftChoice 
 
-        let getSerialNumber = 
-            let serial = 
-   
+        /// Retrieves the Piezojena's software version, uses three pointers to major, minor and build.
+        /// Version of form major.minor.build
+        let getVersion piezojena = 
+            let mutable major : int = Unchecked.defaultof<_>
+            let mutable minor : int = Unchecked.defaultof<_>
+            let mutable build : int = Unchecked.defaultof<_>
+            let mutable time : System.DateTime = Unchecked.defaultof<_>
+            let errorString = StringBuilder (8)
+            NativeApi.GetVersion (&major, &minor, &build, &time)
+            let error = string (NativeApi.GetCommandError (errorString))
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully retrieved software version.")
+                (sprintf "Failed to retrieve software version: %A")
+            |> AsyncChoice.liftChoice
     module EncoderScan = 
 
         // let openDevice picoHarp300 = 
