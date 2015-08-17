@@ -47,6 +47,9 @@ module Piezojena =
     let identification (Piezojena ID) = ID 
     
     module PiezojenaInformation = 
+    
+        let identification = StringBuilder (8)
+        let getIdentification = NativeApi.GetIdentification (identification)
 
     module EncoderScan = 
         
