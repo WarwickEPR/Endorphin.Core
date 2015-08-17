@@ -11,6 +11,7 @@ open Endorphin.Instrument.PiezosystemNV40
 
 module PiezojenaNV40 = 
     
+    [<AutoOpen>]
     module private Logger =
         
         let stringtoStatus = 
@@ -45,9 +46,10 @@ module PiezojenaNV40 =
         
         /// The device identification string. 
         let identification (Piezojena ID) = ID 
+            
+    module PiezojenaInformation = 
         
-        module PiezojenaInformation = 
-    
+        /// Retrieves Piezojena identification string. 
         let getIdentification piezojena = 
             let identification = StringBuilder (8)
             let errorString = StringBuilder (8)
@@ -60,6 +62,11 @@ module PiezojenaNV40 =
             |> logDeviceOpResult piezojena 
                 ("Successfully retrieves the Piezojena's identification string.")
                 (sprintf "Failed to retrieve the Piezojena's identification string: %A ")
+            |> AsyncChoice.liftChoice 
+
+        let getSerialNumber = 
+            let serial = 
+   
     module EncoderScan = 
 
         // let openDevice picoHarp300 = 
