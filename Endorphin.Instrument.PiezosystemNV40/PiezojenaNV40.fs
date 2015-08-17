@@ -80,7 +80,7 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice 
 
         /// Retrieves the Piezojena's software version, uses three pointers to major, minor and build.
-        /// Version of form major.minor.build
+        /// Version of form major.minor.build.
         let getVersion piezojena = 
             let mutable major : int = Unchecked.defaultof<_>
             let mutable minor : int = Unchecked.defaultof<_>
@@ -96,6 +96,39 @@ module PiezojenaNV40 =
                 ("Successfully retrieved software version.")
                 (sprintf "Failed to retrieve software version: %A")
             |> AsyncChoice.liftChoice
+    
+    module SetParameters = 
+        
+        /// Changes channel, requires the Piezojena's ID.
+        let changeChannel piezojena (channel:Channel) = 
+            let errorString = StringBuilder (8)
+            let byteChannel = Parsing.channelByte channel 
+            let id = identification piezojena
+            NativeApi.ChangeChannel (id, byteChannel)
+            let error = NativeApi.GetCommandError (errorString)
+            error 
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully changed channel.")
+                (sprintf "Failed to change channel: %A")
+            |> AsyncChoice.liftChoice
+
+        /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
+        let setLoopMode piezojena (channel:Channel) (mode:Loop) = 
+            let errorString = StringBuilder (8)
+            let byteChannel = Parsing.channelByte channel 
+            let modeBoolean = Parsing.loopBoolean mode
+            NativeApi.SetClosedLoopControlled (byteChannel, modeBoolean)
+            let error = string (NativeApi.GetCommandError (errorString))
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena 
+                ("Successfully set loop mode.")
+                (sprintf "Failed to set loop mode: %A")
+            |> AsyncChoice.liftChoice
+
     module EncoderScan = 
 
         // let openDevice picoHarp300 = 
