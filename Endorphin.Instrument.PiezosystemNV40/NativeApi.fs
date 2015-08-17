@@ -49,7 +49,7 @@ module NativeApi =
     [<DllImport(dllName, EntryPoint = "GetEncoder")>]
     /// Retrieves experiemnt parameters, the mode, the time, the exponent used to calculate the acceleration,
     /// and the distance step in closed and open loop modes. 
-    extern void GetEncoder([<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, [<Out>] int& timeMilliseconds, [<Out>] int& steplimit, [<Out>] byte& exponent, [<Out>] float& closedstep, [<Out>] float& openstep )    
+    extern void GetEncoder([<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode& mode, [<Out>] int& timeMilliseconds, [<Out>] int& steplimit, [<Out>] byte& exponent, [<Out>] float& closedstep, [<Out>] float& openstep )    
 
     [<DllImport(dllName, EntryPoint = "SetEncoder")>]
     /// Sets experiemnt parameters, the mode, the time, the exponent used to calculate the acceleration,
