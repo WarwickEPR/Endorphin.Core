@@ -12,42 +12,42 @@ module NativeApi =
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.GetIdentification")>]
     /// Retrieves the Piezojena's identification string.
-    extern Error GetIdentification(StringBuilder)
+    extern void GetIdentification(StringBuilder)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.GetSerialNumber")>]
     /// Retrieves the Piezojena's serial number.
-    extern Error GetSerialNumber([<Out>] int& serial)
+    extern void GetSerialNumber([<Out>] int& serial)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.GetVersion")>]
     /// Retrieves the Piezojena's version along with the time the version was retrieved.
-    extern Error GetVersion([<Out>] int& major, [<Out>] int& minor, [<Out>] int& build, [<Out>] System.DateTime& time )
+    extern void GetVersion([<Out>] int& major, [<Out>] int& minor, [<Out>] int& build, [<Out>] System.DateTime& time )
 
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.GetTemperature")>]
     /// Retrieves the Piezojena's temperature in kelvin.
-    extern Error GetTemperature([<Out>] float& temperature)
+    extern void GetTemperature([<Out>] float& temperature)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.SetSoftStart")>]
     /// If true then soft start is used, initalises the Piezojena, takes approximately 10 seconds.
-    extern Error SetSoftStart(bool softstart)
+    extern void SetSoftStart(bool softstart)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40Multi.SetClosedLoopControlled")>]
     /// If true then the channel set to closed loop control. Channel number is in the form of a byte. 
-    extern Error SetClosedLoopControlled(byte channel, bool closedloop)
+    extern void SetClosedLoopControlled(byte channel, bool closedloop)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.ChangeChannel")>]
     /// Changes the channel, takes arguments ID as a string form and channel number as a byte.
-    extern Error ChangeChannel(string id, byte channel)
+    extern void ChangeChannel(string id, byte channel)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.CheckChannel")>]
     // ???????????????????????????????????????????????????????????????????????????????????????????????
-    extern Error CheckChannel(byte channel)
+    extern void CheckChannel(byte channel)
     
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.GetEncoder")>]
     /// Retrieves experiemnt parameters, the mode, the time, the exponent used to calculate the acceleration,
     /// and the distance step in closed and open loop modes. 
-    extern Error GetEncoder([<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, [<Out>] int& timeMilliseconds, [<Out>] int& steplimit, [<Out>] byte& exponent, [<Out>] float& closedstep, [<Out>] float& openstep )    
+    extern void GetEncoder([<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, [<Out>] int& timeMilliseconds, [<Out>] int& steplimit, [<Out>] byte& exponent, [<Out>] float& closedstep, [<Out>] float& openstep )    
 
     [<DllImport(dllName, EntryPoint = "Piezojena.Protocols.Nv40Multi.Nv40MultiCommon.SetEncoder")>]
     /// Sets experiemnt parameters, the mode, the time, the exponent used to calculate the acceleration,
     /// and the distance step in closed and open loop modes. 
-    extern Error SetEncoder(Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, int timeMilliseconds, int steplimit, byte exponent, float closedstep, float openstep )
+    extern void SetEncoder(Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, int timeMilliseconds, int steplimit, byte exponent, float closedstep, float openstep )
