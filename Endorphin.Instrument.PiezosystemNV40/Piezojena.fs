@@ -9,49 +9,61 @@ open ExtCore.Control.Choice
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
-module Piezojena = 
+module PiezojenaNV40 = 
     
-    /// Checks return value of the NativeApi function and converts to a success or gives an error message.
-    let internal checkStatus = 
-        function
-        | Error.Ok -> succeed ()
-        | Error.Error string -> fail string 
+    module private Logger =
+     
+        /// Checks return value of the NativeApi function and converts to a success or gives an error message.
+        let internal checkStatus = 
+            function
+            | Error.Ok -> succeed ()
+            | Error.Error string -> fail string 
 
-    let internal checkStatusAndReturn value status = choice {
-        do! checkStatus status
-        return value }
+        let internal checkStatusAndReturn value status = choice {
+            do! checkStatus status
+            return value }
 
-    /// Creates log for PicoHarp 300.
-    let log = log4net.LogManager.GetLogger "PicoHarp 300"
+        /// Creates log for PicoHarp 300.
+        let log = log4net.LogManager.GetLogger "PicoHarp 300"
 
-    /// Logs the PicoHarp.
-    let internal logDevice (piezojena : Piezojena) message =
-        sprintf "[%A] %s" piezojena message |> log.Info
+        /// Logs the PicoHarp.
+        let internal logDevice (piezojena : Piezojena) message =
+            sprintf "[%A] %s" piezojena message |> log.Info
 
-    /// Logs a success or failure message based on result of function. 
-    let internal logQueryResult successMessageFunc failureMessageFunc input =
-        match input with
-        | Success value -> successMessageFunc value |> log.Debug
-        | Failure error -> failureMessageFunc error |> log.Error
-        input 
+        /// Logs a success or failure message based on result of function. 
+        let internal logQueryResult successMessageFunc failureMessageFunc input =
+            match input with
+            | Success value -> successMessageFunc value |> log.Debug
+            | Failure error -> failureMessageFunc error |> log.Error
+            input 
+            
+        /// Logs a success or failure message based on result of function using the PicoHarp's index.
+        let internal logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
+            logQueryResult 
+                (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
+                (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
+
+        let internal logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
         
-    /// Logs a success or failure message based on result of function using the PicoHarp's index.
-    let internal logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
-        logQueryResult 
-            (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
-            (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
+        /// The device identification string. 
+        let identification (Piezojena ID) = ID 
 
-    let internal logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
-    
-    /// The device index. 
-    let identification (Piezojena ID) = ID 
-    
     module PiezojenaInformation = 
     
-        let identification = StringBuilder (8)
-        let getIdentification = NativeApi.GetIdentification (identification)
+        let getIdentification = 
+            let identification = StringBuilder (8)
+            Logger.logDevice Piezojena ""
 
 
     module EncoderScan = 
-        
+
+        // let openDevice picoHarp300 = 
+        //    let serial = StringBuilder (8)
+        //    logDevice picoHarp300 "Opening device."
+        //    NativeApi.OpenDevice (index picoHarp300, serial) 
+        //    |> checkStatus 
+        //    |> logDeviceOpResult picoHarp300 
+        //        ("Successfully opened the PicoHarp.")
+        //        (sprintf "Failed to open the PicoHarp: %A.")
+        //    |> AsyncChoice.liftChoice
         
