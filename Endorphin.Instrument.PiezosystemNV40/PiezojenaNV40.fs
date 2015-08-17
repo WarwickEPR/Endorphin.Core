@@ -170,9 +170,32 @@ module PiezojenaNV40 =
                 ("Successfully measured actuator temperature.")
                 (sprintf "Failed to measure actuator temperature: %A")
             |> AsyncChoice.liftChoice
+        
+        /// Queries the actuator posistion for a single channel. 
+        let querySingleCoordinate piezojena (channel:Channel) = 
+            let errorString = StringBuilder (8)
+            let byteChannel = Parsing.channelByte (channel)
+            let mutable coordinate : Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate = Unchecked.defaultof<_>
+            NativeApi.GetCoordinate (byteChannel , &coordinate)
+            NativeApi.GetCommandError (errorString)
+            let error = string (errorString)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully retrieved channel coordinate.")
+                (sprintf "Failed to retrieve chanel coordinate: %A")
+            |> AsyncChoice.liftChoice
+
+        let queryAllCoordinates piezojena =
+            do querySingleCoordinate piezojena (Channel1) 
+            do querySingleCoordinate piezojena (Channel2)
+            do querySingleCoordinate piezojena (Channel3)
+
 
     module EncoderScan =
-    
+        
+        /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
             let errorString = StringBuilder (8)
             let mode       = Parsing.modetoEncoderMode (encoder.Mode)
@@ -180,6 +203,8 @@ module PiezojenaNV40 =
             let steplimit  = encoder.StepLimit
             let closedstep = encoder.ClosedStep
             let openstep   = encoder.OpenStep
+            /// encoder.Exponent of type byte option, NativeApi function expects type byte.
+            /// If Exponent is None then set exponent to 0uy, if Some byte then set to byte using byteOptionConvert. 
             let exponent   =     
                 if encoder.Exponent = None then 0uy
                 else Parsing.byteOptionConvert(encoder.Exponent)

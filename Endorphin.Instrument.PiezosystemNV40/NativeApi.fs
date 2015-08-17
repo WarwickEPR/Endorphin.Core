@@ -37,7 +37,10 @@ module NativeApi =
     [<DllImport(dllName, EntryPoint = "SetClosedLoopControlled")>]
     /// If true then the channel set to closed loop control. Channel number is in the form of a byte. 
     extern void SetClosedLoopControlled(byte channel, bool closedloop)
-    
+    [<DllImport(dllName, EntryPoint = "GetActuatorCoordinate")>]
+    /// Retrieves the Piezojena's temperature in kelvin.
+    extern void GetCoordinate(byte, [<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate& coordinate )
+
     [<DllImport(dllName, EntryPoint = "ChangeChannel")>]
     /// Changes the channel, takes arguments ID as a string form and channel number as a byte.
     extern void ChangeChannel(string id, byte channel)
