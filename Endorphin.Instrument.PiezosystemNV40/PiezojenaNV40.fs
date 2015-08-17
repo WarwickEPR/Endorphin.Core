@@ -170,17 +170,27 @@ module PiezojenaNV40 =
                 ("Successfully measured actuator temperature.")
                 (sprintf "Failed to measure actuator temperature: %A")
             |> AsyncChoice.liftChoice
-            extern void GetEncoder([<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode mode, [<Out>] int& timeMilliseconds, [<Out>] int& steplimit, [<Out>] byte& exponent, [<Out>] float& closedstep, [<Out>] float& openstep )    
 
-    module EncoderScan = 
-
-        // let openDevice picoHarp300 = 
-        //    let serial = StringBuilder (8)
-        //    logDevice picoHarp300 "Opening device."
-        //    NativeApi.OpenDevice (index picoHarp300, serial) 
-        //    |> checkStatus 
-        //    |> logDeviceOpResult picoHarp300 
-        //        ("Successfully opened the PicoHarp.")
-        //        (sprintf "Failed to open the PicoHarp: %A.")
-        //    |> AsyncChoice.liftChoice
+    module EncoderScan =
+    
+        let setEncoder piezojena (encoder:Encoder) =
+            let errorString = StringBuilder (8)
+            let mode       = Parsing.modetoEncoderMode (encoder.Mode)
+            let time       = encoder.Time
+            let steplimit  = encoder.StepLimit
+            let closedstep = encoder.ClosedStep
+            let openstep   = encoder.OpenStep
+            let exponent   =     
+                if encoder.Exponent = None then 0uy
+                else Parsing.byteOptionConvert(encoder.Exponent)
+            NativeApi.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
+            NativeApi.GetCommandError (errorString)
+            let error = string(errorString)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully set the encoder values.")
+                (sprintf "Failed to set the encoder values: %A")
+            |> AsyncChoice.liftChoice
         

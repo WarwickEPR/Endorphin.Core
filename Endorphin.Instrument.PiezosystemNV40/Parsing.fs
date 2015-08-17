@@ -4,6 +4,12 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Parsing = 
     
+    /// Converts type byte option into type byte.
+    /// Used on exponent field in record type Encoder. 
+    let internal byteOptionConvert = function 
+        | Some byte -> byte
+        | None -> 0uy
+
     /// Converts type channel into bytes. 
     let channelByte = function
         | Channel1 -> 1uy 

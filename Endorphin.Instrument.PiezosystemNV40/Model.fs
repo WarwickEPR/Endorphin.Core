@@ -66,7 +66,7 @@ module Model =
     /// Type containing all parameters required to check and use the encoder. 
     type Encoder = {
         Mode: Mode
-        Time: int<ms>
+        Time: int
         StepLimit: int
         Exponent: byte option
         ClosedStep: float
