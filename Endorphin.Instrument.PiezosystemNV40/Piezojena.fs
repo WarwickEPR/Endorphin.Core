@@ -46,6 +46,8 @@ module Piezojena =
     /// The device index. 
     let identification (Piezojena ID) = ID 
     
-    module PiezojenaInformation= 
+    module PiezojenaInformation = 
 
-
+    module EncoderScan = 
+        
+        

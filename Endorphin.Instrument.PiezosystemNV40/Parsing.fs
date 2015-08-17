@@ -30,7 +30,7 @@ module Parsing =
         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
         | _ -> failwithf "Not a valid coordinate axis."
 
-    let modeEncoderMode = function
+    let modetoEncoderMode = function
         | Normal               ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal               
         | IntervalWithAcceleration ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration
         | Interval             ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval     
@@ -49,3 +49,6 @@ module Parsing =
         | false -> OpenLoop
         | true  -> ClosedLoop
         | _ -> failwithf "Not a valid boolean."
+
+  
+

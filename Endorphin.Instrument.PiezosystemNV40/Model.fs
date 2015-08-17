@@ -42,3 +42,10 @@ module Model =
         | PositionZ 
         | PositionNone
 
+    type Encoder = {
+        Mode: Mode
+        Time: int<ms>
+        StepLimit: int
+        Exponent: byte option
+        ClosedStep: float
+        OpenStep: float} 
