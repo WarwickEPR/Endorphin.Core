@@ -50,11 +50,11 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Error.fs" />
+    <Compile Include="Status.fs" />
     <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="Piezojena.fs" />
+    <Compile Include="PiezojenaNV40.fs" />
     <None Include="Script.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />

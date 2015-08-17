@@ -10,6 +10,10 @@ module NativeApi =
     [<Literal>]
     let dllName = "Piezojena.Protocols.Nv40Multi.dll" 
     
+    [<DllImport(dllName, EntryPoint = "GetCommandError")>]
+    /// Retrieves error string for command. 
+    extern void GetCommandError(StringBuilder)
+
     [<DllImport(dllName, EntryPoint = "GetIdentification")>]
     /// Retrieves the Piezojena's identification string.
     extern void GetIdentification(StringBuilder)

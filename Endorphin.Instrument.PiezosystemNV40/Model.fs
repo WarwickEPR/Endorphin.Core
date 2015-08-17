@@ -6,6 +6,11 @@ open Endorphin.Core
 [<AutoOpen>]
 module Model = 
     
+    /// Type containing status, Ok or Error. 
+    type Status = 
+        | Ok
+        | Error of Error : string 
+
     /// Type Piezojena of Piezojena : string where the string is the Piezojena's ID string.
     type Piezojena = Piezojena of Piezojena : string
     /// Extracts the string ID from the type Piezojena.

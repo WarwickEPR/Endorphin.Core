@@ -12,16 +12,14 @@ open Endorphin.Instrument.PiezosystemNV40
 module PiezojenaNV40 = 
     
     module private Logger =
-     
+        
+        let stringtoStatus = 
+            | "OK, No Error." -> Ok
+            | str -> Error str
         /// Checks return value of the NativeApi function and converts to a success or gives an error message.
-        let internal checkStatus = 
-            function
-            | Error.Ok -> succeed ()
-            | Error.Error string -> fail string 
-
-        let internal checkStatusAndReturn value status = choice {
-            do! checkStatus status
-            return value }
+        let checkStatus = function
+            | Ok            -> succeed ()
+            | Error message -> fail message
 
         /// Creates log for PicoHarp 300.
         let log = log4net.LogManager.GetLogger "PicoHarp 300"
@@ -47,14 +45,21 @@ module PiezojenaNV40 =
         
         /// The device identification string. 
         let identification (Piezojena ID) = ID 
-
-    module PiezojenaInformation = 
+        
+        module PiezojenaInformation = 
     
-        let getIdentification = 
+        let getIdentification piezojena = 
             let identification = StringBuilder (8)
-            Logger.logDevice Piezojena ""
-
-
+            let errorString = StringBuilder (8)
+            logDevice piezojena "Retrieving Piezojena's identification string."
+            NativeApi.GetIdentification (identification)
+            let error = string (NativeApi.GetCommandError (errorString))
+            error
+            |> stringtoStatus 
+            |> checkStatus 
+            |> logDeviceOpResult piezojena 
+                ("Successfully retrieves the Piezojena's identification string.")
+                (sprintf "Failed to retrieve the Piezojena's identification string: %A ")
     module EncoderScan = 
 
         // let openDevice picoHarp300 = 

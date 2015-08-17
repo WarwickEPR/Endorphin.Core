@@ -3,6 +3,11 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Parsing = 
+     
+    let (|Ok|Error|) =
+         function
+         | ErrorCode.NoError -> Ok
+         | error         -> Error (statusString error)
     
     /// Converts type channel into bytes. 
     let channelByte = function

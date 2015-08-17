@@ -4,9 +4,9 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 
 [<AutoOpen>]
-module Error =    
+module Status =    
     
-    type Error =
+    type ErrorCode =
         | NoError
         | ActuatorUnplugged
         | WrongActuatorType
@@ -25,8 +25,8 @@ module Error =
         | Piezojena.Protocols.Nv40Multi.Nv40MultiErrors.TemperatureOutOfRange     -> TemperatureOutofRange
         | _                         -> failwithf "Invalid error."
 
-    let statusStrings = function
-        | NoError                   -> "No errors."
+    let statusString = function
+        | NoError                   -> "OK, No errors."                         
         | ActuatorUnplugged         -> "The actuator is not plugged in."
         | WrongActuatorType         -> "The actuator is of the incorrect type."
         | ActuatorShortCircuitFault -> "Actuator short circuit."
@@ -34,7 +34,14 @@ module Error =
         | Underload                 -> "Value out of range, undershoot."
         | TemperatureOutofRange     -> "Temperature out range."
         | _                         -> failwithf "Invalid error."
-                                                                                                                                  
-    let (|Ok|Error|) = function
-        | Error.NoError -> Ok  
-        | errorCode     -> Error (statusStrings errorCode)
+     
+    let parseStatus = function 
+        | "OK, No errors."                         -> NoError                  
+        | "The actuator is not plugged in."        -> ActuatorUnplugged        
+        | "The actuator is of the incorrect type." -> WrongActuatorType        
+        | "Actuator short circuit."                -> ActuatorShortCircuitFault
+        | "Value out of range, overshoot."         -> Overload                 
+        | "Value out of range, undershoot."        -> Underload                
+        | "Temperature out range."                 -> TemperatureOutofRange                    
+                                    
+
