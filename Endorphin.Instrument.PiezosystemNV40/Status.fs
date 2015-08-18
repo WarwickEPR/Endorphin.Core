@@ -33,7 +33,6 @@ module Status =
         | Overload                  -> "Value out of range, overshoot."
         | Underload                 -> "Value out of range, undershoot."
         | TemperatureOutofRange     -> "Temperature out range."
-        | _                         -> failwithf "Invalid error."
      
     let parseStatus = function 
         | "OK, No errors."                         -> NoError                  
@@ -43,5 +42,5 @@ module Status =
         | "Value out of range, overshoot."         -> Overload                 
         | "Value out of range, undershoot."        -> Underload                
         | "Temperature out range."                 -> TemperatureOutofRange                    
-                                    
+        | _ -> failwithf "Not a valid error."
 

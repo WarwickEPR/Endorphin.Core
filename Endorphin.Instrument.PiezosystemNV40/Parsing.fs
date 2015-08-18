@@ -108,7 +108,5 @@ module Parsing =
     let parseLoop = function
         | false -> OpenLoop
         | true  -> ClosedLoop
-        | _ -> failwithf "Not a valid boolean."
-
   
 
