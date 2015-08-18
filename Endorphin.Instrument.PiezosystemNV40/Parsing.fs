@@ -10,6 +10,51 @@ module Parsing =
         | Some byte -> byte
         | None -> 0uy
 
+    /// Maps type StopBits onto dll type StopBitsKind.
+    let stopBitsMap = function
+        | One          -> Piezojena.Protocols.SerialStopBitsKind.One          
+        | OnePointFive -> Piezojena.Protocols.SerialStopBitsKind.OnePointFive
+        | Two          -> Piezojena.Protocols.SerialStopBitsKind.Two
+
+    /// Maps type StopBitsKind onto type Stop Bits. 
+    let parseStopBits = function
+        | Piezojena.Protocols.SerialStopBitsKind.One          -> One
+        | Piezojena.Protocols.SerialStopBitsKind.OnePointFive -> OnePointFive
+        | Piezojena.Protocols.SerialStopBitsKind.Two          -> Two
+        | _ -> failwithf "Not a valib stop bit."
+
+    /// Maps type Parity onto dll type SerialParity.
+    let parityMap = function
+        | ParityNone  -> Piezojena.Protocols.SerialParity.None
+        | ParityOdd   -> Piezojena.Protocols.SerialParity.Odd
+        | ParityEven  -> Piezojena.Protocols.SerialParity.Even
+        | ParityMark  -> Piezojena.Protocols.SerialParity.Mark
+        | ParitySpace -> Piezojena.Protocols.SerialParity.Space
+
+    /// Maps type SerialParity onto type Parity.
+    let parseParity = function
+        | Piezojena.Protocols.SerialParity.None  -> ParityNone
+        | Piezojena.Protocols.SerialParity.Odd   -> ParityOdd
+        | Piezojena.Protocols.SerialParity.Even  -> ParityEven
+        | Piezojena.Protocols.SerialParity.Mark  -> ParityMark
+        | Piezojena.Protocols.SerialParity.Space -> ParitySpace
+        | _ -> failwithf "Not a valid parity."
+
+    /// Maps type SerialFlowControl onto dll type SerialFlowControls. 
+    let flowControlMap = function 
+        | FlowControlNone   -> Piezojena.Protocols.SerialFlowControls.None
+        | FlowControlDtrDsr  -> Piezojena.Protocols.SerialFlowControls.DtrDsr
+        | FlowControlRtsCts  -> Piezojena.Protocols.SerialFlowControls.RtsCts
+        | FlowControlXOnXOff -> Piezojena.Protocols.SerialFlowControls.XOnXOff
+
+    /// Maps type SerialFlowControls onto type SerialFlowControl. 
+    let parseFlowControl = function 
+        |Piezojena.Protocols.SerialFlowControls.None     -> FlowControlNone
+        | Piezojena.Protocols.SerialFlowControls.DtrDsr  -> FlowControlDtrDsr
+        | Piezojena.Protocols.SerialFlowControls.RtsCts  -> FlowControlRtsCts
+        | Piezojena.Protocols.SerialFlowControls.XOnXOff -> FlowControlXOnXOff
+        | _ -> failwithf "Not a valid flow control."
+
     /// Converts type channel into bytes. 
     let channelByte = function
         | Channel1 -> 1uy 

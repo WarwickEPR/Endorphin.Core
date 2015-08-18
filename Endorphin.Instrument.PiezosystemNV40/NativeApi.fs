@@ -39,7 +39,7 @@ module NativeApi =
     extern void GetTemperature([<Out>] float& temperature)
     
     [<DllImport(dllName, EntryPoint = "SetSoftStart")>]
-    /// Sets soft start on or off. 
+    /// Sets soft start on or off. s
     extern void SetSoftStart(bool softstart)
     
     [<DllImport(dllName, EntryPoint = "SetClosedLoopControlled")>]

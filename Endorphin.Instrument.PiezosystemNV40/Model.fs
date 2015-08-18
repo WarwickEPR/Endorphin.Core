@@ -29,13 +29,34 @@ module Model =
         SerialString: string  
         Version: Version}
     
+    /// Three possible stop bits for a serial connection.
+    type StopBits = 
+        | One
+        | OnePointFive
+        | Two
+    
+    /// Parity of the serial connection.
+    type Parity = 
+        | ParityNone
+        | ParityOdd
+        | ParityEven
+        | ParityMark
+        | ParitySpace
+    
+    /// Flow control for a serial connection. 
+    type SerialFlowControl = 
+        | FlowControlNone
+        | FlowControlDtrDsr
+        | FlowControlRtsCts
+        | FlowControlXOnXOff
+
     /// Type containing information nessesary to setup a serial connection with the Piezojena.
     type internal serialConnection = {
         BaudRate: int
         DataBits: int
-        StopBits: Piezojena.Protocols.SerialStopBitsKind
-        Parity: Piezojena.Protocols.SerialParity
-        FlowControl: Piezojena.Protocols.SerialFlowControls }
+        StopBits: StopBits
+        Parity: Parity
+        FlowControl: SerialFlowControl}
     
     /// Three Piezojena channels, each channel controls movment in one direction. 
     type Channel = 
