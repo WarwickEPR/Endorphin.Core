@@ -26,17 +26,30 @@ module NativeApi =
     /// Retrieves the Piezojena's version along with the time the version was retrieved.
     extern void GetVersion([<Out>] int& major, [<Out>] int& minor, [<Out>] int& build, [<Out>] System.DateTime& time )
 
+    [<DllImport(dllName, EntryPoint = "Initialize")>]
+    /// Retrieves the Piezojena's temperature in kelvin.
+    extern void Initialise()
+    
+    [<DllImport(dllName, EntryPoint = "OnUpdateError")>]
+    /// Retrieves the Piezojena's temperature in kelvin.
+    extern void UpdateError (byte channel, Piezojena.Protocols.Nv40Multi.Nv40MultiErrors)
+
     [<DllImport(dllName, EntryPoint = "GetTemperature")>]
     /// Retrieves the Piezojena's temperature in kelvin.
     extern void GetTemperature([<Out>] float& temperature)
     
     [<DllImport(dllName, EntryPoint = "SetSoftStart")>]
-    /// If true then soft start is used, initalises the Piezojena, takes approximately 10 seconds.
+    /// Sets soft start on or off. 
     extern void SetSoftStart(bool softstart)
     
     [<DllImport(dllName, EntryPoint = "SetClosedLoopControlled")>]
     /// If true then the channel set to closed loop control. Channel number is in the form of a byte. 
     extern void SetClosedLoopControlled(byte channel, bool closedloop)
+    
+    [<DllImport(dllName, EntryPoint = "GetClosedLoopLimits")>]
+    /// Retrieves the closed loop limits.  
+    extern void GetClosedLoopLimits(byte channel, [<Out>] float& minimum, [<Out>] float& maximum)
+    
     [<DllImport(dllName, EntryPoint = "GetActuatorCoordinate")>]
     /// Retrieves the Piezojena's temperature in kelvin.
     extern void GetCoordinate(byte, [<Out>] Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate& coordinate )
@@ -46,9 +59,17 @@ module NativeApi =
     extern void ChangeChannel(string id, byte channel)
     
     [<DllImport(dllName, EntryPoint = "CheckChannel")>]
-
+    // ?????????????????????????????????????
     extern void CheckChannel(byte channel)
     
+    [<DllImport(dllName, EntryPoint = "SetDesiredOutput")>]
+    /// Set desired output for a dingle channel.
+    extern void SetOutput (byte channel, float output)
+        
+    [<DllImport(dllName, EntryPoint = "SetDesiredOutputChunk")>]
+    // ???????????????????????????????????????
+    extern void SetMultipleOutputs (float [])
+
     [<DllImport(dllName, EntryPoint = "GetEncoder")>]
     /// Retrieves experiemnt parameters, the mode, the time, the exponent used to calculate the acceleration,
     /// and the distance step in closed and open loop modes. 

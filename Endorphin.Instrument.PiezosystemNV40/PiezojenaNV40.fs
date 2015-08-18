@@ -53,12 +53,12 @@ module PiezojenaNV40 =
         
         /// Retrieves Piezojena identification string. 
         let getIdentification piezojena = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let identification = StringBuilder (8)
             logDevice piezojena "Retrieving Piezojena's identification string."
             NativeApi.GetIdentification (identification)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus 
             |> checkStatus 
@@ -69,12 +69,12 @@ module PiezojenaNV40 =
         
         /// Retrieves Piezojena serial number. 
         let getSerialNumber piezojena = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let mutable serial : int = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving Piezojena's serial number."
             NativeApi.GetSerialNumber (&serial)
-            NativeApi.GetCommandError (errorString)
-            let error = string (errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string (errorStringBuilder)
             error
             |> stringtoStatus 
             |> checkStatus 
@@ -86,13 +86,13 @@ module PiezojenaNV40 =
         /// Retrieves the Piezojena's software version, uses three pointers to major, minor and build.
         /// Version of form major.minor.build.
         let getVersion piezojena = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let mutable major : int = Unchecked.defaultof<_>
             let mutable minor : int = Unchecked.defaultof<_>
             let mutable build : int = Unchecked.defaultof<_>
             let mutable time : System.DateTime = Unchecked.defaultof<_>
             NativeApi.GetVersion (&major, &minor, &build, &time)
-            let error = string (NativeApi.GetCommandError (errorString))
+            let error = string (NativeApi.GetCommandError (errorStringBuilder))
             error
             |> stringtoStatus
             |> checkStatus
@@ -105,12 +105,12 @@ module PiezojenaNV40 =
         
         /// Changes channel, requires the Piezojena's ID.
         let changeChannel piezojena (channel:Channel) = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let byteChannel = Parsing.channelByte channel 
             let id = identification piezojena
             NativeApi.ChangeChannel (id, byteChannel)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
@@ -121,12 +121,12 @@ module PiezojenaNV40 =
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
         let setLoopMode piezojena (channel:Channel) (mode:Loop) = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let byteChannel = Parsing.channelByte channel 
             let modeBoolean = Parsing.loopBoolean mode
             NativeApi.SetClosedLoopControlled (byteChannel, modeBoolean)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
@@ -136,9 +136,10 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
     
     module Query = 
-
+        
+        /// Queries the encoders values. 
         let queryEncoder piezojena =  
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
             let mutable time : int         = Unchecked.defaultof<_>
             let mutable stepLimit : int    = Unchecked.defaultof<_>
@@ -146,8 +147,8 @@ module PiezojenaNV40 =
             let mutable closedStep : float = Unchecked.defaultof<_> 
             let mutable openStep : float   = Unchecked.defaultof<_>
             NativeApi.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
@@ -158,11 +159,11 @@ module PiezojenaNV40 =
 
         /// Queries the actuators temperature. 
         let queryTemperature piezojena =  
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let mutable temperature : float = Unchecked.defaultof<_>
             NativeApi.GetTemperature (&temperature)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
@@ -173,12 +174,12 @@ module PiezojenaNV40 =
         
         /// Queries the actuator posistion for a single channel. 
         let querySingleCoordinate piezojena (channel:Channel) = 
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let byteChannel = Parsing.channelByte (channel)
             let mutable coordinate : Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate = Unchecked.defaultof<_>
             NativeApi.GetCoordinate (byteChannel , &coordinate)
-            NativeApi.GetCommandError (errorString)
-            let error = string (errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string (errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
@@ -187,17 +188,27 @@ module PiezojenaNV40 =
                 (sprintf "Failed to retrieve chanel coordinate: %A")
             |> AsyncChoice.liftChoice
 
-        let queryAllCoordinates piezojena =
-            do querySingleCoordinate piezojena (Channel1) 
-            do querySingleCoordinate piezojena (Channel2)
-            do querySingleCoordinate piezojena (Channel3)
-
-
-    module EncoderScan =
+        let queryClosedLoopLimits piezojena (channel:Channel) = 
+            let errorStringBuilder = StringBuilder (8)
+            let byteChannel = Parsing.channelByte (channel)
+            let mutable minimum : float = Unchecked.defaultof<_>
+            let mutable maximum : float = Unchecked.defaultof<_>
+            NativeApi.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
+            error 
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully retrieved the closed loop limits")
+                (sprintf "Failed to retrieve the closed loop limits: %A")
+            |> AsyncChoice.liftChoice
+    
+    module Encoder =
         
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
-            let errorString = StringBuilder (8)
+            let errorStringBuilder = StringBuilder (8)
             let mode       = Parsing.modetoEncoderMode (encoder.Mode)
             let time       = encoder.Time
             let steplimit  = encoder.StepLimit
@@ -209,8 +220,8 @@ module PiezojenaNV40 =
                 if encoder.Exponent = None then 0uy
                 else Parsing.byteOptionConvert(encoder.Exponent)
             NativeApi.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
-            NativeApi.GetCommandError (errorString)
-            let error = string(errorString)
+           // NativeApi.GetCommandError (errorStringBuilder)
+            let error = string(errorStringBuilder)
             error
             |> stringtoStatus
             |> checkStatus
