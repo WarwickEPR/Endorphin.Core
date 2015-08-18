@@ -50,6 +50,9 @@ module Model =
         | FlowControlRtsCts
         | FlowControlXOnXOff
 
+    /// Soft start on or off.
+    type SoftStart = |On|Off
+
     /// Type containing information nessesary to setup a serial connection with the Piezojena.
     type internal serialConnection = {
         BaudRate: int

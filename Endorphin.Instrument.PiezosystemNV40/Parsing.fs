@@ -49,7 +49,7 @@ module Parsing =
 
     /// Maps type SerialFlowControls onto type SerialFlowControl. 
     let parseFlowControl = function 
-        |Piezojena.Protocols.SerialFlowControls.None     -> FlowControlNone
+        | Piezojena.Protocols.SerialFlowControls.None     -> FlowControlNone
         | Piezojena.Protocols.SerialFlowControls.DtrDsr  -> FlowControlDtrDsr
         | Piezojena.Protocols.SerialFlowControls.RtsCts  -> FlowControlRtsCts
         | Piezojena.Protocols.SerialFlowControls.XOnXOff -> FlowControlXOnXOff
@@ -69,7 +69,7 @@ module Parsing =
         | xuy         -> failwithf "Not a valid channel: %A" xuy
 
     /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
-    let actuatorPositiontoCoordinate = function
+    let actuatorPositionMap = function
         | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
         | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
         | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
@@ -87,7 +87,7 @@ module Parsing =
         | _ -> failwithf "Not a valid coordinate axis."
 
     /// Converts type mode into type expected by NativeApi functions (EncoderMode).
-    let modetoEncoderMode = function
+    let modeMap = function
         | Normal               ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal               
         | IntervalWithAcceleration ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration
         | Interval             ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval     
@@ -108,5 +108,12 @@ module Parsing =
     let parseLoop = function
         | false -> OpenLoop
         | true  -> ClosedLoop
+
+    let softStartBoolean = function
+        | On  -> true
+        | Off -> false
   
+    let parseSoftStart = function
+        | true  -> On 
+        | false -> Off
 
