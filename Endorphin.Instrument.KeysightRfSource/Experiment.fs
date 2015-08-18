@@ -7,6 +7,10 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
 module Experiment =
+    /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
+    /// without affecting the timings of pulses.
+    let minimumRfPulseSeparation = SampleCount 5u
+
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
         /// Functions to check that a user-input experiment is in a valid form, and collect metadata
@@ -75,13 +79,39 @@ module Experiment =
                     |> SampleCount
                     |> succeed
 
-            /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
-            /// of invalid experiments might be ones where phase cycles have different lengths.
-            let verify experiment = choice {
-                do! if experiment.Repetitions < 1 then
-                        fail "Must do the experiment at least once!"
-                    else
-                        succeed ()
+            /// Check that a valid number of repetitions of the experiment is set.
+            let private checkRepetitions experiment =
+                if experiment.Repetitions < 1 then fail "Must do the experiment at least once!"
+                else succeed ()
+
+            /// Get the duration of a pulse.
+            let private pulseLength = function
+                | Rf (_, SampleCount dur, _) -> dur
+                | Delay (SampleCount dur, _) -> dur
+                | Marker (_, SampleCount dur, _) -> dur
+                | Trigger _ -> 1u
+
+            /// Check that RF pulses are more than a set distance apart, so the low pass filter will
+            /// work.  We only need to check the first iteration of the experiment, since the pulses
+            /// can only get longer (SampleCount is unsigned).
+            let private checkRfSpacing (experiment : Experiment) =
+                let minimum = extractSampleCount minimumRfPulseSeparation
+                let rec loop space = function
+                    | [] -> succeed ()
+                    | hd :: tl when isRfPulse hd ->
+                        let minimum = extractSampleCount minimumRfPulseSeparation
+                        if space < minimum then
+                            minimum
+                            |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
+                            |> fail
+                        else
+                            loop 0u tl
+                    | hd :: tl ->
+                        loop (space + (pulseLength hd)) tl
+                loop minimum (List.ofSeq experiment.Pulses)
+
+            /// Convert an experiment into a VerifiedExperiment.
+            let private toVerifiedExperiment (experiment : Experiment) = choice {
                 let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
                 let shotRepPulse = Delay (shotRepetitionTime, SampleCount 0u)
                 let pulses =
@@ -97,6 +127,13 @@ module Experiment =
                       PulsesCount = pulses.Length
                       RfPhaseCount = rfPhaseCount
                       ShotRepetitionTime = shotRepetitionTime } } }
+
+            /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
+            /// of invalid experiments might be ones where phase cycles have different lengths.
+            let verify experiment = choice {
+                do! checkRepetitions experiment
+                do! checkRfSpacing experiment
+                return! toVerifiedExperiment experiment }
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]

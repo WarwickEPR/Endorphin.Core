@@ -181,3 +181,6 @@ module internal Parsing =
     let storedWaveformFilename = function
         | StoredSegment  s -> waveformFileString <| extractSegmentId s
         | StoredSequence s -> sequenceFileString <| extractSequenceId s
+
+    /// Get the integer representation of a SampleCount.
+    let extractSampleCount (SampleCount x) = x
