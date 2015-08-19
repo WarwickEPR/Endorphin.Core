@@ -54,10 +54,9 @@
     <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="SerialConnection.fs" />
     <Compile Include="PiezojenaNV40.fs" />
-    <None Include="Script.fsx" />
-    <Content Include="packages.config" />
-    <Content Include="app.config" />
+    <None Include="SerialPort.fsx" />
     <Content Include="Functions.txt" />
   </ItemGroup>
   <ItemGroup>

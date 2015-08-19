@@ -1,0 +1,39 @@
+﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
+#r "../packages/ExtCore.0.8.45/lib/net45/ExtCore.dll"
+#r "../packages/FSharp.Control.Reactive.3.2.0/lib/net40/FSharp.Control.Reactive.dll"
+#r "../Endorphin.Instrument.PiezosystemNV40\Piezojena.Protocols.dll"
+#r "../Endorphin.Instrument.PiezosystemNV40\Piezojena.Protocols.Nv40Multi.dll"
+#r "bin/Debug/Endorphin.Instrument.PiezosystemNV40.dll"
+#r "System.Windows.Forms.DataVisualization.dll"
+
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open System
+open System.Threading
+open System.Windows.Forms
+open ExtCore.Control
+open FSharp.Control.Reactive
+open Endorphin.Core
+open Endorphin.Instrument.PiezosystemNV40
+
+module Connection =  
+
+    let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
+    sprintf "myface %s" <| serialConfiguration.BaudRate.ToString()
+    sprintf "databits: %s" <| serialConfiguration.DataBits.ToString()
+    (*
+    let serialPort = new System.IO.Ports.SerialPort("COM3")
+    let serialConnection = new Piezojena.Protocols.SerialPortConnection(serialPort, serialConfiguration)
+*)
+    let multiService = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
+    let myStage = multiService.ConnectNv40MultiToSerialPort("COM3")
+    myStage.SetDesiredOutput(byte 0, 10.0f)
+    //Piezojena.Protocols.Nv40Multi.Nv40Multi.
+    //j.
+
+    //sprintf "yourface %s" <| serialConnection.Configuration.BaudRate.ToString()
+
+    
+
+  
+ 
+

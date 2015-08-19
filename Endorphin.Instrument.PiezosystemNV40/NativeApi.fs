@@ -16,10 +16,13 @@ module NativeApi =
         /// Configures connection using SerialConfigureation.
         extern void Configure (Piezojena.Protocols.SerialConfiguration configuration)
 
+        [<DllImport(dllNameProtocols, EntryPoint = "SerialConfiguration")>]
+        /// Configures connection using SerialConfiguration.
+        extern void Configuration ()
+
         [<DllImport(dllNameProtocols, EntryPoint = "SerialPortConnection")>]
         /// Configures connection using SerialConfigureation.
-        extern void SerialPortConnection (System.IO.Ports.SerialPort, Piezojena.Protocols.SerialConfiguration)
-        
+        extern void SerialPortConnection (System.IO.Ports.SerialPort port)
 
     module Multi = 
     
