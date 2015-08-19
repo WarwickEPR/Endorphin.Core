@@ -49,8 +49,12 @@ module PiezojenaNV40 =
         /// The device identification string. 
         let identification (Piezojena ID) = ID 
             
-    //module serialConnection = 
+    module serialConnection = 
 
+        let serialCondfig = 
+            
+            Piezojena.Protocols.SerialConfiguration
+    
     module PiezojenaInformation = 
         
         /// Retrieves Piezojena identification string. 
@@ -165,7 +169,8 @@ module PiezojenaNV40 =
                 ("Successfully set the encoder values.")
                 (sprintf "Failed to set the encoder values: %A")
             |> AsyncChoice.liftChoice
-    
+        
+        /// Sets soft start, if true then soft start turned on, if false then off. 
         let setSoftStart piezojena (softstart:SoftStart) = 
             let errorStringBuilder = StringBuilder (8)
             let boolean = Parsing.softStartBoolean(softstart)
@@ -237,6 +242,7 @@ module PiezojenaNV40 =
                 (sprintf "Failed to retrieve chanel coordinate: %A")
             |> AsyncChoice.liftChoice
 
+        /// Queries closed loop  limits. 
         let queryClosedLoopLimits piezojena (channel:Channel) = 
             let errorStringBuilder = StringBuilder (8)
             let byteChannel = Parsing.channelByte (channel)
