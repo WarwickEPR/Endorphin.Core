@@ -15,25 +15,25 @@ module ARB =
     [<AutoOpen>]
     module Configure =
         /// A markers record with all markers turned off.
-        let defaultMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
+        let emptyMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
         /// Basic data form of IQ point.
         let defaultIqSample = {
             Sample.I = 0s
             Sample.Q = 0s
-            Sample.Markers = defaultMarkers }
+            Sample.Markers = emptyMarkers }
         /// Set value of the I sample.
         let withI value sample = { sample with I = value }
         /// Set value of the Q sample.
         let withQ value sample = { sample with Q = value }
 
         /// Set value of the first marker.
-        let private markersWithMarker1 value markers = { markers with M1 = value }
+        let markersWithMarker1 value markers = { markers with M1 = value }
         /// Set value of the second marker.
-        let private markersWithMarker2 value markers = { markers with M2 = value }
+        let markersWithMarker2 value markers = { markers with M2 = value }
         /// Set value of the third marker.
-        let private markersWithMarker3 value markers = { markers with M3 = value }
+        let markersWithMarker3 value markers = { markers with M3 = value }
         /// Set value of the fourth marker.
-        let private markersWithMarker4 value markers = { markers with M4 = value }
+        let markersWithMarker4 value markers = { markers with M4 = value }
 
         /// Set value of the first marker.
         let withMarker1 value (sample : Sample) =
@@ -502,7 +502,7 @@ module ARB =
             let parseMarkerFile (data : byte array) =
                 let data' = data |> stripMetadata
                 let numSamples = (Array.length data')
-                let markers = Array.create numSamples defaultMarkers
+                let markers = Array.create numSamples emptyMarkers
                 let rec loop = function
                     | index when index = numSamples -> markers
                     | index ->

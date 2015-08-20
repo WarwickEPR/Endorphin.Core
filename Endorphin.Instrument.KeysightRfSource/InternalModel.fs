@@ -23,7 +23,6 @@ module internal InternalModel =
         type VerifiedPulse =
             | VerifiedRf of RfPulse
             | VerifiedDelay of DelayPulse
-            | VerifiedTrigger of TriggerPulse
             | VerifiedMarker of MarkerPulse
 
         /// Metadata about the experiment gathered during verification, for use during the
@@ -46,7 +45,6 @@ module internal InternalModel =
         type StaticPulse =
             | StaticRf      of phase : Phase * duration : SampleCount
             | StaticDelay   of duration : SampleCount
-            | StaticTrigger of markers : Markers
             | StaticMarker  of markers : Markers * duration : SampleCount
 
         /// An experiment after it has been passed through the user-input verifier.

@@ -36,7 +36,7 @@ module Model =
             | PhaseInRad of float<rad>
             | PhaseInDeg of float<deg>
         /// A list of phases to cycle through.
-        type PhaseCycle = PhaseCycle of Phase array
+        type PhaseCycle = internal PhaseCycle of Phase array
 
         /// A duration that something lasts for.
         type Duration = DurationInSec of float<s>
@@ -339,23 +339,21 @@ module Model =
         // Define some type aliases for the pulse types so that it's simple to update the model
         // when new pulses are added, particularly with regards to Pulse/VerifiedPulse system.
         /// A single rf pulse as a tuple of (phases, duration, increment).
-        type RfPulse = PhaseCycle * SampleCount * SampleCount
+        type internal RfPulse = PhaseCycle * SampleCount * SampleCount
         /// A single delay pulse as a tuple of (duration, increment).
-        type DelayPulse = SampleCount * SampleCount
-        /// A single trigger pulse trigger a set of markers.
-        type TriggerPulse = Markers
+        type internal DelayPulse = SampleCount * SampleCount
         /// A single marker pulse as a tuple of (markers, duration, increment).
-        type MarkerPulse = Markers * SampleCount * SampleCount
+        type internal MarkerPulse = Markers * SampleCount * SampleCount
 
         /// A pulse with its varying parameters also attached, for use in defining experiments.
         type Pulse =
+            internal
             | Rf      of RfPulse
             | Delay   of DelayPulse
-            | Trigger of TriggerPulse
             | Marker  of MarkerPulse
 
         /// A whole experiment, ready to be compiled and optimised.
-        type Experiment = {
+        type Experiment = internal {
             Pulses : Pulse seq
             Repetitions : int
             ShotRepetitionTime : Duration }

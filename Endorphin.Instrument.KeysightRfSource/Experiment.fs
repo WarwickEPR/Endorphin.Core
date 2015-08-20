@@ -14,13 +14,76 @@ module Experiment =
     /// How many samples the FIR filter looks ahead when applying.
     let internal riseCount = Array.length riseCoefficients
 
-    /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
-    /// without affecting the timings of pulses.
-    let minimumRfPulseSeparation =
-        riseCount
-        |> (*) 2
-        |> uint32
-        |> SampleCount
+    [<AutoOpen>]
+    module Configure =
+        /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
+        /// without affecting the timings of pulses.
+        let minimumRfPulseSeparation =
+            riseCount
+            |> (*) 2
+            |> uint32
+            |> SampleCount
+
+        /// An experiment with no pulses, ready to be added to.
+        let emptyExperiment = {
+            Pulses = Seq.empty
+            Repetitions = 1
+            ShotRepetitionTime = DurationInSec 0.0<s> }
+
+        /// A phase for use when we don't care what the phase actually is.
+        let internal noPhase = PhaseInRad 0.0<rad>
+
+        /// A phase cycle with no phases in it.
+        let emptyPhaseCycle = PhaseCycle Array.empty
+
+        /// Append a phase to a phase cycle.
+        let addPhase phase (PhaseCycle cycle) =
+            let cycle' = Array.create (cycle.Length + 1) noPhase
+            cycle'.[0 .. cycle.Length - 1] <- cycle
+            cycle'.[cycle.Length]          <- phase
+            PhaseCycle cycle'
+
+        /// Append a sequence of phases to a phase cycle.
+        let addPhaseSequence phases (PhaseCycle cycle) =
+            cycle
+            |> Array.append (Array.ofSeq phases)
+            |> PhaseCycle
+
+        /// Append a pulse to an experiment.
+        let private appendPulse pulse (experiment : Experiment) =
+            { experiment with Pulses = Seq.appendSingleton pulse experiment.Pulses }
+
+        /// Add an RF pulse to an experiment with an increment each repetition.
+        let addRfPulseWithIncrement phases duration increment =
+            appendPulse (Rf (phases, SampleCount duration, SampleCount increment))
+
+        /// Add an RF pulse to an experiment with no increment.
+        let addRfPulse phases duration = addRfPulseWithIncrement phases duration 0u
+
+        /// Add a delay between pulses to the experiment, with an increment each repetition.
+        let addDelayWithIncrement duration increment =
+            appendPulse (Delay (SampleCount duration, SampleCount increment))
+
+        /// Add a single delay pulse to an experiment, the same length each repetition.
+        let addDelay duration = addDelayWithIncrement duration 0u
+
+        /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
+        let addMarkerPulseWithIncrement markers duration increment =
+            appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
+
+        /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
+        let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
+
+        /// Add a single-sample trigger pulse on the given markers to an experiment.
+        let addTrigger markers = addMarkerPulse markers 1u
+
+        /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment.
+        let withRepetitions reps (experiment : Experiment) =
+            { experiment with Repetitions = reps }
+
+        /// Set the shot repetition time of the experiment.
+        let withShotRepetitionTime time (experiment : Experiment) =
+            { experiment with ShotRepetitionTime = DurationInSec time }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -67,7 +130,6 @@ module Experiment =
             let private toVerifiedPulse = function
                 | Rf pulse -> VerifiedRf pulse
                 | Delay pulse -> VerifiedDelay pulse
-                | Trigger pulse -> VerifiedTrigger pulse
                 | Marker pulse -> VerifiedMarker pulse
 
             /// Check that there is a valid number of phases in each cycle, and return their count
@@ -100,7 +162,6 @@ module Experiment =
                 | Rf (_, SampleCount dur, _) -> dur
                 | Delay (SampleCount dur, _) -> dur
                 | Marker (_, SampleCount dur, _) -> dur
-                | Trigger _ -> 1u
 
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
@@ -125,7 +186,7 @@ module Experiment =
             let private countUntilFirstRf pulses =
                 let rec loop count = function
                     | [] -> None
-                    | head :: tail when isRfPulse head -> Some count
+                    | head :: _ when isRfPulse head -> Some count
                     | head :: tail -> loop (count + pulseLength head) tail
                 loop 0u pulses
 
@@ -206,8 +267,6 @@ module Experiment =
                     VerifiedRf (phases, duration dur inc n, inc)
                 | VerifiedDelay (dur, inc) ->
                     VerifiedDelay (duration dur inc n, inc)
-                | VerifiedTrigger (markers) ->
-                    VerifiedTrigger (markers)
                 | VerifiedMarker (markers, dur, inc) ->
                     VerifiedMarker (markers, duration dur inc n, inc)
 
@@ -237,8 +296,6 @@ module Experiment =
                     StaticRf (phases.[0], duration)
                 | VerifiedDelay (duration, _) ->
                     StaticDelay (duration)
-                | VerifiedTrigger (markers) ->
-                    StaticTrigger (markers)
                 | VerifiedMarker (markers, duration, _) ->
                     StaticMarker (markers, duration)
 
@@ -249,9 +306,6 @@ module Experiment =
                 |> pulseSequence
                 |> List.map (List.map toStaticPulse)
 
-            /// A phase for use when we don't care what the phase actually is.
-            let private noPhase = PhaseInRad 0.0<rad>
-
             /// A set of markers all turned off.
             let private noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
 
@@ -261,7 +315,6 @@ module Experiment =
                     match pulse with
                     | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
                     | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
-                    | StaticTrigger (markers)     -> (0.0, noPhase, markers, SampleCount 1u)
                     | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
                 let sample =
                     defaultIqSample
