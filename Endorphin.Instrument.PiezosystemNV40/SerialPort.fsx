@@ -22,8 +22,17 @@ module Connection =
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
     let private stage = multiServices.ConnectNv40MultiToSerialPort("COM3")      
 
-    let mutable error = Unchecked.defaultof<_>
-    stage.GetCommandError (&error)
+    let output = [|1.0f; 20.0f; 10.0f|]
+
+    stage.SetDesiredOutputChunk (output)
+   
+   
+   
+   
+   
+   
+   
+     
     
     //let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
     //sprintf "myface %s" <| serialConfiguration.BaudRate.ToString()

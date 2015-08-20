@@ -159,6 +159,36 @@ module PiezojenaNV40 =
                 ("Successfully changes soft start setting.")
                 (sprintf "Failed to change soft start setting: %A")
             |> AsyncChoice.liftChoice
+        
+        /// Sets the output of a single channel.
+        let setOutput piezojena (channel:Channel) (output:float32) = 
+            let mutable error : string = Unchecked.defaultof<_>
+            let byteChannel = Parsing.channelByte (channel)
+            logDevice piezojena "Setting channel output."
+            stage.SetDesiredOutput (byteChannel, output)
+            stage.GetCommandError (&error)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena 
+                ("Successfully set the channel output.")
+                (sprintf "Failed to set the channel output: %A")
+            |> AsyncChoice.liftChoice 
+       
+        /// Sets all channel outputs. 
+        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
+            let mutable error = Unchecked.defaultof<_>
+            logDevice piezojena "Setting outputs of all channels."
+            Parsing.tupletoArray outputTuple 
+                |> stage.SetDesiredOutputChunk  
+            stage.GetCommandError (&error)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully set the outputs of all channels.")
+                (sprintf "Failed to set all channel outputs: %A")
+            |> AsyncChoice.liftChoice
 
     module Query = 
         

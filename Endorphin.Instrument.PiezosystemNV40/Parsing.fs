@@ -3,7 +3,30 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Parsing = 
+       
+    /// Takes first value from a tuple. 
+    let private first = function
+        | (x, y, z) -> x     
+        | _ -> failwithf "No tuple." 
     
+    /// Takes second value from a tuple    
+    let private second = function 
+        | (x, y, z) -> y
+        | _ -> failwithf "No tuple." 
+    
+    /// Takes thirs value from a tuple
+    let private third = function 
+        | (x, y, z) -> z
+        | _ -> failwithf "No tuple."
+
+    /// Converts a three element tuple into an array
+    let tupletoArray (tuple:float32*float32*float32) = 
+        let x = first tuple
+        let y = second tuple
+        let z = third tuple
+        let array = [|x; y; z|]
+        array
+
     /// Converts type byte option into type byte.
     /// Used on exponent field in record type Encoder. 
     let internal byteOptionConvert = function 
