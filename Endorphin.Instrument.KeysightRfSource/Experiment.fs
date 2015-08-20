@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
+open Endorphin.Core
 open ARB
 open Hashing
 open ExtCore.Control
@@ -163,6 +164,18 @@ module Experiment =
                 | Delay (SampleCount dur, _) -> dur
                 | Marker (_, SampleCount dur, _) -> dur
 
+            /// Check that the total minimum length of the experiment is longer than the shortest
+            /// allowable experiment.
+            let private checkMinimumLength (experiment : Experiment) = choice {
+                let length = Seq.sumBy pulseLength experiment.Pulses
+                return!
+                    if length < minimumSegmentLength then
+                        minimumSegmentLength
+                        |> sprintf "Experiment is shorter than the minimum length of %d samples"
+                        |> fail
+                    else
+                        succeed () }
+
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
             /// can only get longer (SampleCount is unsigned).
@@ -184,44 +197,66 @@ module Experiment =
 
             /// Count the number of SampleCounts until the first RF pulse triggers.
             let private countUntilFirstRf pulses =
-                let rec loop count = function
-                    | [] -> None
-                    | head :: _ when isRfPulse head -> Some count
-                    | head :: tail -> loop (count + pulseLength head) tail
-                loop 0u pulses
+                if (Seq.exists isRfPulse pulses) then
+                    pulses
+                    |> Seq.takeWhile (isRfPulse >> not)
+                    |> Seq.sumBy pulseLength
+                    |> Some
+                else None
 
-            /// Convert an experiment into a VerifiedExperiment.
-            let private toVerifiedExperiment (experiment : Experiment) = choice {
+            /// Count backwards until the last RF pulse ends.
+            let private countBackToLastRf : seq<Pulse> -> uint32 option = Seq.rev >> countUntilFirstRf
+
+            /// Add a single delay pulse with the length necessary for the FIR filter into the place
+            /// specified by construct, if necessary.
+            let private addFirPulse count construct (pulses : seq<Pulse>) =
+                match count pulses with
+                | None -> pulses
+                | Some i when i >= uint32 riseCount -> pulses
+                | Some i ->
+                    let deadCount = SampleCount <| uint32 riseCount - i
+                    construct (Delay (deadCount, SampleCount 0u)) pulses
+
+            /// Add space to the beginning and end of the pulse if this is necessary for the FIR filter.
+            let private addSpaceForFir pulses =
+                pulses
+                |> addFirPulse countUntilFirstRf Seq.prependSingleton
+                |> addFirPulse countBackToLastRf Seq.appendSingleton
+
+            /// Add the shot repetition time, and any necessary padding for the FIR filter onto the
+            /// pulse sequence.
+            let private updateExperimentPulses (experiment : Experiment) = choice {
                 let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
                 let shotRepPulse = Delay (shotRepetitionTime, SampleCount 0u)
                 let pulses =
                     experiment.Pulses
                     |> Seq.appendSingleton shotRepPulse
-                    |> List.ofSeq
+                    |> addSpaceForFir
+                return { experiment with Pulses = pulses } }
+
+            /// Convert an experiment into a VerifiedExperiment.
+            let private toVerifiedExperiment (experiment : Experiment) = choice {
+                let pulses = experiment.Pulses |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
                 let! rfPhaseCount = countRfPhases rfPulses
-                let pulses' =
-                    match countUntilFirstRf pulses with
-                    | None -> pulses
-                    | Some count when count >= uint32 riseCount -> pulses
-                    | Some count ->
-                        let deadCount = SampleCount <| uint32 riseCount - count
-                        Delay (deadCount, SampleCount 0u) :: pulses
+                let! shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
                 return {
-                    Pulses = [ (pulses' |> List.map toVerifiedPulse) ]
+                    Pulses = [ (pulses |> List.map toVerifiedPulse) ]
                     Metadata =
                     { ExperimentRepetitions = experiment.Repetitions
-                      PulseCount = pulses'.Length
+                      PulseCount = pulses.Length
                       RfPulseCount = rfPulses.Length
                       RfPhaseCount = rfPhaseCount
-                      ShotRepetitionTime = shotRepetitionTime } } }
+                      ShotRepetitionTime = shotRepCount } } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify experiment = choice {
                 do! checkRepetitions experiment
                 do! checkRfSpacing experiment
-                return! toVerifiedExperiment experiment }
+                let! experiment' = updateExperimentPulses experiment
+                do! checkMinimumLength experiment'
+                return! toVerifiedExperiment experiment' }
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
