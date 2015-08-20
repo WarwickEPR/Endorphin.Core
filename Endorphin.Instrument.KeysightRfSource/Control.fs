@@ -224,6 +224,11 @@ module Control =
         /// file, the markers file and the headers file (if present).
         let deleteStoredWaveform = IO.setValueString storedWaveformFilename deleteFileKey
 
+        /// Delete all stored waveforms on the machine.
+        let deleteAllStoredWaveforms instrument = asyncChoice {
+            do! deleteAllStoredSegments instrument
+            do! deleteAllStoredSequences instrument }
+
 #if DEBUG
     [<AutoOpen>]
     module Print =
