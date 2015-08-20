@@ -30,6 +30,8 @@ module SingleMeasurement =
     
     let measurement piezojena = asyncChoice {
         do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
+        do! PiezojenaNV40.SetParameters.setLoopMode Channel 0 ClosedLoop
+        do! PieozjenaNV40.
 
 
      

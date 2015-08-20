@@ -19,6 +19,11 @@ module PiezojenaNV40 =
             | "OK, No Error." -> Ok
             | str -> Error str
         
+        /// Converts string from status.
+        let statustoString = function
+            | Ok        -> "Ok, No Error."
+            | Error str -> str
+
         /// Checks return value of the NativeApi function and converts to a success or gives an error message.
         let checkStatus = function
             | Ok            -> succeed ()
@@ -121,6 +126,7 @@ module PiezojenaNV40 =
                 (sprintf "Failed to set loop mode, %s.")
             |> AsyncChoice.liftChoice
         
+        /// Sets all channels to same loop mode. 
         let setLoopModeallChannels piezojena (mode:Loop) = 
             let mutable error1 : string = Unchecked.defaultof<_>
             let mutable error2 : string = Unchecked.defaultof<_>
@@ -133,11 +139,16 @@ module PiezojenaNV40 =
             stage.GetCommandError (&error2)
             stage.SetClosedLoopControlled (3uy, modeBoolean)
             stage.GetCommandError (&error3)
+            // Array containing all status codes. 
             let errorArray = [|stringtoStatus error1; stringtoStatus error2; stringtoStatus error3|]
-            let filterArray = Array.filter (fun x -> x <> Ok) errorArray
+            let filterArray = Array.filter (fun elem -> elem <> Ok) errorArray
             let check = 
+                // If array length > 0 then at least one error in array.
                 if Array.length filterArray = 0 then Ok
-                else Error "" 
+                // Takes first error in array and returns in form Error string. 
+                else 
+                let error = statustoString(Array.get filterArray 0) 
+                Error error 
             check 
             |> checkStatus
             |> logDeviceOpResult piezojena
@@ -293,11 +304,11 @@ module PiezojenaNV40 =
 
         /// Retrieves a measurement from a single channel. 
         let queryMeasuredValue piezojena (channel:Channel) = 
-            let error : string = Unchecked.defaultof <_>
-            let measurement : float32 = Unchecked.defaultof<_>  
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable measurement : float32 = Unchecked.defaultof<_>  
             let byteChannel = Parsing.channelByte (channel)
-            logDevice "Checking channel measurement."
-            stage.GetMeasuredValue (byteChannel , measurement)
+            logDevice piezojena "Checking channel measurement."
+            stage.GetMeasuredValue (byteChannel , &measurement)
             stage.GetCommandError (&error)
             error
             |> stringtoStatus
