@@ -7,9 +7,20 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
 module Experiment =
+    /// Pre-computed coefficients for the FIR filter.
+    let internal riseCoefficients =
+        [| 0.028406470015011301; 0.26541468360571452; 0.73458531639428548; 0.9715935299849886 |]
+
+    /// How many samples the FIR filter looks ahead when applying.
+    let internal riseCount = Array.length riseCoefficients
+
     /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
     /// without affecting the timings of pulses.
-    let minimumRfPulseSeparation = SampleCount 5u
+    let minimumRfPulseSeparation =
+        riseCount
+        |> (*) 2
+        |> uint32
+        |> SampleCount
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -124,7 +135,8 @@ module Experiment =
                     Pulses = [ (pulses |> List.map toVerifiedPulse) ]
                     Metadata =
                     { ExperimentRepetitions = experiment.Repetitions
-                      PulsesCount = pulses.Length
+                      PulseCount = pulses.Length
+                      RfPulseCount = rfPulses.Length
                       RfPhaseCount = rfPhaseCount
                       ShotRepetitionTime = shotRepetitionTime } } }
 
@@ -242,6 +254,100 @@ module Experiment =
                     |> withMarkers markers
                 (sample, duration)
 
+            /// Count how many samples must be played until I or Q is next set to a non-zero value.
+            let private countUntilRf samples =
+                let rec loop acc = function
+                    | [] -> None
+                    | (sample, SampleCount dur) :: tail when sample.I = 0s && sample.Q = 0s ->
+                        loop (acc + dur) tail
+                    | _ -> Some acc
+                loop 0u samples
+
+            /// Take `count` number of samples off the list of sample * count.
+            let private splitSamples count samples =
+                let rec loop rem acc = function
+                    | tail when rem = 0u -> ((List.rev acc), tail)
+                    | [] -> failwith "Tried to split off more samples than were left."
+                    | (sample, SampleCount dur) :: tail when dur > rem ->
+                        let acc' = (sample, SampleCount rem) :: acc
+                        let tail' = (sample, SampleCount (dur - rem)) :: tail
+                        loop 0u acc' tail'
+                    | (sample, SampleCount dur) :: tail ->
+                        loop 0u ((sample, SampleCount dur) :: acc) tail
+                loop count [] samples
+
+            /// Separate a list of (sample, count) into a list where each sample has a count of 1.
+            let private separateSampleList samples =
+                let rec loop acc = function
+                    | [] -> List.rev acc
+                    | (sample, SampleCount dur) :: tail when dur > 1u ->
+                        loop ((sample, SampleCount 1u) :: acc) ((sample, SampleCount (dur - 1u)) :: tail)
+                    | (sample, _) :: tail ->
+                        loop ((sample, SampleCount 1u) :: acc) tail
+                loop [] samples
+
+            let private updateSampleFirRise i q idx (sample, dur) =
+                let sample' =
+                    sample
+                    |> withI (int16 (float i * riseCoefficients.[idx]))
+                    |> withQ (int16 (float q * riseCoefficients.[idx]))
+                (sample', dur)
+
+            let private updateSampleFirFall i q idx (sample, dur) =
+                let sample' =
+                    sample
+                    |> withI (int16 (float i * riseCoefficients.[riseCount - 1 - idx]))
+                    |> withQ (int16 (float q * riseCoefficients.[riseCount - 1 - idx]))
+                (sample', dur)
+
+            let private applyRiseFir rise i q =
+                rise
+                |> separateSampleList
+                |> List.mapi (updateSampleFirRise i q)
+
+            let private applyFallFir fall i q =
+                fall
+                |> separateSampleList
+                |> List.mapi (updateSampleFirFall i q)
+
+            let private splitRise samples =
+                let count = countUntilRf samples
+                let (head, tail) =
+                    match count with
+                    | None   -> failwith "Tried to apply the FIR filter to too many RF pulses."
+                    | Some s when s < uint32 riseCount ->
+                        failwith "Got too close to an RF pulse without splitting it."
+                    | Some s -> splitSamples (s - uint32 riseCount) samples
+                let (rise, tail') = splitSamples (uint32 riseCount) tail
+                (head, rise, tail')
+
+            let private splitFall = function
+                | [] -> failwith "Unexpectedly reached the last sample when applying the FIR filter."
+                | pulse :: tail ->
+                    let (fall, tail') = splitSamples (uint32 riseCount) tail
+                    ([pulse], fall, tail')
+
+            /// Apply an FIR filter to all IQ values in the pulse sequence.
+            let private firFilter rfCount samples =
+                let rec loop acc list = function
+                    | 0 ->
+                        printfn "%A" (List.rev (list @ acc))
+                        List.rev (list @ acc)
+                    | idx ->
+                        let (head, rise, tail) = splitRise list
+                        let (pulse, fall, tail') = splitFall tail
+                        let i = (fst (List.exactlyOne pulse)).I
+                        let q = (fst (List.exactlyOne pulse)).Q
+                        let rise' = applyRiseFir rise i q
+                        let fall' = applyFallFir fall i q
+                        let acc' =
+                            [ fall'; pulse; rise'; head ]
+                            |> List.map List.rev
+                            |> List.concat
+                            |> (fun list -> list @ acc)
+                        loop acc' tail' (idx - 1)
+                loop [] samples rfCount
+
             /// Add two SampleCounts together.
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
 
@@ -261,9 +367,10 @@ module Experiment =
                 |> List.rev
 
             /// Convert a list of static pulses into a list of samples.
-            let private toSamples pulses =
+            let private toSamples rfCount pulses =
                 pulses
                 |> List.map expandStaticPulse
+                |> firFilter rfCount
                 |> groupEqualSamples
 
             /// Count the number of pulses in the experiment, and return the completed
@@ -279,7 +386,7 @@ module Experiment =
             let compile experiment =
                 experiment
                 |> toStaticPulses
-                |> List.map toSamples
+                |> List.map (toSamples experiment.Metadata.RfPulseCount)
                 |> List.map toCompiledPoints
                 |> (fun points -> { ExperimentPoints = points; Metadata = experiment.Metadata })
 

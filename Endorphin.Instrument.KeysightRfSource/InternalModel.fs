@@ -32,7 +32,9 @@ module internal InternalModel =
             /// How many times the experiment is repeated.
             ExperimentRepetitions : int
             /// How many pulses there are per phase.
-            PulsesCount : int
+            PulseCount : int
+            /// How many pulses are RF pulses.
+            RfPulseCount : int
             /// How many phases there are in the phase cycle.
             RfPhaseCount : int option
             /// How long to wait before firing the next shot.
