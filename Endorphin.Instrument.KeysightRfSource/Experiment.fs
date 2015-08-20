@@ -15,6 +15,48 @@ module Experiment =
     /// How many samples the FIR filter looks ahead when applying.
     let internal riseCount = Array.length riseCoefficients
 
+#if DEBUG
+    [<AutoOpen>]
+    module internal Print =
+        /// Depth of an indent.
+        let indentDepth = 4
+
+        /// Get a string of the indent level.
+        let private getIndent indent = String.replicate indent " "
+
+        /// Pretty-print out a sample.
+        let printSample (indent : int) sample =
+            printf "%s(%6d; %6d; %d%d%d%d)"
+                (getIndent indent)
+                sample.I
+                sample.Q
+                (Convert.ToInt32 sample.Markers.M1)
+                (Convert.ToInt32 sample.Markers.M2)
+                (Convert.ToInt32 sample.Markers.M3)
+                (Convert.ToInt32 sample.Markers.M4)
+
+        /// Print out a (Sample * SampleCount) tuple.
+        let printSampleCount indent (smp, SampleCount count) =
+            printSample indent smp
+            printfn " * %d" count
+
+        /// Pretty-print out a segment.
+        let printSegment indent segment =
+            segment.Samples |> Array.iter (printSampleCount indent)
+
+        /// Pretty print a pending sequence.
+        let rec printPendingSequence indent segMap seqMap sequence =
+            let printEl = printPendingSequenceElement indent segMap seqMap
+            sequence |> List.iter printEl
+        and printPendingSequenceElement indent segMap seqMap = function
+            | (PendingSegment (SegmentId id), reps) ->
+                printfn "%s%s * %d" (getIndent indent) id reps
+                printSegment (indent + indentDepth) (Map.find id segMap)
+            | (PendingSequence (SequenceId id), reps) ->
+                printfn "%s%s * %d" (getIndent indent) id reps
+                printPendingSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
+#endif
+
     [<AutoOpen>]
     module Configure =
         /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
@@ -227,12 +269,13 @@ module Experiment =
             /// pulse sequence.
             let private updateExperimentPulses (experiment : Experiment) = choice {
                 let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
-                let shotRepPulse = Delay (shotRepetitionTime, SampleCount 0u)
                 let pulses =
-                    experiment.Pulses
-                    |> Seq.appendSingleton shotRepPulse
-                    |> addSpaceForFir
-                return { experiment with Pulses = pulses } }
+                    if shotRepetitionTime = SampleCount 0u then
+                        experiment.Pulses
+                    else
+                        experiment.Pulses |> Seq.appendSingleton (Delay (shotRepetitionTime, SampleCount 0u))
+                let pulses' = pulses |> addSpaceForFir
+                return { experiment with Pulses = pulses' } }
 
             /// Convert an experiment into a VerifiedExperiment.
             let private toVerifiedExperiment (experiment : Experiment) = choice {
@@ -376,7 +419,7 @@ module Experiment =
                         let tail' = (sample, SampleCount (dur - rem)) :: tail
                         loop 0u acc' tail'
                     | (sample, SampleCount dur) :: tail ->
-                        loop 0u ((sample, SampleCount dur) :: acc) tail
+                        loop (rem - dur) ((sample, SampleCount dur) :: acc) tail
                 loop count [] samples
 
             /// Separate a list of (sample, count) into a list where each sample has a count of 1.
@@ -389,30 +432,29 @@ module Experiment =
                         loop ((sample, SampleCount 1u) :: acc) tail
                 loop [] samples
 
-            let private updateSampleFirRise i q idx (sample, dur) =
+            /// Update a sample for the FIR filter using the indexer and the index in the list
+            /// to decide which coefficient to apply.
+            let private updateSampleFir i q indexer idx (sample, dur) =
                 let sample' =
                     sample
-                    |> withI (int16 (float i * riseCoefficients.[idx]))
-                    |> withQ (int16 (float q * riseCoefficients.[idx]))
+                    |> withI (int16 (float i * riseCoefficients.[indexer idx]))
+                    |> withQ (int16 (float q * riseCoefficients.[indexer idx]))
                 (sample', dur)
 
-            let private updateSampleFirFall i q idx (sample, dur) =
-                let sample' =
-                    sample
-                    |> withI (int16 (float i * riseCoefficients.[riseCount - 1 - idx]))
-                    |> withQ (int16 (float q * riseCoefficients.[riseCount - 1 - idx]))
-                (sample', dur)
-
-            let private applyRiseFir rise i q =
-                rise
+            /// Apply the necessary FIR filter to a list of samples.
+            let private applyFir indexer arr i q =
+                arr
                 |> separateSampleList
-                |> List.mapi (updateSampleFirRise i q)
+                |> List.mapi (updateSampleFir i q indexer)
 
-            let private applyFallFir fall i q =
-                fall
-                |> separateSampleList
-                |> List.mapi (updateSampleFirFall i q)
+            /// Apply the FIR filter to a rise.
+            let private applyRiseFir = applyFir (fun i -> i)
 
+            /// Apply the FIR filter to a fall.
+            let private applyFallFir = applyFir (fun i -> riseCount - 1 - i)
+
+            /// Split the given samples into a head, rise and tail, where rise is the correct number
+            /// of samples, and tail begins with the next RF pulse.
             let private splitRise samples =
                 let count = countUntilRf samples
                 let (head, tail) =
@@ -424,6 +466,9 @@ module Experiment =
                 let (rise, tail') = splitSamples (uint32 riseCount) tail
                 (head, rise, tail')
 
+            /// Split the given samples into a pulse, fall and tail, where the pulse is a 1-length
+            /// sample list, the fall is the correct length, and the tail is the rest of the pulse
+            /// sequence.
             let private splitFall = function
                 | [] -> failwith "Unexpectedly reached the last sample when applying the FIR filter."
                 | pulse :: tail ->
@@ -433,7 +478,8 @@ module Experiment =
             /// Apply an FIR filter to all IQ values in the pulse sequence.
             let private firFilter rfCount samples =
                 let rec loop acc list = function
-                    | 0 -> List.rev (list @ acc)
+                    | 0 ->
+                        (List.rev acc) @ list
                     | idx ->
                         let (head, rise, tail) = splitRise list
                         let (pulse, fall, tail') = splitFall tail
@@ -743,10 +789,7 @@ module Experiment =
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.
         [<AutoOpen>]
-        module Print =
-            /// Depth of an indent.
-            let private depth = 4
-
+        module PrintTotal =
             /// Get a compiled experiment.
             let toCompiledExperiment experiment = asyncChoice {
                 let! verified = verify experiment
@@ -759,41 +802,6 @@ module Experiment =
                     |> compile
                     |> compress }
 
-            /// Get a string of the indent level.
-            let private getIndent indent = String.replicate indent " "
-
-            /// Pretty-print out a sample.
-            let printSample (indent : int) sample =
-                printf "%s(%6d; %6d; %d%d%d%d)"
-                    (getIndent indent)
-                    sample.I
-                    sample.Q
-                    (Convert.ToInt32 sample.Markers.M1)
-                    (Convert.ToInt32 sample.Markers.M2)
-                    (Convert.ToInt32 sample.Markers.M3)
-                    (Convert.ToInt32 sample.Markers.M4)
-
-            /// Print out a (Sample * SampleCount) tuple.
-            let private printSampleCount indent (smp, SampleCount count) =
-                printSample indent smp
-                printfn " * %d" count
-
-            /// Pretty-print out a segment.
-            let printSegment indent segment =
-                segment.Samples |> Array.iter (printSampleCount indent)
-
-            /// Pretty print a pending sequence.
-            let rec printPendingSequence indent segMap seqMap sequence =
-                let printEl = printPendingSequenceElement indent segMap seqMap
-                sequence |> List.iter printEl
-            and private printPendingSequenceElement indent segMap seqMap = function
-                | (PendingSegment (SegmentId id), reps) ->
-                    printfn "%s%s * %d" (getIndent indent) id reps
-                    printSegment (indent + depth) (Map.find id segMap)
-                | (PendingSequence (SequenceId id), reps) ->
-                    printfn "%s%s * %d" (getIndent indent) id reps
-                    printPendingSequence (indent + depth) segMap seqMap (Map.find id seqMap)
-
             /// Pretty-print out a compiled experiment.
             let printCompiledExperiment (compiled : CompiledExperiment) =
                 let helper item = List.iter (printSampleCount 0) item.CompiledData
@@ -803,6 +811,6 @@ module Experiment =
             let printCompressedExperiment (compressed : CompressedExperiment) =
                 let helper item =
                     printfn "\n%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
-                    printPendingSequence depth compressed.Segments compressed.Sequences item
+                    printPendingSequence indentDepth compressed.Segments compressed.Sequences item
                 List.iter helper compressed.CompressedExperiments
 #endif
