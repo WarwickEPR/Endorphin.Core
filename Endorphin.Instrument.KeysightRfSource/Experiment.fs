@@ -121,6 +121,14 @@ module Experiment =
                         loop (space + (pulseLength hd)) tl
                 loop minimum (List.ofSeq experiment.Pulses)
 
+            /// Count the number of SampleCounts until the first RF pulse triggers.
+            let private countUntilFirstRf pulses =
+                let rec loop count = function
+                    | [] -> None
+                    | head :: tail when isRfPulse head -> Some count
+                    | head :: tail -> loop (count + pulseLength head) tail
+                loop 0u pulses
+
             /// Convert an experiment into a VerifiedExperiment.
             let private toVerifiedExperiment (experiment : Experiment) = choice {
                 let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
@@ -131,11 +139,18 @@ module Experiment =
                     |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
                 let! rfPhaseCount = countRfPhases rfPulses
+                let pulses' =
+                    match countUntilFirstRf pulses with
+                    | None -> pulses
+                    | Some count when count >= uint32 riseCount -> pulses
+                    | Some count ->
+                        let deadCount = SampleCount <| uint32 riseCount - count
+                        Delay (deadCount, SampleCount 0u) :: pulses
                 return {
-                    Pulses = [ (pulses |> List.map toVerifiedPulse) ]
+                    Pulses = [ (pulses' |> List.map toVerifiedPulse) ]
                     Metadata =
                     { ExperimentRepetitions = experiment.Repetitions
-                      PulseCount = pulses.Length
+                      PulseCount = pulses'.Length
                       RfPulseCount = rfPulses.Length
                       RfPhaseCount = rfPhaseCount
                       ShotRepetitionTime = shotRepetitionTime } } }
@@ -330,9 +345,7 @@ module Experiment =
             /// Apply an FIR filter to all IQ values in the pulse sequence.
             let private firFilter rfCount samples =
                 let rec loop acc list = function
-                    | 0 ->
-                        printfn "%A" (List.rev (list @ acc))
-                        List.rev (list @ acc)
+                    | 0 -> List.rev (list @ acc)
                     | idx ->
                         let (head, rise, tail) = splitRise list
                         let (pulse, fall, tail') = splitFall tail
