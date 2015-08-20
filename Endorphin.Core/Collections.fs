@@ -25,3 +25,8 @@ module List =
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Map =
     let findArray keys map = keys |> Array.map (fun key -> Map.find key map)
+
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Seq =
+    /// Prepend a single value onto the front of a sequence.
+    let prependSingleton value sequence = seq { yield value; yield! sequence }

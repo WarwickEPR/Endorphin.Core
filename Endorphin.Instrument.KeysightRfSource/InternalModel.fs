@@ -23,7 +23,6 @@ module internal InternalModel =
         type VerifiedPulse =
             | VerifiedRf of RfPulse
             | VerifiedDelay of DelayPulse
-            | VerifiedTrigger of TriggerPulse
             | VerifiedMarker of MarkerPulse
 
         /// Metadata about the experiment gathered during verification, for use during the
@@ -32,7 +31,9 @@ module internal InternalModel =
             /// How many times the experiment is repeated.
             ExperimentRepetitions : int
             /// How many pulses there are per phase.
-            PulsesCount : int
+            PulseCount : int
+            /// How many pulses are RF pulses.
+            RfPulseCount : int
             /// How many phases there are in the phase cycle.
             RfPhaseCount : int option
             /// How long to wait before firing the next shot.
@@ -44,7 +45,6 @@ module internal InternalModel =
         type StaticPulse =
             | StaticRf      of phase : Phase * duration : SampleCount
             | StaticDelay   of duration : SampleCount
-            | StaticTrigger of markers : Markers
             | StaticMarker  of markers : Markers * duration : SampleCount
 
         /// An experiment after it has been passed through the user-input verifier.
