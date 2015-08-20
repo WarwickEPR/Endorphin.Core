@@ -84,7 +84,7 @@ module Control =
 
         /// Store the given sequence on the machine, and return a StoredSegment type which can be
         /// used to identify the segment internally.
-        let storeSegment instrument segment =
+        let internal storeSegment instrument segment =
             let id = SegmentId <| hexHash segmentToBytes segment
             storeSegmentById instrument (id, segment)
 
@@ -136,13 +136,6 @@ module Control =
                 do! setHeaderArbClockFrequency instrument defaultArbClockFrequency waveform
             return waveforms }
 
-        /// Store a sequence of segments onto the machine, and return an array of identifiers to those
-        /// segments.
-        let storeSegmentSequence instrument sequence =
-            let helper el = ((SegmentId <| hexHash segmentToBytes el), el)
-            let sequence' = Seq.map helper sequence
-            storeSegmentSequenceById instrument sequence'
-
         /// Key to store sequences to the machine.
         /// Command reference p.345.
         let private storeSequenceKey = ":RAD:ARB:SEQ"
@@ -154,7 +147,7 @@ module Control =
             return stored }
 
         /// Write a sequence to the machine, and return an identifier for that sequence.
-        let storeSequence instrument sequence =
+        let internal storeSequence instrument sequence =
             let id = SequenceId <| hexHash sequenceToBytes sequence
             storeSequenceById instrument (id, sequence)
 
@@ -174,19 +167,20 @@ module Control =
                 do! setHeaderArbClockFrequency instrument defaultArbClockFrequency sequence
             return sequences }
 
-        /// Write a sequence of sequences files to the machine, and return an array of identifiers
-        /// to those sequences.
-        let storeSequenceSequence instrument sequence =
-            let sequence' = seq {
-                for el in sequence do
-                    let id = SequenceId <| hexHash sequenceToBytes el
-                    yield (id, el) }
-            storeSequenceSequenceById instrument sequence'
-
         /// Store a waveform onto the machine.
         let storeWaveform instrument = function
             | Segment  s -> storeSegment  instrument s
             | Sequence s -> storeSequence instrument s
+
+        /// Store a sequence of waveforms onto the machine.
+        let storeWaveformSequence instrument (sequence : Waveform seq) = asyncChoice {
+            let arr = Array.create (Seq.length sequence) Unchecked.defaultof<StoredWaveform>
+            let mutable i = 0
+            for element in sequence do
+                let! head = storeWaveform instrument element
+                arr.[i] <- head
+                i <- i + 1
+            return arr }
 
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
         let storeExperiment instrument experiment = asyncChoice {
