@@ -17,19 +17,36 @@ open Endorphin.Instrument.PiezosystemNV40
 
 module Connection =  
 
-    let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
-    sprintf "myface %s" <| serialConfiguration.BaudRate.ToString()
-    sprintf "databits: %s" <| serialConfiguration.DataBits.ToString()
-    (*
-    let serialPort = new System.IO.Ports.SerialPort("COM3")
-    let serialConnection = new Piezojena.Protocols.SerialPortConnection(serialPort, serialConfiguration)
-*)
-    let multiService = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-    let myStage = multiService.ConnectNv40MultiToSerialPort("COM3")
-    myStage.SetDesiredOutput(byte 0, 10.0f)
+    //let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
+    //sprintf "myface %s" <| serialConfiguration.BaudRate.ToString()
+    //sprintf "databits: %s" <| serialConfiguration.DataBits.ToString()
+    //
+    //let serialPort = new System.IO.Ports.SerialPort("COM3")
+    //let serialConnection = new Piezojena.Protocols.SerialPortConnection(serialPort, serialConfiguration)
+    //
+    //let multiService = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
+    //let myStage = multiService.ConnectNv40MultiToSerialPort("COM3")
+    //myStage.SetDesiredOutput(byte 0, 10.0f)
     //Piezojena.Protocols.Nv40Multi.Nv40Multi.
     //j.
 
+    let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
+    serialConfiguration.BaudRate     <- 19200 
+    serialConfiguration.DataBits     <- 8
+    serialConfiguration.StopBits    <- Piezojena.Protocols.SerialStopBitsKind.One
+    serialConfiguration.Parity      <- Piezojena.Protocols.SerialParity.None
+    serialConfiguration.FlowControl <- Piezojena.Protocols.SerialFlowControls.XOnXOff
+    let write = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
+    let mystage = write.ConnectNv40MultiToSerialPort("COM3")
+    mystage.SetDesiredOutput (byte 1, 10.0f)
+    mystage.SetDesiredOutput (byte 1, 1.0f)
+    mystage.SetDesiredOutput (byte 2, 5.0f)
+    mystage.SetDesiredOutput (byte 3, 56.0f)
+    
+    //let multi = Piezojena.Protocols.Nv40Multi.N
+    //let myStage = multiService.ConnectNv40MultiToSerialPort("COM3")
+    //myStage.SetDesiredOutput(byte 0, 10.0f)
+ 
     //sprintf "yourface %s" <| serialConnection.Configuration.BaudRate.ToString()
 
     

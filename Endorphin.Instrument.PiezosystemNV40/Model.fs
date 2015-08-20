@@ -54,7 +54,7 @@ module Model =
     type SoftStart = |On|Off
 
     /// Type containing information nessesary to setup a serial connection with the Piezojena.
-    type internal serialConnection = {
+    type Serial = {
         BaudRate: int
         DataBits: int
         StopBits: StopBits
