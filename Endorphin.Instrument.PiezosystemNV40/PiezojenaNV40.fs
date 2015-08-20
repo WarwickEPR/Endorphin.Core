@@ -79,8 +79,8 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus 
             |> checkStatus 
-            |> logDeviceOpResult piezojena 
-                ("Successfully retrieved the Piezojena's serial number.")
+            |> logQueryResult
+                (sprintf "Successfully retrieved the Piezojena's serial number %A: %i" serialNumber)
                 (sprintf "Failed to retrieve the Piezojena's serial number: %A ")
             |> AsyncChoice.liftChoice 
 
@@ -98,11 +98,11 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus
             |> checkStatus
-            |> logDeviceOpResult piezojena
-                ("Successfully retrieved software version.")
+            |> logQueryResult
+                (sprintf "Successfully retrieved software version %A: %A" (major, minor, build, time))
                 (sprintf "Failed to retrieve software version: %A")
             |> AsyncChoice.liftChoice
-
+   
     module SetParameters = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
@@ -207,8 +207,8 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus
             |> checkStatus
-            |> logDeviceOpResult piezojena 
-                ("Successfully retrieved encoder values.")
+            |> logQueryResult 
+                (sprintf "Successfully retrieved encoder values %A: %A" (mode, time, stepLimit, exponent, closedStep, openStep))
                 (sprintf "Failed to retrieve encoder values: %A")
             |> AsyncChoice.liftChoice
 
@@ -222,8 +222,8 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus
             |> checkStatus
-            |> logDeviceOpResult piezojena
-                ("Successfully measured actuator temperature.")
+            |> logQueryResult
+                (sprintf "Successfully measured actuator temperature %A: %A" temperature)
                 (sprintf "Failed to measure actuator temperature: %A")
             |> AsyncChoice.liftChoice
         
@@ -238,8 +238,8 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus
             |> checkStatus
-            |> logDeviceOpResult piezojena
-                ("Successfully retrieved channel coordinate.")
+            |> logQueryResult 
+                (sprintf "Successfully retrieved channel coordinate %A: %A" coordinate)
                 (sprintf "Failed to retrieve chanel coordinate: %A")
             |> AsyncChoice.liftChoice
 
@@ -258,4 +258,35 @@ module PiezojenaNV40 =
             |> logDeviceOpResult piezojena
                 ("Successfully retrieved the closed loop limits")
                 (sprintf "Failed to retrieve the closed loop limits: %A")
+            |> AsyncChoice.liftChoice
+
+        /// Retrieves a measurement from a single channel. 
+        let queryMeasuredValue piezojena (channel:Channel) = 
+            let error : string = Unchecked.defaultof <_>
+            let measurement : float32 = Unchecked.defaultof<_>  
+            let byteChannel = Parsing.channelByte (channel)
+            logDevice "Checking channel measurement."
+            stage.GetMeasuredValue (byteChannel , measurement)
+            stage.GetCommandError (&error)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully retrieved channel measurement.")
+                (sprintf "Failed to retrieve channel measurement: %A")
+            |> AsyncChoice.liftChoice
+        
+        /// Retrieves all measurements from three channels. 
+        let queryAllMeasurements piezojena = 
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
+            logDevice piezojena "Checking all channel measurements." 
+            stage.GetMeasuredValueChunk (&array)
+            stage.GetCommandError (&error)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena 
+                ("Successfully retrieved all channel measurements.")
+                (sprintf "Failed to retrieve all channel measurements: %A")
             |> AsyncChoice.liftChoice

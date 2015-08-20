@@ -21,11 +21,11 @@ module Connection =
          
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
     let private stage = multiServices.ConnectNv40MultiToSerialPort("COM3")      
-
-    let output = [|1.0f; 20.0f; 10.0f|]
-
-    stage.SetDesiredOutputChunk (output)
-   
+       
+    let mutable error : string = Unchecked.defaultof<_>
+    let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
+    stage.GetMeasuredValueChunk (&array)
+       
    
    
    
