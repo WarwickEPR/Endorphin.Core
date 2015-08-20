@@ -93,5 +93,5 @@ module Model =
         Time: int
         StepLimit: int
         Exponent: byte option
-        ClosedStep: float
-        OpenStep: float} 
+        ClosedStep: float32
+        OpenStep: float32} 

@@ -48,23 +48,19 @@ module PiezojenaNV40 =
         
         /// The device identification string. 
         let identification (Piezojena ID) = ID 
-            
-    module serialConnection = 
+                   
+    let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
+    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3") 
 
-        let serialCondfig = 
+    module PiezojenaInformation =      
             
-            Piezojena.Protocols.SerialConfiguration
-    
-    module PiezojenaInformation = 
-        
         /// Retrieves Piezojena identification string. 
         let getIdentification piezojena = 
-            let errorStringBuilder = StringBuilder (8)
-            let identification = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable identification : string = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving Piezojena's identification string."
-            NativeApi.Multi.GetIdentification (identification)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.GetIdentification(&identification)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus 
             |> checkStatus 
@@ -75,12 +71,11 @@ module PiezojenaNV40 =
         
         /// Retrieves Piezojena serial number. 
         let getSerialNumber piezojena = 
-            let errorStringBuilder = StringBuilder (8)
-            let mutable serial : int = Unchecked.defaultof<_>
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable serialNumber : int = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving Piezojena's serial number."
-            NativeApi.Multi.GetSerialNumber (&serial)
-            // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string (errorStringBuilder)
+            stage.GetSerialNumber (&serialNumber)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus 
             |> checkStatus 
@@ -92,15 +87,14 @@ module PiezojenaNV40 =
         /// Retrieves the Piezojena's software version, uses three pointers to major, minor and build.
         /// Version of form major.minor.build.
         let getVersion piezojena = 
-            let errorStringBuilder = StringBuilder (8)
-            let mutable major : int = Unchecked.defaultof<_>
-            let mutable minor : int = Unchecked.defaultof<_>
-            let mutable build : int = Unchecked.defaultof<_>
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable major : int    = Unchecked.defaultof<_>
+            let mutable minor : int    = Unchecked.defaultof<_>
+            let mutable build : int    = Unchecked.defaultof<_>
             let mutable time : System.DateTime = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving software version.."
-            NativeApi.Multi.GetVersion (&major, &minor, &build, &time)
-            // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string (errorStringBuilder)
+            stage.GetVersion (&major, &minor, &build, &time)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -110,33 +104,15 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
 
     module SetParameters = 
-        
-        /// Changes channel, requires the Piezojena's ID.
-        let changeChannel piezojena (channel:Channel) = 
-            let errorStringBuilder = StringBuilder (8)
-            let byteChannel = Parsing.channelByte channel 
-            let id = identification piezojena
-            logDevice piezojena "Changing channel."
-            NativeApi.Multi.ChangeChannel (id, byteChannel)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logDeviceOpResult piezojena
-                ("Successfully changed channel.")
-                (sprintf "Failed to change channel: %A")
-            |> AsyncChoice.liftChoice
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
         let setLoopMode piezojena (channel:Channel) (mode:Loop) = 
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let byteChannel = Parsing.channelByte channel 
             let modeBoolean = Parsing.loopBoolean mode
             logDevice piezojena "Setting loop mode."
-            NativeApi.Multi.SetClosedLoopControlled (byteChannel, modeBoolean)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.SetClosedLoopControlled (byteChannel, modeBoolean)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -147,7 +123,7 @@ module PiezojenaNV40 =
     
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let mode       = Parsing.modeMap (encoder.Mode)
             let time       = encoder.Time
             let steplimit  = encoder.StepLimit
@@ -159,9 +135,8 @@ module PiezojenaNV40 =
                 if encoder.Exponent = None then 0uy
                 else Parsing.byteOptionConvert(encoder.Exponent)
             logDevice piezojena "Setting encoder values."            
-            NativeApi.Multi.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -172,12 +147,11 @@ module PiezojenaNV40 =
         
         /// Sets soft start, if true then soft start turned on, if false then off. 
         let setSoftStart piezojena (softstart:SoftStart) = 
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let boolean = Parsing.softStartBoolean(softstart)
             logDevice piezojena "Changing soft start settings."
-            NativeApi.Multi.SetSoftStart (boolean)
-            // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.SetSoftStart (boolean)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus 
             |> checkStatus
@@ -190,17 +164,16 @@ module PiezojenaNV40 =
         
         /// Queries the encoders values. 
         let queryEncoder piezojena =  
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
             let mutable time : int         = Unchecked.defaultof<_>
             let mutable stepLimit : int    = Unchecked.defaultof<_>
             let mutable exponent : byte    = Unchecked.defaultof<_>
-            let mutable closedStep : float = Unchecked.defaultof<_> 
-            let mutable openStep : float   = Unchecked.defaultof<_>
+            let mutable closedStep : float32 = Unchecked.defaultof<_> 
+            let mutable openStep : float32   = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving encoder values."
-            NativeApi.Multi.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -211,12 +184,11 @@ module PiezojenaNV40 =
 
         /// Queries the actuators temperature. 
         let queryTemperature piezojena =  
-            let errorStringBuilder = StringBuilder (8)
-            let mutable temperature : float = Unchecked.defaultof<_>
+            let mutable error : string = Unchecked.defaultof<_>
+            let mutable temperature : float32 = Unchecked.defaultof<_>
             logDevice piezojena "Measureing temperature."            
-            NativeApi.Multi.GetTemperature (&temperature)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.GetTemperature (&temperature)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -227,13 +199,12 @@ module PiezojenaNV40 =
         
         /// Queries the actuator posistion for a single channel. 
         let querySingleCoordinate piezojena (channel:Channel) = 
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let byteChannel = Parsing.channelByte (channel)
             let mutable coordinate : Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving channel coordinates."
-            NativeApi.Multi.GetCoordinate (byteChannel , &coordinate)
-            // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string (errorStringBuilder)
+            stage.GetActuatorCoordinate (byteChannel , &coordinate)
+            stage.GetCommandError (&error)
             error
             |> stringtoStatus
             |> checkStatus
@@ -244,14 +215,13 @@ module PiezojenaNV40 =
 
         /// Queries closed loop  limits. 
         let queryClosedLoopLimits piezojena (channel:Channel) = 
-            let errorStringBuilder = StringBuilder (8)
+            let mutable error : string = Unchecked.defaultof<_>
             let byteChannel = Parsing.channelByte (channel)
-            let mutable minimum : float = Unchecked.defaultof<_>
-            let mutable maximum : float = Unchecked.defaultof<_>
+            let mutable minimum : float32 = Unchecked.defaultof<_>
+            let mutable maximum : float32 = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving closed loop limits."
-            NativeApi.Multi.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
-           // NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
+            stage.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
+            stage.GetCommandError (&error)
             error 
             |> stringtoStatus
             |> checkStatus
@@ -259,20 +229,3 @@ module PiezojenaNV40 =
                 ("Successfully retrieved the closed loop limits")
                 (sprintf "Failed to retrieve the closed loop limits: %A")
             |> AsyncChoice.liftChoice
-        
-        /// ????????????????????????????????????
-        let checkChannel piezojena (channel:Channel) = 
-            let errorStringBuilder = StringBuilder (8)
-            let byteChannel = Parsing.channelByte (channel)            
-            logDevice piezojena "Checking channel."
-            NativeApi.Multi.CheckChannel (byteChannel)
-            //NativeApi.Multi.GetCommandError (errorStringBuilder)
-            let error = string(errorStringBuilder)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logDeviceOpResult piezojena
-                ("Successfully checked channel.")
-                (sprintf"Failed to check channel: %A")
-            |> AsyncChoice.liftChoice        
-        

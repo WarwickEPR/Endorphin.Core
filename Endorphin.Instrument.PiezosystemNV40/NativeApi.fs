@@ -7,31 +7,32 @@ open System.Runtime.InteropServices
 
 module NativeApi = 
     
-    module Protocols = 
-        
-        [<Literal>]
-        let dllNameProtocols = "Piezojena.Protocols.dll"
-
-        [<DllImport(dllNameProtocols, EntryPoint = "Configure")>]
-        /// Configures connection using SerialConfigureation.
-        extern void Configure (Piezojena.Protocols.SerialConfiguration configuration)
-
-        [<DllImport(dllNameProtocols, EntryPoint = "SerialConfiguration")>]
-        /// Configures connection using SerialConfiguration.
-        extern void Configuration ()
-
-        [<DllImport(dllNameProtocols, EntryPoint = "SerialPortConnection")>]
-        /// Configures connection using SerialConfigureation.
-        extern void SerialPortConnection (System.IO.Ports.SerialPort port)
-
+    //module Protocols = 
+    //
+    //    /// Configures connection using SerialConfigureation.
+    //    extern void Configure (Piezojena.Protocols.SerialConfiguration configuration)
+    //
+    //    [<DllImport(dllNameProtocols, EntryPoint = "SerialConfiguration")>]
+    //    /// Configures connection using SerialConfiguration.
+    //    extern void Configuration ()
+    //
+    //    [<DllImport(dllNameProtocols, EntryPoint = "SerialPortConnection")>]
+    //    /// Configures connection using SerialConfigureation.
+    //    extern void SerialPortConnection (System.IO.Ports.SerialPort port)
+    //
     module Multi = 
-    
-        [<Literal>]
-        let dllNameMulti = "Piezojena.Protocols.Nv40Multi.dll" 
         
-        [<DllImport(dllNameMulti, EntryPoint = "GetCommandError")>]
         /// Retrieves error string for command. 
-        extern void GetCommandError(StringBuilder)
+        let GetCommandError = 
+            let mutable error : string = Unchecked.defaultof<_>
+            let command  = new Piezojena.Protocols.Nv40Multi.Nv40MultiCommon 
+            command.GetCommandError (&error) 
+           
+
+        
+
+
+
 
         [<DllImport(dllNameMulti, EntryPoint = "GetIdentification")>]
         /// Retrieves the Piezojena's identification string.

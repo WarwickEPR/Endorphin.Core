@@ -11,7 +11,7 @@ open Endorphin.Instrument.PiezosystemNV40
 
 module SerialConnection = 
     
-    let connectt (serial:Serial) =
+    let connect (serial:Serial) =
         /// Sets up serial port configuration using serial port settings contained in record type Serial. 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
         serialConfiguration.BaudRate    <- serial.BaudRate
