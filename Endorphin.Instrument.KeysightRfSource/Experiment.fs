@@ -429,7 +429,7 @@ module Experiment =
                     | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
                     | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
                 let sample =
-                    defaultIqSample
+                    emptySample
                     |> withAmplitudeAndPhase amplitude phase
                     |> withMarkers markers
                 (sample, duration)

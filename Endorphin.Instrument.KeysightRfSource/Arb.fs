@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open System
+open Hashing
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -17,10 +18,19 @@ module ARB =
         /// A markers record with all markers turned off.
         let emptyMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
         /// Basic data form of IQ point.
-        let defaultIqSample = {
+        let emptySample = {
             Sample.I = 0s
             Sample.Q = 0s
             Sample.Markers = emptyMarkers }
+
+        /// An empty segment, ready to have samples added to it.
+        let emptySegment = {
+            Samples = Array.empty
+            Length = 0us }
+
+        /// An empty sequence, ready to have waveforms added to it.
+        let emptySequence = SequenceType List.empty
+
         /// Set value of the I sample.
         let withI value sample = { sample with I = value }
         /// Set value of the Q sample.
@@ -51,30 +61,6 @@ module ARB =
         /// Set value of all markers at once.
         let withMarkers markers (sample: Sample) =
             { sample with Markers = markers }
-
-        /// Add a sample and a number of repeats to a waveform.
-        let addSample sample count segment = {
-            Samples = Array.append segment.Samples [| (sample, SampleCount count) |]
-            Length = segment.Length + uint16 count }
-
-        /// Add a sequence of (sample, count) onto a segment.
-        let addSampleSequence sequence segment = {
-            Samples =
-                sequence
-                |> Seq.map (fun (x, y) -> (x, SampleCount y))
-                |> Array.ofSeq
-                |> Array.append segment.Samples
-            Length =
-                sequence
-                |> Seq.sumBy snd
-                |> uint16
-                |> (+) segment.Length }
-
-        /// Complete a segment, creating a waveform to write to the machine.
-        let segmentToWaveform = Segment
-
-        /// Complete a sequence, creating a waveform to write to the machine.
-        let sequenceToWaveform = Sequence
 
         /// Convert a Phase type into a float value of radians for use in the mathematical functions.
         let private phaseToRadians = function
@@ -533,3 +519,41 @@ module ARB =
                         markers.[index] <- getMarkers data'.[index]
                         loop (index + 1)
                 loop 0
+
+    [<AutoOpen>]
+    module Construct =
+        /// Add a sample and a number of repeats to a waveform.
+        let addSample sample count segment = {
+            Samples = Array.append segment.Samples [| (sample, SampleCount <| uint32 count) |]
+            Length = segment.Length + count }
+
+        /// Add a sequence of (sample, count) onto a segment.
+        let addSampleSequence sequence segment = {
+            Samples =
+                sequence
+                |> Seq.map (fun (x, y) -> (x, SampleCount y))
+                |> Array.ofSeq
+                |> Array.append segment.Samples
+            Length =
+                sequence
+                |> Seq.sumBy snd
+                |> uint16
+                |> (+) segment.Length }
+
+        /// Add a waveform sequence and count to a sequence.
+        let addWaveform waveform count (SequenceType sequence) =
+            let id =
+                match waveform with
+                | Segment (id, _) -> SegmentId id
+                | Sequence (id, _) -> SequenceId id
+            SequenceType ((id, count) :: sequence)
+
+        /// Complete a segment, creating a waveform to write to the machine.
+        let segmentToWaveform segment =
+            let id = hexHash segmentToBytes segment
+            Segment (id, segment)
+
+        /// Complete a sequence, creating a waveform to write to the machine.
+        let sequenceToWaveform (SequenceType sequence) =
+            let id = hexHash sequenceToBytes (SequenceType sequence)
+            Sequence (id, SequenceType (List.rev sequence))

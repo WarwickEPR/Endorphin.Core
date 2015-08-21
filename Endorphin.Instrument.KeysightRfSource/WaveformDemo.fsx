@@ -17,18 +17,41 @@ let printResult = function
 
 let numSamples = 1000us
 
-let generateSegment value count =
-    let sample =
-        defaultIqSample
-        |> withAmplitudeAndPhase (float value / float System.Int16.MaxValue) (PhaseInRad 0.0<rad>)
-        |> withMarkers { M1 = true; M2 = false; M3 = true; M4 = true }
-    Segment { Samples = [| (sample, SampleCount (uint32 count)) |]; Length = count }
+let sample1 =
+    emptySample
+    |> withI 10000s
+    |> withQ 10000s
+    |> withMarker1 true
 
-let segmentSequence = seq { for i in 1 .. 100
-    -> generateSegment (int16 (32000.0 * float i / 100.0)) numSamples }
+let sample2 =
+    emptySample
+    |> withI -10000s
+    |> withQ 20000s
+    |> withMarker2 true
 
-let segment1 = generateSegment 30000s numSamples
-let segment2 = generateSegment 10000s numSamples
+let segment1 =
+    emptySegment
+    |> addSample sample1 30us
+    |> addSample sample2 30us
+    |> segmentToWaveform
+
+let segment2 =
+    emptySegment
+    |> addSample sample2 1us
+    |> addSample sample1 59us
+    |> segmentToWaveform
+
+let sequence1 =
+    emptySequence
+    |> addWaveform segment1 12us
+    |> addWaveform segment2 1us
+    |> sequenceToWaveform
+
+let sequence2 =
+    emptySequence
+    |> addWaveform sequence1 2us
+    |> addWaveform segment1 3us
+    |> sequenceToWaveform
 
 asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
@@ -36,34 +59,8 @@ asyncChoice {
     let! storedSegment1 = storeWaveform keysight segment1
     let! storedSegment2 = storeWaveform keysight segment2
 
-    printfn "%A" storedSegment1
-    printfn "%A" storedSegment2
-
-    let! storedSegmentArray = storeWaveformSequence keysight segmentSequence
-
-    printfn "%A" storedSegmentArray
-
-    let sequenceSequence = seq { for i in 1 .. 100
-        -> Sequence [ (storedSegment1, 10us) ; (storedSegmentArray.[i-1], (uint16 i)) ] }
-
-    let sequence1 = Sequence [ (storedSegment1, 10us) ; (storedSegment2, 20us) ]
     let! storedSequence1 = storeWaveform keysight sequence1
-
-    printfn "%A" storedSequence1
-
-    let sequence2 = Sequence [ (storedSegment1, 65509us) ; (storedSequence1, 100us) ]
     let! storedSequence2 = storeWaveform keysight sequence2
-
-    printfn "%A" storedSequence2
-
-    let sequence3 = Sequence [ (storedSegment2, 1us) ; (storedSequence1, 1024us) ]
-    let! storedSequence3 = storeWaveform keysight sequence3
-
-    printfn "%A" storedSequence3
-
-    let! storedSequenceArray = storeWaveformSequence keysight sequenceSequence
-
-    printfn "%A" storedSequenceArray
 
     // do! deleteStoredWaveform keysight storedSegment2
     // do! deleteStoredWaveform keysight storedSequence2
