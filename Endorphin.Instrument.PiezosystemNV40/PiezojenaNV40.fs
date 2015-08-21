@@ -10,6 +10,8 @@ open Endorphin.Instrument.PiezosystemNV40
 
 module PiezojenaNV40 = 
     
+    let piezojena = Piezojena ""
+
     [<AutoOpen>]
     module private Logger =
         
@@ -68,13 +70,17 @@ module PiezojenaNV40 =
     
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
     let stage = multiServices.ConnectNv40MultiToSerialPort("COM3")    
-    
-    let private checkError = 
-        let mutable error : string = Unchecked.defaultof<_>
+
+    let private check (workflow:Async<'T>) = asyncChoice {
+        let! workflowResult = workflow |> AsyncChoice.liftAsync
+        let mutable error : string = Unchecked.defaultof<_> 
         stage.GetCommandError (&error)
         let statusError = stringtoStatus error
-        let status = error |> stringtoStatus |> checkStatus
-        status
+        do! if statusError = Ok then
+                Ok |> checkStatus
+            else 
+                Error error |> checkStatus 
+        return workflowResult } 
 
     module PiezojenaInformation =      
             
@@ -273,101 +279,84 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
 
     module Query = 
-        
-        //let queryCommandList piezojena = 
-        //    let mutable error : string = Unchecked.defaultof<_>
-        //    logDevice piezojena "Getting command list."
-        //    stage.GetCommandList ()
 
         /// Queries the encoders values. 
-        let queryEncoder piezojena =  
-            let mutable error : string = Unchecked.defaultof<_>
-            let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
-            let mutable time : int         = Unchecked.defaultof<_>
-            let mutable stepLimit : int    = Unchecked.defaultof<_>
-            let mutable exponent : byte    = Unchecked.defaultof<_>
-            let mutable closedStep : float32 = Unchecked.defaultof<_> 
-            let mutable openStep : float32   = Unchecked.defaultof<_>
-            logDevice piezojena "Retrieving encoder values."
-            stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
-            stage.GetCommandError (&error)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logQueryResult 
-                (sprintf "Successfully retrieved encoder values %A: %A" (mode, time, stepLimit, exponent, closedStep, openStep))
-                (sprintf "Failed to retrieve encoder values, %s.")
-            |> AsyncChoice.liftChoice
+        let queryEncoder piezojena =     
+            let queryEncoderWorkflow =
+                async{  
+                let mutable error : string = Unchecked.defaultof<_>
+                let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
+                let mutable time : int         = Unchecked.defaultof<_>
+                let mutable stepLimit : int    = Unchecked.defaultof<_>
+                let mutable exponent : byte    = Unchecked.defaultof<_>
+                let mutable closedStep : float32 = Unchecked.defaultof<_> 
+                let mutable openStep : float32   = Unchecked.defaultof<_>
+                logDevice piezojena "Retrieving encoder values."
+                stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
+                }
+            queryEncoderWorkflow |> check  
 
         /// Queries the actuators temperature. 
-        let queryTemperature piezojena =  
-            let mutable error : string = Unchecked.defaultof<_>
-            let mutable temperature : float32 = Unchecked.defaultof<_>
-            logDevice piezojena "Measureing temperature."            
-            stage.GetTemperature (&temperature)
-            stage.GetCommandError (&error)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logQueryResult
-                (sprintf "Successfully measured actuator temperature %A: %A" temperature)
-                (sprintf "Failed to measure actuator temperature, %s")
-            |> AsyncChoice.liftChoice
+        let queryTemperature piezojena =     
+            let queryTemperatureWorkflow = 
+                async{ 
+                let mutable error : string = Unchecked.defaultof<_>
+                let mutable temperature : float32 = Unchecked.defaultof<_>
+                logDevice piezojena "Measureing temperature."            
+                stage.GetTemperature (&temperature)
+                return temperature
+                }
+            queryTemperatureWorkflow |> check 
         
         /// Queries the actuator posistion for a single channel. 
-        let querySingleCoordinate piezojena (channel:Channel) = 
-            let mutable error : string = Unchecked.defaultof<_>
-            let byteChannel = Parsing.channelByte (channel)
-            let mutable coordinate : Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate = Unchecked.defaultof<_>
-            logDevice piezojena "Retrieving channel coordinates."
-            stage.GetActuatorCoordinate (byteChannel , &coordinate)
-            stage.GetCommandError (&error)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logQueryResult 
-                (sprintf "Successfully retrieved channel coordinate %A: %A" coordinate)
-                (sprintf "Failed to retrieve chanel coordinate, %s.")
-            |> AsyncChoice.liftChoice
+        let queryAcuatorCoordinate piezojena (channel:Channel) =     
+            let queryAcuatorCoordinateWorkflow= 
+                async{ 
+                let mutable error : string = Unchecked.defaultof<_>
+                let byteChannel = Parsing.channelByte (channel)
+                let mutable coordinate : Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate = Unchecked.defaultof<_>
+                logDevice piezojena "Retrieving channel coordinates."
+                stage.GetActuatorCoordinate (byteChannel , &coordinate)
+                return coordinate 
+                }
+            queryAcuatorCoordinateWorkflow |> check 
 
         /// Queries closed loop  limits. 
-        let queryClosedLoopLimits piezojena (channel:Channel) = asyncChoice{
-            let mutable error : string = Unchecked.defaultof<_>
-            let byteChannel = Parsing.channelByte (channel)
-            let mutable minimum : float32 = Unchecked.defaultof<_>
-            let mutable maximum : float32 = Unchecked.defaultof<_>
-            logDevice piezojena "Retrieving closed loop limits."
-            stage.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
-            checkError 
-            |> logDeviceOpResult piezojena
-                ("Successfully retrieved the closed loop limits")
-                (sprintf "Failed to retrieve the closed loop limits, %s.")
-            return (minimum, maximum)}
+        let queryClosedLoppLimits piezojena (channel:Channel) = 
+            let queryClosedLoopLimitsWorkflow  = 
+                async{
+                let mutable error : string = Unchecked.defaultof<_>
+                let byteChannel = Parsing.channelByte (channel)
+                let mutable minimum : float32 = Unchecked.defaultof<_>
+                let mutable maximum : float32 = Unchecked.defaultof<_>
+                logDevice piezojena "Retrieving closed loop limits."
+                stage.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
+                return (minimum, maximum)
+                }
+            queryClosedLoopLimitsWorkflow |> check 
         
         /// Retrieves a measurement from a single channel. 
-        let queryChannelPosition piezojena (channel:Channel) = asyncChoice{
-            let mutable error : string = Unchecked.defaultof<_>
-            let mutable position : float32 = Unchecked.defaultof<_>  
-            let byteChannel = Parsing.channelByte (channel)
-            logDevice piezojena "Checking channel position."   
-            stage.GetMeasuredValue (byteChannel , &position)
-            let errorandlog  = 
-                checkError 
-                |> logDeviceOpResult piezojena 
-                     ("Successfully checked channel position.")
-                     (sprintf "Failed to check channel position, %s")
-            return position
-            }
+        let queryChannelPosition piezojena (channel:Channel) = 
+            let queryChannelPositionWorkflow = 
+                async{
+                let mutable error : string = Unchecked.defaultof<_>
+                let mutable position : float32 = Unchecked.defaultof<_>  
+                let byteChannel = Parsing.channelByte (channel)
+                logDevice piezojena "Checking channel position."   
+                stage.GetMeasuredValue (byteChannel , &position)
+                return position
+                }
+            queryChannelPositionWorkflow |> check 
         
         /// Retrieves all measurements from three channels. 
-        let queryAllPositions piezojena = asyncChoice{ 
-            let mutable error : string = Unchecked.defaultof<_>
-            let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
-            logDevice piezojena "Checking all channel measurements." 
-            stage.GetMeasuredValueChunk (&array)
-            let errorandLog =     
-                checkError 
-                |> logDeviceQueryResult piezojena 
-                      (sprintf "Successfully retrieved all channel measurements, %A: %A" array)
-                      (sprintf "Failed to retrieve all channel measurements: %A")                
-            return array}
+        let queryChannelPosition piezojena = 
+            let queryAllPositionsWorkflow = 
+                async{ 
+                let mutable error : string = Unchecked.defaultof<_>
+                let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
+                logDevice piezojena "Checking all channel measurements." 
+                stage.GetMeasuredValueChunk (&array)
+                return array
+                }
+            queryAllPositionsWorkflow |> check 
+        
