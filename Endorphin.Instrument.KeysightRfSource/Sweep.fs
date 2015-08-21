@@ -206,7 +206,7 @@ module Sweep =
             let setFrequencySweep rfSource frequencySweep = asyncChoice {
                 match frequencySweep with
                 | FixedFrequency f ->
-                    do! setCwFrequency rfSource f
+                    do! setCarrierFrequency rfSource f
                     do! setFrequencySweepMode rfSource Fixed
                 | FrequencySweep sweep ->
                     do! Frequency.setStartFrequency rfSource sweep.Start
@@ -217,7 +217,7 @@ module Sweep =
             let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
                 match amplitudeSweep with
                 | FixedAmplitude a ->
-                    do! setCwAmplitude rfSource a
+                    do! setCarrierAmplitude rfSource a
                     do! setAmplitudeSweepMode rfSource Fixed
                 | AmplitudeSweep sweep ->
                     do! Amplitude.setStartAmplitude rfSource sweep.Start

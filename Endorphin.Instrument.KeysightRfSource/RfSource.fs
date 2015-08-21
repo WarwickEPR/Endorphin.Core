@@ -19,8 +19,8 @@ module RfSource =
     let applySettings rfSource settings = asyncChoice {
         match settings.Sweep with
         | NoSweep (frequency,amplitude)
-            -> do! setCwFrequency rfSource frequency
-               do! setCwAmplitude rfSource amplitude
+            -> do! setCarrierFrequency rfSource frequency
+               do! setCarrierAmplitude rfSource amplitude
         | StepSweep sweep
             -> do! Sweep.Apply.stepSweep rfSource sweep
         do! Modulation.Apply.modulationSettings rfSource settings.Modulation }

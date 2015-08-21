@@ -10,21 +10,21 @@ module Basic =
     /// Query the overall output state of the machine.
     let queryOutputState = IO.queryOnOffState outputStateKey
 
-    /// Key for the continuous wave freqeuncy of the device.
+    /// Key for the carrier wave freqeuncy of the device.
     /// Command reference p.44.
-    let private cwFrequencyKey = ":FREQUENCY"
-    /// Set the continuous wave frequency of the device.
-    let setCwFrequency = IO.setFrequency cwFrequencyKey
-    /// Query the continuous wave frequency of the device.
-    let queryCwFrequency = IO.queryFrequency cwFrequencyKey
+    let private carrierFrequencyKey = ":FREQUENCY"
+    /// Set the carrier wave frequency of the device.
+    let setCarrierFrequency = IO.setFrequency carrierFrequencyKey
+    /// Query the carrier wave frequency of the device.
+    let queryCarrierFrequency = IO.queryFrequency carrierFrequencyKey
 
     /// Key for the RF amplitude of the machine.
     /// Command reference p.83.
-    let private cwAmplitudeKey = ":POWER"
-    /// Set the RF amplitude of the machine.
-    let setCwAmplitude = IO.setAmplitude cwAmplitudeKey
-    /// Query the RF amplitude of the machine.
-    let queryCwAmplitude = IO.queryAmplitude cwAmplitudeKey
+    let private carrierAmplitudeKey = ":POWER"
+    /// Set the RF amplitude of the carrier wave.
+    let setCarrierAmplitude = IO.setAmplitude carrierAmplitudeKey
+    /// Query the RF amplitude of the carrier wave.
+    let queryCarrierAmplitude = IO.queryAmplitude carrierAmplitudeKey
 
     /// Key for the phase of the modulating signal.
     /// Command reference p.49.
