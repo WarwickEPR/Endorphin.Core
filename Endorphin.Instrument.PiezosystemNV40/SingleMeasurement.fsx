@@ -17,17 +17,16 @@ open Endorphin.Instrument.PiezosystemNV40
 
 let trigger = true
 
-let serial = {
-    BaudRate = 19200
-    DataBits = 8
-    StopBits = One
-    Parity = ParityNone
-    FlowControl = FlowControlXOnXOff }
-
-SerialConnection.connect serial
+SerialConnection.connect() 
 
 module SingleMeasurement =
     
+    let initalise piezojena = asyncChoice{
+        do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
+        do! PiezojenaNV40.SetParameters.setLoopMode piezojena ClosedLoop
+        do!  
+        }
+
     let measurement piezojena = asyncChoice {
         do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
         do! PiezojenaNV40.SetParameters.setLoopModeallChannels piezojena ClosedLoop
