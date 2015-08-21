@@ -5,7 +5,6 @@ open System.Text
 open Endorphin.Core
 open log4net 
 open ExtCore.Control
-open ExtCore.Control.Choice
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
@@ -65,13 +64,18 @@ module PiezojenaNV40 =
         let internal logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
         
         /// The device identification string. 
-        let identification (Piezojena ID) = ID 
-                   
-    
+        let identification (Piezojena ID) = ID           
     
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3")
-   
+    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3")    
+    
+    let private checkError = 
+        let mutable error : string = Unchecked.defaultof<_>
+        stage.GetCommandError (&error)
+        let statusError = stringtoStatus error
+        let status = error |> stringtoStatus |> checkStatus
+        status
+
     module PiezojenaInformation =      
             
         /// Retrieves Piezojena identification string. 
@@ -327,51 +331,43 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
 
         /// Queries closed loop  limits. 
-        let queryClosedLoopLimits piezojena (channel:Channel) = 
+        let queryClosedLoopLimits piezojena (channel:Channel) = asyncChoice{
             let mutable error : string = Unchecked.defaultof<_>
             let byteChannel = Parsing.channelByte (channel)
             let mutable minimum : float32 = Unchecked.defaultof<_>
             let mutable maximum : float32 = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving closed loop limits."
             stage.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
-            stage.GetCommandError (&error)
-            error 
-            |> stringtoStatus
-            |> checkStatus
+            checkError 
             |> logDeviceOpResult piezojena
                 ("Successfully retrieved the closed loop limits")
                 (sprintf "Failed to retrieve the closed loop limits, %s.")
-            |> AsyncChoice.liftChoice
-
+            return (minimum, maximum)}
+        
         /// Retrieves a measurement from a single channel. 
-        let queryChannelPosition piezojena (channel:Channel) = 
+        let queryChannelPosition piezojena (channel:Channel) = asyncChoice{
             let mutable error : string = Unchecked.defaultof<_>
-            let mutable measurement : float32 = Unchecked.defaultof<_>  
+            let mutable position : float32 = Unchecked.defaultof<_>  
             let byteChannel = Parsing.channelByte (channel)
-            logDevice piezojena "Checking channel measurement."
-            stage.GetMeasuredValue (byteChannel , &measurement)
-            stage.GetCommandError (&error)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logQueryResult 
-                (sprintf "Successfully retrieved channel measurement %A: %A" measurement)
-                (sprintf "Failed to retrieve channel measurement, %s.")
-            |> AsyncChoice.liftChoice
+            logDevice piezojena "Checking channel position."   
+            stage.GetMeasuredValue (byteChannel , &position)
+            let errorandlog  = 
+                checkError 
+                |> logDeviceOpResult piezojena 
+                     ("Successfully checked channel position.")
+                     (sprintf "Failed to check channel position, %s")
+            return position
+            }
         
         /// Retrieves all measurements from three channels. 
-        let queryAllPositions piezojena = 
+        let queryAllPositions piezojena = asyncChoice{ 
             let mutable error : string = Unchecked.defaultof<_>
             let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
             logDevice piezojena "Checking all channel measurements." 
             stage.GetMeasuredValueChunk (&array)
-            stage.GetCommandError (&error)
-            error
-            |> stringtoStatus
-            |> checkStatus
-            |> logDeviceOpResult piezojena 
-                ("Successfully retrieved all channel measurements.")
-                (sprintf "Failed to retrieve all channel measurements: %A")
-            |> AsyncChoice.liftChoice
-
-            
+            let errorandLog =     
+                checkError 
+                |> logDeviceQueryResult piezojena 
+                      (sprintf "Successfully retrieved all channel measurements, %A: %A" array)
+                      (sprintf "Failed to retrieve all channel measurements: %A")                
+            return array}

@@ -15,13 +15,16 @@ open FSharp.Control.Reactive
 open Endorphin.Core
 open Endorphin.Instrument.PiezosystemNV40
 
-let trigger = true
-
 SerialConnection.connect() 
 
 let piezojena = Piezojena ""
 
-module SingleMeasurement =
+module SingleMovement =
+    
+    let initalise = asyncChoice{
+        do! PiezojenaNV40.SetParameters.setAllRemoteControl piezojena On
+        do! PiezojenaNV40.SetParameters.setLoopModeallChannels piezojena ClosedLoop
+        }
 
     let measurement = asyncChoice {
         do! PiezojenaNV40.SetParameters.setAllRemoteControl piezojena On
@@ -30,7 +33,7 @@ module SingleMeasurement =
         do! PiezojenaNV40.Query.queryAllPositions piezojena 
         }
 
-SingleMeasurement.measurement |> Async.RunSynchronously
+SingleMovement.measurement |> Async.RunSynchronously
 
      
 
