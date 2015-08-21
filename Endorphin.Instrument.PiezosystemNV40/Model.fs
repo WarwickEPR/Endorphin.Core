@@ -63,9 +63,9 @@ module Model =
     
     /// Three Piezojena channels, each channel controls movment in one direction. 
     type Channel = 
+        | Channel0
         | Channel1
         | Channel2
-        | Channel3
     
     /// Three Piezojena modes.
     type Mode = 
