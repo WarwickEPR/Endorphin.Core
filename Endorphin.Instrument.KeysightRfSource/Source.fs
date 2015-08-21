@@ -49,7 +49,7 @@ module Source =
                                             return Ramp polarity }
                 let key = functionKey shapeKey prefix fg
                 asyncChoice {
-                    let! shape = IO.queryValue String.toUpper key rfSource
+                    let! shape = IO.queryKeyString String.toUpper key rfSource
                     match shape with
                     | "SINE"             -> return Sine
                     | "TRI" | "TRIANGLE" -> return Triangle
@@ -83,14 +83,14 @@ module Source =
             /// Set the coupling of an external source.
             let internal setCoupling prefix src = IO.setValueString couplingString (externalKey couplingKey prefix src)
             /// Query the coupling of an external source.
-            let internal queryCoupling prefix src = IO.queryValue parseCoupling (externalKey couplingKey prefix src)
+            let internal queryCoupling prefix src = IO.queryKeyString parseCoupling (externalKey couplingKey prefix src)
 
             /// Key for the impedance system.
             let private impedanceKey = ":IMPEDANCE"
             /// Set the impedance of an external source.
             let internal setImpedance prefix src = IO.setValueString impedanceString (externalKey impedanceKey prefix src)
             /// Query the impedance of an external source.
-            let internal queryImpedance prefix src = IO.queryValue parseImpedance (externalKey impedanceKey prefix src)
+            let internal queryImpedance prefix src = IO.queryKeyString parseImpedance (externalKey impedanceKey prefix src)
 
     module Apply =
         open Control

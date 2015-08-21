@@ -58,7 +58,7 @@ module Sweep =
             /// Set the frequency sweep mode to the given type.
             let setFrequencySweepMode = IO.setValueString sweepModeString frequencySweepModeKey
             /// Query the frequency sweep mode the machine is currently in.
-            let queryFrequencySweepMode = IO.queryValue parseSweepMode frequencySweepModeKey
+            let queryFrequencySweepMode = IO.queryKeyString parseSweepMode frequencySweepModeKey
 
             /// Key needed to set the first value in a frequency sweep.
             /// Command reference p.48.
@@ -92,7 +92,7 @@ module Sweep =
             /// Set the type of the amplitude sweep.
             let setAmplitudeSweepMode = IO.setValueString sweepModeString amplitudeSweepModeKey
             /// Query the currently set type of the amplitude sweep.
-            let queryAmplitudeSweepMode = IO.queryValue parseSweepMode amplitudeSweepModeKey
+            let queryAmplitudeSweepMode = IO.queryKeyString parseSweepMode amplitudeSweepModeKey
 
             /// Key needed for setting the first value in an amplitude sweep,
             /// Command reference p.86.
@@ -115,7 +115,7 @@ module Sweep =
         /// Set the sweep type to either List or Step.
         let setSweepType = IO.setValueString sweepTypeString typeKey
         /// Query the current sweep type of the machine.
-        let querySweepType = IO.queryValue parseSweepType typeKey
+        let querySweepType = IO.queryKeyString parseSweepType typeKey
 
         /// Key needed to set the direction of the sweep.
         /// Command reference p.54.
@@ -192,7 +192,7 @@ module Sweep =
             /// Set the step spacing of sweeps to be either logarithmic or linear.
             let setStepSpacing = IO.setValueString stepSpacingString stepSpacingKey
             /// Query whether sweeps are set to use logarithmic or linear spacing.
-            let queryStepSpacing = IO.queryValue parseStepSpacing stepSpacingKey
+            let queryStepSpacing = IO.queryKeyString parseStepSpacing stepSpacingKey
 
             /// Key needed to set the number of points in a sweep.
             /// Command reference p.65.
@@ -245,7 +245,7 @@ module Sweep =
             /// Set the dwell type to either list or step sweeps.
             let setDwellType = IO.setValueString sweepModeString dwellTypeKey
             /// Query the currently set dwell type (either list or step).
-            let queryDwellType = IO.queryValue parseSweepMode dwellTypeKey
+            let queryDwellType = IO.queryKeyString parseSweepMode dwellTypeKey
 
             /// Key needed to set a list of amplitudes for the current sweep points.
             /// Command reference p.57.

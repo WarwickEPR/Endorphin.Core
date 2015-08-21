@@ -84,9 +84,36 @@ module Control =
 
         /// Store the given sequence on the machine, and return a StoredSegment type which can be
         /// used to identify the segment internally.
-        let storeSegment instrument segment =
+        let internal storeSegment instrument segment =
             let id = SegmentId <| hexHash segmentToBytes segment
             storeSegmentById instrument (id, segment)
+
+        /// Query a waveform file of a segment for its datablock.
+        let private queryWaveformFile instrument id =
+            IO.queryFileBytes parseWaveformFile storeDataKey instrument (waveformFolder, id)
+
+        /// Query a marker file of a segment for its datablock.
+        let private queryMarkerFile instrument id =
+            IO.queryFileBytes parseMarkerFile storeDataKey instrument (markerFolder, id)
+
+        /// Query a pair of segment files (waveform and markers) for their segment.
+        let private querySegment instrument id = asyncChoice {
+            let! (i, q) = queryWaveformFile instrument id
+            let! markers = queryMarkerFile instrument id
+            let samples = Array.map3 parseSample i q markers
+            let incrementSampleCount (SampleCount i) = SampleCount (i + 1u)
+            let rec loop acc lastId accI = function
+                | i when i = Array.length samples ->
+                    Segment { Samples = acc; Length = uint16 <| Array.length samples }
+                | i ->
+                    let curId = hexHash sampleToBytes samples.[i]
+                    if curId = lastId then
+                        acc.[accI] <- (fst acc.[accI], incrementSampleCount <| snd acc.[accI])
+                        loop acc lastId accI (i + 1)
+                    else
+                        let acc' = Array.append acc [| (samples.[i], SampleCount 1u) |]
+                        loop acc' curId (accI + 1) (i + 1)
+            return loop [||] "" 0 0 }
 
         /// Store a sequence of segments and their ids into the volatile memory of the machine.
         /// Returns an array of StoredSegments.
@@ -109,13 +136,6 @@ module Control =
                 do! setHeaderArbClockFrequency instrument defaultArbClockFrequency waveform
             return waveforms }
 
-        /// Store a sequence of segments onto the machine, and return an array of identifiers to those
-        /// segments.
-        let storeSegmentSequence instrument sequence =
-            let helper el = ((SegmentId <| hexHash segmentToBytes el), el)
-            let sequence' = Seq.map helper sequence
-            storeSegmentSequenceById instrument sequence'
-
         /// Key to store sequences to the machine.
         /// Command reference p.345.
         let private storeSequenceKey = ":RAD:ARB:SEQ"
@@ -127,7 +147,7 @@ module Control =
             return stored }
 
         /// Write a sequence to the machine, and return an identifier for that sequence.
-        let storeSequence instrument sequence =
+        let internal storeSequence instrument sequence =
             let id = SequenceId <| hexHash sequenceToBytes sequence
             storeSequenceById instrument (id, sequence)
 
@@ -147,19 +167,20 @@ module Control =
                 do! setHeaderArbClockFrequency instrument defaultArbClockFrequency sequence
             return sequences }
 
-        /// Write a sequence of sequences files to the machine, and return an array of identifiers
-        /// to those sequences.
-        let storeSequenceSequence instrument sequence =
-            let sequence' = seq {
-                for el in sequence do
-                    let id = SequenceId <| hexHash sequenceToBytes el
-                    yield (id, el) }
-            storeSequenceSequenceById instrument sequence'
-
         /// Store a waveform onto the machine.
         let storeWaveform instrument = function
             | Segment  s -> storeSegment  instrument s
             | Sequence s -> storeSequence instrument s
+
+        /// Store a sequence of waveforms onto the machine.
+        let storeWaveformSequence instrument (sequence : Waveform seq) = asyncChoice {
+            let arr = Array.create (Seq.length sequence) Unchecked.defaultof<StoredWaveform>
+            let mutable i = 0
+            for element in sequence do
+                let! head = storeWaveform instrument element
+                arr.[i] <- head
+                i <- i + 1
+            return arr }
 
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
         let storeExperiment instrument experiment = asyncChoice {
@@ -174,10 +195,8 @@ module Control =
                 |> Seq.map (fun (id, exp) -> (id, toRegularSequence exp))
                 |> storeSequenceSequenceById instrument
             return {
-                StoredExperiments= storedExperiments
-                StoredWaveforms  = Array.append storedSegments storedSequences
-                ShotsPerPoint = encoded.Metadata.ShotsPerPoint
-                Triggering = encoded.Metadata.TriggerSource } }
+                StoredExperiments = storedExperiments
+                StoredWaveforms   = Array.append storedSegments storedSequences } }
 
     [<AutoOpen>]
     module Delete =
@@ -204,6 +223,11 @@ module Control =
         /// Delete a waveform from the machine's data storage.  Includes deleting the waveform
         /// file, the markers file and the headers file (if present).
         let deleteStoredWaveform = IO.setValueString storedWaveformFilename deleteFileKey
+
+        /// Delete all stored waveforms on the machine.
+        let deleteAllStoredWaveforms instrument = asyncChoice {
+            do! deleteAllStoredSegments instrument
+            do! deleteAllStoredSequences instrument }
 
 #if DEBUG
     [<AutoOpen>]

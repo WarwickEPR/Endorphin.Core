@@ -10,17 +10,30 @@ open System.Text
 /// which are common to different subsystems.
 [<RequireQualifiedAccess>]
 module internal IO =
+    /// Query a key with a specific value, and parse the response into the internal representation.
+    let queryKeyByValueString parseFunc key (RfSource rfSource) value = asyncChoice {
+        let! response = sprintf "%s? %s" key value |> Visa.queryString rfSource
+        return parseFunc response }
+
     /// Query an RfSource for the value of a particular key, and parse the response into
     /// the internal representation.
-    let internal queryValue parseFunc key (RfSource rfSource) = asyncChoice {
+    let queryKeyString parseFunc key (RfSource rfSource) = asyncChoice {
         let! response = sprintf "%s?" key |> Visa.queryString rfSource
         return parseFunc response }
 
     /// Query an RfSource for the value of a particular key, then try to parse the response
     /// into the internal representation.  If it fails, then return an error message.
-    let internal tryQueryValue (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
-        let! response = queryValue id key rfSource
+    let tryQueryKeyString (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
+        let! response = queryKeyString id key rfSource
         return! tryParseFunc response }
+
+    let queryKeyByValueBytes parseFunc key (RfSource rfSource) value = asyncChoice {
+        let! response = sprintf "%s? %s" key value |> Visa.queryBytes rfSource
+        return parseFunc response }
+
+    let queryKeyBytes parseFunc key (RfSource rfSource) value = asyncChoice {
+        let! response = sprintf "%s?" key |> Visa.queryBytes rfSource
+        return parseFunc response }
 
     [<AutoOpen>]
     module Error =
@@ -38,7 +51,7 @@ module internal IO =
 
         /// Given a key to specify which error, query the machine for the matching error
         /// and parse the result.
-        let private queryError = queryValue parseError
+        let private queryError = queryKeyString parseError
 
         /// Key to find the next error in the machine's queue.
         /// Command reference p.182.
@@ -161,10 +174,10 @@ module internal IO =
         let private identityKey = "*IDN"
         /// Query the identity of the given device, and raise an exception if the returned
         /// identity string is not in the expected format.
-        let queryIdentity = queryValue parseDeviceId identityKey
+        let queryIdentity = queryKeyString parseDeviceId identityKey
         /// Attempt to query the identity of the given device, wrapping up a failure inside a
         /// choice failure.
-        let tryQueryIdentity = tryQueryValue tryParseDeviceId identityKey
+        let tryQueryIdentity = tryQueryKeyString tryParseDeviceId identityKey
 
         /// Check that the model number of a machine is known by the program.
         let private checkModelNumber = function
@@ -195,37 +208,37 @@ module internal IO =
     /// Set the quantity represented by the given key to have the integer value given.
     let setInt = setValueString (fun (i : int) -> i.ToString())
     /// Query the given key for a plain integer value.
-    let queryInt = queryValue int
+    let queryInt = queryKeyString int
 
     /// Set the quantity represented by the given key to have the unsigned 32-bit integer value given.
     let setUint32 = setValueString (fun (i : uint32) -> i.ToString())
     /// Query the given key for a plain uint32 value.
-    let queryUint32 = queryValue uint32
+    let queryUint32 = queryKeyString uint32
 
     /// Set the quantity represented by the given key to have the unsigned 8-bit integer value given.
     let setUint8 = setValueString (fun (i : uint8) -> i.ToString())
     /// Query the given key for a plain uint8 value.
-    let queryUint8 = queryValue uint8
+    let queryUint8 = queryKeyString uint8
 
     /// Set the quantity represented by the given key to have the unsigned byte value given.
     let setByte = setValueString (fun (i : byte) -> i.ToString())
     /// Query the given key for a plain byte value.
-    let queryByte = queryValue byte
+    let queryByte = queryKeyString byte
 
     /// Set the quantity represented by the given key to have the unsigned 16-bit integer value given.
     let setUint16 = setValueString (fun (i : uint16) -> i.ToString())
     /// Query the given key for a plain uint16 value.
-    let queryUint16 = queryValue uint16
+    let queryUint16 = queryKeyString uint16
 
     /// Set the frequency represented by the given key to have the given value.
     let setFrequency = setValueString frequencyString
     /// Query the given key for a frequency value.
-    let queryFrequency = queryValue parseFrequencyInHz
+    let queryFrequency = queryKeyString parseFrequencyInHz
 
     /// Set a sequence of frequency values at the given key.
     let setFrequencySeq key = setValueString (csvSeqString frequencyString) key
     /// Query a sequence of frequencies, returning the values in Hz.
-    let queryFrequencySeq = queryValue (parseCsvSeq parseFrequencyInHz)
+    let queryFrequencySeq = queryKeyString (parseCsvSeq parseFrequencyInHz)
 
     /// Set the amplitude of the given key to have the given value.
     let setAmplitude = setValueString amplitudeString
@@ -249,50 +262,54 @@ module internal IO =
     /// Set the duration of the given key to have the given value in seconds.
     let setDuration = setValueString durationString 
     /// Query the given key for a duration in seconds.
-    let queryDuration = queryValue parseDurationInSec
+    let queryDuration = queryKeyString parseDurationInSec
 
     /// Set a sequence of durations to have the given values.
     let setDurationSeq key = setValueString (csvSeqString durationString) key
     /// Query a sequence of durations, returning the values in seconds.
-    let queryDurationSeq = queryValue (parseCsvSeq parseDurationInSec)
+    let queryDurationSeq = queryKeyString (parseCsvSeq parseDurationInSec)
 
     /// Set the phase of the given key.
     let setPhase = setValueString phaseString
     /// Query the given key for a phase in radians.
-    let queryPhase = queryValue parsePhaseInRad
+    let queryPhase = queryKeyString parsePhaseInRad
 
     /// Set the given key to the given on/off state.
     let setOnOffState = setValueString onOffStateString
     /// Query the given key for an on/off state.
-    let queryOnOffState = queryValue parseOnOffState
+    let queryOnOffState = queryKeyString parseOnOffState
 
     /// Set the given key to have the given automatic/manual state.
     let setAutoManualState = setValueString autoManualStateString
     /// Query the given key for an automatic/manual state.
-    let queryAutoManualState = queryValue parseAutoManualState
+    let queryAutoManualState = queryKeyString parseAutoManualState
 
     /// Set the given key to have the given direction.
     let setDirection = setValueString directionString
     /// Query the given key for a direction.
-    let queryDirection = queryValue parseDirection
+    let queryDirection = queryKeyString parseDirection
 
     /// Set the given key to have the given percentage.
     let setPercentage = setValueString percentageString
     /// Query the given key for a percentage value.
-    let queryPercentage = queryValue parsePercentage
+    let queryPercentage = queryKeyString parsePercentage
 
     /// Set the given key to have the given decibel ratio.
     let setDecibelRatio = setValueString decibelRatioString
     /// Query the given key for a decibel ratio.
-    let queryDecibelRatio = queryValue parseDecibelRatio
+    let queryDecibelRatio = queryKeyString parseDecibelRatio
     
     /// Set the given key to have the given polarity.
     let setPolarity = setValueString polarityString
     /// Query the given key for a polarity.
-    let queryPolarity = queryValue parsePolarity
+    let queryPolarity = queryKeyString parsePolarity
 
     /// Write the given key with the given filename as an argument.
     let setFile key instrument (folder, id) = setValueString (fileNameString folder) key instrument id
+    /// Query a specific key for a filename, taking the result as a byte array.
+    let queryFileBytes parseFunc key instrument (folder, id) =
+        queryKeyByValueBytes parseFunc key instrument (fileNameString folder id)
+
     /// Write the given key with a sequence of filenames as arguments.
     let setFileSequence key instrument sequence =
         let makeFileName (folder, id) = fileNameString folder id
@@ -301,4 +318,4 @@ module internal IO =
     /// Write the given key with the given low/high state.
     let setLowHighState = setValueString lowHighStateString
     /// Query the given key for a low/high state.
-    let queryLowHighState = queryValue parseLowHighState
+    let queryLowHighState = queryKeyString parseLowHighState

@@ -6,46 +6,45 @@
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Endorphin.Instrument.Keysight
+open ARB
+open Experiment
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Control
 
 // BasicConfigurator.Configure()
 
-let printResult = function
-    | Success ()    -> printfn "Successfully did things."
+let result = function
+    | Success ()    -> printfn "Success!"
     | Failure error -> printfn "Bad things happened: %s" error
 
-let phaseCycle1 =
-    [| 0.0<rad> ; (System.Math.PI/2.0) * 1.0<rad> |]
-    |> Array.map PhaseInRad
-    |> PhaseCycle
+let cycle1 =
+    emptyPhaseCycle
+    |> addPhase (PhaseInRad 0.0<rad>)
+    |> addPhase (PhaseInDeg 90.0<deg>)
 
-let phaseCycle2 =
-    [| 90.0<deg> ; -90.0<deg> |]
-    |> Array.map PhaseInDeg
-    |> PhaseCycle
+let cycle2 =
+    emptyPhaseCycle
+    |> addPhaseSequence [| for i in 1 .. 2 -> PhaseInDeg (float i * 90.0<deg>) |]
 
-let pulses = seq {
-    yield Rf (phaseCycle1, SampleCount 60u, SampleCount 10u)
-    yield Delay (SampleCount 60u, SampleCount 10u)
-    yield Trigger { M1 = true; M2 = false; M3 = true; M4 = false }
-    yield Rf (phaseCycle2, SampleCount 60u, SampleCount 60u)
-    yield Marker ( { M1 = false; M2 = true; M3 = false; M4 = true }, SampleCount 120u, SampleCount 0u)
-}
+let marker1 = emptyMarkers |> markersWithMarker1 true
+let markers1And3 = marker1 |> markersWithMarker3 true
 
-let experiment = {
-    Pulses = pulses
-    Repetitions = 2
-    Triggering = Immediate
-    ShotsPerPoint = 1
-}
+let experiment =
+    emptyExperiment
+    |> addRfPulse cycle1 60u
+    |> addDelayWithIncrement 60u 10u
+    |> addTrigger marker1
+    |> addRfPulseWithIncrement cycle2 10u 10u
+    |> addMarkerPulse markers1And3 20u
+    |> withRepetitions 128
+    |> withShotRepetitionTime 10e-6<s>
 
 asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
 
-    let! storedExperiment = storeExperiment keysight experiment
     do! printCompressedExperiment experiment
+    let! storedExperiment = storeExperiment keysight experiment
 
     (*
     do! deleteAllStoredSegments keysight
@@ -54,4 +53,4 @@ asyncChoice {
 
     do RfSource.closeInstrument |> ignore }
 |> Async.RunSynchronously
-|> printResult
+|> result
