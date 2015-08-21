@@ -36,6 +36,8 @@ module internal InternalModel =
             RfPulseCount : int
             /// How many phases there are in the phase cycle.
             RfPhaseCount : int option
+            /// Which marker to use as the RF blanking marker.
+            RfBlankMarker : UserSignalMarker
             /// How long to wait before firing the next shot.
             ShotRepetitionTime : SampleCount }
 

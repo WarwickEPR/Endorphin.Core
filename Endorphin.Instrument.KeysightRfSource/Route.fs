@@ -329,6 +329,10 @@ module Route =
         /// Query a key for an IUserBncSignal in internal representation.
         let private queryUserBncSignal = IO.queryKeyString parseUserBncSignal
 
+        /// Set the routing of the RF blank pulse channel.  This single function is only for use
+        /// internally in Endorphin, since we need to set a marker to be the RF blanking pulse.
+        let internal setRfBlankRoute instrument route = setSignalRoute rfBlankKey instrument route
+
         /// Set all the available output routes to the given values.
         let private setOutputRouting instrument routing = asyncChoice {
             do! setSignalRoute basebandTrigger1Key instrument routing.BbTrig1

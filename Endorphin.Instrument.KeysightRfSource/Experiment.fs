@@ -111,13 +111,16 @@ module Experiment =
         let addDelay duration = addDelayWithIncrement duration 0u
 
         /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
+        /// At least one marker must be left blank throughout for internal use by Endorphin.
         let addMarkerPulseWithIncrement markers duration increment =
             appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
 
         /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
+        /// At least one marker must be left blank throughout for internal use by Endorphin.
         let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
 
         /// Add a single-sample trigger pulse on the given markers to an experiment.
+        /// At least one marker must be left blank throughout for internal use by Endorphin.
         let addTrigger markers = addMarkerPulse markers 1u
 
         /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment.
@@ -167,6 +170,30 @@ module Experiment =
                         fail "Not all phase cycles are the same length"
                     else
                         succeed length }
+
+            /// Perform a Boolean OR on each field of the markers record, returning a record of the
+            /// result.
+            let private booleanOrMarkers a b = {
+                M1 = a.M1 || b.M1
+                M2 = a.M2 || b.M2
+                M3 = a.M3 || b.M3
+                M4 = a.M4 || b.M4 }
+
+            /// Check that the user has left us a marker channel to use as the RF blanking function.
+            /// Without one, the pulse lengths will do very strange things, or we'd be overwriting
+            /// something that the user specified.
+            let private checkRfBlankMarker (experiment : Experiment) =
+                let folder state = function
+                    | Marker (markers, _, _) -> booleanOrMarkers markers state
+                    | _ -> state
+                let markers = Seq.fold folder emptyMarkers experiment.Pulses
+                if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
+                    fail "At least one marker channel must be blank throughout for internal use"
+                else
+                    if   not markers.M4 then succeed RouteMarker4
+                    elif not markers.M3 then succeed RouteMarker3
+                    elif not markers.M2 then succeed RouteMarker2
+                    else                     succeed RouteMarker1
 
             /// Convert a pulse into a VerifiedPulse type. The calling function is assumed to have
             /// actually done the verification.
@@ -283,6 +310,7 @@ module Experiment =
                 let rfPulses = pulses |> List.filter isRfPulse
                 let! rfPhaseCount = countRfPhases rfPulses
                 let! shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
+                let! rfBlankMarker = checkRfBlankMarker experiment
                 return {
                     Pulses = [ (pulses |> List.map toVerifiedPulse) ]
                     Metadata =
@@ -290,6 +318,7 @@ module Experiment =
                       PulseCount = pulses.Length
                       RfPulseCount = rfPulses.Length
                       RfPhaseCount = rfPhaseCount
+                      RfBlankMarker = rfBlankMarker
                       ShotRepetitionTime = shotRepCount } } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
@@ -313,6 +342,21 @@ module Experiment =
                         let copy = List.map (List.map (mapi (i - 1))) list
                         loop (copy @ acc) (i - 1)
                 loop [] n
+
+            /// Choose the marker constructor function which applies the RF blanking marker to a sample.
+            let private addRfBlankMarkerToSample = function
+                | RouteMarker1 -> withMarker1 true
+                | RouteMarker2 -> withMarker2 true
+                | RouteMarker3 -> withMarker3 true
+                | RouteMarker4 -> withMarker4 true
+
+            /// Choose the marker constructor function which applies the RF blanking marker to record of
+            /// markers.
+            let private addRfBlankMarkerToMarkers = function
+                | RouteMarker1 -> markersWithMarker1 true
+                | RouteMarker2 -> markersWithMarker2 true
+                | RouteMarker3 -> markersWithMarker3 true
+                | RouteMarker4 -> markersWithMarker4 true
 
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence.
@@ -388,12 +432,12 @@ module Experiment =
             let private noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
 
             /// Expand a static pulse into a sample and a count of how many repetitions that sample has.
-            let private expandStaticPulse pulse =
+            let private expandStaticPulse addRfBlank pulse =
                 let (amplitude, phase, markers, duration) =
                     match pulse with
                     | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
-                    | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
-                    | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
+                    | StaticDelay (dur)           -> (0.0, noPhase, (noMarkers |> addRfBlank), dur)
+                    | StaticMarker (markers, dur) -> (0.0, noPhase, (markers |> addRfBlank), dur)
                 let sample =
                     defaultIqSample
                     |> withAmplitudeAndPhase amplitude phase
@@ -434,18 +478,19 @@ module Experiment =
 
             /// Update a sample for the FIR filter using the indexer and the index in the list
             /// to decide which coefficient to apply.
-            let private updateSampleFir i q indexer idx (sample, dur) =
+            let private updateSampleFir addRfBlankMarker i q indexer idx (sample, dur) =
                 let sample' =
                     sample
                     |> withI (int16 (float i * riseCoefficients.[indexer idx]))
                     |> withQ (int16 (float q * riseCoefficients.[indexer idx]))
+                    |> addRfBlankMarker
                 (sample', dur)
 
             /// Apply the necessary FIR filter to a list of samples.
-            let private applyFir indexer arr i q =
+            let private applyFir indexer addRfBlankMarker arr i q =
                 arr
                 |> separateSampleList
-                |> List.mapi (updateSampleFir i q indexer)
+                |> List.mapi (updateSampleFir addRfBlankMarker i q indexer)
 
             /// Apply the FIR filter to a rise.
             let private applyRiseFir = applyFir (fun i -> i)
@@ -476,7 +521,7 @@ module Experiment =
                     ([pulse], fall, tail')
 
             /// Apply an FIR filter to all IQ values in the pulse sequence.
-            let private firFilter rfCount samples =
+            let private firFilter rfCount addRfBlankMarker samples =
                 let rec loop acc list = function
                     | 0 ->
                         (List.rev acc) @ list
@@ -485,8 +530,8 @@ module Experiment =
                         let (pulse, fall, tail') = splitFall tail
                         let i = (fst (List.exactlyOne pulse)).I
                         let q = (fst (List.exactlyOne pulse)).Q
-                        let rise' = applyRiseFir rise i q
-                        let fall' = applyFallFir fall i q
+                        let rise' = applyRiseFir addRfBlankMarker rise i q
+                        let fall' = applyFallFir addRfBlankMarker fall i q
                         let acc' =
                             [ fall'; pulse; rise'; head ]
                             |> List.map List.rev
@@ -514,10 +559,10 @@ module Experiment =
                 |> List.rev
 
             /// Convert a list of static pulses into a list of samples.
-            let private toSamples rfCount pulses =
+            let private toSamples rfCount rfBlankMarker pulses =
                 pulses
-                |> List.map expandStaticPulse
-                |> firFilter rfCount
+                |> List.map (expandStaticPulse (addRfBlankMarkerToMarkers rfBlankMarker))
+                |> firFilter rfCount (addRfBlankMarkerToSample rfBlankMarker)
                 |> groupEqualSamples
 
             /// Count the number of pulses in the experiment, and return the completed
@@ -533,7 +578,7 @@ module Experiment =
             let compile experiment =
                 experiment
                 |> toStaticPulses
-                |> List.map (toSamples experiment.Metadata.RfPulseCount)
+                |> List.map (toSamples experiment.Metadata.RfPulseCount experiment.Metadata.RfBlankMarker)
                 |> List.map toCompiledPoints
                 |> (fun points -> { ExperimentPoints = points; Metadata = experiment.Metadata })
 
