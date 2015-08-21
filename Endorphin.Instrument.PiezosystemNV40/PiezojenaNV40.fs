@@ -29,6 +29,19 @@ module PiezojenaNV40 =
             | Ok            -> succeed ()
             | Error message -> fail message
 
+        /// Deals with multiple errors. 
+        let multipleErrors (errorArray:string[]) = 
+           // Converts string array into status array. 
+           let statusArray = Array.map (fun elem -> stringtoStatus elem) errorArray
+           /// Filters out Ok's from status array.   
+           let filterArray = Array.filter (fun elem -> elem <> Ok) statusArray
+           let length = Array.length filterArray
+           if Array.length filterArray = 0 then 
+               Ok     
+           else 
+               let error = statustoString(Array.get filterArray 0) 
+               Error error 
+
         /// Creates log for PicoHarp 300.
         let log = log4net.LogManager.GetLogger "PicoHarp 300"
 
@@ -54,9 +67,11 @@ module PiezojenaNV40 =
         /// The device identification string. 
         let identification (Piezojena ID) = ID 
                    
+    
+    
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3") 
-
+    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3")
+   
     module PiezojenaInformation =      
             
         /// Retrieves Piezojena identification string. 
@@ -77,7 +92,7 @@ module PiezojenaNV40 =
         /// Retrieves Piezojena serial number. 
         let getSerialNumber piezojena = 
             let mutable error : string = Unchecked.defaultof<_>
-            let mutable serialNumber : int = Unchecked.defaultof<_>
+            let mutable serialNumber : int64 = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving Piezojena's serial number."
             stage.GetSerialNumber (&serialNumber)
             stage.GetCommandError (&error)
@@ -85,7 +100,7 @@ module PiezojenaNV40 =
             |> stringtoStatus 
             |> checkStatus 
             |> logQueryResult
-                (sprintf "Successfully retrieved the Piezojena's serial number %A: %i" serialNumber)
+                (sprintf "Successfully retrieved the Piezojena's serial number %A: %A" serialNumber)
                 (sprintf "Failed to retrieve the Piezojena's serial number, %s. ")
             |> AsyncChoice.liftChoice 
 
@@ -133,29 +148,19 @@ module PiezojenaNV40 =
             let mutable error3 : string = Unchecked.defaultof<_>
             let modeBoolean = Parsing.loopBoolean mode
             logDevice piezojena "Setting loop mode for all channels."
-            stage.SetClosedLoopControlled (1uy, modeBoolean)
+            stage.SetClosedLoopControlled (0uy, modeBoolean)
             stage.GetCommandError (&error1)
-            stage.SetClosedLoopControlled (2uy, modeBoolean)
+            stage.SetClosedLoopControlled (1uy, modeBoolean)
             stage.GetCommandError (&error2)
-            stage.SetClosedLoopControlled (3uy, modeBoolean)
+            stage.SetClosedLoopControlled (2uy, modeBoolean)
             stage.GetCommandError (&error3)
-            // Array containing all status codes. 
-            let errorArray = [|stringtoStatus error1; stringtoStatus error2; stringtoStatus error3|]
-            let filterArray = Array.filter (fun elem -> elem <> Ok) errorArray
-            let check = 
-                // If array length > 0 then at least one error in array.
-                if Array.length filterArray = 0 then Ok
-                // Takes first error in array and returns in form Error string. 
-                else 
-                let error = statustoString(Array.get filterArray 0) 
-                Error error 
-            check 
+            let errorArray = [|error1; error2; error3|]
+            multipleErrors errorArray
             |> checkStatus
             |> logDeviceOpResult piezojena
                 ("Successfully set the loop mode of all channels.")
                 (sprintf "Failed to set the loop mode for all channels, %A")
             |> AsyncChoice.liftChoice 
-
 
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
@@ -212,7 +217,7 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice 
        
         /// Sets all channel outputs. 
-        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
+        let setAllOutputs piezojena (outputTuple:float*float*float) =   
             let mutable error = Unchecked.defaultof<_>
             logDevice piezojena "Setting outputs of all channels."
             Parsing.tupletoArray outputTuple 

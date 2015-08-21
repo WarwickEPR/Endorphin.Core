@@ -57,6 +57,7 @@
     <Compile Include="SerialConnection.fs" />
     <Compile Include="PiezojenaNV40.fs" />
     <None Include="SerialPort.fsx" />
+    <None Include="SingleMeasurement.fsx" />
     <Content Include="Functions.txt" />
   </ItemGroup>
   <ItemGroup>

@@ -24,14 +24,14 @@ let serial = {
     Parity = ParityNone
     FlowControl = FlowControlXOnXOff }
 
-SerialConnection.configure serial
+SerialConnection.connect serial
 
 module SingleMeasurement =
     
     let measurement piezojena = asyncChoice {
         do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
-        do! PiezojenaNV40.SetParameters.setLoopMode Channel 0 ClosedLoop
-        do! PieozjenaNV40.
+        do! PiezojenaNV40.SetParameters.setLoopModeallChannels piezojena ClosedLoop
+        do! PiezojenaNV40.SetParameters.setAllOutputs piezojena (1.0 , 2.0 , 3.0)
 
 
      

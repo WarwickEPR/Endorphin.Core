@@ -7,23 +7,20 @@ module Parsing =
     /// Takes first value from a tuple. 
     let private first = function
         | (x, y, z) -> x     
-        | _ -> failwithf "No tuple." 
     
     /// Takes second value from a tuple    
     let private second = function 
         | (x, y, z) -> y
-        | _ -> failwithf "No tuple." 
     
     /// Takes thirs value from a tuple
     let private third = function 
         | (x, y, z) -> z
-        | _ -> failwithf "No tuple."
 
     /// Converts a three element tuple into an array
-    let tupletoArray (tuple:float32*float32*float32) = 
-        let x = first tuple
-        let y = second tuple
-        let z = third tuple
+    let tupletoArray (tuple:float*float*float) =
+        let x = float32(first tuple)
+        let y = float32(second tuple)
+        let z = float32(third tuple)
         let array = [|x; y; z|]
         array
 
@@ -80,15 +77,15 @@ module Parsing =
 
     /// Converts type channel into bytes. 
     let channelByte = function
+        | Channel0 -> 0uy 
         | Channel1 -> 1uy 
-        | Channel2 -> 2uy 
-        | Channel3 -> 3uy
+        | Channel2 -> 2uy
      
     /// Converts channel bytes into type channel.  
     let parseChannel = function
+        | 0uy -> Channel0
         | 1uy -> Channel1
         | 2uy -> Channel2
-        | 3uy -> Channel3
         | xuy         -> failwithf "Not a valid channel: %A" xuy
 
     /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
