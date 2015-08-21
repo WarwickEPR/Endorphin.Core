@@ -19,19 +19,18 @@ let trigger = true
 
 SerialConnection.connect() 
 
-module SingleMeasurement =
-    
-    let initalise piezojena = asyncChoice{
-        do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
-        do! PiezojenaNV40.SetParameters.setLoopMode piezojena ClosedLoop
-        do!  
-        }
+let piezojena = Piezojena ""
 
-    let measurement piezojena = asyncChoice {
-        do! PiezojenaNV40.PiezojenaInformation.getSerialNumber piezojena
+module SingleMeasurement =
+
+    let measurement = asyncChoice {
+        do! PiezojenaNV40.SetParameters.setAllRemoteControl piezojena On
         do! PiezojenaNV40.SetParameters.setLoopModeallChannels piezojena ClosedLoop
         do! PiezojenaNV40.SetParameters.setAllOutputs piezojena (1.0 , 2.0 , 3.0)
+        do! PiezojenaNV40.Query.queryAllPositions piezojena 
+        }
 
+SingleMeasurement.measurement |> Async.RunSynchronously
 
      
 

@@ -19,6 +19,7 @@ module SerialConnection =
         Parity = ParityNone
         FlowControl = FlowControlXOnXOff}
 
+    /// Makes a serial connection using the standardSerial values.
     let connect() = 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
         serialConfiguration.BaudRate    <- standardSerial.BaudRate
@@ -29,6 +30,7 @@ module SerialConnection =
         let serialConnect = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
         serialConnect.CreateSerialPortConnection ("COM3", serialConfiguration)
 
+    /// Makes serial connection using user input values. 
     let connectandConfigure (serial:Serial) =
         /// Sets up serial port configuration using serial port settings contained in record type Serial. 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()

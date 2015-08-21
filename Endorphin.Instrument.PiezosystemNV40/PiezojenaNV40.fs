@@ -84,8 +84,8 @@ module PiezojenaNV40 =
             error
             |> stringtoStatus 
             |> checkStatus 
-            |> logDeviceOpResult piezojena 
-                ("Successfully retrieved the Piezojena's identification string.")
+            |> logQueryResult  
+                (sprintf "Successfully retrieved the Piezojena's identification string %A : %A" identification)
                 (sprintf "Failed to retrieve the Piezojena's identification string, %s.")
             |> AsyncChoice.liftChoice 
         
@@ -199,10 +199,6 @@ module PiezojenaNV40 =
                 (sprintf "Failed to change all channels remote control modes: %A")
             |> AsyncChoice.liftChoice
 
-        let initaliseChannels piezojena (mode:Loop) (remote:Switch) = 
-            do setLoopModeallChannels piezojena mode 
-            do setAllRemoteControl piezojena remote
-
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
             let mutable error : string = Unchecked.defaultof<_>
@@ -278,7 +274,6 @@ module PiezojenaNV40 =
         //    let mutable error : string = Unchecked.defaultof<_>
         //    logDevice piezojena "Getting command list."
         //    stage.GetCommandList ()
-
 
         /// Queries the encoders values. 
         let queryEncoder piezojena =  
