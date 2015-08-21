@@ -129,11 +129,10 @@ module Parsing =
         | false -> OpenLoop
         | true  -> ClosedLoop
 
-    let softStartBoolean = function
+    let switchBoolean = function
         | On  -> true
         | Off -> false
-  
-    let parseSoftStart = function
-        | true  -> On 
-        | false -> Off
 
+    let parseSwitch = function 
+        | true  -> On
+        | false -> Off

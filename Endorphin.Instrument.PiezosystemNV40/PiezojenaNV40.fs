@@ -30,7 +30,7 @@ module PiezojenaNV40 =
             | Error message -> fail message
 
         /// Deals with multiple errors. 
-        let multipleErrors (errorArray:string[]) = 
+        let internal multipleErrors (errorArray:string[]) = 
            // Converts string array into status array. 
            let statusArray = Array.map (fun elem -> stringtoStatus elem) errorArray
            /// Filters out Ok's from status array.   
@@ -90,7 +90,7 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice 
         
         /// Retrieves Piezojena serial number. 
-        let getSerialNumber piezojena = 
+        let getSerialNumber piezojena (serial:string)= 
             let mutable error : string = Unchecked.defaultof<_>
             let mutable serialNumber : int64 = Unchecked.defaultof<_>
             logDevice piezojena "Retrieving Piezojena's serial number."
@@ -162,6 +162,47 @@ module PiezojenaNV40 =
                 (sprintf "Failed to set the loop mode for all channels, %A")
             |> AsyncChoice.liftChoice 
 
+        /// Sets remote control for one channel. 
+        let setRemoteControl piezojena (channel:Channel) (switch: Switch) = 
+            let mutable error : string = Unchecked.defaultof<_>
+            let byteChannel = Parsing.channelByte (channel)
+            let booleanSwitch = Parsing.switchBoolean switch
+            logDevice piezojena "Attempting to change remote control mode."
+            stage.SetRemoteControlled (byteChannel, booleanSwitch)
+            stage.GetCommandError (&error)
+            error
+            |> stringtoStatus
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully changed remote mode.")
+                (sprintf "Failed to change remote mode: %A")
+            |> AsyncChoice.liftChoice
+
+        /// Sets all three channels remote control modes on or off.
+        let setAllRemoteControl piezojena (switch:Switch) = 
+            let mutable error1 : string = Unchecked.defaultof<_>
+            let mutable error2 : string = Unchecked.defaultof<_>
+            let mutable error3 : string = Unchecked.defaultof<_>
+            let booleanSwitch = Parsing.switchBoolean switch
+            logDevice piezojena "Attempting to change all channels remote control modes."
+            stage.SetRemoteControlled (0uy, booleanSwitch)
+            stage.GetCommandError (&error1)
+            stage.SetRemoteControlled (1uy, booleanSwitch)
+            stage.GetCommandError (&error2)
+            stage.SetRemoteControlled (2uy, booleanSwitch)
+            stage.GetCommandError (&error3)
+            let errorArray = [|error1; error2; error3|]
+            multipleErrors errorArray
+            |> checkStatus
+            |> logDeviceOpResult piezojena
+                ("Successfully changed all channels remote control modes.")
+                (sprintf "Failed to change all channels remote control modes: %A")
+            |> AsyncChoice.liftChoice
+
+        let initaliseChannels piezojena (mode:Loop) (remote:Switch) = 
+            do setLoopModeallChannels piezojena mode 
+            do setAllRemoteControl piezojena remote
+
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
             let mutable error : string = Unchecked.defaultof<_>
@@ -187,9 +228,9 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
         
         /// Sets soft start, if true then soft start turned on, if false then off. 
-        let setSoftStart piezojena (softstart:SoftStart) = 
+        let setSoftStart piezojena (softstart:Switch) = 
             let mutable error : string = Unchecked.defaultof<_>
-            let boolean = Parsing.softStartBoolean(softstart)
+            let boolean = Parsing.switchBoolean(softstart)
             logDevice piezojena "Changing soft start settings."
             stage.SetSoftStart (boolean)
             stage.GetCommandError (&error)
@@ -308,7 +349,7 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
 
         /// Retrieves a measurement from a single channel. 
-        let queryMeasuredValue piezojena (channel:Channel) = 
+        let queryChannelPosition piezojena (channel:Channel) = 
             let mutable error : string = Unchecked.defaultof<_>
             let mutable measurement : float32 = Unchecked.defaultof<_>  
             let byteChannel = Parsing.channelByte (channel)
@@ -324,7 +365,7 @@ module PiezojenaNV40 =
             |> AsyncChoice.liftChoice
         
         /// Retrieves all measurements from three channels. 
-        let queryAllMeasurements piezojena = 
+        let queryAllPositions piezojena = 
             let mutable error : string = Unchecked.defaultof<_>
             let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
             logDevice piezojena "Checking all channel measurements." 

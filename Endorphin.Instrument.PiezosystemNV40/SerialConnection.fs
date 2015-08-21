@@ -23,4 +23,11 @@ module SerialConnection =
         let serialConnection = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices ()
         serialConnection.CreateSerialPortConnection ("COM3", serialConfiguration)
 
+    /// Standard serial connection configuration for the Piezojena. 
+    let standardSerial = {
+        BaudRate = 19200
+        DataBits = 8
+        StopBits = One
+        Parity = ParityNone
+        FlowControl = FlowControlXOnXOff}
          

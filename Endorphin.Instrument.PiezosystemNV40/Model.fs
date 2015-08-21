@@ -6,6 +6,9 @@ open Endorphin.Core
 [<AutoOpen>]
 module Model = 
     
+    /// Type switch. 
+    type Switch = On|Off
+
     /// Type containing status, Ok or Error. 
     type Status = 
         | Ok
@@ -49,9 +52,6 @@ module Model =
         | FlowControlDtrDsr
         | FlowControlRtsCts
         | FlowControlXOnXOff
-
-    /// Soft start on or off.
-    type SoftStart = |On|Off
 
     /// Type containing information nessesary to setup a serial connection with the Piezojena.
     type Serial = {
