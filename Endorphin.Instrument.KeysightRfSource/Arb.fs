@@ -52,6 +52,30 @@ module ARB =
         let withMarkers markers (sample: Sample) =
             { sample with Markers = markers }
 
+        /// Add a sample and a number of repeats to a waveform.
+        let addSample sample count segment = {
+            Samples = Array.append segment.Samples [| (sample, SampleCount count) |]
+            Length = segment.Length + uint16 count }
+
+        /// Add a sequence of (sample, count) onto a segment.
+        let addSampleSequence sequence segment = {
+            Samples =
+                sequence
+                |> Seq.map (fun (x, y) -> (x, SampleCount y))
+                |> Array.ofSeq
+                |> Array.append segment.Samples
+            Length =
+                sequence
+                |> Seq.sumBy snd
+                |> uint16
+                |> (+) segment.Length }
+
+        /// Complete a segment, creating a waveform to write to the machine.
+        let segmentToWaveform = Segment
+
+        /// Complete a sequence, creating a waveform to write to the machine.
+        let sequenceToWaveform = Sequence
+
         /// Convert a Phase type into a float value of radians for use in the mathematical functions.
         let private phaseToRadians = function
             // We want IQ to be equal at 0 phase, so rotate phases by pi/4
@@ -419,7 +443,7 @@ module ARB =
                 Array.concat [ System.Text.Encoding.ASCII.GetBytes name; ","B; reps; ",ALL"B ]
 
             /// Convert a sequence into an ASCII string of its elements.
-            let private sequenceData sequence =
+            let private sequenceData (SequenceType sequence) =
                 sequence
                 |> List.map toEncodedSequenceElement
                 |> List.map (Array.append ","B) // actually prepends ','B, but we want this

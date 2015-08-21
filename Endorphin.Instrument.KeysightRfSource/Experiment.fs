@@ -820,8 +820,10 @@ module Experiment =
             /// Convert a pending sequence element to a regular sequence element.  Should not be
             /// exposed to users because it's quite unsafe - we assume that the caller will be
             /// storing all of the dependencies at the same time.
-            let toRegularSequence pending : Sequence =
-                pending |> List.map toRegularSequenceElement
+            let toRegularSequence pending =
+                pending
+                |> List.map toRegularSequenceElement
+                |> SequenceType
 
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.

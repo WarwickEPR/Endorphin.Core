@@ -339,20 +339,20 @@ module Model =
     [<AutoOpen>]
     module ARB =
         /// A record of the 4 markers' states.
-        type Markers = {
+        type Markers = internal {
             M1 : bool
             M2 : bool
             M3 : bool
             M4 : bool }
 
         /// A single IQ point with associated markers.
-        type Sample = {
+        type Sample = internal {
             I       : int16
             Q       : int16
             Markers : Markers }
 
         /// A number of samples, generally used as a pulse duration.
-        type SampleCount = SampleCount of uint32
+        type internal SampleCount = SampleCount of uint32
 
         /// The identifier of a segment, before it has been written to the machine.
         type internal SegmentId = SegmentId of string
@@ -366,19 +366,20 @@ module Model =
             | StoredSequence of SequenceId
 
         /// A single segment in the machine.  Must be at least 60 samples long.
-        type Segment = {
+        type Segment = internal {
             Samples : (Sample * SampleCount) array
             Length  : uint16 }
 
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
-        type SequenceElement = StoredWaveform * uint16
+        type internal SequenceElement = StoredWaveform * uint16
 
         /// A full sequence to be stored in the machine.
-        type Sequence = SequenceElement list
+        type Sequence = internal SequenceType of SequenceElement list
 
         /// A unified type representing some playable waveform on the machine.
         type Waveform =
+            internal
             | Segment of Segment
             | Sequence of Sequence
 
