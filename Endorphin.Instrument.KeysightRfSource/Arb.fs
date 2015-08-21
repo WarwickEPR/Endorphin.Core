@@ -418,7 +418,7 @@ module ARB =
             /// to the machine, given the encoded segment to extract the data from.  Ignores
             /// the header file, but the only bits we usually care about here are more easily
             /// set by SCPI commands.
-            let toEncodedSegmentFiles segment (SegmentId id) =
+            let toEncodedSegmentFiles segment id =
                 let encodedSegment = toEncodedSegment segment
                 let waveformFilename = waveformFileString id
                 let markerFilename   = markerFileString   id
@@ -435,12 +435,12 @@ module ARB =
             /// Make a sequence element into a tuple of the byte array of the full filename
             /// and the ASCII representation of the number of repetitions.
             let private asciiSequenceElement (el, reps) =
-                (storedWaveformFilename el, asciiString reps)
+                (asciiString <| waveformIdFilename el, asciiString reps)
 
             /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B.
             let private toEncodedSequenceElement (element : SequenceElement) =
                 let (name, reps) = asciiSequenceElement element
-                Array.concat [ System.Text.Encoding.ASCII.GetBytes name; ","B; reps; ",ALL"B ]
+                Array.concat [ name; ","B; reps; ",ALL"B ]
 
             /// Convert a sequence into an ASCII string of its elements.
             let private sequenceData (SequenceType sequence) =
@@ -450,7 +450,7 @@ module ARB =
                 |> List.reduce Array.append
 
             /// Encode a whole sequence in an EncodedSequence.
-            let sequenceDataString (SequenceId id) (sequence : Sequence) =
+            let sequenceDataString id (sequence : Sequence) =
                 let name =
                     id
                     |> sequenceFileString

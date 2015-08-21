@@ -45,27 +45,24 @@ module Experiment =
             segment.Samples |> Array.iter (printSampleCount indent)
 
         /// Pretty print a pending sequence.
-        let rec printPendingSequence indent segMap seqMap sequence =
-            let printEl = printPendingSequenceElement indent segMap seqMap
+        let rec printSequence indent segMap seqMap (SequenceType sequence) =
+            let printEl = printSequenceElement indent segMap seqMap
             sequence |> List.iter printEl
-        and printPendingSequenceElement indent segMap seqMap = function
-            | (PendingSegment (SegmentId id), reps) ->
+        and printSequenceElement indent segMap seqMap (id, reps) =
+            match id with
+            | SegmentId id ->
                 printfn "%s%s * %d" (getIndent indent) id reps
                 printSegment (indent + indentDepth) (Map.find id segMap)
-            | (PendingSequence (SequenceId id), reps) ->
+            | SequenceId id ->
                 printfn "%s%s * %d" (getIndent indent) id reps
-                printPendingSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
+                printSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
 #endif
 
     [<AutoOpen>]
     module Configure =
         /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
         /// without affecting the timings of pulses.
-        let minimumRfPulseSeparation =
-            riseCount
-            |> (*) 2
-            |> uint32
-            |> SampleCount
+        let minimumRfPulseSeparation = riseCount * 2 |> uint32
 
         /// An experiment with no pulses, ready to be added to.
         let emptyExperiment = {
@@ -249,11 +246,11 @@ module Experiment =
             /// work.  We only need to check the first iteration of the experiment, since the pulses
             /// can only get longer (SampleCount is unsigned).
             let private checkRfSpacing (experiment : Experiment) =
-                let minimum = extractSampleCount minimumRfPulseSeparation
+                let minimum = minimumRfPulseSeparation
                 let rec loop space = function
                     | [] -> succeed ()
                     | hd :: tl when isRfPulse hd ->
-                        let minimum = extractSampleCount minimumRfPulseSeparation
+                        let minimum = minimumRfPulseSeparation
                         if space < minimum then
                             minimum
                             |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
@@ -591,14 +588,14 @@ module Experiment =
 
             /// Split an `int` SampleCount into parts of uint16, constructing enough sequence elements
             /// along the way to make up a whole integer.
-            let private listToPrepend construct id curCount newCount =
+            let private listToPrepend id curCount newCount =
                 let (quotient, remainder) = intByUint16 newCount
-                let maxReps = [ for _ in 1 .. quotient -> (construct id, UInt16.MaxValue) ]
+                let maxReps = [ for _ in 1 .. quotient -> (id, UInt16.MaxValue) ]
                 let overflow =
                     if int curCount + int remainder < int UInt16.MaxValue then
-                        [ (construct id, curCount + remainder) ]
+                        [ (id, curCount + remainder) ]
                     else
-                        [ (construct id, curCount); (construct id, remainder) ]
+                        [ (id, curCount); (id, remainder) ]
                 overflow @ maxReps
 
             /// Attempt to take "count" number of samples from the next repetition of samples in a
@@ -626,7 +623,7 @@ module Experiment =
                     | 0u ->
                         let segment = { Samples = Array.ofList <| List.rev acc; Length = (uint16 count) }
                         let id = hexHash segmentToBytes segment
-                        ({ Element = (PendingSegment (SegmentId id), uint16 reps)
+                        ({ Element = (SegmentId id, uint16 reps)
                            Segments = Map.add id segment Map.empty
                            Sequences = Map.empty },
                          { CompiledData = input
@@ -660,35 +657,33 @@ module Experiment =
                 splitCompiledExperiment count reps compiled
 
             /// Get the string of an id from an element.
-            let elementId (el, _) =
-                match el with
-                | PendingSegment (SegmentId id) -> id
-                | PendingSequence (SequenceId id) -> id
+            let elementId = fst >> waveformIdString
+
+            /// Extract a sequence from a sequence type.
+            let extractSequence (SequenceType sequence) = sequence
 
             /// Find the most recent id - during the compression, the most recent one is
             /// first in the list, since the list is built up in reverse order.
-            let private lastId experiment =
-                match List.tryHead experiment with
+            let private lastId list =
+                match List.tryHead list with
                 | None -> None
                 | Some s ->
-                    match List.tryHead s with
+                    match List.tryHead <| extractSequence s with
                     | None -> None
                     | Some el -> Some (elementId el)
 
             /// Increase the number of reps on the last segment in a CompressedExperiment.
             let private increaseLastReps compressed reps =
-                let (curExperiment, tailExperiments) =
+                let (SequenceType curExperiment, tailExperiments) =
                     match compressed.CompressedExperiments with
                     | hd :: tl -> (hd, tl)
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 let curExperiment' =
                     match curExperiment with
-                    | (PendingSegment id, count) :: tail ->
-                        (listToPrepend PendingSegment id count (int reps)) @ tail
-                    | (PendingSequence id, count) :: tail ->
-                        (listToPrepend PendingSequence id count (int reps)) @ tail
+                    | (id, count) :: tail ->
+                        (listToPrepend id count (int reps)) @ tail
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
-                { compressed with CompressedExperiments = (curExperiment' :: tailExperiments) }
+                { compressed with CompressedExperiments = (SequenceType curExperiment' :: tailExperiments) }
 
             /// A joiner function for Map.join which just ignores clashes of keys, and returns the first
             /// value passed to it.
@@ -700,8 +695,8 @@ module Experiment =
             let private consDifferentElement (compressed : CompressedExperiment) (element : CompressedElement) =
                 let experiments =
                     match compressed.CompressedExperiments with
-                    | [] -> [[element.Element]]
-                    | hd :: tl -> (element.Element :: hd) :: tl
+                    | [] -> [ SequenceType [ element.Element ] ]
+                    | (SequenceType hd) :: tl -> (SequenceType (element.Element :: hd)) :: tl
                 { Segments = Map.join ignoreKeyClash compressed.Segments element.Segments
                   Sequences = Map.join ignoreKeyClash compressed.Sequences element.Sequences
                   CompressedExperiments = experiments
@@ -719,13 +714,16 @@ module Experiment =
                 else
                     consDifferentElement compressed element
 
+            /// Reverse the order of a sequence.
+            let private reverseSequence (SequenceType sequence) = SequenceType <| List.rev sequence
+
             /// One step in the compression.
             let rec private compressionLoop output input =
                 match input.CompiledLength with
                 | 0u ->
                     let experiments =
                         output.CompressedExperiments
-                        |> List.map List.rev
+                        |> List.map reverseSequence
                         |> List.rev
                     { output with CompressedExperiments = experiments }
                 | _ ->
@@ -766,7 +764,7 @@ module Experiment =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let internal makeExperimentName (compressed : PendingSequence) =
+            let internal makeExperimentName (SequenceType compressed) =
                 let byteCount = elementByteCount compressed.Head
                 let arrLength = compressed.Length * byteCount
                 let array = Array.create arrLength 0uy
@@ -776,21 +774,13 @@ module Experiment =
                         let elementArray = elementToByteArray el
                         for i in 0 .. (byteCount - 1) do array.[n * byteCount + i] <- elementArray.[i]
                         loop (n + 1) tail
-                compressed
-                |> hexHash (loop 0)
-                |> SequenceId
+                compressed |> hexHash (loop 0)
 
             /// Convert a compressed experiment into an encoded one suitable for writing
             /// to the machine.
             let private encode (compressed : CompressedExperiment) =
-                let segments =
-                    compressed.Segments
-                    |> Map.toList
-                    |> List.map (fun (str, seg) -> (SegmentId str, seg))
-                let sequences =
-                    compressed.Sequences
-                    |> Map.toList
-                    |> List.map (fun (str, sqn) -> (SequenceId str, sqn))
+                let segments = compressed.Segments |> Map.toList
+                let sequences = compressed.Sequences |> Map.toList
                 let experiments =
                     compressed.CompressedExperiments
                     |> List.map makeExperimentName
@@ -808,22 +798,6 @@ module Experiment =
                     |> compile
                     |> compress
                     |> encode }
-
-            /// Convert a pending sequence element to a regular sequence element.  Should not be
-            /// exposed to users because it's quite unsafe - we assume that the caller will be
-            /// storing all of the dependencies at the same time.
-            let private toRegularSequenceElement (el, reps) =
-                match el with
-                | PendingSegment  s -> (StoredSegment  s, reps)
-                | PendingSequence s -> (StoredSequence s, reps)
-
-            /// Convert a pending sequence element to a regular sequence element.  Should not be
-            /// exposed to users because it's quite unsafe - we assume that the caller will be
-            /// storing all of the dependencies at the same time.
-            let toRegularSequence pending =
-                pending
-                |> List.map toRegularSequenceElement
-                |> SequenceType
 
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.
@@ -849,7 +823,7 @@ module Experiment =
             /// Pretty-print out a compressed experiment.
             let printCompressedExperiment (compressed : CompressedExperiment) =
                 let helper item =
-                    printfn "\n%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
-                    printPendingSequence indentDepth compressed.Segments compressed.Sequences item
+                    printfn "\n%s" (makeExperimentName item)
+                    printSequence indentDepth compressed.Segments compressed.Sequences item
                 List.iter helper compressed.CompressedExperiments
 #endif

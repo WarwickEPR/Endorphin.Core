@@ -354,16 +354,15 @@ module Model =
         /// A number of samples, generally used as a pulse duration.
         type internal SampleCount = SampleCount of uint32
 
-        /// The identifier of a segment, before it has been written to the machine.
-        type internal SegmentId = SegmentId of string
-        /// The identifier of a sequence, before it has been written to the machine.
-        type internal SequenceId = SequenceId of string
+        /// Internal identifier of a segment.
+        type internal SegmentId = string
+        /// Internal identifier of a sequence.
+        type internal SequenceId = string
 
-        /// A waveform that has been stored in the machine.
-        type StoredWaveform = 
-            internal
-            | StoredSegment of SegmentId
-            | StoredSequence of SequenceId
+        /// The identifier of a waveform.
+        type internal WaveformId =
+            | SegmentId of SegmentId
+            | SequenceId of SequenceId
 
         /// A single segment in the machine.  Must be at least 60 samples long.
         type Segment = internal {
@@ -372,16 +371,19 @@ module Model =
 
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.
-        type internal SequenceElement = StoredWaveform * uint16
+        type internal SequenceElement = WaveformId * uint16
 
-        /// A full sequence to be stored in the machine.
+        /// A single sequence in the machine - can contain other waveforms.
         type Sequence = internal SequenceType of SequenceElement list
 
         /// A unified type representing some playable waveform on the machine.
         type Waveform =
             internal
-            | Segment of Segment
-            | Sequence of Sequence
+            | Segment of SegmentId * Segment
+            | Sequence of SequenceId * Sequence
+
+        /// A waveform stored on the machine.
+        type StoredWaveform = internal StoredWaveform of WaveformId
 
         /// A state which can either be low or high.
         type LowHighState = Low | High

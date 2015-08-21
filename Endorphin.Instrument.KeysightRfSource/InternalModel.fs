@@ -65,38 +65,23 @@ module internal InternalModel =
             ExperimentPoints : CompiledExperimentPoint list
             Metadata : ExperimentMetadata }
 
-        /// A waveform identifier pointing to a waveform which has not yet been written to disk.
-        type PendingWaveform =
-            | PendingSegment of name : SegmentId
-            | PendingSequence of name : SequenceId
-
-        /// An element of a sequence where the dependencies are not yet written to the machine.
-        /// Elements may still be pending writing, and not available for playback yet.  This should
-        /// not be exposed publically, to prevent accidentally depending on an unwritten file.
-        type PendingSequenceElement = PendingWaveform * uint16
-
-        /// A sequence where the dependencies are not yet written to the machine. Elements may
-        /// still be pending writing, and not available for playback yet.  This should not be
-        /// exposed publically, to prevent accidentally depending on an unwritten file.
-        type PendingSequence = PendingSequenceElement list
-
         /// One element of compression - usually analagous to a single point in the experiment,
         /// with one phase and one duration for the pulses.
         type CompressedElement = {
-            Element : PendingSequenceElement
+            Element : SequenceElement
             Segments : Map<string, Segment>
-            Sequences : Map<string, PendingSequence> }
+            Sequences : Map<string, Sequence> }
 
         /// An experiment inside the compression step.
         type CompressedExperiment = {
             Segments : Map<string, Segment>
-            Sequences : Map<string, PendingSequence>
-            CompressedExperiments : PendingSequence list
+            Sequences : Map<string, Sequence>
+            CompressedExperiments : Sequence list
             Metadata : ExperimentMetadata }
 
         /// An assembled experiment, ready for storing onto the machine.
         type EncodedExperiment = {
             Segments : (SegmentId * Segment) list
-            Sequences : (SequenceId * PendingSequence) list
-            Experiments : (SequenceId * PendingSequence) list
+            Sequences : (SequenceId * Sequence) list
+            Experiments : (SequenceId * Sequence) list
             Metadata : ExperimentMetadata }

@@ -160,27 +160,29 @@ module internal Parsing =
     /// Total filename string for a sequence file.
     let sequenceFileString name = fileNameString sequenceFolder name
 
-    /// Get the string representation of a SegmentId.
-    let extractSegmentId (SegmentId id) = id
-    /// Get the string representation of a SequenceId.
-    let extractSequenceId (SequenceId id) = id
+    /// Get the string representation of a waveform ID.
+    let waveformIdString = function
+        | SegmentId  s -> s
+        | SequenceId s -> s
 
     /// Get the string representations of the relevant folders and the ids of a StoredWaveform.
-    let extractStoredWaveformFolderAndId = function
-        | StoredSegment  s -> (waveformFolder, extractSegmentId s)
-        | StoredSequence s -> (sequenceFolder, extractSequenceId s)
+    let extractStoredWaveformFolderAndId (StoredWaveform id) =
+        match id with
+        | SegmentId  s -> (waveformFolder, s)
+        | SequenceId s -> (sequenceFolder, s)
 
     /// Get the string representation of a StoredWaveform.
-    let extractStoredWaveformId = function
-        | StoredSegment  s -> extractSegmentId s
-        | StoredSequence s -> extractSequenceId s
+    let extractStoredWaveformId (StoredWaveform id) = waveformIdString id
+
+    /// Get the full file name of a waveform ID.
+    let waveformIdFilename = function
+        | SegmentId  s -> waveformFileString s
+        | SequenceId s -> sequenceFileString s
 
     /// Get the full file name of a waveform file from the short name stored in the
     /// StoredWaveform.  For example, if it is a segment, and the name is "test", then this
     /// function returns "\"WFM1:test\""B.
-    let storedWaveformFilename = function
-        | StoredSegment  s -> waveformFileString <| extractSegmentId s
-        | StoredSequence s -> sequenceFileString <| extractSequenceId s
+    let storedWaveformFilename (StoredWaveform id) = waveformIdFilename id
 
     /// Get the integer representation of a SampleCount.
     let extractSampleCount (SampleCount x) = x
