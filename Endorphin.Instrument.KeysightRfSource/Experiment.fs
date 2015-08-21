@@ -343,13 +343,6 @@ module Experiment =
                         loop (copy @ acc) (i - 1)
                 loop [] n
 
-            /// Choose the marker constructor function which applies the RF blanking marker to a sample.
-            let private addRfBlankMarkerToSample = function
-                | RouteMarker1 -> withMarker1 true
-                | RouteMarker2 -> withMarker2 true
-                | RouteMarker3 -> withMarker3 true
-                | RouteMarker4 -> withMarker4 true
-
             /// Choose the marker constructor function which applies the RF blanking marker to record of
             /// markers.
             let private addRfBlankMarkerToMarkers = function
@@ -435,9 +428,9 @@ module Experiment =
             let private expandStaticPulse addRfBlank pulse =
                 let (amplitude, phase, markers, duration) =
                     match pulse with
-                    | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
-                    | StaticDelay (dur)           -> (0.0, noPhase, (noMarkers |> addRfBlank), dur)
-                    | StaticMarker (markers, dur) -> (0.0, noPhase, (markers |> addRfBlank), dur)
+                    | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers |> addRfBlank, dur)
+                    | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
+                    | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
                 let sample =
                     defaultIqSample
                     |> withAmplitudeAndPhase amplitude phase
@@ -478,19 +471,18 @@ module Experiment =
 
             /// Update a sample for the FIR filter using the indexer and the index in the list
             /// to decide which coefficient to apply.
-            let private updateSampleFir addRfBlankMarker i q indexer idx (sample, dur) =
+            let private updateSampleFir i q indexer idx (sample, dur) =
                 let sample' =
                     sample
                     |> withI (int16 (float i * riseCoefficients.[indexer idx]))
                     |> withQ (int16 (float q * riseCoefficients.[indexer idx]))
-                    |> addRfBlankMarker
                 (sample', dur)
 
             /// Apply the necessary FIR filter to a list of samples.
-            let private applyFir indexer addRfBlankMarker arr i q =
+            let private applyFir indexer arr i q =
                 arr
                 |> separateSampleList
-                |> List.mapi (updateSampleFir addRfBlankMarker i q indexer)
+                |> List.mapi (updateSampleFir i q indexer)
 
             /// Apply the FIR filter to a rise.
             let private applyRiseFir = applyFir (fun i -> i)
@@ -521,7 +513,7 @@ module Experiment =
                     ([pulse], fall, tail')
 
             /// Apply an FIR filter to all IQ values in the pulse sequence.
-            let private firFilter rfCount addRfBlankMarker samples =
+            let private firFilter rfCount samples =
                 let rec loop acc list = function
                     | 0 ->
                         (List.rev acc) @ list
@@ -530,8 +522,8 @@ module Experiment =
                         let (pulse, fall, tail') = splitFall tail
                         let i = (fst (List.exactlyOne pulse)).I
                         let q = (fst (List.exactlyOne pulse)).Q
-                        let rise' = applyRiseFir addRfBlankMarker rise i q
-                        let fall' = applyFallFir addRfBlankMarker fall i q
+                        let rise' = applyRiseFir rise i q
+                        let fall' = applyFallFir fall i q
                         let acc' =
                             [ fall'; pulse; rise'; head ]
                             |> List.map List.rev
@@ -562,7 +554,7 @@ module Experiment =
             let private toSamples rfCount rfBlankMarker pulses =
                 pulses
                 |> List.map (expandStaticPulse (addRfBlankMarkerToMarkers rfBlankMarker))
-                |> firFilter rfCount (addRfBlankMarkerToSample rfBlankMarker)
+                |> firFilter rfCount
                 |> groupEqualSamples
 
             /// Count the number of pulses in the experiment, and return the completed

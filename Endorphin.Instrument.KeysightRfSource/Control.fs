@@ -196,7 +196,8 @@ module Control =
                 |> storeSequenceSequenceById instrument
             return {
                 StoredExperiments = storedExperiments
-                StoredWaveforms   = Array.append storedSegments storedSequences } }
+                StoredWaveforms   = Array.append storedSegments storedSequences
+                RfBlankRoute      = encoded.Metadata.RfBlankMarker } }
 
     [<AutoOpen>]
     module Delete =
