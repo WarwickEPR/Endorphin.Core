@@ -32,20 +32,20 @@ module PiezojenaNV40 =
     /// Handles errors, if no errors returns function values else fails. 
     let private check (workflow:Async<'T>) = asyncChoice {
         let! workflowResult = workflow |> AsyncChoice.liftAsync
-        let mutable error : string = Unchecked.defaultof<_> 
+        let mutable error : string = Unchecked.defaultof<_>
         stage.GetCommandError (&error)
         let statusError = stringtoStatus error
         do! if statusError = Ok then
                 Ok |> checkStatus
             else 
-                Error error |> checkStatus 
-        return workflowResult } 
+                Error error |> checkStatus
+        return workflowResult }
     
         
     let private checkMulti (workFlowArray : Async<'T>[]) =   
        
         /// Runs workflow and returns a status.
-        let stausCheck (workflow:Async<'T>) = 
+        let statusCheck (workflow:Async<'T>) = 
             workflow |> Async.RunSynchronously |> ignore 
             let mutable error : string = Unchecked.defaultof<_> 
             stage.GetCommandError (&error)
@@ -55,12 +55,12 @@ module PiezojenaNV40 =
         let statusList (workflowArray : Async<'T> [])  = 
             let length = (Array.length workflowArray) - 1
             let list = []
-            let rec results element errorList =
-                if element > 0 || element =  0 then 
-                    let workflow = Array.get workflowArray element
-                    let listElement  = stausCheck workflow  
+            let rec results index errorList =
+                if index > 0 || index =  0 then 
+                    let workflow = Array.get workflowArray index
+                    let listElement  = statusCheck workflow  
                     let list = listElement :: errorList 
-                    results (element - 1) list  
+                    results (index - 1) list  
                 else 
                     errorList  
             results length list 
@@ -166,19 +166,16 @@ module PiezojenaNV40 =
                 async{
                 logDevice piezojena "Setting channel 0 loop mode."
                 stage.SetClosedLoopControlled (0uy, modeBoolean)
-                return ()
                 }
             let setLoopOneWorkflow =
                 async{
                 logDevice piezojena "Setting channel 1 loop mode."
                 stage.SetClosedLoopControlled (1uy, modeBoolean)
-                return ()
                 } 
             let setLoopTwoWorkflow =
                 async{
                 logDevice piezojena "Setting channel 2 loop mode."
                 stage.SetClosedLoopControlled (2uy, modeBoolean)
-                return ()
                 }
             let workflowArray = [|setLoopZeroWorkflow; setLoopOneWorkflow; setLoopTwoWorkflow|]
             workflowArray |> checkMulti  
@@ -204,19 +201,16 @@ module PiezojenaNV40 =
                 async{
                 logDevice piezojena "Setting remote mode for channel 0." 
                 stage.SetRemoteControlled (0uy, booleanSwitch)
-                return ()
                 }
             let setRemoteOneWorkflow  = 
                 async{
                 logDevice piezojena "Setting remote mode for channel 1."
                 stage.SetRemoteControlled (1uy, booleanSwitch)
-                return ()
                 }
             let setRemoteTwoWorkflow = 
                 async{
                 logDevice piezojena "Setting remote mode for channel 2."
                 stage.SetRemoteControlled (2uy, booleanSwitch)
-                return ()
                 }
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
             workflowArray |> checkMulti
@@ -238,7 +232,6 @@ module PiezojenaNV40 =
                     else Parsing.byteOptionConvert(encoder.Exponent)
                 logDevice piezojena "Setting encoder values."            
                 stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
-                return ()
                 }
             setEncoderWorkflow |> check 
         
@@ -249,7 +242,6 @@ module PiezojenaNV40 =
                 let boolean = Parsing.switchBoolean(softstart)
                 logDevice piezojena "Changing soft start settings."
                 stage.SetSoftStart (boolean)
-                return ()
                 }
             setSoftStartWorkflow |> check 
         
@@ -260,7 +252,6 @@ module PiezojenaNV40 =
                 let byteChannel = Parsing.channelByte (channel)
                 logDevice piezojena "Setting channel output."
                 stage.SetDesiredOutput (byteChannel, output)
-                return ()
                 }
             setOutputWorkflow |> check 
        
@@ -270,7 +261,6 @@ module PiezojenaNV40 =
                 async{
                 logDevice piezojena "Setting outputs of all channels."
                 Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
-                return ()
                 }
             setAllOutputsWorkflow |> check 
 
@@ -341,13 +331,17 @@ module PiezojenaNV40 =
             queryChannelPositionWorkflow |> check 
         
         /// Retrieves all measurements from three channels. 
-        let queryAllPositionsl piezojena = 
+        let queryAllPositions piezojena = 
             let queryAllPositionsWorkflow = 
                 async{ 
                 let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
                 logDevice piezojena "Checking all channel measurements." 
                 stage.GetMeasuredValueChunk (&array)
-                return array
+                let x = Array.get array 0
+                let y = Array.get array 1
+                let z = Array.get array 2
+                let coordinate = (x, y, z)
+                return coordinate
                 }
             queryAllPositionsWorkflow |> check 
         

@@ -28,7 +28,7 @@ module Parsing =
     /// Used on exponent field in record type Encoder. 
     let internal byteOptionConvert = function 
         | Some byte -> byte
-        | None -> 0uy
+        | None -> 0uy 
 
     /// Maps type StopBits onto dll type StopBitsKind.
     let stopBitsMap = function

@@ -27,11 +27,6 @@ module Model =
         Build: int
         Date: System.DateTime}
 
-    /// Type containing Piezojena information.
-    type PiezojenaInformation = {
-        SerialString: string  
-        Version: Version}
-    
     /// Three possible stop bits for a serial connection.
     type StopBits = 
         | One

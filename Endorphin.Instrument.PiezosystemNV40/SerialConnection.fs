@@ -12,7 +12,7 @@ open Endorphin.Instrument.PiezosystemNV40
 module SerialConnection = 
     
     /// Standard serial connection configuration for the Piezojena. 
-    let standardSerial = {
+    let private standardSerial = {
         BaudRate = 19200
         DataBits = 8
         StopBits = One
@@ -20,7 +20,7 @@ module SerialConnection =
         FlowControl = FlowControlXOnXOff}
 
     /// Makes a serial connection using the standardSerial values.
-    let connect() = 
+    let connect portName = 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
         serialConfiguration.BaudRate    <- standardSerial.BaudRate
         serialConfiguration.DataBits    <- standardSerial.DataBits
@@ -28,10 +28,10 @@ module SerialConnection =
         serialConfiguration.Parity      <- Parsing.parityMap standardSerial.Parity
         serialConfiguration.FlowControl <- Parsing.flowControlMap standardSerial.FlowControl
         let serialConnect = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-        serialConnect.CreateSerialPortConnection ("COM3", serialConfiguration)
+        serialConnect.CreateSerialPortConnection (portName, serialConfiguration)
 
     /// Makes serial connection using user input values. 
-    let connectandConfigure (serial:Serial) =
+    let connectandConfigure (serial:Serial)  portName=
         /// Sets up serial port configuration using serial port settings contained in record type Serial. 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
         serialConfiguration.BaudRate    <- serial.BaudRate
@@ -41,7 +41,4 @@ module SerialConnection =
         serialConfiguration.FlowControl <- Parsing.flowControlMap serial.FlowControl
         /// Connects to port using serialConfiguration. 
         let serialConnection = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices ()
-        serialConnection.CreateSerialPortConnection ("COM3", serialConfiguration)
-
-
-         
+        serialConnection.CreateSerialPortConnection (portName, serialConfiguration)
