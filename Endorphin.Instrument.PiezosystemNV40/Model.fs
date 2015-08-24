@@ -91,3 +91,8 @@ module Model =
         Exponent: byte option
         ClosedStep: float32
         OpenStep: float32} 
+   
+   /// Type used to define an axis for a grid scan. 
+   type Axis = {
+       Axis   : Channel 
+       Length : float }

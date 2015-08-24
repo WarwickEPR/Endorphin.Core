@@ -22,7 +22,7 @@ module Errors =
         | Error str -> str
 
     /// Checks return value of the NativeApi function and converts to a success or gives an error message.
-    let private checkStatus = function
+    let internal checkStatus = function
         | Ok            -> succeed ()
         | Error message -> fail message
 
@@ -45,7 +45,6 @@ module Errors =
     let internal checkMulti piezojena (workFlowArray : Async<'T>[]) =   
        
         let stage = id piezojena 
-
         /// Runs workflow and returns a status.
         let statusCheck (workflow:Async<'T>) = 
             workflow |> Async.RunSynchronously |> ignore 
@@ -54,28 +53,18 @@ module Errors =
             stringtoStatus error 
         
         /// Takes argument of an array of async workflows and returns a list of thier status codes. 
-        let statusList (workflowArray : Async<'T> [])  = 
+        let multiStatusCheck (workflowArray : Async<'T> [])  = 
             let length = (Array.length workflowArray) - 1
-            let list = []
-            let rec results index errorList =
+            let rec results index  =
                 if index > 0 || index =  0 then 
                     let workflow = Array.get workflowArray index
-                    let listElement  = statusCheck workflow  
-                    let list = listElement :: errorList 
-                    results (index - 1) list  
+                    let status  = statusCheck workflow  
+                    if status = Ok then
+                        results (index - 1)   
+                    else failwithf "%A" status
                 else 
-                    errorList  
-            results length list 
-        
-        /// Filters Ok messages from list, if list length is zero then there are no errors and Ok is returned, else the
-        /// first error from the list is returned. 
-        let filterList list = 
-            let filteredList = List.filter (fun elem -> elem = Ok) list 
-            let length = List.length filteredList 
-            if length = 0 then 
-                Ok
-            else 
-                List.item 0 list 
+                    Ok 
+            ()
        
-        workFlowArray |> statusList |> filterList 
+        workFlowArray |> multiStatusCheck  
 

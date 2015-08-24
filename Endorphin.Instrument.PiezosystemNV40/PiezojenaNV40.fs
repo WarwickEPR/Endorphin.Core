@@ -151,6 +151,7 @@ module PiezojenaNV40 =
                 }
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
             workflowArray |> checkMulti piezojena 
+                          
                 
 
         /// Sets econder values.
@@ -205,6 +206,14 @@ module PiezojenaNV40 =
                 Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
                 }
             setAllOutputsWorkflow |> check piezojena  
+
+        let setGrid piezojena (firstAxis: Axis) (secondAxis: Axis) = 
+            let stage = id piezojena 
+            do setAllRemoteControl piezojena On             
+            do setLoopModeallChannels piezojena ClosedLoop   
+            
+
+
 
     module Query = 
 
