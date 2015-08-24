@@ -9,73 +9,6 @@ open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
 module PiezojenaNV40 = 
-     
-    /// Returns Ok or Error with the error string. 
-    let private stringtoStatus = function
-        | "OK, No Error." -> Ok
-        | str -> Error str
-    
-    /// Converts string from status.
-    let private statustoString = function
-        | Ok        -> "Ok, No Error."
-        | Error str -> str
-
-    /// Checks return value of the NativeApi function and converts to a success or gives an error message.
-    let private checkStatus = function
-        | Ok            -> succeed ()
-        | Error message -> fail message
-    
-    /// Connects to serial port COM3. 
-    let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-    let stage = multiServices.ConnectNv40MultiToSerialPort("COM3")    
-    
-    /// Handles errors, if no errors returns function values else fails. 
-    let private check (workflow:Async<'T>) = asyncChoice {
-        let! workflowResult = workflow |> AsyncChoice.liftAsync
-        let mutable error : string = Unchecked.defaultof<_>
-        stage.GetCommandError (&error)
-        let statusError = stringtoStatus error
-        do! if statusError = Ok then
-                Ok |> checkStatus
-            else 
-                Error error |> checkStatus
-        return workflowResult }
-    
-        
-    let private checkMulti (workFlowArray : Async<'T>[]) =   
-       
-        /// Runs workflow and returns a status.
-        let statusCheck (workflow:Async<'T>) = 
-            workflow |> Async.RunSynchronously |> ignore 
-            let mutable error : string = Unchecked.defaultof<_> 
-            stage.GetCommandError (&error)
-            stringtoStatus error 
-        
-        /// Takes argument of an array of async workflows and returns a list of thier status codes. 
-        let statusList (workflowArray : Async<'T> [])  = 
-            let length = (Array.length workflowArray) - 1
-            let list = []
-            let rec results index errorList =
-                if index > 0 || index =  0 then 
-                    let workflow = Array.get workflowArray index
-                    let listElement  = statusCheck workflow  
-                    let list = listElement :: errorList 
-                    results (index - 1) list  
-                else 
-                    errorList  
-            results length list 
-        
-        /// Filters Ok messages from list, if list length is zero then there are no errors and Ok is returned, else the
-        /// first error from the list is returned. 
-        let filterList list = 
-            let filteredList = List.filter (fun elem -> elem = Ok) list 
-            let length = List.length filteredList 
-            if length = 0 then 
-                Ok
-            else 
-                List.item 0 list 
-       
-        workFlowArray |> statusList |> filterList 
 
     [<AutoOpen>]
     module private Logger =
@@ -84,42 +17,41 @@ module PiezojenaNV40 =
         let log = log4net.LogManager.GetLogger "PicoHarp 300"
 
         /// Logs the PicoHarp.
-        let internal logDevice (piezojena : Piezojena) message =
+        let logDevice (piezojena : Piezojena) message =
             sprintf "[%A] %s" piezojena message |> log.Info
 
         /// Logs a success or failure message based on result of function. 
-        let internal logQueryResult successMessageFunc failureMessageFunc input =
+        let logQueryResult successMessageFunc failureMessageFunc input =
             match input with
             | Success value -> successMessageFunc value |> log.Debug
             | Failure error -> failureMessageFunc error |> log.Error
             input 
             
         /// Logs a success or failure message based on result of function using the PicoHarp's index.
-        let internal logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
+        let logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
             logQueryResult 
                 (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
                 (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
 
-        let internal logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
-        
-        /// The device identification string. 
-        let identification (Piezojena ID) = ID      
+        let logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
     
     module PiezojenaInformation =      
-            
+        
         /// Retrieves Piezojena identification string. 
         let getIdentification piezojena = 
+            let stage = id piezojena
             let getIdentificationWorkflow =
-                async{        
+                async{
                 let mutable identification : string = Unchecked.defaultof<_>
                 logDevice piezojena "Retrieving Piezojena's identification string."
                 stage.GetIdentification(&identification)
                 return identification 
                 }
-            getIdentificationWorkflow |> check
+            getIdentificationWorkflow |> check piezojena  
         
         /// Retrieves Piezojena serial number. 
         let getSerialNumber piezojena (serial:string)= 
+            let stage = id piezojena
             let getSerialNumberWorkflow = 
                 async{
                 let mutable serialNumber : int64 = Unchecked.defaultof<_>
@@ -127,13 +59,14 @@ module PiezojenaNV40 =
                 stage.GetSerialNumber (&serialNumber)
                 return serialNumber
                 }
-            getSerialNumberWorkflow |> check
+            getSerialNumberWorkflow |> check piezojena 
 
         /// Retrieves the Piezojena's software version, uses three pointers to major, minor and build.
         /// Version of form major.minor.build.
         let getVersion piezojena = 
+            let stage = id piezojena         
             let getVersionWorkflow =         
-                async{        
+                async{
                 let mutable major : int    = Unchecked.defaultof<_>
                 let mutable minor : int    = Unchecked.defaultof<_>
                 let mutable build : int    = Unchecked.defaultof<_>
@@ -142,12 +75,13 @@ module PiezojenaNV40 =
                 stage.GetVersion (&major, &minor, &build, &time)
                 return (major, minor, build, time)
                 }
-            getVersionWorkflow |> check 
+            getVersionWorkflow |> check piezojena 
 
     module SetParameters = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
         let setLoopMode piezojena (channel:Channel) (mode:Loop) = 
+            let stage = id piezojena
             let setLoopModeWorkflow =         
                 async{
                 let byteChannel = Parsing.channelByte channel 
@@ -156,12 +90,13 @@ module PiezojenaNV40 =
                 stage.SetClosedLoopControlled (byteChannel, modeBoolean)
                 return ()
                 }
-            setLoopModeWorkflow |> check 
+            setLoopModeWorkflow |> check piezojena  
 
         /// Sets all channels to same loop mode. 
         let setLoopModeallChannels piezojena (mode:Loop) = 
-            logDevice piezojena "Setting loop mode for all channels."
+            let stage = id piezojena 
             let modeBoolean = Parsing.loopBoolean mode
+            logDevice piezojena "Setting loop mode for all channels."
             let setLoopZeroWorkflow = 
                 async{
                 logDevice piezojena "Setting channel 0 loop mode."
@@ -178,11 +113,12 @@ module PiezojenaNV40 =
                 stage.SetClosedLoopControlled (2uy, modeBoolean)
                 }
             let workflowArray = [|setLoopZeroWorkflow; setLoopOneWorkflow; setLoopTwoWorkflow|]
-            workflowArray |> checkMulti  
+            workflowArray |> checkMulti piezojena   
 
 
         /// Sets remote control for one channel. 
         let setRemoteControl piezojena (channel:Channel) (switch: Switch) = 
+            let stage = id piezojena 
             let setRemoteControlWorkflow = 
                 async{
                 let byteChannel = Parsing.channelByte (channel)
@@ -191,12 +127,13 @@ module PiezojenaNV40 =
                 stage.SetRemoteControlled (byteChannel, booleanSwitch)
                 return ()
                 }
-            setRemoteControlWorkflow |> check 
+            setRemoteControlWorkflow |> check piezojena  
 
         /// Sets all three channels remote control modes on or off.
         let setAllRemoteControl piezojena (switch:Switch) = 
-            logDevice piezojena "Attempting to change all channels remote control modes."
+            let stage = id piezojena 
             let booleanSwitch = Parsing.switchBoolean switch
+            logDevice piezojena "Attempting to change all channels remote control modes."
             let setRemoteZeroWorkflow = 
                 async{
                 logDevice piezojena "Setting remote mode for channel 0." 
@@ -213,13 +150,14 @@ module PiezojenaNV40 =
                 stage.SetRemoteControlled (2uy, booleanSwitch)
                 }
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
-            workflowArray |> checkMulti
+            workflowArray |> checkMulti piezojena 
                 
 
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
+            let stage = id piezojena         
             let setEncoderWorkflow = 
-                async{        
+                async{
                 let mode       = Parsing.modeMap (encoder.Mode)
                 let time       = encoder.Time
                 let steplimit  = encoder.StepLimit
@@ -233,41 +171,46 @@ module PiezojenaNV40 =
                 logDevice piezojena "Setting encoder values."            
                 stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
                 }
-            setEncoderWorkflow |> check 
+            setEncoderWorkflow |> check piezojena 
         
         /// Sets soft start, if true then soft start turned on, if false then off. 
         let setSoftStart piezojena (softstart:Switch) = 
+            
             let setSoftStartWorkflow =     
+                let stage = id piezojena 
                 async{
                 let boolean = Parsing.switchBoolean(softstart)
                 logDevice piezojena "Changing soft start settings."
                 stage.SetSoftStart (boolean)
                 }
-            setSoftStartWorkflow |> check 
+            setSoftStartWorkflow |> check piezojena  
         
         /// Sets the output of a single channel.
         let setOutput piezojena (channel:Channel) (output:float32) = 
+            let stage = id piezojena 
             let setOutputWorkflow = 
                 async{    
                 let byteChannel = Parsing.channelByte (channel)
                 logDevice piezojena "Setting channel output."
                 stage.SetDesiredOutput (byteChannel, output)
                 }
-            setOutputWorkflow |> check 
+            setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
         let setAllOutputs piezojena (outputTuple:float*float*float) =   
+            let stage  = id piezojena
             let setAllOutputsWorkflow =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
                 Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
                 }
-            setAllOutputsWorkflow |> check 
+            setAllOutputsWorkflow |> check piezojena  
 
     module Query = 
 
         /// Queries the encoders values. 
         let queryEncoder piezojena =     
+            let stage = id piezojena 
             let queryEncoderWorkflow =
                 async{  
                 let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
@@ -280,10 +223,11 @@ module PiezojenaNV40 =
                 stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
                 return (mode, time, stepLimit, exponent, closedStep, openStep)
                 }
-            queryEncoderWorkflow |> check  
+            queryEncoderWorkflow |> check piezojena   
 
         /// Queries the actuators temperature. 
         let queryTemperature piezojena =     
+            let stage = id piezojena 
             let queryTemperatureWorkflow = 
                 async{ 
                 let mutable temperature : float32 = Unchecked.defaultof<_>
@@ -291,10 +235,11 @@ module PiezojenaNV40 =
                 stage.GetTemperature (&temperature)
                 return temperature
                 }
-            queryTemperatureWorkflow |> check 
+            queryTemperatureWorkflow |> check piezojena 
         
         /// Queries the actuator posistion for a single channel. 
         let queryAcuatorCoordinate piezojena (channel:Channel) =     
+            let stage = id piezojena
             let queryAcuatorCoordinateWorkflow= 
                 async{ 
                 let byteChannel = Parsing.channelByte (channel)
@@ -303,10 +248,11 @@ module PiezojenaNV40 =
                 stage.GetActuatorCoordinate (byteChannel , &coordinate)
                 return coordinate 
                 }
-            queryAcuatorCoordinateWorkflow |> check 
+            queryAcuatorCoordinateWorkflow |> check piezojena  
 
         /// Queries closed loop  limits. 
         let queryClosedLoppLimits piezojena (channel:Channel) = 
+            let stage = id piezojena 
             let queryClosedLoopLimitsWorkflow  = 
                 async{
                 let byteChannel = Parsing.channelByte (channel)
@@ -316,10 +262,11 @@ module PiezojenaNV40 =
                 stage.GetClosedLoopLimits (byteChannel, &minimum , &maximum)
                 return (minimum, maximum)
                 }
-            queryClosedLoopLimitsWorkflow |> check 
+            queryClosedLoopLimitsWorkflow |> check piezojena 
         
         /// Retrieves a measurement from a single channel. 
         let queryChannelPosition piezojena (channel:Channel) = 
+            let stage = id piezojena 
             let queryChannelPositionWorkflow = 
                 async{
                 let mutable position : float32 = Unchecked.defaultof<_>  
@@ -328,10 +275,11 @@ module PiezojenaNV40 =
                 stage.GetMeasuredValue (byteChannel , &position)
                 return position
                 }
-            queryChannelPositionWorkflow |> check 
+            queryChannelPositionWorkflow |> check piezojena 
         
         /// Retrieves all measurements from three channels. 
         let queryAllPositions piezojena = 
+            let stage = id piezojena 
             let queryAllPositionsWorkflow = 
                 async{ 
                 let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
@@ -343,5 +291,5 @@ module PiezojenaNV40 =
                 let coordinate = (x, y, z)
                 return coordinate
                 }
-            queryAllPositionsWorkflow |> check 
+            queryAllPositionsWorkflow |> check piezojena 
         

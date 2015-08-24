@@ -9,8 +9,12 @@ open ExtCore.Control.Choice
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
+[<AutoOpen>]
 module SerialConnection = 
     
+    /// The device identification string. 
+    let private identification (Piezojena ID) = ID     
+
     /// Standard serial connection configuration for the Piezojena. 
     let private standardSerial = {
         BaudRate = 19200
@@ -18,9 +22,9 @@ module SerialConnection =
         StopBits = One
         Parity = ParityNone
         FlowControl = FlowControlXOnXOff}
-
+    
     /// Makes a serial connection using the standardSerial values.
-    let connect portName = 
+    let connect serialPort = 
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
         serialConfiguration.BaudRate    <- standardSerial.BaudRate
         serialConfiguration.DataBits    <- standardSerial.DataBits
@@ -28,7 +32,7 @@ module SerialConnection =
         serialConfiguration.Parity      <- Parsing.parityMap standardSerial.Parity
         serialConfiguration.FlowControl <- Parsing.flowControlMap standardSerial.FlowControl
         let serialConnect = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-        serialConnect.CreateSerialPortConnection (portName, serialConfiguration)
+        serialConnect.CreateSerialPortConnection (serialPort , serialConfiguration)
 
     /// Makes serial connection using user input values. 
     let connectandConfigure (serial:Serial)  portName=
@@ -42,3 +46,12 @@ module SerialConnection =
         /// Connects to port using serialConfiguration. 
         let serialConnection = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices ()
         serialConnection.CreateSerialPortConnection (portName, serialConfiguration)
+
+    /// Opens the piezojena.  
+    let private openInstrument serialPort =
+        let multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
+        let stage = multiServices.ConnectNv40MultiToSerialPort serialPort
+        Piezojena stage
+    
+    /// Extracts the stage from the piezojena type, used to access piezojena functions. 
+    let piezo serialPort = identification (openInstrument serialPort)

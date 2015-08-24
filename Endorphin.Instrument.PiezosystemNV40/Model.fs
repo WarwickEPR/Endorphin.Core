@@ -15,9 +15,10 @@ module Model =
         | Error of Error : string 
 
     /// Type Piezojena of Piezojena : string where the string is the Piezojena's ID string.
-    type Piezojena = Piezojena of Piezojena : string
+    type Piezojena = internal Piezojena of stage : Piezojena.Protocols.Nv40Multi.Nv40Multi
+
     /// Extracts the string ID from the type Piezojena.
-    let identification (Piezojena ID) = ID 
+    let  id (Piezojena multi) = multi 
 
     /// Type used to store software version, version in the form Major.Minor.Build.
     /// Also stroes the time at which the software version was retrieved.

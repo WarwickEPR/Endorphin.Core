@@ -51,14 +51,13 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Status.fs" />
-    <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="SerialConnection.fs" />
+    <Compile Include="Errors.fs" />
     <Compile Include="PiezojenaNV40.fs" />
     <None Include="SerialPort.fsx" />
     <None Include="SingleMovement.fsx" />
-    <Content Include="Functions.txt" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
