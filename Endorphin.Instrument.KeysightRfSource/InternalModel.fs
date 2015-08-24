@@ -40,6 +40,8 @@ module internal InternalModel =
             RfBlankMarker : UserSignalMarker
             /// How long to wait before firing the next shot.
             ShotRepetitionTime : SampleCount
+            /// How many shots to take at each point.
+            ShotsPerPoint : uint16
             /// What frequencies to run the experiment at.
             Frequencies : Frequency seq
             /// What powers to run the experiment at.
@@ -80,12 +82,13 @@ module internal InternalModel =
         type CompressedExperiment = {
             Segments : Map<string, Segment>
             Sequences : Map<string, Sequence>
-            CompressedExperiments : Sequence list
+            CompressedPoints : Sequence list
             Metadata : ExperimentMetadata }
 
         /// An assembled experiment, ready for storing onto the machine.
         type EncodedExperiment = {
             Segments : (SegmentId * Segment) list
             Sequences : (SequenceId * Sequence) list
-            Experiments : (SequenceId * Sequence) list
+            Points : (SequenceId * Sequence) list
+            Experiment : (SequenceId * Sequence)
             Metadata : ExperimentMetadata }

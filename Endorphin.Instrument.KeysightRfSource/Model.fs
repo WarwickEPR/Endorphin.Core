@@ -459,12 +459,14 @@ module Model =
             Pulses : Pulse seq
             Repetitions : int
             ShotRepetitionTime : Duration
+            ShotsPerPoint : uint16
             Frequencies : Frequency seq
             Powers : Amplitude seq }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
-            StoredExperiments: StoredWaveform array
+            StoredExperiment : StoredWaveform
+            StoredPoints     : StoredWaveform array
             StoredWaveforms  : StoredWaveform array
             RfBlankRoute     : UserSignalMarker
             Frequencies      : Frequency seq

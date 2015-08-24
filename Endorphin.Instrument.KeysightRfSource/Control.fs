@@ -13,6 +13,7 @@ module Control =
         open Experiment.Translate
         open Power.Control
         open IQ.Control
+        open Sweep.Control
         open Sweep.Control.List
 
         /// Key to select a segment or a sequence from the machine
@@ -139,7 +140,7 @@ module Control =
         let private storeSequenceKey = ":RAD:ARB:SEQ"
         /// Write a sequence file to the machine and returns the stored sequence type.
         let internal storeSequence instrument (id, sequence) = asyncChoice {
-            do! IO.setValueBytes (sequenceDataString id) storeSequenceKey instrument sequence
+            do! IO.setValueString (sequenceDataString id) storeSequenceKey instrument sequence
             let stored = toStoredSequence id
             do! setHeaderArbClockFrequency instrument defaultArbClockFrequency stored
             return stored }
@@ -152,7 +153,7 @@ module Control =
                 sequence
                 |> zipIdCommands builder storeSequenceKey
                 |> Seq.chunkBySize sequencesPerChunk
-            let store = storeConcatenatedById IO.setValueBytesSequence toStoredSequence
+            let store = storeConcatenatedById IO.setValueStringSequence toStoredSequence
             let! sequences =
                 parallelizeStorage store instrument commands
                 |> AsyncChoice.map Array.concat
@@ -183,21 +184,24 @@ module Control =
             let! encoded = toEncodedExperiment experiment
             let! storedSegments = storeSegmentSequence instrument encoded.Segments
             let! storedSequences = encoded.Sequences |> storeSequenceSequence instrument
-            let! storedExperiments = encoded.Experiments |> storeSequenceSequence instrument
+            let! storedPoints = encoded.Points |> storeSequenceSequence instrument
+            let! storedExperiment = encoded.Experiment |> storeSequence instrument
             return {
-                StoredExperiments = storedExperiments
-                StoredWaveforms   = Array.append storedSegments storedSequences
-                RfBlankRoute      = encoded.Metadata.RfBlankMarker
-                Frequencies       = encoded.Metadata.Frequencies
-                Powers            = encoded.Metadata.Powers } }
+                StoredExperiment = storedExperiment
+                StoredPoints     = storedPoints
+                StoredWaveforms  = Array.append storedSegments storedSequences
+                RfBlankRoute     = encoded.Metadata.RfBlankMarker
+                Frequencies      = encoded.Metadata.Frequencies
+                Powers           = encoded.Metadata.Powers } }
 
         /// Load a previously stored experiment into the list sweep file, overwriting whatever's
         /// already there.
         let loadStoredExperiment instrument stored = asyncChoice {
-            do! setListWaveformSequence instrument stored.StoredExperiments
-            do! setFrequencies instrument stored.Frequencies
-            do! setPowers instrument stored.Powers
+            do! selectWaveform instrument stored.StoredExperiment
             do! setRfBlankRoute instrument stored.RfBlankRoute
+            // do! setSweepType instrument List
+            // do! setFrequencies instrument stored.Frequencies
+            // do! setPowers instrument stored.Powers
             do! setAlcState instrument Off
             do! setIqModulation instrument On }
 
@@ -255,9 +259,9 @@ module Control =
 
         /// Print out the sequence files used by each experiment in order.
         let printExperimentSequences stored =
-            stored.StoredExperiments
-            |> Array.map extractStoredWaveformId
-            |> Array.iter (printfn "%s")
+            stored.StoredExperiment
+            |> extractStoredWaveformId
+            |> printfn "%s"
 #endif
 
     [<AutoOpen>]

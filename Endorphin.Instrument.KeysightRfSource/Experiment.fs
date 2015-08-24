@@ -69,6 +69,7 @@ module Experiment =
             Pulses = Seq.empty
             Repetitions = 1
             ShotRepetitionTime = DurationInSec 0.0<s>
+            ShotsPerPoint = 1us
             Frequencies = [ FrequencyInHz 150e6<Hz> ]
             Powers = [ PowerInDbm 4.0<dBm> ] }
 
@@ -129,6 +130,10 @@ module Experiment =
         /// Set the shot repetition time of the experiment.
         let withShotRepetitionTime time (experiment : Experiment) =
             { experiment with ShotRepetitionTime = DurationInSec time }
+
+        /// Set the number of shots per point.
+        let withShotsPerPoint shots (experiment : Experiment) =
+            { experiment with ShotsPerPoint = shots }
 
         /// Set an experiment to run at the single set carrier frequency (given in Hz).
         let withCarrierFrequency frequency (experiment : Experiment) =
@@ -238,17 +243,22 @@ module Experiment =
                     |> succeed
 
             /// Check that a valid number of repetitions of the experiment is set.
-            let private checkRepetitions experiment =
+            let private repetitions experiment =
                 if experiment.Repetitions < 1 then fail "Must do the experiment at least once!"
                 else succeed ()
 
+            /// Check that the number of shots per point is valid.
+            let private shotsPerPoint (experiment : Experiment) =
+                if experiment.ShotsPerPoint = 0us then fail "Must have at least 1 shot per point!"
+                else succeed ()
+
             /// Check that the frequencies in an experiment are valid.
-            let private checkFrequencies (experiment : Experiment) =
+            let private frequencies (experiment : Experiment) =
                 if Seq.isEmpty experiment.Frequencies then fail "Must have at least one frequency"
                 else succeed ()
 
             /// Chec that the powers in an experiment are valid.
-            let private checkPowers (experiment : Experiment) =
+            let private powers (experiment : Experiment) =
                 if Seq.isEmpty experiment.Powers then fail "Must have at least one power"
                 else succeed ()
 
@@ -273,7 +283,7 @@ module Experiment =
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
             /// can only get longer (SampleCount is unsigned).
-            let private checkRfSpacing (experiment : Experiment) =
+            let private rfSpacing (experiment : Experiment) =
                 let minimum = minimumRfPulseSeparation
                 let rec loop space = function
                     | [] -> succeed ()
@@ -345,16 +355,18 @@ module Experiment =
                       RfPhaseCount = rfPhaseCount
                       RfBlankMarker = rfBlankMarker
                       ShotRepetitionTime = shotRepCount
+                      ShotsPerPoint = experiment.ShotsPerPoint
                       Frequencies = experiment.Frequencies
                       Powers = experiment.Powers } } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify experiment = choice {
-                do! checkRepetitions experiment
-                do! checkRfSpacing experiment
-                do! checkFrequencies experiment
-                do! checkPowers experiment
+                do! repetitions experiment
+                do! rfSpacing experiment
+                do! shotsPerPoint experiment
+                do! frequencies experiment
+                do! powers experiment
                 let! experiment' = updateExperimentPulses experiment
                 do! checkMinimumLength experiment'
                 return! toVerifiedExperiment experiment' }
@@ -610,7 +622,7 @@ module Experiment =
             let private emptyCompressedExperiment metadata = {
                 Segments = Map.empty
                 Sequences = Map.empty
-                CompressedExperiments = List.empty
+                CompressedPoints = List.empty
                 Metadata = metadata }
 
             /// Get the quotient and remainder of how many times an integer may be divided by the
@@ -707,7 +719,7 @@ module Experiment =
             /// Increase the number of reps on the last segment in a CompressedExperiment.
             let private increaseLastReps compressed reps =
                 let (SequenceType curExperiment, tailExperiments) =
-                    match compressed.CompressedExperiments with
+                    match compressed.CompressedPoints with
                     | hd :: tl -> (hd, tl)
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 let curExperiment' =
@@ -715,7 +727,7 @@ module Experiment =
                     | (id, count) :: tail ->
                         (listToPrepend id count (int reps)) @ tail
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
-                { compressed with CompressedExperiments = (SequenceType curExperiment' :: tailExperiments) }
+                { compressed with CompressedPoints = (SequenceType curExperiment' :: tailExperiments) }
 
             /// A joiner function for Map.join which just ignores clashes of keys, and returns the first
             /// value passed to it.
@@ -725,13 +737,13 @@ module Experiment =
             // Map.add is safe even if the segment already exists because it just doesn't do
             // anything in that case.
             let private consDifferentElement (compressed : CompressedExperiment) (element : CompressedElement) =
-                let experiments =
-                    match compressed.CompressedExperiments with
+                let points =
+                    match compressed.CompressedPoints with
                     | [] -> [ SequenceType [ element.Element ] ]
                     | (SequenceType hd) :: tl -> (SequenceType (element.Element :: hd)) :: tl
                 { Segments = Map.join ignoreKeyClash compressed.Segments element.Segments
                   Sequences = Map.join ignoreKeyClash compressed.Sequences element.Sequences
-                  CompressedExperiments = experiments
+                  CompressedPoints = points
                   Metadata = compressed.Metadata }
 
             /// Get the number of repetitions from the given PendingSequenceElement.
@@ -741,7 +753,7 @@ module Experiment =
             let private consToExperiment compressed element =
                 let id = elementId element.Element
                 let reps = elementReps element.Element
-                if Some id = lastId compressed.CompressedExperiments then
+                if Some id = lastId compressed.CompressedPoints then
                     increaseLastReps compressed reps
                 else
                     consDifferentElement compressed element
@@ -754,10 +766,10 @@ module Experiment =
                 match input.CompiledLength with
                 | 0u ->
                     let experiments =
-                        output.CompressedExperiments
+                        output.CompressedPoints
                         |> List.map reverseSequence
                         |> List.rev
-                    { output with CompressedExperiments = experiments }
+                    { output with CompressedPoints = experiments }
                 | _ ->
                     let (element, input') = splitCompiledAtNextElement input
                     let output' = consToExperiment output element
@@ -768,7 +780,7 @@ module Experiment =
             let private joinCompressedExperiments (acc : CompressedExperiment) (input : CompressedExperiment) =
                 { Segments = Map.join ignoreKeyClash acc.Segments input.Segments
                   Sequences = Map.join ignoreKeyClash acc.Sequences input.Sequences
-                  CompressedExperiments = input.CompressedExperiments @ acc.CompressedExperiments
+                  CompressedPoints = input.CompressedPoints @ acc.CompressedPoints
                   Metadata = acc.Metadata }
 
             /// Compress the experiment down using a basic 60-sample dictionary method.
@@ -776,7 +788,7 @@ module Experiment =
                 compiled.ExperimentPoints
                 |> List.map (compressionLoop (emptyCompressedExperiment compiled.Metadata))
                 |> List.reduce joinCompressedExperiments
-                |> (fun a -> { a with CompressedExperiments = List.rev a.CompressedExperiments })
+                |> (fun a -> { a with CompressedPoints = List.rev a.CompressedPoints })
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
@@ -813,13 +825,20 @@ module Experiment =
             let private encode (compressed : CompressedExperiment) =
                 let segments = compressed.Segments |> Map.toList
                 let sequences = compressed.Sequences |> Map.toList
-                let experiments =
-                    compressed.CompressedExperiments
+                let points =
+                    compressed.CompressedPoints
                     |> List.map makeExperimentName
-                    |> (fun a -> List.zip a compressed.CompressedExperiments)
+                    |> (fun a -> List.zip a compressed.CompressedPoints)
+                let experiment =
+                    points
+                    |> List.map (fst >> SequenceId)
+                    |> List.map (fun a -> (a, compressed.Metadata.ShotsPerPoint))
+                    |> SequenceType
+                    |> (fun a -> (makeExperimentName a, a))
                 { Segments = segments
                   Sequences = sequences
-                  Experiments = experiments
+                  Points = points
+                  Experiment = experiment
                   Metadata = compressed.Metadata }
 
             /// Encode an experiment into a writeable form.
@@ -857,5 +876,5 @@ module Experiment =
                 let helper item =
                     printfn "\n%s" (makeExperimentName item)
                     printSequence indentDepth compressed.Segments compressed.Sequences item
-                List.iter helper compressed.CompressedExperiments
+                List.iter helper compressed.CompressedPoints
 #endif

@@ -79,7 +79,8 @@ module internal IO =
             else succeed ()
 
     /// Create the string representation of a command, ready for writing to the instrument.
-    let private createCommandString valueMap key value = sprintf "%s %s" key (valueMap value)
+    let private createCommandString valueMap key value =
+        sprintf "%s %s" key (valueMap value)
 
     /// Create an ASCII string representation of a command, ready for writing to the instrument.
     let private createCommandBytes valueMap (key : string) value =

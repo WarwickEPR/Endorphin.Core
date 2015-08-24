@@ -368,7 +368,7 @@ module Sweep =
                   Mode = Auto } }
 
         /// Create a step sweep with the given points.
-        let withPoints points config = { config with Points = points }
+        let withPoints points (config : StepSweep) = { config with Points = points }
 
         /// Create a step sweep with the given spacing.
         let withSpacing spacing config = { config with Spacing = spacing }

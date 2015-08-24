@@ -425,25 +425,18 @@ module ARB =
 
             /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B.
             let private toEncodedSequenceElement (element : SequenceElement) =
-                let (name, reps) = asciiSequenceElement element
-                Array.concat [ name; ","B; reps; ",ALL"B ]
+                sprintf "%s,%u,ALL" (waveformIdFilename <| fst element) (snd element)
 
             /// Convert a sequence into an ASCII string of its elements.
             let private sequenceData (SequenceType sequence) =
                 sequence
                 |> List.map toEncodedSequenceElement
-                |> List.map (Array.append ","B) // actually prepends ','B, but we want this
-                |> List.reduce Array.append
+                |> List.map (sprintf ",%s")
+                |> String.concat ""
 
             /// Encode a whole sequence in an EncodedSequence.
             let sequenceDataString id (sequence : Sequence) =
-                let name =
-                    id
-                    |> sequenceFileString
-                    |> System.Text.Encoding.ASCII.GetBytes
-                sequence
-                |> sequenceData
-                |> Array.append name
+                sprintf "%s%s" (sequenceFileString id) (sequenceData sequence)
 
             /// Get a unique representation of a sample as a byte array.
             let sampleToBytes sample =
@@ -464,7 +457,7 @@ module ARB =
                 arr // return the byte array we just created
 
             /// Get a unique representation of a sequence as a byte array.
-            let sequenceToBytes = sequenceData
+            let sequenceToBytes = sequenceData >> asciiString
 
         /// Functions for decoding segment and sequence data received from the machine.
         [<AutoOpen>]
