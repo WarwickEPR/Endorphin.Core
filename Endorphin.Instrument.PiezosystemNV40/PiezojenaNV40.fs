@@ -211,9 +211,7 @@ module PiezojenaNV40 =
             let stage = id piezojena 
             do setAllRemoteControl piezojena On             
             do setLoopModeallChannels piezojena ClosedLoop   
-            
-
-
+   
 
     module Query = 
 

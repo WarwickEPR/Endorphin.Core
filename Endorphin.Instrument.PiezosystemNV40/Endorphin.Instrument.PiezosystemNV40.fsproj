@@ -57,7 +57,7 @@
     <Compile Include="Errors.fs" />
     <Compile Include="PiezojenaNV40.fs" />
     <None Include="SerialPort.fsx" />
-    <None Include="SingleMovement.fsx" />
+    <None Include="GridScan.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
