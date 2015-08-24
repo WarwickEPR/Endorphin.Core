@@ -33,3 +33,9 @@ module Basic =
     let setPhase = IO.setPhase phaseKey
     /// Query the phase of the modulation signal of the machine.
     let queryPhase = IO.queryPhase phaseKey
+
+    /// Key to send a trigger on the bus.
+    /// Command reference p.124.
+    let private triggerKey = "*TRG"
+    /// Send a trigger on the bus.
+    let trigger = IO.writeKey triggerKey
