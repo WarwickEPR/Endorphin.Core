@@ -458,13 +458,17 @@ module Model =
         type Experiment = internal {
             Pulses : Pulse seq
             Repetitions : int
-            ShotRepetitionTime : Duration }
+            ShotRepetitionTime : Duration
+            Frequencies : Frequency seq
+            Powers : Amplitude seq }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
             StoredExperiments: StoredWaveform array
             StoredWaveforms  : StoredWaveform array
-            RfBlankRoute     : UserSignalMarker }
+            RfBlankRoute     : UserSignalMarker
+            Frequencies      : Frequency seq
+            Powers           : Amplitude seq }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {

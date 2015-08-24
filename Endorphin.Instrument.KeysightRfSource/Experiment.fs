@@ -68,7 +68,9 @@ module Experiment =
         let emptyExperiment = {
             Pulses = Seq.empty
             Repetitions = 1
-            ShotRepetitionTime = DurationInSec 0.0<s> }
+            ShotRepetitionTime = DurationInSec 0.0<s>
+            Frequencies = [ FrequencyInHz 150e6<Hz> ]
+            Powers = [ PowerInDbm 4.0<dBm> ] }
 
         /// A phase for use when we don't care what the phase actually is.
         let internal noPhase = PhaseInRad 0.0<rad>
@@ -127,6 +129,22 @@ module Experiment =
         /// Set the shot repetition time of the experiment.
         let withShotRepetitionTime time (experiment : Experiment) =
             { experiment with ShotRepetitionTime = DurationInSec time }
+
+        /// Set an experiment to run at the single set carrier frequency (given in Hz).
+        let withCarrierFrequency frequency (experiment : Experiment) =
+            { experiment with Frequencies = [ FrequencyInHz frequency ] }
+
+        /// Set an experiment to run at a sweep of carrier frequencies (given in Hz).
+        let withCarrierFrequencySweep frequencies (experiment : Experiment) =
+            { experiment with Frequencies = Seq.map FrequencyInHz frequencies }
+
+        /// Set an experiment to run at the specified carrier wave power (in dBm).
+        let withCarrierPower power (experiment : Experiment) =
+            { experiment with Powers = [ PowerInDbm power ]}
+
+        /// Set an experiment to run at the specified carrier wave powers (in dBm).
+        let withCarrierPowerSweep powers (experiment : Experiment) =
+            { experiment with Powers = Seq.map PowerInDbm powers }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -224,6 +242,16 @@ module Experiment =
                 if experiment.Repetitions < 1 then fail "Must do the experiment at least once!"
                 else succeed ()
 
+            /// Check that the frequencies in an experiment are valid.
+            let private checkFrequencies (experiment : Experiment) =
+                if Seq.isEmpty experiment.Frequencies then fail "Must have at least one frequency"
+                else succeed ()
+
+            /// Chec that the powers in an experiment are valid.
+            let private checkPowers (experiment : Experiment) =
+                if Seq.isEmpty experiment.Powers then fail "Must have at least one power"
+                else succeed ()
+
             /// Get the duration of a pulse.
             let private pulseLength = function
                 | Rf (_, SampleCount dur, _) -> dur
@@ -316,13 +344,17 @@ module Experiment =
                       RfPulseCount = rfPulses.Length
                       RfPhaseCount = rfPhaseCount
                       RfBlankMarker = rfBlankMarker
-                      ShotRepetitionTime = shotRepCount } } }
+                      ShotRepetitionTime = shotRepCount
+                      Frequencies = experiment.Frequencies
+                      Powers = experiment.Powers } } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
             let verify experiment = choice {
                 do! checkRepetitions experiment
                 do! checkRfSpacing experiment
+                do! checkFrequencies experiment
+                do! checkPowers experiment
                 let! experiment' = updateExperimentPulses experiment
                 do! checkMinimumLength experiment'
                 return! toVerifiedExperiment experiment' }

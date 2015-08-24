@@ -3,6 +3,7 @@
 open ExtCore.Control
 open ARB
 open Hashing
+open Route
 open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 module Control =
@@ -10,6 +11,9 @@ module Control =
     module Store =
         open ARB.Translate
         open Experiment.Translate
+        open Power.Control
+        open IQ.Control
+        open Sweep.Control.List
 
         /// Key to select a segment or a sequence from the machine
         /// Command reference p.355.
@@ -172,7 +176,10 @@ module Control =
             return arr }
 
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
+        /// Turns off the ARB before writing, because the machine doesn't seem to like doing both
+        /// at once.
         let storeExperiment instrument experiment = asyncChoice {
+            do! turnOffArb instrument
             let! encoded = toEncodedExperiment experiment
             let! storedSegments = storeSegmentSequence instrument encoded.Segments
             let! storedSequences = encoded.Sequences |> storeSequenceSequence instrument
@@ -180,7 +187,25 @@ module Control =
             return {
                 StoredExperiments = storedExperiments
                 StoredWaveforms   = Array.append storedSegments storedSequences
-                RfBlankRoute      = encoded.Metadata.RfBlankMarker } }
+                RfBlankRoute      = encoded.Metadata.RfBlankMarker
+                Frequencies       = encoded.Metadata.Frequencies
+                Powers            = encoded.Metadata.Powers } }
+
+        /// Load a previously stored experiment into the list sweep file, overwriting whatever's
+        /// already there.
+        let loadStoredExperiment instrument stored = asyncChoice {
+            do! setListWaveformSequence instrument stored.StoredExperiments
+            do! setFrequencies instrument stored.Frequencies
+            do! setPowers instrument stored.Powers
+            do! setRfBlankRoute instrument stored.RfBlankRoute
+            do! setAlcState instrument Off
+            do! setIqModulation instrument On }
+
+        /// Store and load an experiment on the machine, ready to begin playback.
+        let primeExperiment instrument experiment = asyncChoice {
+            let! stored = storeExperiment instrument experiment
+            do! loadStoredExperiment instrument stored
+            return stored }
 
     [<AutoOpen>]
     module Delete =
@@ -237,29 +262,6 @@ module Control =
 
     [<AutoOpen>]
     module Play =
-        /// Key related to the state of the dual ARB player on the machine. Needs the output
-        /// state to also be on before it will start to play.
-        /// Command reference p.356.
-        let private arbStateKey = ":RAD:ARB:STAT"
-        /// Key related to the the modulation state of the RF channels.
-        /// Command reference p.157.
-        let private modulationStateKey = ":OUTP:MOD:STAT"
-        /// Key for the overall RF output state. Must be On if anything is to play
-        /// Command reference p.157.
-        let private outputStateKey = ":OUTP:STAT"
-
-        /// Set the state of the ARB generator of the given instrument. Can either be On
-        /// or Off.
-        let private setArbState value instrument = asyncChoice {
-            do! IO.setOnOffState arbStateKey instrument value
-            do! IO.setOnOffState modulationStateKey instrument value
-            do! IO.setOnOffState outputStateKey instrument value }
-
-        /// Turn on the ARB generator of the instrument.
-        let turnOnArb = setArbState On
-        /// Turn off the ARB generator of the instrument.
-        let turnOffArb = setArbState Off
-
         /// Begin playing a waveform stored on the instrument.
         let playStoredWaveform instrument stored = asyncChoice {
             do! selectWaveform instrument stored

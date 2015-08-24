@@ -60,6 +60,8 @@
     <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
+    <Compile Include="Power.fs" />
+    <Compile Include="IQ.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
     <Compile Include="ARB.fs" />

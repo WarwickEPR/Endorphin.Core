@@ -39,7 +39,11 @@ module internal InternalModel =
             /// Which marker to use as the RF blanking marker.
             RfBlankMarker : UserSignalMarker
             /// How long to wait before firing the next shot.
-            ShotRepetitionTime : SampleCount }
+            ShotRepetitionTime : SampleCount
+            /// What frequencies to run the experiment at.
+            Frequencies : Frequency seq
+            /// What powers to run the experiment at.
+            Powers : Amplitude seq }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the

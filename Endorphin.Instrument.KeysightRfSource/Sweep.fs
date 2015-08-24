@@ -282,6 +282,7 @@ module Sweep =
                 stored
                 |> extractStoredWaveformFolderAndId
                 |> IO.setFile listWaveformKey instrument
+
             /// Set a sequence of waveforms as elements of a list sweep.
             let setListWaveformSequence instrument sequence =
                 sequence
