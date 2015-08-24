@@ -9,9 +9,7 @@ open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
 module PiezojenaNV40 = 
-    
-    let piezojena = Piezojena ""
- 
+     
     /// Returns Ok or Error with the error string. 
     let private stringtoStatus = function
         | "OK, No Error." -> Ok
@@ -26,19 +24,6 @@ module PiezojenaNV40 =
     let private checkStatus = function
         | Ok            -> succeed ()
         | Error message -> fail message
-
-    /// Deals with multiple errors. 
-    let internal multipleErrors (errorArray:string[]) = 
-       // Converts string array into status array. 
-       let statusArray = Array.map (fun elem -> stringtoStatus elem) errorArray
-       /// Filters out Ok's from status array.   
-       let filterArray = Array.filter (fun elem -> elem <> Ok) statusArray
-       let length = Array.length filterArray
-       if Array.length filterArray = 0 then 
-           Ok     
-       else 
-           let error = statustoString(Array.get filterArray 0) 
-           Error error 
     
     /// Connects to serial port COM3. 
     let private multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
@@ -56,39 +41,41 @@ module PiezojenaNV40 =
                 Error error |> checkStatus 
         return workflowResult } 
     
-    /// Runs workflow and returns a status.
-    let private stausCheck (workflow:Async<'T>) = 
-        workflow |> Async.RunSynchronously |> ignore 
-        let mutable error : string = Unchecked.defaultof<_> 
-        stage.GetCommandError (&error)
-        stringtoStatus error 
         
-
-    /// Takes argument of an array of async workflows and returns a list of thier status codes. 
-    let private statusList (workflowArray : Async<'T> [])  = 
-        let length = (Array.length workflowArray) - 1
-        let list = []
-        let rec results element errorList =
-            if element > 0 || element =  0 then 
-                let workflow = Array.get workflowArray element
-                let listElement  = stausCheck workflow  
-                let list = listElement :: errorList 
-                results (element - 1) list  
+    let private checkMulti (workFlowArray : Async<'T>[]) =   
+       
+        /// Runs workflow and returns a status.
+        let stausCheck (workflow:Async<'T>) = 
+            workflow |> Async.RunSynchronously |> ignore 
+            let mutable error : string = Unchecked.defaultof<_> 
+            stage.GetCommandError (&error)
+            stringtoStatus error 
+        
+        /// Takes argument of an array of async workflows and returns a list of thier status codes. 
+        let statusList (workflowArray : Async<'T> [])  = 
+            let length = (Array.length workflowArray) - 1
+            let list = []
+            let rec results element errorList =
+                if element > 0 || element =  0 then 
+                    let workflow = Array.get workflowArray element
+                    let listElement  = stausCheck workflow  
+                    let list = listElement :: errorList 
+                    results (element - 1) list  
+                else 
+                    errorList  
+            results length list 
+        
+        /// Filters Ok messages from list, if list length is zero then there are no errors and Ok is returned, else the
+        /// first error from the list is returned. 
+        let filterList list = 
+            let filteredList = List.filter (fun elem -> elem = Ok) list 
+            let length = List.length filteredList 
+            if length = 0 then 
+                Ok
             else 
-                errorList  
-        results length list 
-    
-    /// Filters Ok messages from list, if list length is zero then there are no errors and Ok is returned, else the
-    /// first error from the list is returned. 
-    let private filterList list = 
-        let filteredList = List.filter (fun elem -> elem = Ok) list 
-        let length = List.length filteredList 
-        if length = 0 then 
-            Ok
-        else 
-            List.item 0 list  
-
-    let checkMulti (workFlowArray : Async<'T>[]) = workFlowArray |> statusList |> filterList   
+                List.item 0 list 
+       
+        workFlowArray |> statusList |> filterList 
 
     [<AutoOpen>]
     module private Logger =
