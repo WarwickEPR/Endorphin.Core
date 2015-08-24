@@ -136,3 +136,31 @@ module Parsing =
     let parseSwitch = function 
         | true  -> On
         | false -> Off
+
+    let findEmptyChannel (firstChannel:Channel) (secondChannel:Channel) = 
+       let channels = [|Channel0; Channel1; Channel2|] 
+       if firstChannel = secondChannel then 
+           let emptyChannels = Array.filter (fun elem -> elem = firstChannel) channels
+           let first  = Array.get emptyChannels 0
+           let second = Array.get emptyChannels 1
+           let firstTuple = 
+               match first with
+               | Channel0 -> (1,0,0)
+               | Channel1 -> (0,1,0)
+               | Channel2 -> (0,0,1)
+           let secondTuple = 
+               match second with 
+               | Channel0 -> (1,0,0)
+               | Channel1 -> (0,1,0)
+               | Channel2 -> (0,0,1)
+           let addTuples (x:int,y:int,z:int) (a:int,b:int,c:int) = (x+a, y+b, z+c)
+           addTuples firstTuple secondTuple 
+       else 
+           let emptyChannels = Array.filter (fun elem -> elem = firstChannel || elem = secondChannel) channels
+           let first = Array.get emptyChannels 0 
+           let firstTuple = 
+               match first with 
+               | Channel0 -> (1,0,0)
+               | Channel1 -> (0,1,0)
+               | Channel2 -> (0,0,1)   
+           firstTuple 

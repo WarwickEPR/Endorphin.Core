@@ -15,5 +15,20 @@ open FSharp.Control.Reactive
 open Endorphin.Core
 open Endorphin.Instrument.PiezosystemNV40
 
+let serialPort = "COM3"
+
 module GridScan = 
 
+    let piezojena = connect serialPort 
+
+    let scanGrid piezojena (firstAxis: Axis) (secondAxis: Axis) interval = asyncChoice{ 
+        do! PiezojenaNV40.SetParameters.initialise piezojena  
+        let firstLength = firstAxis.Length
+        let secondLength = secondAxis.Length
+
+        let rec scanFirst first second = 
+            if first < firstLength then
+                do! setAllOutputs piezojena () 
+         
+            
+     

@@ -152,8 +152,6 @@ module PiezojenaNV40 =
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
             workflowArray |> checkMulti piezojena 
                           
-                
-
         /// Sets econder values.
         let setEncoder piezojena (encoder:Encoder) =
             let stage = id piezojena         
@@ -206,12 +204,14 @@ module PiezojenaNV40 =
                 Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
                 }
             setAllOutputsWorkflow |> check piezojena  
-
-        let setGrid piezojena (firstAxis: Axis) (secondAxis: Axis) = 
+    
+        /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
+        let initialise piezojena = asyncChoice{
             let stage = id piezojena 
             do setAllRemoteControl piezojena On             
             do setLoopModeallChannels piezojena ClosedLoop   
-   
+            do! setAllOutputs piezojena (0.0, 0.0, 0.0)
+            }
 
     module Query = 
 

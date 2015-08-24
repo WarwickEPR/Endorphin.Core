@@ -32,7 +32,9 @@ module SerialConnection =
         serialConfiguration.Parity      <- Parsing.parityMap standardSerial.Parity
         serialConfiguration.FlowControl <- Parsing.flowControlMap standardSerial.FlowControl
         let serialConnect = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-        serialConnect.CreateSerialPortConnection (serialPort , serialConfiguration)
+        let config = serialConnect.CreateSerialPortConnection (serialPort, serialConfiguration)
+        let stage = serialConnect.ConnectNv40MultiToSerialPort (serialPort) 
+        Piezojena stage 
 
     /// Makes serial connection using user input values. 
     let connectandConfigure (serial:Serial)  portName=
@@ -50,8 +52,8 @@ module SerialConnection =
     /// Opens the piezojena.  
     let private openInstrument serialPort =
         let multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-        let stage = multiServices.ConnectNv40MultiToSerialPort serialPort
+        let stage = multiServices.ConnectNv40MultiToSerialPort (serialPort) 
         Piezojena stage
     
     /// Extracts the stage from the piezojena type, used to access piezojena functions. 
-    let piezo serialPort = identification (openInstrument serialPort)
+    let getPiezojena serialPort = identification (openInstrument serialPort)
