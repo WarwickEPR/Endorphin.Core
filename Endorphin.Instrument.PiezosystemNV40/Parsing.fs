@@ -17,7 +17,7 @@ module Parsing =
         | (x, y, z) -> z
 
     /// Converts a three element tuple into an array
-    let tupletoArray (tuple:float*float*float) =
+    let tupletoArray (tuple:float32*float32*float32) =
         let x = float32(first tuple)
         let y = float32(second tuple)
         let z = float32(third tuple)

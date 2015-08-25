@@ -196,7 +196,7 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let setAllOutputs piezojena (outputTuple:float*float*float) =   
+        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
             let stage  = id piezojena
             let setAllOutputsWorkflow =         
                 async{
@@ -210,7 +210,7 @@ module PiezojenaNV40 =
             let stage = id piezojena 
             do setAllRemoteControl piezojena On             
             do setLoopModeallChannels piezojena ClosedLoop   
-            do! setAllOutputs piezojena (0.0, 0.0, 0.0)
+            do! setAllOutputs piezojena (0.0f, 0.0f, 0.0f)
             }
 
     module Query = 
@@ -302,6 +302,9 @@ module PiezojenaNV40 =
     
     module Coordinate = 
         
+        let private addTuples (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x + a, y + b, z + c)
+        let private multiplyTuple (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x*a , y*b, z*c)
+
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
             let channels = [|Channel0; Channel1; Channel2|] 
@@ -353,7 +356,6 @@ module PiezojenaNV40 =
         /// Stores starting coordinates of the channels not in use, these will remain fixed. 
         let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float32*float32*float32))=
             let empty = findEmptyChannels firstChannel secondChannel
-            let multiplyTuple (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x*a , y*b, z*c)
             let fixedCoordinates = multiplyTuple startingPosition empty 
             fixedCoordinates 
 
@@ -373,11 +375,35 @@ module PiezojenaNV40 =
                     (0.0f, x, y)
             fullCoordinate orderedPosition empty 
         
+        /// Compresses three element tuple into two element tuple containing elements relevant to the first and second channels. 
+        let compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float32, y:float32, z:float32) =       
+            let firstTuple = 
+                match firstChannel with
+                | Channel0 -> (1.0f, 0.0f, 0.0f)   
+                | Channel1 -> (0.0f, 1.0f, 0.0f)
+                | Channel2 -> (0.0f, 0.0f, 1.0f)
+
+            let secondTuple = 
+                match secondChannel with
+                | Channel0 -> (1.0f, 0.0f, 0.0f)
+                | Channel1 -> (0.0f, 1.0f, 0.0f)
+                | Channel2 -> (0.0f, 0.0f, 1.0f)
+            
+            let summedTuple = addTuples firstTuple secondTuple
+            let productTuple = multiplyTuple summedTuple (x, y, z)
+            let compress (a:float32, b:float32, c:float32) = 
+                if a = 0.0f then 
+                    (b, c)
+                elif b = 0.0f then 
+                    (a, c)
+                else 
+                    (a, b)
+            compress productTuple
+
         /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
         let arrangeCoordinate (first:Channel) (second:Channel) (desired:float32*float32) (start:float32*float32*float32) =
              let fix = fixedCoordinates first second start 
              let expanded = expandCoordinates first second desired 
-             let addTuples (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x + a, y + b, z + c)
              let coordinate = addTuples expanded fix  
              coordinate 
                     
