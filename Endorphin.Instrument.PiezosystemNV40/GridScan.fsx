@@ -21,14 +21,32 @@ module GridScan =
 
     let piezojena = connect serialPort 
     
-    let scanGrid piezojena (firstAxis: Axis) (secondAxis: Axis) interval = asyncChoice{ 
-        do! PiezojenaNV40.SetParameters.initialise piezojena  
-        let firstLength = firstAxis.Length
-        let secondLength = secondAxis.Length
-    
-        let rec scanFirst first second = 
-            if first < firstLength then
-                do! setAllOutputs piezojena () 
+    let scanGrid piezojena (firstAxis: Axis) (secondAxis: Axis) (interval:float32) = asyncChoice{ 
+        let! startingCoordinates = PiezojenaNV40.Query.queryAllPositions piezojena 
+        let firstChannel = firstAxis.Channel
+        let secondChannel = secondAxis.Channel
+        let firstLength = firstAxis.Length - interval
+        let secondLength = secondAxis.Length - interval 
+        let rec scan (firstPosition, secondPosition) = 
+            if firstPosition < firstLength then
+                let newPosition = (firstPosition + interval, secondPosition)  
+                let coordinate = PiezojenaNV40.Coordinate.arrangeCoordinate firstChannel secondChannel newPosition startingCoordinates 
+                do! PiezojenaNV40.SetParameters.setAllOutputs coordinate
+                scan newPosition 
+            else 
+                if secondPosition < secondLength then
+                    let newFirstPosition = 
+                        match startingCoordinates with
+                        | (x, y, z) -> x
+                    let newSecondPosition = secondPosition + interval 
+                    let newPosition = (newFirstPosition, newSecondPosition)
+                    scan newPosition 
+                else 
+                    do! PiezojenaNV40.Query.queryAllPositions 
+    ()
+                                 
+                
+
          
  
     

@@ -326,13 +326,13 @@ module PiezojenaNV40 =
             let first = Array.get emptyChannels 0 
             let firstTuple = 
                 match first with 
-                | Channel0 -> (1.0,0.0,0.0)
-                | Channel1 -> (0.0,1.0,0.0)
-                | Channel2 -> (0.0,0.0,1.0)   
+                | Channel0 -> (1.0f,0.0f,0.0f)
+                | Channel1 -> (0.0f,1.0f,0.0f)
+                | Channel2 -> (0.0f,0.0f,1.0f)   
             firstTuple
         
         /// Orders tuple.
-        let private orderTuple (first:Channel) (second:Channel) (x:float, y:float) = 
+        let private orderTuple (first:Channel) (second:Channel) (x:float32, y:float32) = 
             let firstEnum = 
                 match first with 
                 | Channel0 -> 0
@@ -351,33 +351,33 @@ module PiezojenaNV40 =
                 (y, x)
 
         /// Stores starting coordinates of the channels not in use, these will remain fixed. 
-        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float*float*float))=
+        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float32*float32*float32))=
             let empty = findEmptyChannels firstChannel secondChannel
-            let multiplyTuple (x:float,y:float,z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
+            let multiplyTuple (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x*a , y*b, z*c)
             let fixedCoordinates = multiplyTuple startingPosition empty 
             fixedCoordinates 
 
         /// Expands a two element tuple containing desired position (on a 2D grid) into a 3 element tuple, contains zero's
         /// for channels not in use. 
-        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float*float) = 
+        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float32*float32) = 
             let empty = findEmptyChannels firstChannel secondChannel
             let orderedPosition = orderTuple firstChannel secondChannel desiredPosition
-            let fullCoordinate (x:float, y:float) (a:float, b:float, c:float) =
-                if a = 0.0 then 
-                    if b = 0.0 then
-                        (x , y , 0.0)
+            let fullCoordinate (x:float32, y:float32) (a:float32, b:float32, c:float32) =
+                if a = 0.0f then 
+                    if b = 0.0f then
+                        (x , y , 0.0f)
                     else 
-                        (x, 0.0, y)
+                        (x, 0.0f, y)
                         
                 else
-                    (0.0, x, y)
+                    (0.0f, x, y)
             fullCoordinate orderedPosition empty 
         
         /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
-        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float*float) (start:float*float*float) =
+        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float32*float32) (start:float32*float32*float32) =
              let fix = fixedCoordinates first second start 
              let expanded = expandCoordinates first second desired 
-             let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+             let addTuples (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x + a, y + b, z + c)
              let coordinate = addTuples expanded fix  
              coordinate 
                     

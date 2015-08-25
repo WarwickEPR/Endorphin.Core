@@ -94,5 +94,6 @@ module Model =
    
    /// Type used to define an axis for a grid scan. 
    type Axis = {
-       Axis   : Channel 
-       Length : float }
+       Channel : Channel 
+       Length : float32 }
+       
