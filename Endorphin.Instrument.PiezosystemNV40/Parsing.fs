@@ -30,12 +30,76 @@ module Parsing =
         | Some byte -> byte
         | None -> 0uy 
 
+    /// Converts type channel into bytes. 
+    let channelByte = function
+        | Channel0 -> 0uy 
+        | Channel1 -> 1uy 
+        | Channel2 -> 2uy
+     
+    /// Converts channel bytes into type channel.  
+    let parseChannel = function
+        | 0uy -> Channel0
+        | 1uy -> Channel1
+        | 2uy -> Channel2
+        | xuy         -> failwithf "Not a valid channel: %A" xuy
+
+    /// Converts type Loop to type boolean.
+    let loopBoolean = function
+        | OpenLoop  -> false
+        | ClosedLoop -> true 
+
+    /// Converts typr boolean to type Loop.
+    let parseLoop = function
+        | false -> OpenLoop
+        | true  -> ClosedLoop
+
+    /// Converts type switch to type boolean.
+    let switchBoolean = function
+        | On  -> true
+        | Off -> false
+    
+    /// Converts type boolean to type switch. 
+    let parseSwitch = function 
+        | true  -> On
+        | false -> Off
+
+    /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
+    let actuatorPositionMap = function
+        | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
+        | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
+        | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
+        | PositionNone -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None
+
+    /// Converts type expected by the NativeApi functions (ActuatorCoordinate) into type AcuatorPosition.
+    /// Includes fields Phi and Theta, can be returned from NativeApi functions. 
+    let parseActuatorPosition= function
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X     -> PositionX
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y     -> PositionY
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z     -> PositionZ
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Phi   -> failwithf "Phi positioning not avalible."
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Theta -> failwithf "Theta positioning not avalible."
+        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
+        | _ -> failwithf "Not a valid coordinate axis."
+
+    /// Converts type mode into type expected by NativeApi functions (EncoderMode).
+    let modeMap = function
+        | Normal               ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal               
+        | IntervalWithAcceleration ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration
+        | Interval             ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval     
+
+    /// Converts type expected by NativeApi functions (EncoderMode) to type Mode. 
+    let parseMode = function 
+        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal                   -> Normal     
+        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration -> IntervalWithAcceleration         
+        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval                 -> Interval            
+        |  str -> failwithf "Not a valid mode: %A" str
+
     /// Maps type StopBits onto dll type StopBitsKind.
     let stopBitsMap = function
         | One          -> Piezojena.Protocols.SerialStopBitsKind.One          
         | OnePointFive -> Piezojena.Protocols.SerialStopBitsKind.OnePointFive
         | Two          -> Piezojena.Protocols.SerialStopBitsKind.Two
-
+    
     /// Maps type StopBitsKind onto type Stop Bits. 
     let parseStopBits = function
         | Piezojena.Protocols.SerialStopBitsKind.One          -> One
@@ -74,70 +138,3 @@ module Parsing =
         | Piezojena.Protocols.SerialFlowControls.RtsCts  -> FlowControlRtsCts
         | Piezojena.Protocols.SerialFlowControls.XOnXOff -> FlowControlXOnXOff
         | _ -> failwithf "Not a valid flow control."
-
-    /// Converts type channel into bytes. 
-    let channelByte = function
-        | Channel0 -> 0uy 
-        | Channel1 -> 1uy 
-        | Channel2 -> 2uy
-     
-    /// Converts channel bytes into type channel.  
-    let parseChannel = function
-        | 0uy -> Channel0
-        | 1uy -> Channel1
-        | 2uy -> Channel2
-        | xuy         -> failwithf "Not a valid channel: %A" xuy
-
-    /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
-    let actuatorPositionMap = function
-        | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
-        | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
-        | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
-        | PositionNone -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None
-
-    /// Converts type expected by the NativeApi functions (ActuatorCoordinate) into type AcuatorPosition.
-    /// Includes fields Phi and Theta, can be returned from NativeApi functions. 
-    let parseActuatorPosition= function
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X     -> PositionX
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y     -> PositionY
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z     -> PositionZ
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Phi   -> failwithf "Phi positioning not avalible."
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Theta -> failwithf "Theta positioning not avalible."
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
-        | _ -> failwithf "Not a valid coordinate axis."
-
-    /// Converts type mode into type expected by NativeApi functions (EncoderMode).
-    let modeMap = function
-        | Normal               ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal               
-        | IntervalWithAcceleration ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration
-        | Interval             ->  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval     
-
-    /// Converts type expected by NativeApi functions (EncoderMode) to type Mode. 
-    let parseMode = function 
-        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Normal                   -> Normal     
-        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.IntervalWithAcceleration -> IntervalWithAcceleration         
-        |  Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode.Interval                 -> Interval            
-        |  str -> failwithf "Not a valid mode: %A" str
-
-    /// Converts type Loop to type boolean.
-    let loopBoolean = function
-        | OpenLoop  -> false
-        | ClosedLoop -> true 
-
-    /// Converts typr boolean to type Loop.
-    let parseLoop = function
-        | false -> OpenLoop
-        | true  -> ClosedLoop
-
-    /// Converts type switch to type boolean.
-    let switchBoolean = function
-        | On  -> true
-        | Off -> false
-    
-    /// Converts type boolean to type switch. 
-    let parseSwitch = function 
-        | true  -> On
-        | false -> Off
-
-
- 

@@ -28,9 +28,7 @@ module Errors =
 
     /// Handles errors, if no errors returns function values else fails. 
     let internal check piezojena (workflow:Async<'T>) = asyncChoice {
-        
         let stage = id piezojena 
-        
         let! workflowResult = workflow |> AsyncChoice.liftAsync
         let mutable error : string = Unchecked.defaultof<_>
         stage.GetCommandError (&error)
@@ -43,7 +41,6 @@ module Errors =
     
         
     let internal checkMulti piezojena (workFlowArray : Async<'T>[]) =   
-       
         let stage = id piezojena 
         /// Runs workflow and returns a status.
         let statusCheck (workflow:Async<'T>) = 
@@ -51,7 +48,6 @@ module Errors =
             let mutable error : string = Unchecked.defaultof<_> 
             stage.GetCommandError (&error)
             stringtoStatus error 
-        
         /// Takes argument of an array of async workflows and returns a list of thier status codes. 
         let multiStatusCheck (workflowArray : Async<'T> [])  = 
             let length = (Array.length workflowArray) - 1

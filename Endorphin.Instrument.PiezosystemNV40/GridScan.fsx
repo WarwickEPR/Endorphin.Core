@@ -22,11 +22,6 @@ module GridScan =
     /// Creates serial port connection. 
     let piezojena = connect serialPort 
     
-    /// Gets the current position of all the channels. 
-    let getCoordinates = asyncChoice{ 
-        let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
-        return coordinate}
-    
     /// Gets the value of the specified channel. 
     let getValue (channel:Channel) (x:float32, y:float32, z:float32)= 
         match channel with         
@@ -34,34 +29,68 @@ module GridScan =
             | Channel1 -> y
             | Channel2 -> z
 
-    /// Scan a grid of area determined by firstAxis.length and secondAxis.length. 
-    /// Scan begins from the current postion of the channels.
-    /// Only two channels used in scan, the third channel is held at a constant value. 
-    let scanGrid piezojena (firstAxis: Axis) (secondAxis: Axis) (interval:float32) (start: float32*float32*float32) = 
-        /// Gets the axis corresponding channels.
-        let firstChannel = firstAxis.Channel
-        let secondChannel = secondAxis.Channel
-        /// The offsets are the starting postions of the two channels that will be used in the scan. 
-        let firstOffset  = getValue firstChannel  start 
-        let secondOffset = getValue secondChannel start
-        /// Calculates the length over which to scan for both channels. 
-        /// Uses the length specified in the Axis types, adds the offset so scan will strat in the current position
-        /// and subtracts the interval in order to prevent an actuator. 
+    /// Gets the current position of all the channels. 
+    let getCoordinates = asyncChoice{ 
+        let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
+        return coordinate}
+    
+    //let checkPosition (desiredPosition (x:float32 y:float32 z:float32)) = asyncChoice{
+    //    let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
+    //    let first = getValue Channel1 coordinate
+    //    let second = getValue Channel2
+    //    let third = getValue Channel3 
+         
+    
+    let generateSequence (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start: float32*float32*float32)=
+        // The offsets are the starting postions of the two channels that will be used in the scan. 
+        let firstOffset  = getValue firstAxis.Axis start 
+        let secondOffset = getValue secondAxis.Axis start
+        // Calculates the length over which to scan for both channels. 
+        // Uses the length specified in the Axis types, adds the offset so scan will strat in the current position
+        // and subtracts the interval in order to prevent an actuator. 
         let firstLength = firstAxis.Length - interval + firstOffset
         let secondLength = secondAxis.Length - interval + firstOffset
-        /// Fucntion for scanning. 
+        let points = []
+        let rec generate (firstPosition, secondPosition) list = 
+            if firstPosition < firstLength then
+                let newList = (firstPosition, secondPosition) :: list 
+                let newPosition = (firstPosition + interval, secondPosition)
+                generate newPosition newList  
+            else 
+                // If firstPosition is larger than first length but second position is not larger than second length the
+                // reset firstPosition and increment second position. 
+                if secondPosition < secondLength then
+                    let newFirstPosition = 
+                        match start with
+                        | (x, y, z) -> x
+                    let newSecondPosition = secondPosition + interval 
+                    let newPosition = (newFirstPosition, newSecondPosition)
+                    generate newPosition list 
+                else 
+                    list 
+        generate (firstOffset, secondOffset) points        
+
+
+    // Scan a grid of area determined by firstAxis.length and secondAxis.length. 
+    // Scan begins from the current postion of the channels.
+    // Only two channels used in scan, the third channel is held at a constant value. 
+    let scanGrid piezojena (firstAxis: Axis) (secondAxis: Axis) (interval:float32) (start: float32*float32*float32) = 
+        // Gets the axis corresponding channels.
+        let firstChannel = firstAxis.Axis
+        let secondChannel = secondAxis.Axis
+        // Fucntion for scanning. 
         let rec scan (firstPosition, secondPosition) = asyncChoice{
-            /// If first position less than first length then increment by one step. 
+            // If first position less than first length then increment by one step. 
             if firstPosition < firstLength then
                 let newPosition = (firstPosition + interval, secondPosition)  
-                /// Arranges two element tuple coordinate into a three element tuple to be passed into the Pieojenas dll functions. 
+                // Arranges two element tuple coordinate into a three element tuple to be passed into the Pieojenas dll functions. 
                 let coordinate = PiezojenaNV40.Coordinate.arrangeCoordinate firstChannel secondChannel newPosition start 
-                /// Sets the Piezojena coordinates. 
+                // Sets the Piezojena coordinates. 
                 do! PiezojenaNV40.SetParameters.setAllOutputs piezojena coordinate  
                 do! scan newPosition 
             else 
-                /// If firstPosition is larger than first length but second position is not larger than second length the
-                /// reset firstPosition and increment second position. 
+                // If firstPosition is larger than first length but second position is not larger than second length the
+                // reset firstPosition and increment second position. 
                 if secondPosition < secondLength then
                     let newFirstPosition = 
                         match start with

@@ -370,7 +370,6 @@ module PiezojenaNV40 =
                         (x , y , 0.0f)
                     else 
                         (x, 0.0f, y)
-                        
                 else
                     (0.0f, x, y)
             fullCoordinate orderedPosition empty 
