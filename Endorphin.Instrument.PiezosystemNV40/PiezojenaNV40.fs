@@ -299,4 +299,93 @@ module PiezojenaNV40 =
                 return coordinate
                 }
             queryAllPositionsWorkflow |> check piezojena 
+    
+    module Coordinate = 
         
+        /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
+        let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
+            let channels = [|Channel0; Channel1; Channel2|] 
+            //if firstChannel = secondChannel then 
+            //    let emptyChannels = Array.filter (fun elem -> elem <> firstChannel) channels
+            //    let first  = Array.get emptyChannels 0
+            //    let second = Array.get emptyChannels 1    
+            //    let firstTuple = 
+            //        match first with
+            //        | Channel0 -> (1.0,0.0,0.0)
+            //        | Channel1 -> (0.0,1.0,0.0)
+            //        | Channel2 -> (0.0,0.0,1.0)
+            //    let secondTuple = 
+            //        match second with 
+            //        | Channel0 -> (1.0,0.0,0.0)
+            //        | Channel1 -> (0.0,1.0,0.0)
+            //        | Channel2 -> (0.0,0.0,1.0)
+            //    let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+            //    addTuples firstTuple secondTuple 
+            //else 
+            let emptyChannels = Array.filter (fun elem -> elem <> firstChannel && elem <> secondChannel) channels
+            let first = Array.get emptyChannels 0 
+            let firstTuple = 
+                match first with 
+                | Channel0 -> (1.0,0.0,0.0)
+                | Channel1 -> (0.0,1.0,0.0)
+                | Channel2 -> (0.0,0.0,1.0)   
+            firstTuple
+        
+        /// Orders tuple.
+        let private orderTuple (first:Channel) (second:Channel) (x:float, y:float) = 
+            let firstEnum = 
+                match first with 
+                | Channel0 -> 0
+                | Channel1 -> 1
+                | Channel2 -> 2
+
+            let secondEnum = 
+                match second with
+                | Channel0 -> 0
+                | Channel1 -> 1
+                | Channel2 -> 2
+
+            if firstEnum < secondEnum then
+                (x, y)
+            else
+                (y, x)
+
+        /// Stores starting coordinates of the channels not in use, these will remain fixed. 
+        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float*float*float))=
+            let empty = findEmptyChannels firstChannel secondChannel
+            let multiplyTuple (x:float,y:float,z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
+            let fixedCoordinates = multiplyTuple startingPosition empty 
+            fixedCoordinates 
+
+        /// Expands a two element tuple containing desired position (on a 2D grid) into a 3 element tuple, contains zero's
+        /// for channels not in use. 
+        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float*float) = 
+            let empty = findEmptyChannels firstChannel secondChannel
+            let orderedPosition = orderTuple firstChannel secondChannel desiredPosition
+            let fullCoordinate (x:float, y:float) (a:float, b:float, c:float) =
+                if a = 0.0 then 
+                    if b = 0.0 then
+                        (x , y , 0.0)
+                    else 
+                        (x, 0.0, y)
+                        
+                else
+                    (0.0, x, y)
+            fullCoordinate orderedPosition empty 
+        
+        /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
+        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float*float) (start:float*float*float) =
+             let fix = fixedCoordinates first second start 
+             let expanded = expandCoordinates first second desired 
+             let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+             let coordinate = addTuples expanded fix  
+             coordinate 
+                    
+                
+                
+                             
+                
+             
+             
+
+           
