@@ -9,7 +9,7 @@ open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
 
-module Grid = 
+module IntensityMap = 
     
      module Coordinate = 
         
