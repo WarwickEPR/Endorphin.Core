@@ -146,6 +146,8 @@ module Observable =
     let bufferCountOverlapped count source =
         Support.addToObservable source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
 
+    type NotificationEvent<'T> = Event<Notification<'T>>
+
     /// Creates an observable from a source event which emits notifications that either hold a value,
     /// completion or error.
     let fromNotificationEvent (source : IEvent<Notification<'T>>) =
