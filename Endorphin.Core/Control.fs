@@ -96,3 +96,29 @@ module AsyncChoice =
         async {
             let! sequence' = sequence |> Async.Parallel
             return foldChoices fold state sequence' }
+
+[<AutoOpen>]
+module AsyncExtensions =
+    /// Contains the result of an Async workflow.
+    type AsyncResult<'T> =
+        | AsyncSuccess of result : 'T
+        | AsyncFailure of error : exn
+        | AsyncCancellation of exn : System.OperationCanceledException
+
+    type Async<'T> with
+        /// Starts an Async workflow on the thread pool with the specified cancellation token, returning
+        /// a handle which can be used to await its result. 
+        static member StartWithResultHandle (workflow, ?cancellationToken) =    
+            Async.FromContinuations(fun (cont, econt, ccont) -> 
+                match cancellationToken with
+                | Some ct ->
+                    Async.StartWithContinuations(workflow,
+                        AsyncSuccess >> cont,
+                        AsyncFailure >> cont,
+                        AsyncCancellation >> cont,
+                        ct)
+                | None ->
+                    Async.StartWithContinuations(workflow,
+                        AsyncSuccess >> cont,
+                        AsyncFailure >> cont,
+                        AsyncCancellation >> cont))
