@@ -211,8 +211,8 @@ module Model =
         /// Settings for a sweep, encapsulating all options understandable by the machine.
         type SweepOptions = {
             Direction : Direction
-            StepTrigger : TriggerSource
-            ListTrigger : TriggerSource
+            StepTrigger : TriggerSource option
+            ListTrigger : TriggerSource option
             DwellTime : Duration option
             Retrace : OnOffState
             AttentuationProtection : OnOffState
@@ -461,7 +461,7 @@ module Model =
             ShotRepetitionTime : Duration
             ShotsPerPoint : uint16
             Frequencies : Frequency seq
-            Powers : Amplitude seq }
+            Power  : Amplitude }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
@@ -470,7 +470,7 @@ module Model =
             StoredWaveforms  : StoredWaveform array
             RfBlankRoute     : UserSignalMarker
             Frequencies      : Frequency seq
-            Powers           : Amplitude seq }
+            Power            : Amplitude }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {

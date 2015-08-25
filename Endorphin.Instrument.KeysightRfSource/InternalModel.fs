@@ -44,8 +44,8 @@ module internal InternalModel =
             ShotsPerPoint : uint16
             /// What frequencies to run the experiment at.
             Frequencies : Frequency seq
-            /// What powers to run the experiment at.
-            Powers : Amplitude seq }
+            /// What power to run the experiment at.
+            Power : Amplitude }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the

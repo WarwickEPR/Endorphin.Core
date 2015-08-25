@@ -71,7 +71,7 @@ module Experiment =
             ShotRepetitionTime = DurationInSec 0.0<s>
             ShotsPerPoint = 1us
             Frequencies = [ FrequencyInHz 150e6<Hz> ]
-            Powers = [ PowerInDbm 4.0<dBm> ] }
+            Power = PowerInDbm 4.0<dBm> }
 
         /// A phase for use when we don't care what the phase actually is.
         let internal noPhase = PhaseInRad 0.0<rad>
@@ -145,11 +145,7 @@ module Experiment =
 
         /// Set an experiment to run at the specified carrier wave power (in dBm).
         let withCarrierPower power (experiment : Experiment) =
-            { experiment with Powers = [ PowerInDbm power ]}
-
-        /// Set an experiment to run at the specified carrier wave powers (in dBm).
-        let withCarrierPowerSweep powers (experiment : Experiment) =
-            { experiment with Powers = Seq.map PowerInDbm powers }
+            { experiment with Power = PowerInDbm power }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -257,11 +253,6 @@ module Experiment =
                 if Seq.isEmpty experiment.Frequencies then fail "Must have at least one frequency"
                 else succeed ()
 
-            /// Chec that the powers in an experiment are valid.
-            let private powers (experiment : Experiment) =
-                if Seq.isEmpty experiment.Powers then fail "Must have at least one power"
-                else succeed ()
-
             /// Get the duration of a pulse.
             let private pulseLength = function
                 | Rf (_, SampleCount dur, _) -> dur
@@ -357,7 +348,7 @@ module Experiment =
                       ShotRepetitionTime = shotRepCount
                       ShotsPerPoint = experiment.ShotsPerPoint
                       Frequencies = experiment.Frequencies
-                      Powers = experiment.Powers } } }
+                      Power = experiment.Power } } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
@@ -366,7 +357,6 @@ module Experiment =
                 do! rfSpacing experiment
                 do! shotsPerPoint experiment
                 do! frequencies experiment
-                do! powers experiment
                 let! experiment' = updateExperimentPulses experiment
                 do! checkMinimumLength experiment'
                 return! toVerifiedExperiment experiment' }

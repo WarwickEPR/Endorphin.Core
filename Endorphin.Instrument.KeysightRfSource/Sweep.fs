@@ -175,11 +175,15 @@ module Sweep =
         /// Apply the given sweep options to the machine.
         let internal setSweepOptions rfSource options = asyncChoice {
             do! setDirection rfSource options.Direction
-            do! Triggering.Control.setTriggerSource StepTrigger rfSource options.StepTrigger
-            do! Triggering.Control.setTriggerSource ListTrigger rfSource options.ListTrigger
+            match options.StepTrigger with
+            | Some trig -> do! Triggering.Control.setTriggerSource StepTrigger rfSource trig
+            | None -> ()
+            match options.ListTrigger with
+            | Some trig -> do! Triggering.Control.setTriggerSource ListTrigger rfSource trig
+            | None -> ()
             match options.DwellTime with
                 | Some t -> do! setDwellTime rfSource t
-                | None   -> if options.ListTrigger == Immediate
+                | None   -> if options.ListTrigger == Some Immediate
                             then return! fail "Dwell time required for free-running, immediate trigger sweep through a list of points"
             do! setRetrace rfSource options.Retrace 
             do! setAttenuationProtection rfSource options.AttentuationProtection
@@ -351,6 +355,17 @@ module Sweep =
         /// Create a frequency sweep between two values of frequency, both in Hz.
         let frequencySweepInHz a b = FrequencySweep <| range (FrequencyInHz a) (FrequencyInHz b)
 
+        /// A default set of options for a sweep.  These are the values the machine uses after a
+        /// (*RST) command.
+        let internal defaultSweepOptions = {
+            Direction = Up
+            StepTrigger = Some Immediate
+            ListTrigger = Some Immediate
+            DwellTime = Some ( DurationInSec 2e-3<s> )
+            Retrace = On
+            AttentuationProtection = On
+            Mode = Auto }
+
         /// A default step sweep, using the values the machine would default to if issued the reset
         /// (*RST) command.
         let private defaultStepSweep = {
@@ -358,14 +373,7 @@ module Sweep =
             Amplitude = fixedPowerInDbm -110.0<dBm>
             Points = 101
             Spacing = LinearStepSpacing
-            Options =
-                { Direction = Up
-                  StepTrigger = Immediate
-                  ListTrigger = Immediate
-                  DwellTime = Some ( DurationInSec 2e-3<s> )
-                  Retrace = On
-                  AttentuationProtection = On
-                  Mode = Auto } }
+            Options = defaultSweepOptions }
 
         /// Create a step sweep with the given points.
         let withPoints points (config : StepSweep) = { config with Points = points }
@@ -411,6 +419,22 @@ module Sweep =
         /// absolute amplitudes, measured in dBm.
         let powerStepSweepInDbm start finish =
             { defaultStepSweep with Amplitude = powerSweepInDbm start finish }
+
+        /// Set the StepTrigger in a sweep options record.
+        let internal optionsWithStepTrigger value options =
+            { options with StepTrigger = value }
+
+        /// Set the ListTrigger in a sweep options record.
+        let internal optionsWithListTrigger value options =
+            { options with ListTrigger = value }
+
+        /// Set the dwell time in a sweep options record.
+        let internal optionsWithDwellTime value options =
+            { options with DwellTime = value }
+
+        /// Set the state of the retrace in a step sweep options.
+        let internal optionsWithRetrace value options =
+            { options with Retrace = value }
 
     // Apply a configuration.
     module Apply =

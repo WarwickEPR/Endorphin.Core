@@ -13,6 +13,7 @@ module Control =
         open Experiment.Translate
         open Power.Control
         open IQ.Control
+        open Sweep.Configure
         open Sweep.Control
         open Sweep.Control.List
 
@@ -178,7 +179,7 @@ module Control =
 
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
         /// Turns off the ARB before writing, because the machine doesn't seem to like doing both
-        /// at once.
+        /// at once.  This is just stored, it isn't ready to play yet.
         let storeExperiment instrument experiment = asyncChoice {
             do! turnOffArb instrument
             let! encoded = toEncodedExperiment experiment
@@ -192,23 +193,41 @@ module Control =
                 StoredWaveforms  = Array.append storedSegments storedSequences
                 RfBlankRoute     = encoded.Metadata.RfBlankMarker
                 Frequencies      = encoded.Metadata.Frequencies
-                Powers           = encoded.Metadata.Powers } }
+                Power            = encoded.Metadata.Power } }
+
+        /// Steps needed to set up the sweep for use.
+        let private setUpSweep instrument trigger (stored : StoredExperiment) = asyncChoice {
+            let options =
+                defaultSweepOptions
+                |> optionsWithStepTrigger None
+                |> optionsWithListTrigger (Some trigger)
+                |> optionsWithDwellTime None
+                |> optionsWithRetrace Off
+            do! setSweepOptions instrument options
+            do! setSweepType instrument List
+            let waveforms = Seq.replicate (Seq.length stored.Frequencies) [ stored.StoredExperiment ]
+            do! setListWaveformSequence instrument waveforms
+            do! setFrequencies instrument stored.Frequencies
+            do! setPowers instrument [ stored.Power ] }
+
+        /// Steps needed to turn the outputs on.
+        let private setUpOutputs instrument stored = asyncChoice {
+            do! setRfBlankRoute instrument stored.RfBlankRoute
+            do! setAlcState instrument Off
+            do! setIqModulation instrument On
+            do! turnOnArb instrument }
 
         /// Load a previously stored experiment into the list sweep file, overwriting whatever's
         /// already there.
-        let loadStoredExperiment instrument stored = asyncChoice {
-            do! selectWaveform instrument stored.StoredExperiment
-            do! setRfBlankRoute instrument stored.RfBlankRoute
-            // do! setSweepType instrument List
-            // do! setFrequencies instrument stored.Frequencies
-            // do! setPowers instrument stored.Powers
-            do! setAlcState instrument Off
-            do! setIqModulation instrument On }
+        let loadStoredExperiment instrument trigger stored = asyncChoice {
+            do! setUpSweep instrument trigger stored
+            do! setUpOutputs instrument stored }
 
-        /// Store and load an experiment on the machine, ready to begin playback.
-        let primeExperiment instrument experiment = asyncChoice {
+        /// Store an experiment on the machine, then immediately load it into the list sweep file,
+        /// ready to start playback.
+        let storeAndPrimeExperiment instrument trigger experiment = asyncChoice {
             let! stored = storeExperiment instrument experiment
-            do! loadStoredExperiment instrument stored
+            do! loadStoredExperiment instrument trigger stored
             return stored }
 
     [<AutoOpen>]
