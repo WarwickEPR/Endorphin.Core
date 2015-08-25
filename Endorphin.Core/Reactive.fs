@@ -105,6 +105,10 @@ module Event =
     let bufferCountOverlapped count source =
         Support.addToEvent source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
 
+[<AutoOpen>]
+module ObservableHelpers =
+    type NotificationEvent<'T> = Event<Notification<'T>>
+
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Observable =
 
@@ -145,8 +149,6 @@ module Observable =
     /// contains the most recent elements up to its specified size.
     let bufferCountOverlapped count source =
         Support.addToObservable source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
-
-    type NotificationEvent<'T> = Event<Notification<'T>>
 
     /// Creates an observable from a source event which emits notifications that either hold a value,
     /// completion or error.
