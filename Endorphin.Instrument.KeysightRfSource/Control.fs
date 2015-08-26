@@ -213,6 +213,8 @@ module Control =
         /// Steps needed to turn the outputs on.
         let private setUpOutputs instrument stored = asyncChoice {
             do! setRfBlankRoute instrument stored.RfBlankRoute
+            // ensure the RF blank marker is the correct polarity
+            do! setMarkerPolarity stored.RfBlankRoute instrument Positive
             do! setAlcState instrument Off
             do! setIqModulation instrument On
             do! turnOnArb instrument }

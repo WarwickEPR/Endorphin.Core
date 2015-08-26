@@ -330,11 +330,19 @@ module Model =
             AlcHold      : IMarkerSignal
             RfBlank      : IMarkerSignal }
 
+        /// Polarities of the marker channels.
+        type internal MarkerPolarities = {
+            PolarityM1   : Polarity
+            PolarityM2   : Polarity
+            PolarityM3   : Polarity
+            PolarityM4   : Polarity }
+
         /// A complete set of routings for the machine.
         type Routing = internal {
-            Output   : OutputRouting
-            Input    : InputRouting
-            Internal : InternalRouting }
+            Output           : OutputRouting
+            Input            : InputRouting
+            Internal         : InternalRouting
+            MarkerPolarities : MarkerPolarities }
 
     [<AutoOpen>]
     module ARB =

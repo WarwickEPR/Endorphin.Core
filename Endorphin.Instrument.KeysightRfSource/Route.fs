@@ -153,7 +153,7 @@ module Route =
 
     [<AutoOpen>]
     module Configure =
-        /// The default output routing that the machine would use after a *RST? command.
+        /// The default output routing that the machine would use after a *RST command.
         let private defaultOutputRouting = {
             BbTrig1  = RouteMarker2
             BbTrig2  = NoSignal
@@ -163,22 +163,30 @@ module Route =
             Trig1    = NoSignal
             Trig2    = RouteSweepTriggerOut }
 
-        /// The default input routing that the machine would use after a *RST? command.
+        /// The default input routing that the machine would use after a *RST command.
         let private defaultInputRouting = {
             PatTrig1 = RoutePatternTrigger
             PatTrig2 = RoutePatternTrigger }
 
-        /// The default internal routing that the machine would use after a *RST? command.
+        /// The default internal routing that the machine would use after a *RST command.
         let private defaultInternalRouting = {
             AltAmplitude = NoSignal
             AlcHold = NoSignal
             RfBlank = NoSignal }
 
-        /// The default routings for the machine, in use after a *RST? command.
+        /// Default polarities of the marker channels after a *RST command.
+        let private defaultMarkerPolarities = {
+            PolarityM1 = Positive
+            PolarityM2 = Positive
+            PolarityM3 = Positive
+            PolarityM4 = Positive }
+
+        /// The default routings for the machine, in use after a *RST command.
         let defaultRouting = {
-            Output   = defaultOutputRouting
-            Input    = defaultInputRouting
-            Internal = defaultInternalRouting }
+            Output           = defaultOutputRouting
+            Input            = defaultInputRouting
+            Internal         = defaultInternalRouting
+            MarkerPolarities = defaultMarkerPolarities }
 
         /// If any inputs are set to "value", then unset them.  Otherwise, leave them be.
         let private unsetRequiredInputs value routing =
@@ -262,6 +270,26 @@ module Route =
                 else NoSignal :> IMarkerSignal
             { routing with Internal = { routing.Internal with RfBlank = value; AlcHold = alcHold } }
 
+        /// Set the polarity of marker 1.  Positive means the marker signal is high while the marker
+        /// is set to true.
+        let withMarker1Polarity value routing =
+            { routing with MarkerPolarities = { routing.MarkerPolarities with PolarityM1 = value; } }
+
+        /// Set the polarity of marker 2.  Positive means the marker signal is high while the marker
+        /// is set to true.
+        let withMarker2Polarity value routing =
+            { routing with MarkerPolarities = { routing.MarkerPolarities with PolarityM2 = value; } }
+
+        /// Set the polarity of marker 3.  Positive means the marker signal is high while the marker
+        /// is set to true.
+        let withMarker3Polarity value routing =
+            { routing with MarkerPolarities = { routing.MarkerPolarities with PolarityM3 = value; } }
+
+        /// Set the polarity of marker 4.  Positive means the marker signal is high while the marker
+        /// is set to true.
+        let withMarker4Polarity value routing =
+            { routing with MarkerPolarities = { routing.MarkerPolarities with PolarityM4 = value; } }
+
     [<AutoOpen>]
     module Control =
         /// Key to control the output routing of the BBTRIG 1 BNC.
@@ -310,6 +338,9 @@ module Route =
         /// hold too, so sending both separately just uses the RF blanking one.
         let private rfBlankKey = ":RAD:ARB:MDES:PULS"
 
+        /// Key to set the polarity of a given marker.
+        let private markerPolarityKey = ":RAD:ARB:MPOL"
+
         /// Set a single output routing on the machine.
         let private setSignalRoute key instrument route =
             IO.setValueString signalString key instrument route
@@ -328,6 +359,23 @@ module Route =
 
         /// Query a key for an IUserBncSignal in internal representation.
         let private queryUserBncSignal = IO.queryKeyString parseUserBncSignal
+
+        /// Make the specific marker polarity key for a given marker.
+        let private makeMarkerPolarityKey marker =
+            sprintf "%s:%s" markerPolarityKey (
+                match marker with
+                | RouteMarker1 -> "MARK1"
+                | RouteMarker2 -> "MARK2"
+                | RouteMarker3 -> "MARK3"
+                | RouteMarker4 -> "MARK4" )
+
+        /// Set the polarity of a single marker.
+        let internal setMarkerPolarity marker instrument value =
+            IO.setPolarity (makeMarkerPolarityKey marker) instrument value
+
+        /// Query the polarity of a single marker.
+        let internal queryMarkerPolarity marker instrument =
+            IO.queryPolarity (makeMarkerPolarityKey marker) instrument
 
         /// Set the routing of the RF blank pulse channel.  This single function is only for use
         /// internally in Endorphin, since we need to set a marker to be the RF blanking pulse.
@@ -354,11 +402,19 @@ module Route =
             do! setSignalRoute alcHoldKey instrument routing.AlcHold
             do! setSignalRoute rfBlankKey instrument routing.RfBlank }
 
+        /// Set the polarities of the markers.
+        let private setMarkerPolarities instrument routing = asyncChoice {
+            do! setMarkerPolarity RouteMarker1 instrument routing.PolarityM1
+            do! setMarkerPolarity RouteMarker2 instrument routing.PolarityM2
+            do! setMarkerPolarity RouteMarker3 instrument routing.PolarityM3
+            do! setMarkerPolarity RouteMarker4 instrument routing.PolarityM4 }
+
         /// Set all the routings for the machine to the given values.
         let setRouting instrument routing = asyncChoice {
             do! setOutputRouting instrument routing.Output
             do! setInputRouting instrument routing.Input
-            do! setInternalRouting instrument routing.Internal }
+            do! setInternalRouting instrument routing.Internal
+            do! setMarkerPolarities instrument routing.MarkerPolarities }
 
         /// Query the machine for the currently setup output routing.
         let private queryOutputRouting instrument = asyncChoice {
@@ -396,12 +452,26 @@ module Route =
                 AlcHold      = alcHold
                 RfBlank      = rfBlank } }
 
+        /// Query the polarities of the marker signals.
+        let private queryMarkerPolarities instrument = asyncChoice {
+            let! m1 = queryMarkerPolarity RouteMarker1 instrument
+            let! m2 = queryMarkerPolarity RouteMarker2 instrument
+            let! m3 = queryMarkerPolarity RouteMarker3 instrument
+            let! m4 = queryMarkerPolarity RouteMarker4 instrument
+            return {
+                PolarityM1 = m1
+                PolarityM2 = m2
+                PolarityM3 = m3
+                PolarityM4 = m4 } }
+
         /// Query the machine for the currently setup routings.
         let queryRouting instrument = asyncChoice {
             let! output = queryOutputRouting instrument
             let! input = queryInputRouting instrument
             let! internal' = queryInternalRouting instrument
+            let! marker = queryMarkerPolarities instrument
             return {
                 Output = output
                 Input = input
-                Internal = internal' } }
+                Internal = internal'
+                MarkerPolarities = marker } }
