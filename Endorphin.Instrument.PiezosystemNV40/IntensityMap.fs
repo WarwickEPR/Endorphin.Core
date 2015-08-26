@@ -119,7 +119,6 @@ module IntensityMap =
                     
      module Generate =          
          
-         
          /// Gets the value of the specified channel. 
          let getValue (channel:Channel) (x:float32, y:float32, z:float32) = 
              match channel with         

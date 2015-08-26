@@ -22,9 +22,6 @@ let piezojena = connect serialPort
 
 module IntensityMapping = 
 
-
-   
-
     /// Scans over the grid points to create an intensity map.
     let createMap piezojena points (start: float32*float32*float32)  = 
         let initial = List.item 0 points 
@@ -52,8 +49,8 @@ let yAxis = {
 
 let interval = 2.0f    
 
-let start = IntensityMapping.getCoordinates |> Async.RunSynchronously |> Choice.bindOrFail  
-let points = IntensityMapping.getGrid xAxis yAxis interval |> Async.RunSynchronously |> Choice.bindOrFail
+let start = IntensityMap.GenerategetCoordinates |> Async.RunSynchronously |> Choice.bindOrFail  
+let points = IntensityMap.Generate.getGrid xAxis yAxis interval |> Async.RunSynchronously |> Choice.bindOrFail
 IntensityMapping.createMap piezojena points start 
 
          

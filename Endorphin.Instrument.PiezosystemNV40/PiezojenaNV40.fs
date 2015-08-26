@@ -117,7 +117,7 @@ module PiezojenaNV40 =
 
 
         /// Sets remote control for one channel. 
-        let setRemoteControl piezojena (channel:Channel) (switch: Switch) = 
+        let internal setRemoteControl piezojena (channel:Channel) (switch: Switch) = 
             let stage = id piezojena 
             let setRemoteControlWorkflow = 
                 async{
@@ -130,7 +130,7 @@ module PiezojenaNV40 =
             setRemoteControlWorkflow |> check piezojena  
 
         /// Sets all three channels remote control modes on or off.
-        let setAllRemoteControl piezojena (switch:Switch) = 
+        let internal setAllRemoteControl piezojena (switch:Switch) = 
             let stage = id piezojena 
             let booleanSwitch = Parsing.switchBoolean switch
             logDevice piezojena "Attempting to change all channels remote control modes."
@@ -183,14 +183,6 @@ module PiezojenaNV40 =
                 stage.SetSoftStart (boolean)
                 }
             setSoftStartWorkflow |> check piezojena  
-    
-        /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
-        let initialise piezojena = asyncChoice{
-            let stage = id piezojena 
-            do setAllRemoteControl piezojena On             
-            do setLoopModeallChannels piezojena ClosedLoop   
-            do! setAllOutputs piezojena (0.0f, 0.0f, 0.0f)
-            }
 
     module Query = 
 
@@ -281,6 +273,7 @@ module PiezojenaNV40 =
     
     module Motion = 
         
+        /// Checks if the desired and current positions are within 50nm of each other. 
         let private checkPosition (desired: float32*float32*float32) (current: float32*float32*float32) =
             let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
             let difference = tupleSubtract desired current 
@@ -312,7 +305,7 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let rec setAllOutputs piezojena (desiredOutput:float32*float32*float32) =   
+        let set piezojena (desiredOutput:float32*float32*float32) =   
             let stage  = id piezojena
             
             let setAllOutputsWorkflow =         
@@ -328,11 +321,23 @@ module PiezojenaNV40 =
                 let! coordinate = Query.queryAllPositions piezojena 
                 let compare = checkPosition coordinate desiredOutput   
                 return compare}
-                 
-            setandQuery |> Async.RunSynchronously 
- 
-       
-                
-
-
-            
+            setandQuery 
+        
+        /// Sets all channel outputs, then checks idf in correct posistion, if not then attempts again. 
+        let rec setAllOutPuts piezojena (desiredOutput:float32*float32*float32) =         
+            let check = set piezojena desiredOutput |> Async.RunSynchronously
+                                                    |> Choice.bindOrFail 
+            let coordinate = Query.queryAllPositions piezojena |> Async.RunSynchronously 
+            if check = true then 
+                coordinate
+            else 
+                setAllOutPuts piezojena desiredOutput
+                  
+        
+    module Initialise = 
+        /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
+        let initialise piezojena = asyncChoice{
+            let stage = id piezojena 
+            do SetParameters.setAllRemoteControl piezojena On             
+            do SetParameters.setLoopModeallChannels piezojena ClosedLoop   
+            }
