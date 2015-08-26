@@ -123,7 +123,7 @@ module Experiment =
         /// At least one marker must be left blank throughout for internal use by Endorphin.
         let addTrigger markers = addMarkerPulse markers 1u
 
-        /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment.
+        /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
         let withRepetitions reps (experiment : Experiment) =
             { experiment with Repetitions = reps }
 
