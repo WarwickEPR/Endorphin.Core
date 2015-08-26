@@ -199,3 +199,15 @@ module IntensityMap =
                      list 
          
              generateAll (firstOffset, secondOffset) points
+        
+         /// Gets the current position of all the channels. 
+         let private getCoordinates piezojena = asyncChoice{ 
+             let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
+             return coordinate}
+         
+         /// Generates grid with generate grid points. 
+         let getGrid piezojena firstAxis secondAxis interval = asyncChoice{
+             let! start = getCoordinates piezojena  
+             let gridList = generateGridPoints firstAxis secondAxis interval start
+             let gridArray = gridList |> List.toArray
+             return gridArray} 

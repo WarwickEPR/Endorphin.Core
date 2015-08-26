@@ -22,16 +22,8 @@ let piezojena = connect serialPort
 
 module IntensityMapping = 
 
-    /// Gets the current position of all the channels. 
-    let getCoordinates = asyncChoice{ 
-        let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
-        return coordinate}
 
-    /// Generates grid with generate grid points. 
-    let getGrid firstAxis secondAxis interval = asyncChoice{
-        let! start = getCoordinates 
-        let gridList = IntensityMap.Generate.generateGridPoints firstAxis secondAxis interval start
-        return gridList}  
+   
 
     /// Scans over the grid points to create an intensity map.
     let createMap piezojena points (start: float32*float32*float32)  = 
