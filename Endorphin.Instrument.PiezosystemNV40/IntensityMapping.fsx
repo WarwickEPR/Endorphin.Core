@@ -31,14 +31,7 @@ module IntensityMapping =
     let getGrid firstAxis secondAxis interval = asyncChoice{
         let! start = getCoordinates 
         let gridList = IntensityMap.Generate.generateGridPoints firstAxis secondAxis interval start
-        return gridList}
-    
-    /// Sets the piezojena's position. 
-    let setPosition piezojena desiredPosition = asyncChoice{
-        do! PiezojenaNV40.SetParameters.setAllOutputs piezojena desiredPosition
-        do Async.Sleep 100 |> Async.RunSynchronously
-        let! currentPosition = PiezojenaNV40.Query.queryAllPositions piezojena
-        return currentPosition }    
+        return gridList}  
 
     /// Scans over the grid points to create an intensity map.
     let createMap piezojena points (start: float32*float32*float32)  = 

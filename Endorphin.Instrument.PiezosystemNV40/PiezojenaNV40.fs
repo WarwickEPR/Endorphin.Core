@@ -183,27 +183,6 @@ module PiezojenaNV40 =
                 stage.SetSoftStart (boolean)
                 }
             setSoftStartWorkflow |> check piezojena  
-        
-        /// Sets the output of a single channel.
-        let setOutput piezojena (channel:Channel) (output:float32) = 
-            let stage = id piezojena 
-            let setOutputWorkflow = 
-                async{    
-                let byteChannel = Parsing.channelByte (channel)
-                logDevice piezojena "Setting channel output."
-                stage.SetDesiredOutput (byteChannel, output)
-                }
-            setOutputWorkflow |> check piezojena 
-       
-        /// Sets all channel outputs. 
-        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
-            let stage  = id piezojena
-            let setAllOutputsWorkflow =         
-                async{
-                logDevice piezojena "Setting outputs of all channels."
-                Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
-                }
-            setAllOutputsWorkflow |> check piezojena  
     
         /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
         let initialise piezojena = asyncChoice{
@@ -271,7 +250,7 @@ module PiezojenaNV40 =
                 }
             queryClosedLoopLimitsWorkflow |> check piezojena 
         
-        /// Retrieves a measurement from a single channel. 
+        /// Queries a measurement from a single channel. 
         let queryChannelPosition piezojena (channel:Channel) = 
             let stage = id piezojena 
             let queryChannelPositionWorkflow = 
@@ -284,7 +263,7 @@ module PiezojenaNV40 =
                 }
             queryChannelPositionWorkflow |> check piezojena 
         
-        /// Retrieves all measurements from three channels. 
+        /// Queries all measurements from three channels. 
         let queryAllPositions piezojena = 
             let stage = id piezojena 
             let queryAllPositionsWorkflow = 
@@ -300,4 +279,33 @@ module PiezojenaNV40 =
                 }
             queryAllPositionsWorkflow |> check piezojena 
     
-   
+    module Motion = 
+        
+        /// Sets the output of a single channel.
+        let setOutput piezojena (channel:Channel) (output:float32) = 
+            let stage = id piezojena 
+            let setOutputWorkflow = 
+                async{    
+                let byteChannel = Parsing.channelByte (channel)
+                logDevice piezojena "Setting channel output."
+                stage.SetDesiredOutput (byteChannel, output)
+                }
+            setOutputWorkflow |> check piezojena 
+       
+        /// Sets all channel outputs. 
+        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
+            let stage  = id piezojena
+            let setAllOutputsWorkflow =         
+                async{
+                logDevice piezojena "Setting outputs of all channels."
+                Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
+                }
+            setAllOutputsWorkflow |> check piezojena  
+
+
+        /// Sets the piezojena's position. 
+        let setPosition piezojena desiredPosition = asyncChoice{
+            do! setAllOutputs piezojena desiredPosition
+            do Async.Sleep 100 |> Async.RunSynchronously
+            let! currentPosition = Query.queryAllPositions piezojena
+            return currentPosition }  
