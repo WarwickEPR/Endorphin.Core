@@ -15,7 +15,11 @@ module Parsing =
     /// Takes thirs value from a tuple
     let private third = function 
         | (x, y, z) -> z
-
+   
+    let optiontoValue = function
+        | Some (x:float32, y:float32, z:float32) -> (x, y, z)   
+        | None -> failwithf "Cannot have coordinate None."
+    
     /// Converts a three element tuple into an array
     let tupletoArray (tuple:float32*float32*float32) =
         let x = float32(first tuple)

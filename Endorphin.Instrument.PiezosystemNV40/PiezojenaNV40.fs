@@ -281,8 +281,27 @@ module PiezojenaNV40 =
     
     module Motion = 
         
+        let private checkPosition (desired: float32*float32*float32) (current: float32*float32*float32) =
+            let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
+            let difference = tupleSubtract desired current 
+            let first  = 
+                match difference with
+                | (x, y, z) -> x
+            let second =
+                match difference with
+                | (x, y, z) -> y
+            let third  =
+                match difference with 
+                | (x, y, z) -> z
+            let compare =     
+                if first > 0.05f || second > 0.05f || third > 0.05f then
+                    false  
+                else 
+                    true
+            compare 
+       
         /// Sets the output of a single channel.
-        let setOutput piezojena (channel:Channel) (output:float32) = 
+        let private setOutput piezojena (channel:Channel) (output:float32) = 
             let stage = id piezojena 
             let setOutputWorkflow = 
                 async{    
@@ -293,19 +312,27 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let setAllOutputs piezojena (outputTuple:float32*float32*float32) =   
+        let rec setAllOutputs piezojena (desiredOutput:float32*float32*float32) =   
             let stage  = id piezojena
+            
             let setAllOutputsWorkflow =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
-                Parsing.tupletoArray outputTuple |> stage.SetDesiredOutputChunk  
+                Parsing.tupletoArray desiredOutput |> stage.SetDesiredOutputChunk  
                 }
-            setAllOutputsWorkflow |> check piezojena  
+            
+            let setOutputs = setAllOutputsWorkflow |> check piezojena  
+
+            let setandQuery = asyncChoice{
+                do! setOutputs 
+                let! coordinate = Query.queryAllPositions piezojena 
+                let compare = checkPosition coordinate desiredOutput   
+                return compare}
+                 
+            setandQuery |> Async.RunSynchronously 
+ 
+       
+                
 
 
-        /// Sets the piezojena's position. 
-        let setPosition piezojena desiredPosition = asyncChoice{
-            do! setAllOutputs piezojena desiredPosition
-            do Async.Sleep 100 |> Async.RunSynchronously
-            let! currentPosition = Query.queryAllPositions piezojena
-            return currentPosition }  
+            
