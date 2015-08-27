@@ -76,7 +76,7 @@ module PiezojenaNV40 =
                 return (major, minor, build, time)
                 }
             getVersionWorkflow |> check piezojena 
-
+    
     module SetParameters = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
@@ -271,6 +271,15 @@ module PiezojenaNV40 =
                 }
             queryAllPositionsWorkflow |> check piezojena 
     
+    module Initialise = 
+
+        /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
+        let initialise piezojena = asyncChoice{
+            let stage = id piezojena 
+            do SetParameters.setAllRemoteControl piezojena On             
+            do SetParameters.setLoopModeallChannels piezojena ClosedLoop   
+            }
+
     module Motion = 
         
         /// Checks if the desired and current positions are within 50nm of each other. 
@@ -305,7 +314,7 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let set piezojena (desiredOutput:float32*float32*float32) =   
+        let private setandQueryWorkflow piezojena (desiredOutput:float32*float32*float32) =   
             let stage  = id piezojena
             
             let setAllOutputsWorkflow =         
@@ -323,21 +332,24 @@ module PiezojenaNV40 =
                 return compare}
             setandQuery 
         
-        /// Sets all channel outputs, then checks idf in correct posistion, if not then attempts again. 
-        let rec setAllOutPuts piezojena (desiredOutput:float32*float32*float32) =         
-            let check = set piezojena desiredOutput |> Async.RunSynchronously
-                                                    |> Choice.bindOrFail 
-            let coordinate = Query.queryAllPositions piezojena |> Async.RunSynchronously 
-            if check = true then 
-                coordinate
-            else 
-                setAllOutPuts piezojena desiredOutput
-                  
-        
-    module Initialise = 
-        /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
-        let initialise piezojena = asyncChoice{
-            let stage = id piezojena 
-            do SetParameters.setAllRemoteControl piezojena On             
-            do SetParameters.setLoopModeallChannels piezojena ClosedLoop   
-            }
+        /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
+        let setAllOutputs piezojena target = 
+            let PositionSet = new Event<float32*float32*float32>()
+            let setAllOutputsWorkflow = asyncChoice {
+                let! reachedTarget = setandQueryWorkflow piezojena target
+                let! coordinate = Query.queryAllPositions piezojena
+                return coordinate}
+            let rec findCoordinate count =     
+                if count > 10 then failwithf "Cannot find coordinate."
+                let successMessage = setAllOutputsWorkflow |> Async.RunSynchronously   
+                let success = 
+                    match successMessage with  
+                    | Success coordinate -> PositionSet.Trigger coordinate     
+                    | Failure message -> ()
+                if success = () then 
+                    findCoordinate (count + 1)
+                else
+                    ()
+            findCoordinate 0   
+                     
+  
