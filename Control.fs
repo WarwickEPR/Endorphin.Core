@@ -1,5 +1,7 @@
 ﻿namespace ExtCore.Control
 
+open System.Threading
+
 [<AutoOpen>]
 module ErrorHandling =
     /// Wraps a value as a success represented by a Choice<'T, 'Error>.
@@ -99,26 +101,61 @@ module AsyncChoice =
 
 [<AutoOpen>]
 module AsyncExtensions =
+
     /// Contains the result of an Async workflow.
     type AsyncResult<'T> =
         | AsyncSuccess of result : 'T
-        | AsyncFailure of error : exn
-        | AsyncCancellation of exn : System.OperationCanceledException
+        | AsyncError of error : exn
+        | AsyncCancellation of cexn : System.OperationCanceledException
 
     type Async<'T> with
         /// Starts an Async workflow on the thread pool with the specified cancellation token, returning
-        /// a handle which can be used to await its result. 
-        static member StartWithResultHandle (workflow, ?cancellationToken) =    
-            Async.FromContinuations(fun (cont, econt, ccont) -> 
-                match cancellationToken with
-                | Some ct ->
-                    Async.StartWithContinuations(workflow,
-                        AsyncSuccess >> cont,
-                        AsyncFailure >> cont,
-                        AsyncCancellation >> cont,
-                        ct)
-                | None ->
-                    Async.StartWithContinuations(workflow,
-                        AsyncSuccess >> cont,
-                        AsyncFailure >> cont,
-                        AsyncCancellation >> cont))
+        /// a handle which can be used to await its result. The result is of type AsyncResult, indicating
+        /// whether the workflow successfully returned a value, or failed, or cancellation occurred.
+        static member StartWithResultHandle (workflow, ?cancellationToken) =
+            let mutable resultCell = None
+            let mutable resultCont = None
+            let sync = obj()
+            
+            let setResult result =
+                lock sync (fun () ->
+                    match resultCont with
+                    | Some cont -> cont result
+                    | None      -> resultCell <- Some result)
+
+            let setContinuation cont =
+                lock sync (fun () ->
+                    match resultCell with
+                    | Some result -> cont result
+                    | None        -> resultCont <- Some cont)
+            
+            match cancellationToken with
+            | Some ct ->
+                Async.StartWithContinuations(workflow,
+                    (fun result -> setResult (AsyncSuccess result)),
+                    (fun error  -> setResult (AsyncError error)),
+                    (fun cexn   -> setResult (AsyncCancellation cexn)),
+                    ct)
+            | None ->
+                Async.StartWithContinuations(workflow,
+                    (fun result -> setResult (AsyncSuccess result)),
+                    (fun error  -> setResult (AsyncError error)),
+                    (fun cexn   -> setResult (AsyncCancellation cexn)))
+
+            Async.FromContinuations(fun (cont, _, _) -> setContinuation cont)
+
+        /// Provides the same functionality as Async.StartWithContinuations, but only requires a single continuation
+        /// which takes a type indicating whether the result of the workflow was success, error or cancellation.
+        static member StartWithResultContinuation (workflow, rcont, ?cancellationToken) =
+            match cancellationToken with
+            | Some ct ->
+                Async.StartWithContinuations(workflow,
+                    (fun x   -> rcont (AsyncSuccess x)),
+                    (fun exn -> rcont (AsyncError exn)),
+                    (fun exn -> rcont (AsyncCancellation exn)),
+                    ct)
+            | None ->
+                Async.StartWithContinuations(workflow,
+                    (fun x   -> rcont (AsyncSuccess x)),
+                    (fun exn -> rcont (AsyncError exn)),
+                    (fun exn -> rcont (AsyncCancellation exn)))
