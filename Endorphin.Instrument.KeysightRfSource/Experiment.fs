@@ -37,51 +37,6 @@ module Experiment =
     /// How many samples the FIR filter looks ahead when applying.
     let internal riseCount = Array.length riseCoefficients
 
-#if DEBUG
-    [<AutoOpen>]
-    module internal Print =
-        /// Depth of an indent.
-        let indentDepth = 4
-
-        /// Get a string of the indent level.
-        let private getIndent indent = String.replicate indent " "
-
-        /// Pretty-print out a sample.
-        let printSample (indent : int) sample =
-            printf "%s(%6d; %6d; %d%d%d%d)"
-                (getIndent indent)
-                sample.I
-                sample.Q
-                (Convert.ToInt32 sample.Markers.M1)
-                (Convert.ToInt32 sample.Markers.M2)
-                (Convert.ToInt32 sample.Markers.M3)
-                (Convert.ToInt32 sample.Markers.M4)
-
-        /// Print out a (Sample * SampleCount) tuple.
-        let printSampleCount indent (smp, SampleCount count) =
-            printSample indent smp
-            printfn " * %d" count
-
-        /// Pretty-print out a segment.
-        let printSegment indent segment =
-            segment
-            |> Segment.samples
-            |> Array.iter (printSampleCount indent)
-
-        /// Pretty print a pending sequence.
-        let rec printSequence indent segMap seqMap (SequenceType sequence) =
-            let printEl = printSequenceElement indent segMap seqMap
-            sequence |> List.iter printEl
-        and printSequenceElement indent segMap seqMap (id, reps) =
-            match id with
-            | SegmentId id ->
-                printfn "%s%s * %d" (getIndent indent) id reps
-                printSegment (indent + indentDepth) (Map.find id segMap)
-            | SequenceId id ->
-                printfn "%s%s * %d" (getIndent indent) id reps
-                printSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
-#endif
-
     /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
     /// without affecting the timings of pulses.
     let minimumRfPulseSeparation = riseCount * 2 |> uint32
@@ -845,7 +800,8 @@ module Experiment =
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.
         [<AutoOpen>]
-        module PrintTotal =
+        module Print =
+            open ARB.Print
             /// Get a compiled experiment.
             let toCompiledExperiment experiment = asyncChoice {
                 let! verified = verify experiment
