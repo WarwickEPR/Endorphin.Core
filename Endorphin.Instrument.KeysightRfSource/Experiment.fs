@@ -64,7 +64,9 @@ module Experiment =
 
         /// Pretty-print out a segment.
         let printSegment indent segment =
-            segment.Samples |> Array.iter (printSampleCount indent)
+            segment
+            |> Segment.samples
+            |> Array.iter (printSampleCount indent)
 
         /// Pretty print a pending sequence.
         let rec printSequence indent segMap seqMap (SequenceType sequence) =
@@ -234,7 +236,7 @@ module Experiment =
                 if time < 0.0<s> then
                     fail "Must have a non-negative shot repetition time!"
                 else
-                    time / shortestPulseDuration
+                    time / ARB.shortestPulseDuration
                     |> uint32
                     |> SampleCount
                     |> succeed
@@ -265,8 +267,8 @@ module Experiment =
             let private checkMinimumLength (experiment : Experiment) = choice {
                 let length = Seq.sumBy pulseLength experiment.Pulses
                 return!
-                    if length < minimumSegmentLength then
-                        minimumSegmentLength
+                    if length < Segment.minimumLength then
+                        Segment.minimumLength
                         |> sprintf "Experiment is shorter than the minimum length of %d samples"
                         |> fail
                     else
@@ -653,7 +655,9 @@ module Experiment =
             let private splitCompiledExperiment count reps compiled =
                 let rec loop acc input = function
                     | 0u ->
-                        let segment = { Samples = Array.ofList <| List.rev acc; Length = (uint16 count) }
+                        let segment =
+                            { SegmentSamples = Array.ofList <| List.rev acc
+                              SegmentLength  = (uint16 count) }
                         let id = hexHash segmentToBytes segment
                         ({ Element = (SegmentId id, uint16 reps)
                            Segments = Map.add id segment Map.empty
@@ -668,19 +672,19 @@ module Experiment =
 
             /// Choose how many points to take to make up the next CompressedElement.
             let private chooseNextLength compiled =
-                if compiled.CompiledLength > minimumSegmentLength
-                   && compiled.CompiledLength < (minimumSegmentLength * 2u)
+                if compiled.CompiledLength > Segment.minimumLength
+                   && compiled.CompiledLength < (Segment.minimumLength * 2u)
                 then
                     (compiled.CompiledLength, 1u)
                 else
                     let nextLength = nextSampleCount compiled.CompiledData
-                    let reps = nextLength / minimumSegmentLength
+                    let reps = nextLength / Segment.minimumLength
                     if reps <= 1u then
-                        (minimumSegmentLength, 1u)
-                    elif compiled.CompiledLength < (minimumSegmentLength * (reps + 1u)) then
-                        (minimumSegmentLength, (reps - 1u))
+                        (Segment.minimumLength, 1u)
+                    elif compiled.CompiledLength < (Segment.minimumLength * (reps + 1u)) then
+                        (Segment.minimumLength, (reps - 1u))
                     else
-                        (minimumSegmentLength, reps)
+                        (Segment.minimumLength, reps)
 
             /// Split a CompiledExperiment into a next CompressedElement, and an accordingly shortened
             /// CompiledExperiment.

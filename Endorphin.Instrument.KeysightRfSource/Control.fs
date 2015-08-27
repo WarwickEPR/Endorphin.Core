@@ -9,7 +9,6 @@ open FSharp.Data.UnitSystems.SI.UnitSymbols
 module Control =
     [<AutoOpen>]
     module Store =
-        open ARB.Translate
         open Experiment.Translate
         open Power.Control
         open IQ.Control
@@ -104,7 +103,7 @@ module Control =
             let incrementSampleCount (SampleCount i) = SampleCount (i + 1u)
             let rec loop acc lastId accI = function
                 | i when i = Array.length samples ->
-                    Segment (id, { Samples = acc; Length = uint16 <| Array.length samples })
+                    Segment (id, { SegmentSamples = acc; SegmentLength = uint16 <| Array.length samples })
                 | i ->
                     let curId = hexHash sampleToBytes samples.[i]
                     if curId = lastId then

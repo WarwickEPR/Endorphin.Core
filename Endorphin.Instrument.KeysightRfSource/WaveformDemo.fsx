@@ -9,7 +9,6 @@ open ExtCore.Control
 open Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-
 let printResult = function
     | Success ()    -> printfn "Successfully did things."
     | Failure error -> printfn "Bad things happened: %s" error

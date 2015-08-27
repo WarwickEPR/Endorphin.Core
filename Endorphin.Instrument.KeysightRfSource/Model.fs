@@ -374,8 +374,8 @@ module Model =
 
         /// A single segment in the machine.  Must be at least 60 samples long.
         type Segment = internal {
-            Samples : (Sample * SampleCount) array
-            Length  : uint16 }
+            SegmentSamples : (Sample * SampleCount) array
+            SegmentLength  : uint16 }
 
         /// An element in a machine sequence can either be a segment (waveform or markers),
         /// or another sequence.  Both can have a number of repetitions associated with them.

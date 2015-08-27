@@ -1,4 +1,3 @@
-#r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
 #r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
 #r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r "NationalInstruments.Common.dll"
@@ -10,8 +9,6 @@ open Endorphin.Instrument.Keysight
 open ExtCore.Control
 open Experiment
 open Control
-
-// BasicConfigurator.Configure()
 
 let result = function
     | Success ()    -> printfn "Success!"
