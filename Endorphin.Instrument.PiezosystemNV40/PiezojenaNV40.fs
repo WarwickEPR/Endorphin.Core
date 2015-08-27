@@ -89,7 +89,6 @@ module PiezojenaNV40 =
                 let modeBoolean = Parsing.loopBoolean mode
                 logDevice piezojena "Setting loop mode."
                 stage.SetClosedLoopControlled (byteChannel, modeBoolean)
-                return ()
                 }
             setLoopModeWorkflow |> check piezojena  
 
@@ -126,7 +125,6 @@ module PiezojenaNV40 =
                 let booleanSwitch = Parsing.switchBoolean switch
                 logDevice piezojena "Attempting to change remote control mode."
                 stage.SetRemoteControlled (byteChannel, booleanSwitch)
-                return ()
                 }
             setRemoteControlWorkflow |> check piezojena  
 

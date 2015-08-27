@@ -31,12 +31,14 @@ module IntensityMapping =
         Async.Sleep 2000 |> Async.RunSynchronously
         return true} 
 
+    /// Measures current coordinates.
     let start = asyncChoice {
         let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
         return coordinate}
 
     let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
 
+    /// Scans the piezojena over all points in arrayofPoints. 
     let scanMap arrayofPoints resolution =
         let length = Array.length arrayofPoints - 1          
         let rec scan count = 
@@ -60,15 +62,20 @@ let yAxis = {
 let interval = 2.0f 
 let resolution = 0.05f   
 
+/// Initialises the piezojena by setting all channels to remote mode and closed loop mode. 
 PiezojenaNV40.Initialise.initialise piezojena |> Async.RunSynchronously
-let startCoordinates = IntensityMapping.start |> Async.RunSynchronously 
+/// Gets the current coordinates of the piezojena. 
+let startCoordinates = IntensityMapping.start |> Async.RunSynchronously
+/// If the piezojenas coordinates have been measured successfully then they are returned, else sets coordinates to (0,0,0) 
 let checkStartCoordinates = function
     | Success coordinate -> coordinate
     | Failure message -> (0.0f, 0.0f, 0.0f) 
+/// Binds starting coordinates to name start.
 let start = checkStartCoordinates startCoordinates       
+/// Generates an array of grid points. 
 let arrayofPoints = IntensityMap.Generate.generateGridPoints xAxis yAxis interval start 
+/// Preforms intensity map using arrayofPoints.
 IntensityMapping.scanMap arrayofPoints resolution 
- 
         
            
    

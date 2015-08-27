@@ -204,6 +204,7 @@ module IntensityMap =
              let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
              return coordinate}
          
+         /// Generates a list of grid points and converts to an array. 
          let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
              let list = generateGridPointsList firstAxis secondAxis interval start
              list |> List.toArray 
