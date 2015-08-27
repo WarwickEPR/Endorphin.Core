@@ -15,8 +15,7 @@ module Streaming =
         | PreparingStream
         | Streaming of sampleInterval : Interval
         | FinishedStream of options : StreamStopOptions
-        | FailedStream of error : string
-        | CancelledStream of exn : OperationCanceledException
+        | CancelledStream
 
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
@@ -28,12 +27,12 @@ module Streaming =
                   PicoScope       : PicoScope5000
                   DataBuffers     : AcquisitionBuffers
                   StopCapability  : CancellationCapability<StreamStopOptions>
-                  StatusChanged   : Event<StreamStatus>
+                  StatusChanged   : NotificationEvent<StreamStatus>
                   SamplesObserved : Event<StreamingSamples> }
 
     type StreamingAcquisitionHandle = 
         private { Acquisition  : StreamingAcquisition 
-                  WaitToFinish : AsyncChoice<unit, string> }
+                  WaitToFinish : AsyncChoice<AsyncResult<Choice<unit, string>>, string> }
 
     module Parameters =
         let create resolution sampleInterval bufferLength =
@@ -81,22 +80,16 @@ module Streaming =
                 <| streamingParameters.BufferLength
                 <| streamingParameters.Inputs
               StopCapability  = new CancellationCapability<StreamStopOptions>()
-              StatusChanged   = new Event<StreamStatus>()
+              StatusChanged   = new NotificationEvent<StreamStatus>()
               SamplesObserved = new Event<StreamingSamples>() }
 
         let status acquisition =
             acquisition.StatusChanged.Publish
-            |> Observable.completeOn (function
-                | FinishedStream _ 
-                | CancelledStream _ -> true
-                | _                 -> false)
-            |> Observable.errorOn (function
-                | FailedStream message -> Some (Exception message)
-                | _                    -> None)
+            |> Observable.fromNotificationEvent
 
         let private prepareDevice acquisition =
             asyncChoice {
-                acquisition.StatusChanged.Trigger PreparingStream
+                acquisition.StatusChanged.Trigger (Next PreparingStream)
                 do! PicoScope.ChannelSettings.setAcquisitionInputChannels acquisition.PicoScope acquisition.Parameters.Inputs
                 do! PicoScope.Triggering.setTriggerSettings acquisition.PicoScope acquisition.Parameters.TriggerSettings
                 do! PicoScope.Sampling.setResolution acquisition.PicoScope acquisition.Parameters.Resolution
@@ -107,7 +100,7 @@ module Streaming =
 
         let private startStreaming acquisition = asyncChoice {
             let! sampleInterval = PicoScope.Acquisition.startStreaming acquisition.PicoScope acquisition.Parameters
-            acquisition.StatusChanged.Trigger (Streaming sampleInterval) }
+            acquisition.StatusChanged.Trigger (Next <| Streaming sampleInterval) }
 
         let private createSampleBlock streamingValuesReady acquisition =
             let (SampleCount sampleCount) = streamingValuesReady.NumberOfSamples 
@@ -150,36 +143,38 @@ module Streaming =
                 
                 do! pollUntilFinished acquisition }
         
-        let start acquisition : AsyncChoice<StreamingAcquisitionHandle, string> =
+        let startWithCancellationToken acquisition cancellationToken =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
 
-            let finishAcquisition cont acquisitionResult = Async.StartImmediate <| async {
+            let finishAcquisition cont econt acquisitionResult = Async.StartImmediate <| async {
                 let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
                 match acquisitionResult, stopResult with
                 | Success (), Success () -> 
-                    acquisition.StatusChanged.Trigger (FinishedStream acquisition.StopCapability.Options)
+                    acquisition.StatusChanged.Trigger (Next <| FinishedStream acquisition.StopCapability.Options)
+                    acquisition.StatusChanged.Trigger Completed
                     cont (succeed ())
                 | _, Failure f -> 
-                    let error = sprintf "Acquisition failed to stop: %s" f
-                    acquisition.StatusChanged.Trigger (FailedStream error)
-                    cont (fail error)
+                    let error = Exception <| sprintf "Acquisition failed to stop: %s" f
+                    acquisition.StatusChanged.Trigger (Error error)
+                    econt error
                 | Failure f, _ ->
-                    acquisition.StatusChanged.Trigger (FailedStream f)
+                    acquisition.StatusChanged.Trigger (Error <| Exception f)
                     cont (fail f) }
 
             let stopAcquisitionAfterCancellation ccont econt exn = Async.StartImmediate <| async { 
                 let! stopResult =  PicoScope.Acquisition.stop acquisition.PicoScope
                 match stopResult with
                 | Success () ->
-                    acquisition.StatusChanged.Trigger (CancelledStream exn)
+                    acquisition.StatusChanged.Trigger (Next <| CancelledStream)
+                    acquisition.StatusChanged.Trigger Completed
                     ccont exn
                 | Failure f ->
                     let error = sprintf "Acquisition failed to stop after cancellation: %s" f
-                    acquisition.StatusChanged.Trigger (FailedStream error)
+                    acquisition.StatusChanged.Trigger (Error <| Exception error)
                     econt (Exception error) }
 
-            let acquisitionWorkflow cancellationToken =
+            let acquisitionWorkflow =
                 Async.FromContinuations (fun (cont, econt, ccont) ->
                     Async.StartWithContinuations(
                         asyncChoice {
@@ -188,15 +183,20 @@ module Streaming =
                             do! startStreaming acquisition
                             do! pollUntilFinished acquisition }, 
                     
-                        finishAcquisition cont, econt, stopAcquisitionAfterCancellation ccont econt,
+                        finishAcquisition cont econt, 
+                        econt, 
+                        stopAcquisitionAfterCancellation ccont econt,
                         cancellationToken))
 
-            async {
-                let! cancellationToken = Async.CancellationToken
-                let! waitToFinish = Async.StartChild (acquisitionWorkflow cancellationToken)
-                return { Acquisition = acquisition ; WaitToFinish = waitToFinish } }
-            |> AsyncChoice.liftAsync
+            let waitToFinish = Async.StartWithResultHandle (acquisitionWorkflow, cancellationToken)
+            { Acquisition = acquisition ; WaitToFinish = waitToFinish |> AsyncChoice.liftAsync }
     
+        let start acquisition = startWithCancellationToken acquisition (Async.DefaultCancellationToken)
+
+        let startAsChild acquisition = asyncChoice {
+            let! ct = Async.CancellationToken |> AsyncChoice.liftAsync
+            return startWithCancellationToken acquisition ct }
+
         let waitToFinish acquisitionHandle = acquisitionHandle.WaitToFinish   
               
         let stop acquisitionHandle =

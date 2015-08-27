@@ -84,12 +84,16 @@ let experiment = asyncChoice {
         do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
         printStatusUpdates acquisition
 
-        let! acquisitionHandle = Streaming.Acquisition.start acquisition
+        let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
         // run the acquisition for 10s and then stop manually
-        do! Async.Sleep 10000 |> AsyncChoice.liftAsync
-        do! Streaming.Acquisition.stopAndFinish acquisitionHandle
-        
+        Async.Start(async {
+            do! Async.Sleep 10000
+            Streaming.Acquisition.stop acquisitionHandle }, cts.Token)
+
+        let! acquisitionResult = Streaming.Acquisition.waitToFinish acquisitionHandle
+        printfn "%A" acquisitionResult
+
     finally Async.StartImmediate <| async {
         let! closeResult = PicoScope.close picoScope 
         match closeResult with
@@ -100,5 +104,4 @@ Async.StartWithContinuations(experiment,
     (function
     | Success () -> printfn "Successfully completed experiment."
     | Failure f  -> printfn "Failed to complete experiment due to error: %s" f),
-    ignore, 
-    (fun _ -> printfn "Cancelled experiment."), cts.Token)
+    ignore, ignore)
