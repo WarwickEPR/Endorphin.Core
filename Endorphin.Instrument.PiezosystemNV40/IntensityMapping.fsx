@@ -26,6 +26,8 @@ module IntensityMapping =
         let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
         return coordinate}
 
+    let PositionSetSuccess = PositionSet.Publish 
+
     let scanMap desiredOutput arrayofPoints =
         let length = Array.length arrayofPoints         
         let setCoorinate = PiezojenaNV40.Motion.setAllOutputs desiredOutput 

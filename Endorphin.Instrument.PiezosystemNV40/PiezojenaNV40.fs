@@ -335,13 +335,17 @@ module PiezojenaNV40 =
         /// Event to be triggered when correct position reached. 
         let PositionSet = new Event<float32*float32*float32>()
         
+        let Event = new Event<int>()
+
+        let EventPublish = Event.Publish
+
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
         let setAllOutputs piezojena target resolution = 
-            let PositionSetSuccess = PositionSet.Publish 
             let setAllOutputsWorkflow = asyncChoice {
                 let! reachedTarget = setandQueryWorkflow piezojena target resolution
                 let! coordinate = Query.queryAllPositions piezojena
                 return coordinate}
+
             let rec findCoordinate count =     
                 if count > 10 then failwithf "Cannot find coordinate."
                 let successMessage = setAllOutputsWorkflow |> Async.RunSynchronously   
