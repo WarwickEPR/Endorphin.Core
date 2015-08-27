@@ -86,7 +86,7 @@ module Inputs =
             | Aggregate      -> BufferPair   (Map.find (inputSampling.InputChannel, AggregateBuffer Maximum) inputs.Buffers,
                                               Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) inputs.Buffers) 
 
-        let allocateAcquisitionBuffers memorySegment (SampleIndex bufferLength) inputs =
+        let allocateAcquisitionBuffers memorySegment (bufferLength : SampleIndex) inputs =
             GC.Collect() // force garbage collection before allocating
             inputs.InputSampling
             |> Set.toSeq 

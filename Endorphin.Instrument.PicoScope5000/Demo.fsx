@@ -33,6 +33,7 @@ let streamingParameters =
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
     Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
     |> Streaming.Parameters.withNoDownsampling inputs // use the previously defined inputs
+    |> Streaming.Parameters.withAutoStop 0u 500u // acquire 500 samples after the trigger (approximately 10s)
 
 let showTimeChart acquisition = async {
     do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
@@ -86,11 +87,7 @@ let experiment = asyncChoice {
 
         let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
-        // run the acquisition for 10s and then stop manually
-        Async.Start(async {
-            do! Async.Sleep 10000
-            Streaming.Acquisition.stop acquisitionHandle }, cts.Token)
-
+        // wait for the acquisition to finish automatically or by cancellation   
         let! acquisitionResult = Streaming.Acquisition.waitToFinish acquisitionHandle
         printfn "%A" acquisitionResult
 

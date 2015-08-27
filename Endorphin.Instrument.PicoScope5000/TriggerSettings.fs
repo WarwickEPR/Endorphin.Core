@@ -17,12 +17,12 @@ module Trigger =
         { TriggerChannel     = triggerChannel 
           AdcThreshold       = adcThreshold
           ThresholdDirection = levelThreshold
-          StartSample        = SampleIndex startSample
+          StartSample        = startSample
           AutoTrigger        = None }
     
     let simpleAndAuto triggerChannel adcThreshold levelThreshold startSample autoTriggerDelay =
         { TriggerChannel     = triggerChannel 
           AdcThreshold       = adcThreshold
           ThresholdDirection = levelThreshold
-          StartSample        = SampleIndex startSample
+          StartSample        = startSample
           AutoTrigger        = Some <| AutoTriggerDelayInMilliseconds autoTriggerDelay }

@@ -253,10 +253,10 @@ module internal Parsing =
             Set.map downsamplingModeEnum
             >> Set.reduce (|||)
         
-        let streamStopParameters =
-            function
-            | ManualStop                                                               -> (0s, 0u, 1u)
-            | AutoStop (SampleIndex preTriggerSamples, SampleIndex postTriggerSamples) -> (1s, preTriggerSamples, postTriggerSamples)
+        let streamStopParameters streamStop : (int16 * SampleIndex * SampleIndex) =
+            match streamStop with
+            | ManualStop                                       -> (0s, 0u, 1u)
+            | AutoStop (preTriggerSamples, postTriggerSamples) -> (1s, preTriggerSamples, postTriggerSamples)
 
         let parseTriggerPosition triggered position =
             if triggered then Triggered position

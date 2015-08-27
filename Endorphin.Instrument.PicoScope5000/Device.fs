@@ -29,13 +29,13 @@ module Resolution =
 module Timebase =
     let fastestForResolution =
         function
-        | Resolution_8bit  -> Timebase 0u
-        | Resolution_12bit -> Timebase 1u
+        | Resolution_8bit  -> 0u
+        | Resolution_12bit -> 1u
         | Resolution_14bit
-        | Resolution_15bit -> Timebase 3u
-        | Resolution_16bit -> Timebase 4u
+        | Resolution_15bit -> 3u
+        | Resolution_16bit -> 4u
 
-    let next (Timebase index) = Timebase (index + 1u)
+    let next index = (index + 1u)
 
     let fastestStreamingInterval channelCount resolution =
         match (resolution, channelCount) with
@@ -58,5 +58,5 @@ module Timebase =
 
 [<RequireQualifiedAccess>]
 module MemorySegment =
-    let zero = MemorySegment 0u
-    let next (MemorySegment index) = MemorySegment (index + 1u)
+    let zero = 0u
+    let next index = (index + 1u)

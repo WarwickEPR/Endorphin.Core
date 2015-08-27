@@ -38,7 +38,7 @@ module Streaming =
         let create resolution sampleInterval bufferLength =
             { Resolution        = resolution
               SampleInterval    = sampleInterval
-              BufferLength      = SampleIndex bufferLength
+              BufferLength      = bufferLength
               MemorySegment     = MemorySegment.zero
               TriggerSettings   = Trigger.auto 1s<ms>
               StreamStop        = ManualStop
@@ -103,7 +103,7 @@ module Streaming =
             acquisition.StatusChanged.Trigger (Next <| Streaming sampleInterval) }
 
         let private createSampleBlock streamingValuesReady acquisition =
-            let (SampleCount sampleCount) = streamingValuesReady.NumberOfSamples 
+            let sampleCount = streamingValuesReady.NumberOfSamples 
             { Samples =
                 acquisition.DataBuffers.Buffers
                 |> Map.keys
@@ -116,8 +116,8 @@ module Streaming =
             Map.toSeq acquisition.DataBuffers.Buffers
             |> Seq.map (fun (inputSampling, buffer) -> async {
                 let sampleArray = Map.find inputSampling sampleBlock.Samples
-                let (SampleIndex startIndex)  = streamingValuesReady.StartIndex
-                let (SampleCount sampleCount) = streamingValuesReady.NumberOfSamples
+                let startIndex  = streamingValuesReady.StartIndex
+                let sampleCount = streamingValuesReady.NumberOfSamples
                 Array.Copy(buffer, int startIndex, sampleArray, 0, int sampleCount) })
             |> Async.Parallel
             |> Async.Ignore
@@ -127,7 +127,7 @@ module Streaming =
                 if streamingValuesReady.DidAutoStop then
                     acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
 
-                if streamingValuesReady.NumberOfSamples <> SampleCount 0 then
+                if streamingValuesReady.NumberOfSamples <> 0 then
 
                     let sampleBlock = createSampleBlock streamingValuesReady acquisition
                     Async.StartWithContinuations(
@@ -227,7 +227,7 @@ module Streaming =
             Array.mapi (fun i adcCount -> adcCountToVoltage inputs.[i] acquisition adcCount)
 
         let private takeInputs inputs samples = seq {
-            let (SampleCount length) = samples.Length
+            let length = samples.Length
             for i in 0 .. length - 1 ->
                 samples.Samples
                 |> Map.findArray inputs
