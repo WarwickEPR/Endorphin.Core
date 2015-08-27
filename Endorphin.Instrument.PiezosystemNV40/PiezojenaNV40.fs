@@ -283,7 +283,7 @@ module PiezojenaNV40 =
     module Motion = 
         
         /// Checks if the desired and current positions are within 50nm of each other. 
-        let private checkPosition (desired: float32*float32*float32) (current: float32*float32*float32) =
+        let private checkPosition (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
             let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
             let difference = tupleSubtract desired current 
             let first  = 
@@ -296,7 +296,7 @@ module PiezojenaNV40 =
                 match difference with 
                 | (x, y, z) -> z
             let compare =     
-                if first > 0.05f || second > 0.05f || third > 0.05f then
+                if first > resolution || second > resolution || third > resolution then
                     false  
                 else 
                     true
@@ -314,10 +314,10 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let private setandQueryWorkflow piezojena (desiredOutput:float32*float32*float32) =   
+        let private setandQueryWorkflow piezojena (desiredOutput:float32*float32*float32) resolution =   
             let stage  = id piezojena
             
-            let setAllOutputsWorkflow =         
+            let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
                 Parsing.tupletoArray desiredOutput |> stage.SetDesiredOutputChunk  
@@ -328,15 +328,18 @@ module PiezojenaNV40 =
             let setandQuery = asyncChoice{
                 do! setOutputs 
                 let! coordinate = Query.queryAllPositions piezojena 
-                let compare = checkPosition coordinate desiredOutput   
+                let compare = checkPosition coordinate desiredOutput resolution    
                 return compare}
             setandQuery 
         
+        /// Event to be triggered when correct position reached. 
+        let PositionSet = new Event<float32*float32*float32>()
+        
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
-        let setAllOutputs piezojena target = 
-            let PositionSet = new Event<float32*float32*float32>()
+        let setAllOutputs piezojena target resolution = 
+            let PositionSetSuccess = PositionSet.Publish 
             let setAllOutputsWorkflow = asyncChoice {
-                let! reachedTarget = setandQueryWorkflow piezojena target
+                let! reachedTarget = setandQueryWorkflow piezojena target resolution
                 let! coordinate = Query.queryAllPositions piezojena
                 return coordinate}
             let rec findCoordinate count =     
@@ -344,7 +347,7 @@ module PiezojenaNV40 =
                 let successMessage = setAllOutputsWorkflow |> Async.RunSynchronously   
                 let success = 
                     match successMessage with  
-                    | Success coordinate -> PositionSet.Trigger coordinate     
+                    | Success coordinate -> PositionSet.Trigger coordinate      
                     | Failure message -> ()
                 if success = () then 
                     findCoordinate (count + 1)

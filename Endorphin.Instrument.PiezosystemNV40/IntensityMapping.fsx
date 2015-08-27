@@ -21,23 +21,25 @@ let serialPort = "COM3"
 let piezojena = connect serialPort 
 
 module IntensityMapping = 
+    
+    let start = asyncChoice {
+        let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
+        return coordinate}
 
-    /// Scans over the grid points to create an intensity map.
-    let createMap piezojena points (start: float32*float32*float32)  = 
-        let initial = List.item 0 points 
-        let numberofPoints = List.length points 
-        
-        let rec scan count (desiredPosition: float32*float32*float32) = asyncChoice{ 
-            if count > numberofPoints then
-                return ()
-            else 
-               let! currentPosition = setPosition piezojena desiredPosition         
-               if currentPosition = desiredPosition then 
-                   do! scan (count + 1) (List.item count points)
-               else 
-                    do! scan count desiredPosition
-               }
-        scan 0 initial |> Async.RunSynchronously
+    let scanMap desiredOutput arrayofPoints =
+        let length = Array.length arrayofPoints         
+        let setCoorinate = PiezojenaNV40.Motion.setAllOutputs desiredOutput 
+
+
+
+
+
+
+
+
+
+
+
                                           
 let xAxis = {
     Axis = Channel0

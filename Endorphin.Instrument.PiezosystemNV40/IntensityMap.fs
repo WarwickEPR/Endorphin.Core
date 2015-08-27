@@ -126,7 +126,7 @@ module IntensityMap =
                  | Channel1 -> y
                  | Channel2 -> z
      
-         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
+         let private generateGridPointsList (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
              let firstChannel  = (firstAxis.Axis) 
              let secondChannel = (secondAxis.Axis)
              // The offsets are the starting postions of the two channels that will be used in the scan. 
@@ -204,9 +204,13 @@ module IntensityMap =
              let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena
              return coordinate}
          
+         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
+             let list = generateGridPointsList firstAxis secondAxis interval start
+             list |> List.toArray 
+
          /// Generates grid with generate grid points. 
          let getGrid piezojena firstAxis secondAxis interval = asyncChoice{
              let! start = getCoordinates piezojena  
              let gridList = generateGridPoints firstAxis secondAxis interval start
-             let gridArray = gridList |> List.toArray
+             let gridArray = gridList
              return gridArray} 
