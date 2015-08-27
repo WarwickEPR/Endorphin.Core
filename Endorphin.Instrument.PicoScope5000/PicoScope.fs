@@ -110,14 +110,28 @@ module PicoScope =
             | PowerSourceStatus powerSource -> succeed <| powerSource
             | error                         -> fail    <| statusMessage error)
                         
-    let queryDeviceInfo (PicoScope5000 picoScope) deviceInfo =
-        picoScope
-        |> CommandRequestAgent.performObjectRequest (sprintf "Query device information: %A" deviceInfo) (fun device ->
-            let resultLength = 32s
-            let result = new StringBuilder(int resultLength)
-            let mutable requiredLength = 0s
-            NativeApi.GetUnitInfo(handle device, result, resultLength, &requiredLength, deviceInfoEnum deviceInfo)
-            |> checkStatusAndReturn (result.ToString()))
+   
+    module Info =
+        let private queryDeviceInfo (PicoScope5000 picoScope) deviceInfoEnum =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest (sprintf "Query device information: %A" deviceInfoEnum) (fun device ->
+                let resultLength = 32s
+                let result = new StringBuilder(int resultLength)
+                let mutable requiredLength = 0s
+                NativeApi.GetUnitInfo(handle device, result, resultLength, &requiredLength, deviceInfoEnum)
+                |> checkStatusAndReturn (result.ToString()))
+
+        let queryDriverVersion           picoScope = queryDeviceInfo picoScope DeviceInfoEnum.DriverVersion
+        let queryUsbVersion              picoScope = queryDeviceInfo picoScope DeviceInfoEnum.UsbVersion
+        let queryHardwareVersion         picoScope = queryDeviceInfo picoScope DeviceInfoEnum.HardwareVersion
+        let queryModelNumber             picoScope = queryDeviceInfo picoScope DeviceInfoEnum.ModelNumber
+        let querySerialNumber            picoScope = queryDeviceInfo picoScope DeviceInfoEnum.SerialNumber
+        let queryCalibrationDate         picoScope = queryDeviceInfo picoScope DeviceInfoEnum.CalibrationDate
+        let queryKernelVersion           picoScope = queryDeviceInfo picoScope DeviceInfoEnum.KernelVersion
+        let queryDigitalHardwareVersion  picoScope = queryDeviceInfo picoScope DeviceInfoEnum.DigitalHardwareVersion
+        let queryAnalogueHardwareVersion picoScope = queryDeviceInfo picoScope DeviceInfoEnum.AnalogueHardwareVersion
+        let queryFirmwareVersion1        picoScope = queryDeviceInfo picoScope DeviceInfoEnum.FirmwareVersion1
+        let queryFirmwareVersion2        picoScope = queryDeviceInfo picoScope DeviceInfoEnum.FirmwareVersion2
 
     module Sampling =
         let setResolution (PicoScope5000 picoScope) resolution =
@@ -194,7 +208,7 @@ module PicoScope =
     module ChannelSettings =
         let queryAvailableChannels picoScope =
             asyncChoice {
-                let! modelNumber = queryDeviceInfo picoScope ModelNumber
+                let! modelNumber = Info.queryModelNumber picoScope
                 let! resolution = Sampling.queryResolution picoScope
                 let availableChannels = Resolution.availableChannels resolution
                 match int <| modelNumber.[1].ToString() with

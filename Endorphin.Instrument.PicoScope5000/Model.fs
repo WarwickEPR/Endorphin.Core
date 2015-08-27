@@ -67,19 +67,6 @@ module Model =
         type PicoScope5000 = internal PicoScope5000 of agent : CommandRequestAgent<PicoScope5000Identity>
         type PowerSource = MainsPower | UsbPower
 
-        type DeviceInfo =
-            | DriverVersion           
-            | UsbVersion              
-            | HardwareVersion         
-            | ModelNumber             
-            | SerialNumber            
-            | CalibrationDate         
-            | KernelVersion           
-            | DigitalHardwareVersion  
-            | AnalogueHardwareVersion 
-            | FirmwareVersion1        
-            | FirmwareVersion2        
-
         type LedFlash =
             internal
             | LedOff
