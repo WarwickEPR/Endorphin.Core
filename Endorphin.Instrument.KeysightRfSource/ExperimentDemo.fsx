@@ -5,11 +5,10 @@
 #r "NationalInstruments.VisaNS.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
-open Endorphin.Instrument.Keysight
-open ARB
-open Experiment
-open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open Endorphin.Instrument.Keysight
+open ExtCore.Control
+open Experiment
 open Control
 
 // BasicConfigurator.Configure()
@@ -19,19 +18,19 @@ let result = function
     | Failure error -> printfn "Bad things happened: %s" error
 
 let cycle1 =
-    emptyPhaseCycle
-    |> addPhase (PhaseInRad 0.0<rad>)
-    |> addPhase (PhaseInDeg 90.0<deg>)
+    Phase.empty
+    |> Phase.add (PhaseInRad 0.0<rad>)
+    |> Phase.add (PhaseInDeg 90.0<deg>)
 
 let cycle2 =
-    emptyPhaseCycle
-    |> addPhaseSequence [| for i in 1 .. 2 -> PhaseInDeg (float i * 90.0<deg>) |]
+    Phase.empty
+    |> Phase.addSeq [| for i in 1 .. 2 -> PhaseInDeg (float i * 90.0<deg>) |]
 
-let marker1 = emptyMarkers |> markersWithMarker1 true
-let markers1And3 = marker1 |> markersWithMarker3 true
+let marker1 = Markers.empty |> Markers.withMarker1 true
+let markers1And3 = marker1  |> Markers.withMarker3 true
 
 let experiment =
-    emptyExperiment
+    Experiment.empty
     |> addRfPulse cycle1 60u
     |> addDelayWithIncrement 60u 10u
     |> addTrigger marker1

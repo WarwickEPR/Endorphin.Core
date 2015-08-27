@@ -7,6 +7,28 @@ open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
+[<RequireQualifiedAccess>]
+module Phase =
+    /// A phase for use when we don't care what the phase actually is.
+    let internal unused = PhaseInRad 0.0<rad>
+
+    /// A phase cycle with no phases in it.
+    let empty = PhaseCycle Array.empty
+
+    /// Append a phase to a phase cycle. I and Q are equal at 0 phase, Q is maximum at 45.0<deg>.
+    let add phase (PhaseCycle cycle) =
+        let cycle' = Array.create (cycle.Length + 1) unused
+        cycle'.[0 .. cycle.Length - 1] <- cycle
+        cycle'.[cycle.Length]          <- phase
+        PhaseCycle cycle'
+
+    /// Append a sequence of phases to a phase cycle. I and Q are equal at 0 phase, Q is maximum
+    /// at 45.0<deg>.
+    let addSeq phases (PhaseCycle cycle) =
+        cycle
+        |> Array.append (Array.ofSeq phases)
+        |> PhaseCycle
+
 module Experiment =
     /// Pre-computed coefficients for the FIR filter.
     let internal riseCoefficients =
@@ -58,94 +80,73 @@ module Experiment =
                 printSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
 #endif
 
-    [<AutoOpen>]
-    module Configure =
-        /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
-        /// without affecting the timings of pulses.
-        let minimumRfPulseSeparation = riseCount * 2 |> uint32
+    /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
+    /// without affecting the timings of pulses.
+    let minimumRfPulseSeparation = riseCount * 2 |> uint32
 
-        /// An experiment with no pulses, ready to be added to.
-        let emptyExperiment = {
-            Pulses = Seq.empty
-            Repetitions = 1
-            ShotRepetitionTime = DurationInSec 0.0<s>
-            ShotsPerPoint = 1us
-            Frequencies = [ FrequencyInHz 150e6<Hz> ]
-            Power = PowerInDbm 4.0<dBm> }
+    /// An experiment with no pulses, ready to be added to.
+    let empty = {
+        Pulses = Seq.empty
+        Repetitions = 1
+        ShotRepetitionTime = DurationInSec 0.0<s>
+        ShotsPerPoint = 1us
+        Frequencies = [ FrequencyInHz 150e6<Hz> ]
+        Power = PowerInDbm 4.0<dBm> }
 
-        /// A phase for use when we don't care what the phase actually is.
-        let internal noPhase = PhaseInRad 0.0<rad>
+    /// Append a pulse to an experiment.
+    let private appendPulse pulse (experiment : Experiment) =
+        { experiment with Pulses = Seq.appendSingleton pulse experiment.Pulses }
 
-        /// A phase cycle with no phases in it.
-        let emptyPhaseCycle = PhaseCycle Array.empty
+    /// Add an RF pulse to an experiment with an increment each repetition.
+    let addRfPulseWithIncrement phases duration increment =
+        appendPulse (Rf (phases, SampleCount duration, SampleCount increment))
 
-        /// Append a phase to a phase cycle.
-        let addPhase phase (PhaseCycle cycle) =
-            let cycle' = Array.create (cycle.Length + 1) noPhase
-            cycle'.[0 .. cycle.Length - 1] <- cycle
-            cycle'.[cycle.Length]          <- phase
-            PhaseCycle cycle'
+    /// Add an RF pulse to an experiment with no increment.
+    let addRfPulse phases duration = addRfPulseWithIncrement phases duration 0u
 
-        /// Append a sequence of phases to a phase cycle.
-        let addPhaseSequence phases (PhaseCycle cycle) =
-            cycle
-            |> Array.append (Array.ofSeq phases)
-            |> PhaseCycle
+    /// Add a delay between pulses to the experiment, with an increment each repetition.
+    let addDelayWithIncrement duration increment =
+        appendPulse (Delay (SampleCount duration, SampleCount increment))
 
-        /// Append a pulse to an experiment.
-        let private appendPulse pulse (experiment : Experiment) =
-            { experiment with Pulses = Seq.appendSingleton pulse experiment.Pulses }
+    /// Add a single delay pulse to an experiment, the same length each repetition.
+    let addDelay duration = addDelayWithIncrement duration 0u
 
-        /// Add an RF pulse to an experiment with an increment each repetition.
-        let addRfPulseWithIncrement phases duration increment =
-            appendPulse (Rf (phases, SampleCount duration, SampleCount increment))
+    /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let addMarkerPulseWithIncrement markers duration increment =
+        appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
 
-        /// Add an RF pulse to an experiment with no increment.
-        let addRfPulse phases duration = addRfPulseWithIncrement phases duration 0u
+    /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
 
-        /// Add a delay between pulses to the experiment, with an increment each repetition.
-        let addDelayWithIncrement duration increment =
-            appendPulse (Delay (SampleCount duration, SampleCount increment))
+    /// Add a single-sample trigger pulse on the given markers to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let addTrigger markers = addMarkerPulse markers 1u
 
-        /// Add a single delay pulse to an experiment, the same length each repetition.
-        let addDelay duration = addDelayWithIncrement duration 0u
+    /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
+    let withRepetitions reps (experiment : Experiment) =
+        { experiment with Repetitions = reps }
 
-        /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
-        /// At least one marker must be left blank throughout for internal use by Endorphin.
-        let addMarkerPulseWithIncrement markers duration increment =
-            appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
+    /// Set the shot repetition time of the experiment.
+    let withShotRepetitionTime time (experiment : Experiment) =
+        { experiment with ShotRepetitionTime = DurationInSec time }
 
-        /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
-        /// At least one marker must be left blank throughout for internal use by Endorphin.
-        let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
+    /// Set the number of shots per point.
+    let withShotsPerPoint shots (experiment : Experiment) =
+        { experiment with ShotsPerPoint = shots }
 
-        /// Add a single-sample trigger pulse on the given markers to an experiment.
-        /// At least one marker must be left blank throughout for internal use by Endorphin.
-        let addTrigger markers = addMarkerPulse markers 1u
+    /// Set an experiment to run at the single set carrier frequency (given in Hz).
+    let withCarrierFrequency frequency (experiment : Experiment) =
+        { experiment with Frequencies = [ FrequencyInHz frequency ] }
 
-        /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
-        let withRepetitions reps (experiment : Experiment) =
-            { experiment with Repetitions = reps }
+    /// Set an experiment to run at a sweep of carrier frequencies (given in Hz).
+    let withCarrierFrequencySweep frequencies (experiment : Experiment) =
+        { experiment with Frequencies = Seq.map FrequencyInHz frequencies }
 
-        /// Set the shot repetition time of the experiment.
-        let withShotRepetitionTime time (experiment : Experiment) =
-            { experiment with ShotRepetitionTime = DurationInSec time }
-
-        /// Set the number of shots per point.
-        let withShotsPerPoint shots (experiment : Experiment) =
-            { experiment with ShotsPerPoint = shots }
-
-        /// Set an experiment to run at the single set carrier frequency (given in Hz).
-        let withCarrierFrequency frequency (experiment : Experiment) =
-            { experiment with Frequencies = [ FrequencyInHz frequency ] }
-
-        /// Set an experiment to run at a sweep of carrier frequencies (given in Hz).
-        let withCarrierFrequencySweep frequencies (experiment : Experiment) =
-            { experiment with Frequencies = Seq.map FrequencyInHz frequencies }
-
-        /// Set an experiment to run at the specified carrier wave power (in dBm).
-        let withCarrierPower power (experiment : Experiment) =
-            { experiment with Power = PowerInDbm power }
+    /// Set an experiment to run at the specified carrier wave power (in dBm).
+    let withCarrierPower power (experiment : Experiment) =
+        { experiment with Power = PowerInDbm power }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -202,7 +203,7 @@ module Experiment =
                 let folder state = function
                     | Marker (markers, _, _) -> booleanOrMarkers markers state
                     | _ -> state
-                let markers = Seq.fold folder emptyMarkers experiment.Pulses
+                let markers = Seq.fold folder Markers.empty experiment.Pulses
                 if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
                     fail "At least one marker channel must be blank throughout for internal use"
                 else
@@ -377,10 +378,10 @@ module Experiment =
             /// Choose the marker constructor function which applies the RF blanking marker to record of
             /// markers.
             let private addRfBlankMarkerToMarkers = function
-                | RouteMarker1 -> markersWithMarker1 true
-                | RouteMarker2 -> markersWithMarker2 true
-                | RouteMarker3 -> markersWithMarker3 true
-                | RouteMarker4 -> markersWithMarker4 true
+                | RouteMarker1 -> Markers.withMarker1 true
+                | RouteMarker2 -> Markers.withMarker2 true
+                | RouteMarker3 -> Markers.withMarker3 true
+                | RouteMarker4 -> Markers.withMarker4 true
 
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence.
@@ -452,20 +453,17 @@ module Experiment =
                 |> pulseSequence
                 |> List.map (List.map toStaticPulse)
 
-            /// A set of markers all turned off.
-            let private noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
-
             /// Expand a static pulse into a sample and a count of how many repetitions that sample has.
             let private expandStaticPulse addRfBlank pulse =
                 let (amplitude, phase, markers, duration) =
                     match pulse with
-                    | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers |> addRfBlank, dur)
-                    | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
-                    | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
+                    | StaticRf (phase, dur)       -> (1.0, phase,        Markers.empty |> addRfBlank, dur)
+                    | StaticDelay (dur)           -> (0.0, Phase.unused, Markers.empty,               dur)
+                    | StaticMarker (markers, dur) -> (0.0, Phase.unused, markers,                     dur)
                 let sample =
-                    emptySample
-                    |> withAmplitudeAndPhase amplitude phase
-                    |> withMarkers markers
+                    Sample.empty
+                    |> Sample.withAmplitudeAndPhase amplitude phase
+                    |> Sample.withMarkers markers
                 (sample, duration)
 
             /// Count how many samples must be played until I or Q is next set to a non-zero value.
@@ -505,8 +503,8 @@ module Experiment =
             let private updateSampleFir i q indexer idx (sample, dur) =
                 let sample' =
                     sample
-                    |> withI (int16 (float i * riseCoefficients.[indexer idx]))
-                    |> withQ (int16 (float q * riseCoefficients.[indexer idx]))
+                    |> Sample.withI (int16 (float i * riseCoefficients.[indexer idx]))
+                    |> Sample.withQ (int16 (float q * riseCoefficients.[indexer idx]))
                 (sample', dur)
 
             /// Apply the necessary FIR filter to a list of samples.

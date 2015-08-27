@@ -7,7 +7,6 @@
 open Endorphin.Instrument.Keysight
 open ExtCore.Control
 open Control
-open ARB
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 
@@ -18,40 +17,40 @@ let printResult = function
 let numSamples = 1000us
 
 let sample1 =
-    emptySample
-    |> withI 10000s
-    |> withQ 10000s
-    |> withMarker1 true
+    Sample.empty
+    |> Sample.withI 10000s
+    |> Sample.withQ 10000s
+    |> Sample.withMarker1 true
 
 let sample2 =
-    emptySample
-    |> withI -10000s
-    |> withQ 20000s
-    |> withMarker2 true
+    Sample.empty
+    |> Sample.withI -10000s
+    |> Sample.withQ 20000s
+    |> Sample.withMarker2 true
 
 let segment1 =
-    emptySegment
-    |> addSample sample1 30us
-    |> addSample sample2 30us
-    |> segmentToWaveform
+    Segment.empty
+    |> Segment.add sample1 30us
+    |> Segment.add sample2 30us
+    |> Segment.toWaveform
 
 let segment2 =
-    emptySegment
-    |> addSample sample2 1us
-    |> addSample sample1 59us
-    |> segmentToWaveform
+    Segment.empty
+    |> Segment.add sample2 1us
+    |> Segment.add sample1 59us
+    |> Segment.toWaveform
 
 let sequence1 =
-    emptySequence
-    |> addWaveform segment1 12us
-    |> addWaveform segment2 1us
-    |> sequenceToWaveform
+    Sequence.empty
+    |> Sequence.add segment1 12us
+    |> Sequence.add segment2 1us
+    |> Sequence.toWaveform
 
 let sequence2 =
-    emptySequence
-    |> addWaveform sequence1 2us
-    |> addWaveform segment1 3us
-    |> sequenceToWaveform
+    Sequence.empty
+    |> Sequence.add sequence1 2us
+    |> Sequence.add segment1 3us
+    |> Sequence.toWaveform
 
 asyncChoice {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
