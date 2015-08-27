@@ -112,9 +112,9 @@ module Segment =
 
     /// Get a unique representation of a segment as a byte array.
     let internal toBytes segment =
-        let length = segment.SegmentLength
-        let arr = Array.create (int <| length * 9us) 0uy // 5 bytes per sample, 4 bytes per count
-        for i in 0 .. int <| length - 1us do
+        let length = segment.SegmentSamples.Length
+        let arr = Array.create (length * 9) 0uy // 5 bytes per sample, 4 bytes per count
+        for i in 0 .. length - 1 do
             let (sample, SampleCount reps) = segment.SegmentSamples.[i]
             arr.[(i * 9) + 0 .. (i * 9) + 4] <- Sample.toBytes sample
             arr.[(i * 9) + 5 .. (i * 9) + 8] <- BitConverter.GetBytes reps
