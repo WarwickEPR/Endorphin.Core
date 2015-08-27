@@ -402,9 +402,9 @@ module Model =
         /// the same, but waits for an initial trigger.  "Reset" is like "Trigger", but subsequent triggers
         /// reset the waveform to the beginning.
         type ArbContinuousMode =
-            | ArbContinuousFree
-            | ArbContinuousTrigger
-            | ArbContinuousReset
+            | Free
+            | Trigger
+            | Reset
 
         /// The mode of a segment advance type trigger in the dual ARB system.  "Single" means that on
         /// trigger, the next segment in the sequence plays once, ignoring the repetition count listed in
@@ -412,8 +412,8 @@ module Model =
         /// in a loop until the next trigger moves it on.  This also ignores the repetition count of the
         /// segment.
         type ArbSegmentAdvanceMode =
-            | ArbSegmentAdvanceSingle
-            | ArbSegmentAdvanceContinuous
+            | Single
+            | Continuous
 
         /// The behaviour of the system when a second trigger is received while in single trigger mode.
         /// "No retrigger" ignores all subsequent triggers. "Buffered retrigger" plays the segment again
@@ -426,6 +426,7 @@ module Model =
 
         /// The type of triggering to use for the dual ARB system.
         type ArbTriggerMode =
+            internal
             | ArbContinuous of mode : ArbContinuousMode
             | ArbSingle of repeats : uint16 * retrigger : ArbRetriggerMode
             | ArbGate of polarity : LowHighState
@@ -436,13 +437,14 @@ module Model =
 
         /// The source to use to trigger the dual ARB system.
         type ArbTriggerSource =
+            internal
             | ArbKey
             | ArbBus
             | ArbExternal of
                 connector : ArbExternalConnector * polarity : Polarity option * delay : Duration option
 
         /// Complete triggering information for the dual ARB system.
-        type ArbTrigger = ArbTrigger of mode : ArbTriggerMode * source : ArbTriggerSource
+        type ArbTrigger = internal ArbTrigger of mode : ArbTriggerMode * source : ArbTriggerSource option
 
     [<AutoOpen>]
     module Experiment =
