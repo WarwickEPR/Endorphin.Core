@@ -26,13 +26,16 @@ let cycle2 =
 let marker1 = Markers.empty |> Markers.withMarker1 true
 let markers1And3 = marker1  |> Markers.withMarker3 true
 
+let pulses = seq {
+    yield rf cycle1 60u
+    yield delayWithIncrement 60u 10u
+    yield trigger marker1
+    yield rfWithIncrement cycle2 10u 10u
+    yield marker markers1And3 20u }
+
 let experiment =
     Experiment.empty
-    |> addRfPulse cycle1 60u
-    |> addDelayWithIncrement 60u 10u
-    |> addTrigger marker1
-    |> addRfPulseWithIncrement cycle2 10u 10u
-    |> addMarkerPulse markers1And3 20u
+    |> withPulseSeq pulses
     |> withRepetitions 128
     |> withShotRepetitionTime 10e-6<s>
 

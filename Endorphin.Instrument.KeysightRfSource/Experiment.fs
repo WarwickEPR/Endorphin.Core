@@ -49,35 +49,39 @@ module Experiment =
         Power = PowerInDbm 4.0<dBm> }
 
     /// Append a pulse to an experiment.
-    let private appendPulse pulse (experiment : Experiment) =
-        { experiment with Pulses = Seq.appendSingleton pulse experiment.Pulses }
+    let withPulse pulse (experiment : Experiment) =
+        { experiment with Pulses = seq { yield pulse } }
+
+    /// Append a pulse sequence to an experiment.
+    let withPulseSeq pulses (experiment : Experiment) =
+        { experiment with Pulses = pulses }
 
     /// Add an RF pulse to an experiment with an increment each repetition.
-    let addRfPulseWithIncrement phases duration increment =
-        appendPulse (Rf (phases, SampleCount duration, SampleCount increment))
+    let rfWithIncrement phases duration increment =
+        Rf (phases, SampleCount duration, SampleCount increment)
 
     /// Add an RF pulse to an experiment with no increment.
-    let addRfPulse phases duration = addRfPulseWithIncrement phases duration 0u
+    let rf phases duration = rfWithIncrement phases duration 0u
 
     /// Add a delay between pulses to the experiment, with an increment each repetition.
-    let addDelayWithIncrement duration increment =
-        appendPulse (Delay (SampleCount duration, SampleCount increment))
+    let delayWithIncrement duration increment =
+        Delay (SampleCount duration, SampleCount increment)
 
     /// Add a single delay pulse to an experiment, the same length each repetition.
-    let addDelay duration = addDelayWithIncrement duration 0u
+    let delay duration = delayWithIncrement duration 0u
 
     /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
     /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let addMarkerPulseWithIncrement markers duration increment =
-        appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
+    let markerWithIncrement markers duration increment =
+        Marker (markers, SampleCount duration, SampleCount increment)
 
     /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
     /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
+    let marker markers duration = markerWithIncrement markers duration 0u
 
     /// Add a single-sample trigger pulse on the given markers to an experiment.
     /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let addTrigger markers = addMarkerPulse markers 1u
+    let trigger markers = marker markers 1u
 
     /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
     let withRepetitions reps (experiment : Experiment) =
