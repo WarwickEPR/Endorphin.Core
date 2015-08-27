@@ -26,22 +26,18 @@ module IntensityMapping =
         let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
         return coordinate}
 
-    let PositionSetSuccess = PositionSet.Publish 
+    let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
 
-    let scanMap desiredOutput arrayofPoints =
-        let length = Array.length arrayofPoints         
-        let setCoorinate = PiezojenaNV40.Motion.setAllOutputs desiredOutput 
-
-
-
-
-
-
-
-
-
-
-
+    let scanMap desiredOutput arrayofPoints interval =
+        let length = Array.length arrayofPoints - 1          
+        let rec scan count = 
+            if count < length || count = length then
+                let desiredOutput = Array.get arrayofPoints 0
+                PiezojenaNV40.Motion.setAllOutputs piezojena desiredOutput interval 
+                scan (count + 1)
+            else 
+                ()  
+        ()
                                           
 let xAxis = {
     Axis = Channel0
@@ -53,9 +49,6 @@ let yAxis = {
 
 let interval = 2.0f    
 
-let start = IntensityMap.GenerategetCoordinates |> Async.RunSynchronously |> Choice.bindOrFail  
-let points = IntensityMap.Generate.getGrid xAxis yAxis interval |> Async.RunSynchronously |> Choice.bindOrFail
-IntensityMapping.createMap piezojena points start 
 
          
  

@@ -7,6 +7,7 @@ open log4net
 open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
+open FSharp.Control.Reactive
 
 module PiezojenaNV40 = 
 
@@ -314,7 +315,7 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let private setandQueryWorkflow piezojena (desiredOutput:float32*float32*float32) resolution =   
+        let private setandQuery piezojena (desiredOutput:float32*float32*float32) resolution =   
             let stage  = id piezojena
             
             let setAllOutputsWorkflow  =         
@@ -334,18 +335,15 @@ module PiezojenaNV40 =
         
         /// Event to be triggered when correct position reached. 
         let PositionSet = new Event<float32*float32*float32>()
-        
-        let Event = new Event<int>()
-
-        let EventPublish = Event.Publish
-
+        let PublishedPositionSet = PositionSet.Publish 
+        PublishedPositionSet.Add (fun coordinate -> printfn "%A" coordinate)
+       
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
         let setAllOutputs piezojena target resolution = 
             let setAllOutputsWorkflow = asyncChoice {
-                let! reachedTarget = setandQueryWorkflow piezojena target resolution
+                let! reachedTarget = setandQuery piezojena target resolution
                 let! coordinate = Query.queryAllPositions piezojena
                 return coordinate}
-
             let rec findCoordinate count =     
                 if count > 10 then failwithf "Cannot find coordinate."
                 let successMessage = setAllOutputsWorkflow |> Async.RunSynchronously   

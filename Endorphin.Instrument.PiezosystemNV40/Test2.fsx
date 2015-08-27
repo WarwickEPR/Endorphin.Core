@@ -79,8 +79,6 @@ let generateSequence (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (star
 
     generateAll (firstOffset, secondOffset) points
         
-             
-
 let xAxis = {
     Axis = Channel0;
     Length = 100.0f;}
@@ -91,3 +89,31 @@ let yAxis = {
 
 let list = generateSequence xAxis yAxis 2.0f (0.0f, 0.0f, 5.0f)
 List.length list
+
+
+
+
+let test value =
+    
+    let newEvent = new Event<int>()
+    
+    let publishedEvent = newEvent.Publish
+    
+    publishedEvent.Add (fun (value:int) -> printfn "Triggered %i" value)
+
+    if value > 10 then
+        newEvent.Trigger value
+    else 
+        ()
+
+
+
+    let PositionSet = new Event<float32*float32*float32>()
+    let PublishedPositionSet = PositionSet.Publish 
+    PublishedPositionSet.Add (fun coordinate -> printfn "%A" coordinate)
+
+    let test2 boolean coordinate = 
+        if boolean = true then 
+            PositionSet.Trigger coordinate 
+        else ()
+    ()
