@@ -50,7 +50,7 @@ module ARB =
     [<RequireQualifiedAccess>]
     module Trigger =
         /// The default mode for the ARB triggering system.
-        let private emptyMode = ArbContinuous Free
+        let private emptyMode = ArbContinuous FreeRun
 
         /// The default source for the ARB triggering system.
         let private emptySource = Some (ArbExternal (ArbBnc, Some Negative, None))
@@ -177,17 +177,17 @@ module ARB =
         /// Convert an internal representation of the continuous type mode of the dual ARB triggering
         /// system into a machine representation.
         let private continuousModeString = function
-            | Free -> "FREE"
-            | Trigger -> "TRIGGER"
-            | Reset -> "RESET"
+            | FreeRun -> "FREE"
+            | TriggerThenRun -> "TRIGGER"
+            | ResetOnTrigger -> "RESET"
 
         /// Convert a machine representation of the continuous type mode of the dual ARB triggering
         /// system into an internal representation.
         let private parseContinuousMode str =
             match String.toUpper str with
-            | "FREE" -> Free
-            | "TRIG" | "TRIGGER" -> Trigger
-            | "RES" | "RESET" -> Reset
+            | "FREE" -> FreeRun
+            | "TRIG" | "TRIGGER" -> TriggerThenRun
+            | "RES" | "RESET" -> ResetOnTrigger
             | _ -> failwithf "Unexpected ARB continuous mode trigger type string: %s" str
 
         /// Convert an internal representation of the single trigger retrigger mode of the dual
@@ -209,15 +209,15 @@ module ARB =
         /// Convert an internal representation of the segment advance type mode of the dual ARB
         /// triggering system into a machine representation.
         let private segmentAdvanceModeString = function
-            | Single -> "SINGLE"
-            | Continuous -> "CONTINUOUS"
+            | SinglePlay -> "SINGLE"
+            | ContinuousPlay -> "CONTINUOUS"
 
         /// Convert a machine representation of the segment advance type mode of the dual ARB
         /// triggering system into a machine representation.
         let private parseSegmentAdvanceMode str =
             match String.toUpper str with
-            | "SING" | "SINGLE" -> ArbSegmentAdvanceMode.Single
-            | "CONT" | "CONTINUOUS" -> Continuous
+            | "SING" | "SINGLE" -> ArbSegmentAdvanceMode.SinglePlay
+            | "CONT" | "CONTINUOUS" -> ContinuousPlay
             | _ -> failwithf "Unexpected ARB segment advance mode trigger type string: %s" str
 
         /// Convert an internal representation of the physical location of an external dual ARB

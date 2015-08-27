@@ -402,9 +402,9 @@ module Model =
         /// the same, but waits for an initial trigger.  "Reset" is like "Trigger", but subsequent triggers
         /// reset the waveform to the beginning.
         type ArbContinuousMode =
-            | Free
-            | Trigger
-            | Reset
+            | FreeRun
+            | TriggerThenRun
+            | ResetOnTrigger
 
         /// The mode of a segment advance type trigger in the dual ARB system.  "Single" means that on
         /// trigger, the next segment in the sequence plays once, ignoring the repetition count listed in
@@ -412,8 +412,8 @@ module Model =
         /// in a loop until the next trigger moves it on.  This also ignores the repetition count of the
         /// segment.
         type ArbSegmentAdvanceMode =
-            | Single
-            | Continuous
+            | SinglePlay
+            | ContinuousPlay
 
         /// The behaviour of the system when a second trigger is received while in single trigger mode.
         /// "No retrigger" ignores all subsequent triggers. "Buffered retrigger" plays the segment again
