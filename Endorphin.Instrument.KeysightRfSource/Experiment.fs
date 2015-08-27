@@ -1,8 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open Endorphin.Core
-open ARB
-open Hashing
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
@@ -522,7 +520,7 @@ module Experiment =
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
 
             /// Check whether two samples are equal by comparing their hashes.
-            let private equalSamples a b = (hexHash sampleToBytes a) = (hexHash sampleToBytes b)
+            let private equalSamples a b = Sample.hash a = Sample.hash b
 
             /// Given a list of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly.
@@ -613,7 +611,7 @@ module Experiment =
                         let segment =
                             { SegmentSamples = Array.ofList <| List.rev acc
                               SegmentLength  = (uint16 count) }
-                        let id = hexHash segmentToBytes segment
+                        let id = Segment.hash segment
                         ({ Element = (SegmentId id, uint16 reps)
                            Segments = Map.add id segment Map.empty
                            Sequences = Map.empty },
@@ -755,9 +753,10 @@ module Experiment =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let internal makeExperimentName (SequenceType compressed) =
-                let byteCount = elementByteCount compressed.Head
-                let arrLength = compressed.Length * byteCount
+            let internal makeExperimentName sequence =
+                let waveforms = Sequence.waveforms sequence
+                let byteCount = elementByteCount waveforms.Head
+                let arrLength = waveforms.Length * byteCount
                 let array = Array.create arrLength 0uy
                 let rec loop n = function
                     | [] -> array
@@ -765,7 +764,7 @@ module Experiment =
                         let elementArray = elementToByteArray el
                         for i in 0 .. (byteCount - 1) do array.[n * byteCount + i] <- elementArray.[i]
                         loop (n + 1) tail
-                compressed |> hexHash (loop 0)
+                Hash.bytes <| loop 0 waveforms
 
             /// Convert a compressed experiment into an encoded one suitable for writing
             /// to the machine.

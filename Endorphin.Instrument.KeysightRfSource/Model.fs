@@ -357,7 +357,7 @@ module Model =
         type Sample = internal {
             I       : int16
             Q       : int16
-            Markers : Markers }
+            SampleMarkers : Markers }
 
         /// A number of samples, generally used as a pulse duration.
         type internal SampleCount = SampleCount of uint32

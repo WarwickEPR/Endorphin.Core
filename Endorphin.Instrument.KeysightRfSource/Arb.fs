@@ -1,28 +1,51 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open System
-open Hashing
 open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+[<RequireQualifiedAccess>]
 module ARB =
     /// The shortest length of time a pulse can be, measured in seconds.
     let shortestPulseDuration = (2.0e-8<s>)/3.0
     /// The default clock rate for the dual ARB system.
-    let defaultArbClockFrequency = FrequencyInHz 150.0e6<Hz>
+    let defaultClockFrequency = FrequencyInHz 150.0e6<Hz>
 
     /// Key for use with the dual ARB clock frequency.
     /// Command reference p.344.
-    let private dualArbClockKey = ":RADIO:ARB:SCLOCK:RATE"
+    let private clockKey = ":RADIO:ARB:SCLOCK:RATE"
     /// Set the dual ARB clock frequency to the value specified.
-    let setDualArbClock = IO.setFrequency dualArbClockKey
+    let setClock = IO.setFrequency clockKey
     /// Query the current value of the dual ARB clock frequency.
-    let queryDualArbClock = IO.queryFrequency dualArbClockKey
+    let queryClock = IO.queryFrequency clockKey
 
     /// Key for saving header files of waveform segments in the dual ARB system.
-    let private dualArbSaveHeaderKey = ":RADIO:ARB:HEADER:SAVE"
+    let private saveHeaderKey = ":RADIO:ARB:HEADER:SAVE"
     /// Save the current dual ARB settings to the header file of the currently selected waveform.
-    let setHeaderFile = IO.writeKey dualArbSaveHeaderKey
+    let setHeaderFile = IO.writeKey saveHeaderKey
+
+    /// Key related to the state of the dual ARB player on the machine. Needs the output
+    /// state to also be on before it will start to play.
+    /// Command reference p.356.
+    let private arbStateKey = ":RAD:ARB:STAT"
+    /// Key related to the the modulation state of the RF channels.
+    /// Command reference p.157.
+    let private modulationStateKey = ":OUTP:MOD:STAT"
+    /// Key for the overall RF output state. Must be On if anything is to play
+    /// Command reference p.157.
+    let private outputStateKey = ":OUTP:STAT"
+
+    /// Set the state of the ARB generator of the given instrument. Can either be On
+    /// or Off.
+    let private setState value instrument = asyncChoice {
+        do! IO.setOnOffState arbStateKey instrument value
+        do! IO.setOnOffState modulationStateKey instrument value
+        do! IO.setOnOffState outputStateKey instrument value }
+
+    /// Turn on the ARB generator of the instrument.
+    let turnOn = setState On
+    /// Turn off the ARB generator of the instrument.
+    let turnOff = setState Off
 
     [<RequireQualifiedAccess>]
     module Trigger =
@@ -263,183 +286,141 @@ module ARB =
             let! source = querySource instrument mode
             return ArbTrigger (mode, source) }
 
-    /// Functions for encoding segments and samples into a writeable form.
-    [<AutoOpen>]
-    module internal Translate =
-        [<AutoOpen>]
-        module Encode =
-            /// Make a marker byte out of the booleans in an IQ sample.
-            let private getMarkerByte (sample : Sample) =
-                ((Convert.ToByte sample.Markers.M4) <<< 3) ||| ((Convert.ToByte sample.Markers.M3) <<< 2)
-                ||| ((Convert.ToByte sample.Markers.M2) <<< 1) ||| (Convert.ToByte sample.Markers.M1)
+    module internal Encode =
+        /// Create a tuple of iq, markers encoded as byte sequences.
+        let toEncodedSegmentData (segment : Segment) =
+            let sampleCount = int segment.SegmentLength
+            let iq = Array.create (sampleCount * 4) 0uy
+            let markers = Array.create sampleCount 0uy
+            let mutable sampleIndex = 0
+            let mutable used = 0u
+            let singleIq = Array.create 4 0uy
+            let mutable singleMarkers = 0uy
+            for i in 0 .. (sampleCount - 1) do
+                let (sample, SampleCount count) = segment.SegmentSamples.[sampleIndex]
+                if used = 0u then
+                    singleIq.[0 .. 3] <- Sample.iqBytes sample
+                    singleMarkers     <- Markers.toByte (Sample.markers sample)
+                iq.[(4 * i) .. (4 * i) + 3] <- singleIq
+                markers.[i]      <- singleMarkers
+                if used = count - 1u then
+                    used <- 0u
+                    sampleIndex <- sampleIndex + 1
+                else used <- used + 1u
+            (iq, markers)
 
-            /// Convert a 16-bit integer to an array of bytes in machine order.
-            let private toBytes (number : int16) =
-                [| byte ((number &&& 0xFF00s) >>> 8); byte (number &&& 0xFFs) |]
+        /// Encode a segment into the necessary byte patterns.
+        let private toEncodedSegment segment =
+            let (iq, markers) = toEncodedSegmentData segment
+            { EncodedIQ = iq
+              EncodedMarkers = markers }
 
-            /// Get a four-byte array of the IQ data in the correct endianness.
-            let private iqBytes sample =
-                let i = toBytes sample.I
-                let q = toBytes sample.Q
-                [| i.[0]; i.[1]; q.[0]; q.[1] |]
+        /// Make the data string, including the '#' character, the digits of length, the length
+        /// and the data.
+        let private dataString (data : byte []) =
+            let length = data.Length
+            let digits = length.ToString().Length
+            if digits >= 10 then
+                failwith "Can't write 1GB in one go!"
+            Array.concat [
+                "#"B
+                Text.Encoding.ASCII.GetBytes(digits.ToString())
+                Text.Encoding.ASCII.GetBytes(length.ToString())
+                data ]
 
-            /// Create a tuple of iq, markers encoded as byte sequences.
-            let toEncodedSegmentData (segment : Segment) =
-                let sampleCount = int segment.SegmentLength
-                let iq = Array.create (sampleCount * 4) 0uy
-                let markers = Array.create sampleCount 0uy
-                let mutable sampleIndex = 0
-                let mutable used = 0u
-                let singleIq = Array.create 4 0uy
-                let mutable singleMarkers = 0uy
-                for i in 0 .. (sampleCount - 1) do
-                    let (sample, SampleCount count) = segment.SegmentSamples.[sampleIndex]
-                    if used = 0u then
-                        singleIq.[0 .. 3] <- iqBytes sample
-                        singleMarkers <- getMarkerByte sample
-                    iq.[(4 * i) .. (4 * i) + 3] <- singleIq
-                    markers.[i]      <- singleMarkers
-                    if used = count - 1u then
-                        used <- 0u
-                        sampleIndex <- sampleIndex + 1
-                    else used <- used + 1u
-                (iq, markers)
+        /// Build up a full string for data storage and location.
+        let private dataStorageString (fileName : string) dataString =
+            Array.concat [System.Text.Encoding.ASCII.GetBytes fileName; ","B; dataString]
 
-            /// Encode a segment into the necessary byte patterns.
-            let private toEncodedSegment segment =
-                let (iq, markers) = toEncodedSegmentData segment
-                { EncodedIQ = iq
-                  EncodedMarkers = markers }
+        /// Produce the full data strings necessary for writing the two different files
+        /// to the machine, given the encoded segment to extract the data from.  Ignores
+        /// the header file, but the only bits we usually care about here are more easily
+        /// set by SCPI commands.
+        let segment id segment =
+            let encodedSegment = toEncodedSegment segment
+            let waveformFilename = waveformFileString id
+            let markerFilename   = markerFileString   id
+            let waveformDataString = dataString encodedSegment.EncodedIQ
+            let markerDataString   = dataString encodedSegment.EncodedMarkers
+            { Waveform = dataStorageString  waveformFilename waveformDataString
+              Markers  = dataStorageString  markerFilename   markerDataString }
 
-            /// Make the data string, including the '#' character, the digits of length, the length
-            /// and the data.
-            let private dataString (data : byte []) =
-                let length = data.Length
-                let digits = length.ToString().Length
-                if digits >= 10 then
-                    failwith "Can't write 1GB in one go!"
-                Array.concat [
-                    "#"B
-                    Text.Encoding.ASCII.GetBytes(digits.ToString())
-                    Text.Encoding.ASCII.GetBytes(length.ToString())
-                    data ]
+        /// Get the whole string necessary to write a waveform file to the machine.
+        let waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
+        /// Get the whole string necessary to write a marker file to the machine.
+        let markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
 
-            /// Build up a full string for data storage and location.
-            let private dataStorageString (fileName : string) dataString =
-                Array.concat [System.Text.Encoding.ASCII.GetBytes fileName; ","B; dataString]
+        /// Make a sequence element into a tuple of the byte array of the full filename
+        /// and the ASCII representation of the number of repetitions.
+        let private asciiSequenceElement (el, reps) =
+            (asciiString <| waveformIdFilename el, asciiString reps)
 
-            /// Produce the full data strings necessary for writing the two different files
-            /// to the machine, given the encoded segment to extract the data from.  Ignores
-            /// the header file, but the only bits we usually care about here are more easily
-            /// set by SCPI commands.
-            let toEncodedSegmentFiles segment id =
-                let encodedSegment = toEncodedSegment segment
-                let waveformFilename = waveformFileString id
-                let markerFilename   = markerFileString   id
-                let waveformDataString = dataString encodedSegment.EncodedIQ
-                let markerDataString   = dataString encodedSegment.EncodedMarkers
-                { Waveform = dataStorageString  waveformFilename waveformDataString
-                  Markers  = dataStorageString  markerFilename   markerDataString }
+        /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B.
+        let private toEncodedSequenceElement (element : SequenceElement) =
+            sprintf "%s,%u,ALL" (waveformIdFilename <| fst element) (snd element)
 
-            /// Get the whole string necessary to write a waveform file to the machine.
-            let waveformDataString (encoded : EncodedSegmentFiles) = encoded.Waveform
-            /// Get the whole string necessary to write a marker file to the machine.
-            let markersDataString (encoded : EncodedSegmentFiles) = encoded.Markers
+        /// Convert a sequence into an ASCII string of its elements.
+        let internal sequenceData (SequenceType sequence) =
+            sequence
+            |> List.map toEncodedSequenceElement
+            |> List.map (sprintf ",%s")
+            |> String.concat ""
 
-            /// Make a sequence element into a tuple of the byte array of the full filename
-            /// and the ASCII representation of the number of repetitions.
-            let private asciiSequenceElement (el, reps) =
-                (asciiString <| waveformIdFilename el, asciiString reps)
+        /// Encode a whole sequence in an EncodedSequence.
+        let sequence id sequence =
+            sprintf "%s%s" (sequenceFileString id) (sequenceData sequence)
 
-            /// Encode a sequence element into the form "\"<filename>\",<reps>,<markers>"B.
-            let private toEncodedSequenceElement (element : SequenceElement) =
-                sprintf "%s,%u,ALL" (waveformIdFilename <| fst element) (snd element)
+    module internal Decode =
+        /// Convert a big-endian array of bytes into the host order.
+        let private toHostOrder bytes =
+            if BitConverter.IsLittleEndian then
+                bytes |> Array.rev
+            else
+                bytes
 
-            /// Convert a sequence into an ASCII string of its elements.
-            let private sequenceData (SequenceType sequence) =
-                sequence
-                |> List.map toEncodedSequenceElement
-                |> List.map (sprintf ",%s")
-                |> String.concat ""
+        /// Decompress the markers back into a 4-tuple of the 4 Boolean markers.
+        let private getMarkers markers =
+            { M1 = Convert.ToBoolean(markers &&& 0x1uy)
+              M2 = Convert.ToBoolean(markers &&& 0x2uy)
+              M3 = Convert.ToBoolean(markers &&& 0x4uy)
+              M4 = Convert.ToBoolean(markers &&& 0x8uy) }
 
-            /// Encode a whole sequence in an EncodedSequence.
-            let sequenceDataString id (sequence : Sequence) =
-                sprintf "%s%s" (sequenceFileString id) (sequenceData sequence)
+        /// Decode an encoded sample back into the internal representation of a sample.
+        let parseSample i q markers = { I = i; Q = q; SampleMarkers = markers }
 
-            /// Get a unique representation of a sample as a byte array.
-            let sampleToBytes sample =
-                let arr = Array.create 5 0uy
-                arr.[0 .. 3] <- iqBytes sample
-                arr.[4] <- getMarkerByte sample
-                arr
+        /// Get only the interesting bits of the datablock, removing the "#", the number of
+        /// digits, and the data length.
+        let private stripMetadata (data : byte array) =
+            /// datablock is of form "#<digits><length><data>"
+            data.[2 .. (Array.length data - 1)]
 
-            /// Get a unique representation of a segment as a byte array.
-            let segmentToBytes segment =
-                let length = segment.SegmentLength
-                let arr = Array.create (int <| length * 9us) 0uy // 5 bytes per sample, 4 bytes per count
-                for i in 0 .. int <| length - 1us do
-                    let (sample, SampleCount reps) = segment.SegmentSamples.[i]
-                    arr.[(i * 9) + 0 .. (i * 9) + 4] <- sampleToBytes sample
-                    arr.[(i * 9) + 5 .. (i * 9) + 8] <- BitConverter.GetBytes reps
-                    // endianness doesn't matter here
-                arr // return the byte array we just created
+        /// Parse a waveform file into a tuple of i and q data arrays.
+        let parseWaveformFile (data : byte array) =
+            let data' = data |> stripMetadata
+            let numSamples = (Array.length data') / 4
+            let i = Array.create numSamples 0s
+            let q = Array.create numSamples 0s
+            let rec loop = function
+                | index when index = numSamples -> (i, q)
+                | index ->
+                    i.[index] <-
+                        BitConverter.ToInt16(toHostOrder data'.[(4 * index)     .. (4 * index + 1)], 0)
+                    q.[index] <-
+                        BitConverter.ToInt16(toHostOrder data'.[(4 * index + 2) .. (4 * index + 3)], 0)
+                    loop (index + 1)
+            loop 0
 
-            /// Get a unique representation of a sequence as a byte array.
-            let sequenceToBytes = sequenceData >> asciiString
-
-        /// Functions for decoding segment and sequence data received from the machine.
-        [<AutoOpen>]
-        module Decode =
-            /// Convert a big-endian array of bytes into the host order.
-            let private toHostOrder bytes =
-                if BitConverter.IsLittleEndian then
-                    bytes |> Array.rev
-                else
-                    bytes
-
-            /// Decompress the markers back into a 4-tuple of the 4 Boolean markers.
-            let private getMarkers markers =
-                { M1 = Convert.ToBoolean(markers &&& 0x1uy)
-                  M2 = Convert.ToBoolean(markers &&& 0x2uy)
-                  M3 = Convert.ToBoolean(markers &&& 0x4uy)
-                  M4 = Convert.ToBoolean(markers &&& 0x8uy) }
-
-            /// Decode an encoded sample back into the internal representation of a sample.
-            let parseSample i q markers = { I = i; Q = q; Markers = markers }
-
-            /// Get only the interesting bits of the datablock, removing the "#", the number of
-            /// digits, and the data length.
-            let private stripMetadata (data : byte array) =
-                /// datablock is of form "#<digits><length><data>"
-                data.[2 .. (Array.length data - 1)]
-
-            /// Parse a waveform file into a tuple of i and q data arrays.
-            let parseWaveformFile (data : byte array) =
-                let data' = data |> stripMetadata
-                let numSamples = (Array.length data') / 4
-                let i = Array.create numSamples 0s
-                let q = Array.create numSamples 0s
-                let rec loop = function
-                    | index when index = numSamples -> (i, q)
-                    | index ->
-                        i.[index] <-
-                            BitConverter.ToInt16(toHostOrder data'.[(4 * index)     .. (4 * index + 1)], 0)
-                        q.[index] <-
-                            BitConverter.ToInt16(toHostOrder data'.[(4 * index + 2) .. (4 * index + 3)], 0)
-                        loop (index + 1)
-                loop 0
-
-            /// Parse a marker file into an array of markers.
-            let parseMarkerFile (data : byte array) =
-                let data' = data |> stripMetadata
-                let numSamples = (Array.length data')
-                let markers = Array.create numSamples Unchecked.defaultof<Markers>
-                let rec loop = function
-                    | index when index = numSamples -> markers
-                    | index ->
-                        markers.[index] <- getMarkers data'.[index]
-                        loop (index + 1)
-                loop 0
+        /// Parse a marker file into an array of markers.
+        let parseMarkerFile (data : byte array) =
+            let data' = data |> stripMetadata
+            let numSamples = (Array.length data')
+            let markers = Array.create numSamples Unchecked.defaultof<Markers>
+            let rec loop = function
+                | index when index = numSamples -> markers
+                | index ->
+                    markers.[index] <- getMarkers data'.[index]
+                    loop (index + 1)
+            loop 0
 
 #if DEBUG
     [<AutoOpen>]
@@ -456,10 +437,10 @@ module ARB =
                 (getIndent indent)
                 sample.I
                 sample.Q
-                (Convert.ToInt32 sample.Markers.M1)
-                (Convert.ToInt32 sample.Markers.M2)
-                (Convert.ToInt32 sample.Markers.M3)
-                (Convert.ToInt32 sample.Markers.M4)
+                (Convert.ToInt32 sample.SampleMarkers.M1)
+                (Convert.ToInt32 sample.SampleMarkers.M2)
+                (Convert.ToInt32 sample.SampleMarkers.M3)
+                (Convert.ToInt32 sample.SampleMarkers.M4)
 
         /// Print out a (Sample * SampleCount) tuple.
         let printSampleCount indent (smp, SampleCount count) =
@@ -484,123 +465,3 @@ module ARB =
                 printfn "%s%s * %d" (getIndent indent) id reps
                 printSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
 #endif
-
-[<RequireQualifiedAccess>]
-module Markers =
-    /// A markers record with all markers turned off.
-    let empty = { M1 = false; M2 = false; M3 = false; M4 = false }
-
-    /// Set value of the first marker.
-    let withMarker1 value markers = { markers with M1 = value }
-    /// Set value of the second marker.
-    let withMarker2 value markers = { markers with M2 = value }
-    /// Set value of the third marker.
-    let withMarker3 value markers = { markers with M3 = value }
-    /// Set value of the fourth marker.
-    let withMarker4 value markers = { markers with M4 = value }
-
-[<RequireQualifiedAccess>]
-module Sample =
-    /// Basic data form of IQ point.
-    let empty = {
-        Sample.I = 0s
-        Sample.Q = 0s
-        Sample.Markers = Markers.empty }
-
-    /// Set value of the I sample.
-    let withI value sample = { sample with I = value }
-    /// Set value of the Q sample.
-    let withQ value sample = { sample with Q = value }
-
-    /// Set value of the first marker.
-    let withMarker1 value (sample : Sample) =
-        { sample with Markers = Markers.withMarker1 value sample.Markers }
-    /// Set value of the second marker.
-    let withMarker2 value (sample : Sample) =
-        { sample with Markers = Markers.withMarker2 value sample.Markers }
-    /// Set value of the third marker.
-    let withMarker3 value (sample : Sample) =
-        { sample with Markers = Markers.withMarker3 value sample.Markers }
-    /// Set value of the fourth marker.
-    let withMarker4 value (sample : Sample) =
-        { sample with Markers = Markers.withMarker4 value sample.Markers }
-
-    /// Set value of all markers at once.
-    let withMarkers markers (sample: Sample) =
-        { sample with Markers = markers }
-
-    /// Convert a Phase type into a float value of radians for use in the mathematical functions.
-    let private phaseToRadians = function
-        // We want IQ to be equal at 0 phase, so rotate phases by pi/4
-        | PhaseInRad (angle) -> (angle / 1.0<rad>) + (Math.PI / 4.0)
-        | PhaseInDeg (angle) -> (angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>) + (Math.PI / 4.0)
-
-    /// The maximum amplitude in arbitrary units that the machine can take for an IQ point amplitude.
-    let private maximumMachineAmplitude = Int16.MaxValue
-
-    /// Generate a sample at the given amplitude and phase.  The amplitude is relative to the
-    /// maximum amplitude available with the current scaling setting on the machine.
-    /// I and Q are equal when phase is 0.
-    let withAmplitudeAndPhase relativeAmplitude phase sample =
-        let phaseAngle = phaseToRadians phase
-        let amplitude = relativeAmplitude * float maximumMachineAmplitude
-        sample
-        |> withI (int16 (amplitude * Math.Cos phaseAngle))
-        |> withQ (int16 (amplitude * Math.Sin phaseAngle))
-
-[<RequireQualifiedAccess>]
-module Segment =
-    /// An empty segment, ready to have samples added to it.
-    let empty = {
-        SegmentSamples = Array.empty
-        SegmentLength  = 0us }
-
-    /// Minimum length a segment may be for playback on the ARB.
-    let minimumLength = 60u
-
-    /// Get the samples associated with a segment.
-    let internal samples (segment : Segment) = segment.SegmentSamples
-
-    /// Get the length of a segment.
-    let length (segment : Segment) = segment.SegmentLength
-
-    /// Add a sample and a number of repeats to a waveform.
-    let add sample count segment = {
-        SegmentSamples = Array.append (samples segment) [| (sample, SampleCount <| uint32 count) |]
-        SegmentLength  = length segment + count }
-
-    /// Add a sequence of (sample, count) onto a segment.
-    let addSeq sequence segment = {
-        SegmentSamples =
-            sequence
-            |> Seq.map (fun (x, y) -> (x, SampleCount y))
-            |> Array.ofSeq
-            |> Array.append (samples segment)
-        SegmentLength =
-            sequence
-            |> Seq.sumBy snd
-            |> uint16
-            |> (+) (length segment) }
-
-    /// Complete a segment, creating a waveform to write to the machine.
-    let toWaveform segment =
-        let id = hexHash ARB.Translate.Encode.segmentToBytes segment
-        Segment (id, segment)
-
-[<RequireQualifiedAccess>]
-module Sequence =
-    /// An empty sequence, ready to have waveforms added to it.
-    let empty = SequenceType List.empty
-
-    /// Add a waveform sequence and count to a sequence.
-    let add waveform count (SequenceType sequence) =
-        let id =
-            match waveform with
-            | Segment (id, _) -> SegmentId id
-            | Sequence (id, _) -> SequenceId id
-        SequenceType ((id, count) :: sequence)
-
-    /// Complete a sequence, creating a waveform to write to the machine.
-    let toWaveform (SequenceType sequence) =
-        let id = hexHash ARB.Translate.Encode.sequenceToBytes (SequenceType sequence)
-        Sequence (id, SequenceType (List.rev sequence))

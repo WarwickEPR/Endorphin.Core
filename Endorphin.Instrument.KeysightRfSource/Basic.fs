@@ -33,27 +33,3 @@ module Basic =
     let private triggerKey = "*TRG"
     /// Send a trigger on the bus.
     let trigger = IO.writeKey triggerKey
-
-    /// Key related to the state of the dual ARB player on the machine. Needs the output
-    /// state to also be on before it will start to play.
-    /// Command reference p.356.
-    let private arbStateKey = ":RAD:ARB:STAT"
-    /// Key related to the the modulation state of the RF channels.
-    /// Command reference p.157.
-    let private modulationStateKey = ":OUTP:MOD:STAT"
-    /// Key for the overall RF output state. Must be On if anything is to play
-    /// Command reference p.157.
-    let private outputStateKey = ":OUTP:STAT"
-
-    /// Set the state of the ARB generator of the given instrument. Can either be On
-    /// or Off.
-    let private setArbState value instrument = asyncChoice {
-        do! IO.setOnOffState arbStateKey instrument value
-        do! IO.setOnOffState modulationStateKey instrument value
-        do! IO.setOnOffState outputStateKey instrument value }
-
-    /// Turn on the ARB generator of the instrument.
-    let turnOnArb = setArbState On
-    /// Turn off the ARB generator of the instrument.
-    let turnOffArb = setArbState Off
-
