@@ -22,28 +22,18 @@ let piezojena = connect serialPort
 
 module IntensityMapping = 
     
-    let dummyEvent = new Event<bool>()
-    let publishedDummyEvent = dummyEvent.Publish
-    publishedDummyEvent.Add (fun boolean -> if boolean = true then printfn "Trigger."
-                                            else printfn "Don't trigger.")
-
-    let sleep = async{ 
-        Async.Sleep 2000 |> Async.RunSynchronously
-        return true} 
-
     let start = asyncChoice {
         let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
         return coordinate}
 
     let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
 
-    let scanMap arrayofPoints resolution =
+    let scanMap desiredOutput arrayofPoints interval =
         let length = Array.length arrayofPoints - 1          
         let rec scan count = 
             if count < length || count = length then
                 let desiredOutput = Array.get arrayofPoints 0
-                PiezojenaNV40.Motion.setAllOutputs piezojena desiredOutput resolution 
-                sleep |> Async.RunSynchronously |> dummyEvent.Trigger 
+                PiezojenaNV40.Motion.setAllOutputs piezojena desiredOutput interval 
                 scan (count + 1)
             else 
                 ()  
@@ -57,20 +47,9 @@ let yAxis = {
     Axis = Channel1
     Length = 100.0f}
 
-let interval = 2.0f 
-let resolution = 0.05f   
+let interval = 2.0f    
 
-PiezojenaNV40.Initialise.initialise piezojena |> Async.RunSynchronously
-let startCoordinates = IntensityMapping.start |> Async.RunSynchronously 
-let checkStartCoordinates = function
-    | Success coordinate -> coordinate
-    | Failure message -> (0.0f, 0.0f, 0.0f) 
-let start = checkStartCoordinates startCoordinates       
-let arrayofPoints = IntensityMap.Generate.generateGridPoints xAxis yAxis interval start 
-IntensityMapping.scanMap arrayofPoints resolution 
- 
-        
-           
-   
+
+         
  
     

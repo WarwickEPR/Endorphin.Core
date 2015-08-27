@@ -81,7 +81,7 @@ module PiezojenaNV40 =
     module SetParameters = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
-        let private setLoopMode piezojena (channel:Channel) (mode:Loop) = 
+        let setLoopMode piezojena (channel:Channel) (mode:Loop) = 
             let stage = id piezojena
             let setLoopModeWorkflow =         
                 async{
@@ -154,7 +154,7 @@ module PiezojenaNV40 =
             workflowArray |> checkMulti piezojena 
                           
         /// Sets econder values.
-        let private setEncoder piezojena (encoder:Encoder) =
+        let setEncoder piezojena (encoder:Encoder) =
             let stage = id piezojena         
             let setEncoderWorkflow = 
                 async{
@@ -174,7 +174,7 @@ module PiezojenaNV40 =
             setEncoderWorkflow |> check piezojena 
         
         /// Sets soft start, if true then soft start turned on, if false then off. 
-        let private setSoftStart piezojena (softstart:Switch) = 
+        let setSoftStart piezojena (softstart:Switch) = 
             
             let setSoftStartWorkflow =     
                 let stage = id piezojena 
@@ -188,7 +188,7 @@ module PiezojenaNV40 =
     module Query = 
 
         /// Queries the encoders values. 
-        let private queryEncoder piezojena =     
+        let queryEncoder piezojena =     
             let stage = id piezojena 
             let queryEncoderWorkflow =
                 async{  
@@ -217,7 +217,7 @@ module PiezojenaNV40 =
             queryTemperatureWorkflow |> check piezojena 
         
         /// Queries the actuator posistion for a single channel. 
-        let private queryAcuatorCoordinate piezojena (channel:Channel) =     
+        let queryAcuatorCoordinate piezojena (channel:Channel) =     
             let stage = id piezojena
             let queryAcuatorCoordinateWorkflow= 
                 async{ 
@@ -244,7 +244,7 @@ module PiezojenaNV40 =
             queryClosedLoopLimitsWorkflow |> check piezojena 
         
         /// Queries a measurement from a single channel. 
-        let private queryChannelPosition piezojena (channel:Channel) = 
+        let queryChannelPosition piezojena (channel:Channel) = 
             let stage = id piezojena 
             let queryChannelPositionWorkflow = 
                 async{
