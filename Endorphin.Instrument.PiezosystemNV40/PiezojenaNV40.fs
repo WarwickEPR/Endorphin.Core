@@ -254,20 +254,6 @@ module PiezojenaNV40 =
                 }
             queryChannelPositionWorkflow |> check piezojena 
         
-        /// Queries all measurements from three channels. 
-        let queryAllPositions piezojena = 
-            let stage = id piezojena 
-            let queryAllPositionsWorkflow = 
-                async{ 
-                let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
-                logDevice piezojena "Checking all channel measurements." 
-                stage.GetMeasuredValueChunk (&array)
-                let x = Array.get array 0
-                let y = Array.get array 1
-                let z = Array.get array 2
-                return (x, y, z)
-                }
-            queryAllPositionsWorkflow |> check piezojena 
     
     module Initialise = 
 
@@ -300,6 +286,21 @@ module PiezojenaNV40 =
                     true
             compare 
        
+        /// Queries all measurements from three channels. 
+        let queryPosition piezojena = 
+            let stage = id piezojena 
+            let queryAllPositionsWorkflow = 
+                async{ 
+                let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
+                logDevice piezojena "Checking all channel measurements." 
+                stage.GetMeasuredValueChunk (&array)
+                let x = Array.get array 0
+                let y = Array.get array 1
+                let z = Array.get array 2
+                return (x, y, z)
+                }
+            queryAllPositionsWorkflow |> check piezojena 
+
         /// Sets the output of a single channel.
         let private setOutput piezojena (channel:Channel) (output:float32) = 
             let stage = id piezojena 
@@ -309,8 +310,8 @@ module PiezojenaNV40 =
                 logDevice piezojena "Setting channel output."
                 stage.SetDesiredOutput (byteChannel, output)
                 }
-            setOutputWorkflow |> check piezojena 
-       
+            setOutputWorkflow |> check piezojena
+
         /// Sets all channel outputs. 
         let private setAllOutputs piezojena (desiredOutput:float32*float32*float32) resolution =   
             let stage  = id piezojena
@@ -327,7 +328,7 @@ module PiezojenaNV40 =
             if count > 10 then 
                 return! (fail "Failed to reach position")
             else     
-                let! coordinate = Query.queryAllPositions piezojena 
+                let! coordinate = queryPosition piezojena 
                 let positionReached = compare target coordinate tolerance
                 if positionReached then
                     return coordinate 
