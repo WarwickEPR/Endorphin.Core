@@ -402,4 +402,4 @@ module PicoScope =
                 let mutable hardwareInterval = uint32 requestedInterval
                 NativeApi.RunStreaming(handle device, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples,
                                         autoStop, downsamplingRatio, downsamplingMode, bufferLength)
-                |> checkStatusAndReturn (parseTimeUnitWithInterval (timeUnit, int hardwareInterval)))
+                |> checkStatusAndReturn (parseIntervalWithInterval (int hardwareInterval, timeUnit)))

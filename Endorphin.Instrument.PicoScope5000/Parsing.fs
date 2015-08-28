@@ -44,7 +44,7 @@ module internal Parsing =
             | LedRepeat n         -> n
             | LedIndefiniteRepeat -> -1s 
 
-    let parseTimeUnitWithInterval (unit, interval) =
+    let parseIntervalWithInterval (interval, unit) =
         match unit with
         | TimeUnitEnum.Femtoseconds -> IntervalInFemtoseconds (LanguagePrimitives.Int32WithMeasure interval)
         | TimeUnitEnum.Picoseconds  -> IntervalInPicoseconds  (LanguagePrimitives.Int32WithMeasure interval)
