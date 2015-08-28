@@ -54,14 +54,14 @@ module internal Parsing =
         | TimeUnitEnum.Seconds      -> IntervalInSeconds      (LanguagePrimitives.Int32WithMeasure interval)
         | enum                      -> failwithf "Unexpected time unit enum value: %A" enum
 
-    let timeUnitEnumAndInterval =
+    let intervalAndTimeUnitEnum =
         function
-        | IntervalInFemtoseconds interval -> (TimeUnitEnum.Femtoseconds, int interval)
-        | IntervalInPicoseconds  interval -> (TimeUnitEnum.Picoseconds,  int interval)
-        | IntervalInNanoseconds  interval -> (TimeUnitEnum.Nanoseconds,  int interval)
-        | IntervalInMicroseconds interval -> (TimeUnitEnum.Microseconds, int interval)
-        | IntervalInMilliseconds interval -> (TimeUnitEnum.Milliseconds, int interval)
-        | IntervalInSeconds      interval -> (TimeUnitEnum.Seconds,      int interval)
+        | IntervalInFemtoseconds interval -> (int interval, TimeUnitEnum.Femtoseconds)
+        | IntervalInPicoseconds  interval -> (int interval, TimeUnitEnum.Picoseconds )
+        | IntervalInNanoseconds  interval -> (int interval, TimeUnitEnum.Nanoseconds )
+        | IntervalInMicroseconds interval -> (int interval, TimeUnitEnum.Microseconds)
+        | IntervalInMilliseconds interval -> (int interval, TimeUnitEnum.Milliseconds)
+        | IntervalInSeconds      interval -> (int interval, TimeUnitEnum.Seconds     )
     
     let voltageFloatInVolts (VoltageInVolts v) = float32 v
     let autoTriggerDelayIntInMilliseconds = 

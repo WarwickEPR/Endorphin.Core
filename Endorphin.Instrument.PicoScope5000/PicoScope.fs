@@ -385,7 +385,7 @@ module PicoScope =
             let description = sprintf "Start streaming acquisition: %A" streamingParameters
             picoScope
             |> CommandRequestAgent.performObjectRequest description (fun device ->
-                let (timeUnit, requestedInterval)                     = timeUnitEnumAndInterval streamingParameters.SampleInterval
+                let (requestedInterval, timeUnit)                     = intervalAndTimeUnitEnum streamingParameters.SampleInterval
                 let (autoStop, preTriggerSamples, postTriggerSamples) = streamStopParameters streamingParameters.StreamStop
                 let (bufferLength)                                    = streamingParameters.BufferLength
                 
