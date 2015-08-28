@@ -88,8 +88,7 @@ let experiment = asyncChoice {
         let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
         // wait for the acquisition to finish automatically or by cancellation   
-        let! acquisitionResult = Streaming.Acquisition.waitToFinish acquisitionHandle
-        printfn "%A" acquisitionResult
+        do! Streaming.Acquisition.waitToFinish acquisitionHandle
 
     finally Async.StartImmediate <| async {
         let! closeResult = PicoScope.close picoScope 

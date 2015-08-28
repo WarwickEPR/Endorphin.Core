@@ -32,7 +32,7 @@ module Streaming =
 
     type StreamingAcquisitionHandle = 
         private { Acquisition  : StreamingAcquisition 
-                  WaitToFinish : AsyncChoice<AsyncResult<Choice<unit, string>>, string> }
+                  WaitToFinish : AsyncChoice<unit, string> }
 
     module Parameters =
         let create resolution sampleInterval bufferLength =
@@ -146,50 +146,61 @@ module Streaming =
         let startWithCancellationToken acquisition cancellationToken =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
+            
+            let resultChannel = new ResultChannel<_>()
 
-            let finishAcquisition cont econt acquisitionResult = Async.StartImmediate <| async {
+            let finishAcquisition acquisitionResult = Async.StartImmediate <| async {
                 let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
                 match acquisitionResult, stopResult with
                 | Success (), Success () -> 
                     acquisition.StatusChanged.Trigger (Next <| FinishedStream acquisition.StopCapability.Options)
                     acquisition.StatusChanged.Trigger Completed
-                    cont (succeed ())
+                    resultChannel.RegisterResult (succeed ())
                 | _, Failure f -> 
-                    let error = Exception <| sprintf "Acquisition failed to stop: %s" f
-                    acquisition.StatusChanged.Trigger (Error error)
-                    econt error
+                    let error = sprintf "Acquisition failed to stop: %s" f
+                    acquisition.StatusChanged.Trigger (Error (Exception error))
+                    resultChannel.RegisterResult (fail error)
                 | Failure f, _ ->
                     acquisition.StatusChanged.Trigger (Error <| Exception f)
-                    cont (fail f) }
+                    resultChannel.RegisterResult (fail f) }
 
-            let stopAcquisitionAfterCancellation ccont econt exn = Async.StartImmediate <| async { 
+            let stopAcquisitionAfterError exn = Async.StartImmediate <| async {
+                let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
+                match stopResult with
+                | Success () ->
+                    acquisition.StatusChanged.Trigger (Error exn)
+                    resultChannel.RegisterResult (fail exn.Message)
+                | Failure f ->
+                    let error = sprintf "Acquisition failed to stop after exception: %s" exn.Message
+                    acquisition.StatusChanged.Trigger (Error (Exception error))
+                    resultChannel.RegisterResult (fail error) }
+
+            let stopAcquisitionAfterCancellation exn = Async.StartImmediate <| async { 
                 let! stopResult =  PicoScope.Acquisition.stop acquisition.PicoScope
                 match stopResult with
                 | Success () ->
                     acquisition.StatusChanged.Trigger (Next <| CancelledStream)
                     acquisition.StatusChanged.Trigger Completed
-                    ccont exn
+                    resultChannel.RegisterResult (succeed ())
                 | Failure f ->
                     let error = sprintf "Acquisition failed to stop after cancellation: %s" f
                     acquisition.StatusChanged.Trigger (Error <| Exception error)
-                    econt (Exception error) }
+                    resultChannel.RegisterResult (fail error) }
 
             let acquisitionWorkflow =
-                Async.FromContinuations (fun (cont, econt, ccont) ->
-                    Async.StartWithContinuations(
-                        asyncChoice {
+                Async.StartWithContinuations(
+                    asyncChoice {
                             use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
                             do! prepareDevice acquisition
                             do! startStreaming acquisition
                             do! pollUntilFinished acquisition }, 
                     
-                        finishAcquisition cont econt, 
-                        econt, 
-                        stopAcquisitionAfterCancellation ccont econt,
-                        cancellationToken))
+                        finishAcquisition,
+                        stopAcquisitionAfterError, 
+                        stopAcquisitionAfterCancellation,
+                        cancellationToken)
 
-            let waitToFinish = Async.StartWithResultHandle (acquisitionWorkflow, cancellationToken)
-            { Acquisition = acquisition ; WaitToFinish = waitToFinish |> AsyncChoice.liftAsync }
+            { Acquisition = acquisition ; WaitToFinish = resultChannel.AwaitResult () }
     
         let start acquisition = startWithCancellationToken acquisition (Async.DefaultCancellationToken)
 
