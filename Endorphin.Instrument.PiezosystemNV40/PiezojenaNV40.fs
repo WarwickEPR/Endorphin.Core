@@ -93,7 +93,7 @@ module PiezojenaNV40 =
             setLoopModeWorkflow |> check piezojena  
 
         /// Sets all channels to same loop mode. 
-        let setLoopModeallChannels piezojena (mode:Loop) = 
+        let setLoopModeAllChannels piezojena (mode:Loop) = 
             let stage = id piezojena 
             let modeBoolean = Parsing.loopBoolean mode
             logDevice piezojena "Setting loop mode for all channels."
@@ -276,13 +276,13 @@ module PiezojenaNV40 =
         let initialise piezojena = asyncChoice{
             let stage = id piezojena 
             do SetParameters.setAllRemoteControl piezojena On             
-            do SetParameters.setLoopModeallChannels piezojena ClosedLoop   
+            do SetParameters.setLoopModeAllChannels piezojena ClosedLoop   
             }
 
     module Motion = 
         
         /// Checks if the desired and current positions are within 50nm of each other. 
-        let private checkPosition (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
+        let private compare (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
             let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
             let difference = tupleSubtract desired current 
             let first  = 
@@ -313,7 +313,7 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena 
        
         /// Sets all channel outputs. 
-        let private setandQuery piezojena (desiredOutput:float32*float32*float32) resolution =   
+        let private setAllOutputs piezojena (desiredOutput:float32*float32*float32) resolution =   
             let stage  = id piezojena
             
             let setAllOutputsWorkflow  =         
@@ -322,37 +322,27 @@ module PiezojenaNV40 =
                 Parsing.tupletoArray desiredOutput |> stage.SetDesiredOutputChunk  
                 }
             
-            let setOutputs = setAllOutputsWorkflow |> check piezojena  
+            setAllOutputsWorkflow |> check piezojena  
 
-            let setandQuery = asyncChoice{
-                do! setOutputs 
+        let rec private waitToReachPosition piezojena count target tolerance = asyncChoice{      
+            if count > 10 then 
+                return! (fail "Failed to reach position")
+            else     
                 let! coordinate = Query.queryAllPositions piezojena 
-                let compare = checkPosition coordinate desiredOutput resolution    
-                return compare}
-            setandQuery 
-        
-        /// Event to be triggered when correct position reached. 
-        let PositionSet = new Event<float32*float32*float32>()
-        let PublishedPositionSet = PositionSet.Publish 
-        PublishedPositionSet.Add (fun coordinate -> printfn "%A" coordinate)
-       
+                let positionReached = compare target coordinate tolerance
+                if positionReached then
+                    return coordinate 
+                else 
+                    do! Async.Sleep 5 |> AsyncChoice.liftAsync 
+                    return! waitToReachPosition piezojena (count + 1) target tolerance
+        }
+
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
-        let setAllOutputs piezojena target resolution = 
-            let setAllOutputsWorkflow = asyncChoice {
-                let! reachedTarget = setandQuery piezojena target resolution
-                let! coordinate = Query.queryAllPositions piezojena
-                return coordinate}
-            let rec findCoordinate count =     
-                if count > 10 then failwithf "Cannot find coordinate."
-                let successMessage = setAllOutputsWorkflow |> Async.RunSynchronously   
-                let success = 
-                    match successMessage with  
-                    | Success coordinate -> PositionSet.Trigger coordinate      
-                    | Failure message -> ()
-                if success = () then 
-                    findCoordinate (count + 1)
-                else
-                    ()
-            findCoordinate 0   
-                     
+        let setPosition piezojena target tolerance = asyncChoice{
+            // Async workflow for setting all outputs. 
+            do! setAllOutputs piezojena target tolerance
+            // Recursive function for querying position
+            let! finalCoordinate = waitToReachPosition piezojena 0 target tolerance
+            return finalCoordinate
+            }     
   

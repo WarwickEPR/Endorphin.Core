@@ -15,11 +15,6 @@ open FSharp.Control.Reactive
 open Endorphin.Core
 open Endorphin.Instrument.PiezosystemNV40
 
-let serialPort = "COM3"
-
-/// Creates serial port connection. 
-let piezojena = connect serialPort 
-
 module IntensityMapping = 
     
     let dummyEvent = new Event<bool>()
@@ -32,14 +27,14 @@ module IntensityMapping =
         return true} 
 
     /// Measures current coordinates.
-    let start = asyncChoice {
+    let start piezojena = asyncChoice {
         let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
         return coordinate}
 
     let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
 
     /// Scans the piezojena over all points in arrayofPoints. 
-    let scanMap arrayofPoints resolution =
+    let scanMap piezojena arrayofPoints resolution =
         let length = Array.length arrayofPoints - 1          
         let rec scan count = 
             if count < length || count = length then
@@ -50,32 +45,39 @@ module IntensityMapping =
             else 
                 ()  
         ()
-                                          
+
+
+// Creates serial port connection using serial port stored in the standardSerial.  
+let piezojena = connect SerialConnection.standardSerial.Port  
+
+// Test x axis. 
 let xAxis = {
     Axis = Channel0
     Length = 100.0f}
 
+// Test y aixs.
 let yAxis = {
     Axis = Channel1
     Length = 100.0f}
 
+// Test interval and resolution. 
 let interval = 2.0f 
 let resolution = 0.05f   
 
-/// Initialises the piezojena by setting all channels to remote mode and closed loop mode. 
+// Initialises the piezojena by setting all channels to remote mode and closed loop mode. 
 PiezojenaNV40.Initialise.initialise piezojena |> Async.RunSynchronously
-/// Gets the current coordinates of the piezojena. 
-let startCoordinates = IntensityMapping.start |> Async.RunSynchronously
-/// If the piezojenas coordinates have been measured successfully then they are returned, else sets coordinates to (0,0,0) 
+// Gets the current coordinates of the piezojena. 
+let startCoordinates = IntensityMapping.start piezojena |> Async.RunSynchronously
+// If the piezojenas coordinates have been measured successfully then they are returned, else sets coordinates to (0,0,0) 
 let checkStartCoordinates = function
     | Success coordinate -> coordinate
     | Failure message -> (0.0f, 0.0f, 0.0f) 
-/// Binds starting coordinates to name start.
+// Binds starting coordinates to name start.
 let start = checkStartCoordinates startCoordinates       
-/// Generates an array of grid points. 
+// Generates an array of grid points. 
 let arrayofPoints = IntensityMap.Generate.generateGridPoints xAxis yAxis interval start 
-/// Preforms intensity map using arrayofPoints.
-IntensityMapping.scanMap arrayofPoints resolution 
+// Preforms intensity map using arrayofPoints.
+IntensityMapping.scanMap piezojena arrayofPoints resolution 
         
            
    

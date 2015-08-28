@@ -16,12 +16,13 @@ module SerialConnection =
     let private identification (Piezojena ID) = ID     
 
     /// Standard serial connection configuration for the Piezojena. 
-    let private standardSerial = {
+    let standardSerial = {
         BaudRate = 19200
         DataBits = 8
         StopBits = One
         Parity = ParityNone
-        FlowControl = FlowControlXOnXOff}
+        FlowControl = FlowControlXOnXOff
+        Port = "COM3"}
     
     /// Makes a serial connection using the standardSerial values.
     let connect serialPort = 

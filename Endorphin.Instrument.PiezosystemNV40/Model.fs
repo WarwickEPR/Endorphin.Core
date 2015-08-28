@@ -55,7 +55,8 @@ module Model =
         DataBits: int
         StopBits: StopBits
         Parity: Parity
-        FlowControl: SerialFlowControl}
+        FlowControl: SerialFlowControl
+        Port : string}
     
     /// Three Piezojena channels, each channel controls movment in one direction. 
     type Channel = 
