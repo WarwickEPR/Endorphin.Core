@@ -16,25 +16,26 @@ module SerialConnection =
     let private identification (Piezojena ID) = ID     
 
     /// Standard serial connection configuration for the Piezojena. 
-    let standardSerial = {
+    let standardSerial portName = {
         BaudRate = 19200
         DataBits = 8
         StopBits = One
         Parity = ParityNone
         FlowControl = FlowControlXOnXOff
-        Port = "COM3"}
+        Port = portName}
     
     /// Makes a serial connection using the standardSerial values.
-    let connect serialPort = 
+    let connect portName = 
+        let serialPortConfiguration = standardSerial portName
         let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
-        serialConfiguration.BaudRate    <- standardSerial.BaudRate
-        serialConfiguration.DataBits    <- standardSerial.DataBits
-        serialConfiguration.StopBits    <- Parsing.stopBitsMap standardSerial.StopBits
-        serialConfiguration.Parity      <- Parsing.parityMap standardSerial.Parity
-        serialConfiguration.FlowControl <- Parsing.flowControlMap standardSerial.FlowControl
+        serialConfiguration.BaudRate    <- serialPortConfiguration.BaudRate 
+        serialConfiguration.DataBits    <- serialPortConfiguration.DataBits
+        serialConfiguration.StopBits    <- Parsing.stopBitsMap serialPortConfiguration.StopBits
+        serialConfiguration.Parity      <- Parsing.parityMap serialPortConfiguration.Parity
+        serialConfiguration.FlowControl <- Parsing.flowControlMap serialPortConfiguration.FlowControl
         let serialConnect = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
-        let config = serialConnect.CreateSerialPortConnection (serialPort, serialConfiguration)
-        let stage = serialConnect.ConnectNv40MultiToSerialPort (serialPort) 
+        let config = serialConnect.CreateSerialPortConnection (portName, serialConfiguration)
+        let stage = serialConnect.ConnectNv40MultiToSerialPort (portName) 
         Piezojena stage 
 
     /// Makes serial connection using user input values. 

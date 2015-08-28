@@ -191,9 +191,9 @@ module PiezojenaNV40 =
             let queryEncoderWorkflow =
                 async{  
                 let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
-                let mutable time : int         = Unchecked.defaultof<_>
-                let mutable stepLimit : int    = Unchecked.defaultof<_>
-                let mutable exponent : byte    = Unchecked.defaultof<_>
+                let mutable time : int           = Unchecked.defaultof<_>
+                let mutable stepLimit : int      = Unchecked.defaultof<_>
+                let mutable exponent : byte      = Unchecked.defaultof<_>
                 let mutable closedStep : float32 = Unchecked.defaultof<_> 
                 let mutable openStep : float32   = Unchecked.defaultof<_>
                 logDevice piezojena "Retrieving encoder values."

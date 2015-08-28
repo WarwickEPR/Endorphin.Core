@@ -201,7 +201,7 @@ module IntensityMap =
         
          /// Gets the current position of all the channels. 
          let private getCoordinates piezojena = asyncChoice{ 
-             return! PiezojenaNV40.Query.queryAllPositions piezojena
+             return! PiezojenaNV40.Motion.queryPosition piezojena
              }
          
          /// Generates a list of grid points and converts to an array. 

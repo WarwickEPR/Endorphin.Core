@@ -63,9 +63,6 @@ module Errors =
 //            ()
 //       
 //        workFlowArray |> multiStatusCheck  
-
-
-    
         
     let internal checkMulti piezojena (workflowArray : Async<'T>[]) =   
         let stage = id piezojena 
