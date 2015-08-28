@@ -25,14 +25,6 @@ module Connection =
     let mutable error : string = Unchecked.defaultof<_>
     let mutable array = [|Unchecked.defaultof<_>; Unchecked.defaultof<_>; Unchecked.defaultof<_>|]
     stage.GetMeasuredValueChunk (&array)
-       
-   
-   
-   
-   
-   
-   
-     
     
     //let serialConfiguration = new Piezojena.Protocols.SerialConfiguration()
     //sprintf "myface %s" <| serialConfiguration.BaudRate.ToString()

@@ -40,27 +40,53 @@ module Errors =
         return workflowResult }
     
         
-    let internal checkMulti piezojena (workFlowArray : Async<'T>[]) =   
+//    let internal checkMulti piezojena (workFlowArray : Async<'T>[]) =   
+//        let stage = id piezojena 
+//        /// Runs workflow and returns a status.
+//        let statusCheck (workflow:Async<'T>) = 
+//            workflow |> Async.RunSynchronously |> ignore 
+//            let mutable error : string = Unchecked.defaultof<_> 
+//            stage.GetCommandError (&error)
+//            stringtoStatus error 
+//        /// Takes argument of an array of async workflows and returns a list of thier status codes. 
+//        let multiStatusCheck (workflowArray : Async<'T> [])  = 
+//            let length = (Array.length workflowArray) - 1
+//            let rec results index  =
+//                if index > 0 || index =  0 then 
+//                    let workflow = Array.get workflowArray index
+//                    let status  = statusCheck workflow  
+//                    if status = Ok then
+//                        results (index - 1)   
+//                    else failwithf "%A" status
+//                else 
+//                    Ok 
+//            ()
+//       
+//        workFlowArray |> multiStatusCheck  
+
+
+    
+        
+    let internal checkMulti piezojena (workflowArray : Async<'T>[]) =   
         let stage = id piezojena 
         /// Runs workflow and returns a status.
-        let statusCheck (workflow:Async<'T>) = 
-            workflow |> Async.RunSynchronously |> ignore 
+        let statusCheck (workflow:Async<'T>) = asyncChoice{
+            let! workflowChoice = workflow |> AsyncChoice.liftAsync   
             let mutable error : string = Unchecked.defaultof<_> 
             stage.GetCommandError (&error)
-            stringtoStatus error 
-        /// Takes argument of an array of async workflows and returns a list of thier status codes. 
-        let multiStatusCheck (workflowArray : Async<'T> [])  = 
-            let length = (Array.length workflowArray) - 1
-            let rec results index  =
-                if index > 0 || index =  0 then 
-                    let workflow = Array.get workflowArray index
-                    let status  = statusCheck workflow  
-                    if status = Ok then
-                        results (index - 1)   
-                    else failwithf "%A" status
-                else 
-                    Ok 
-            ()
-       
-        workFlowArray |> multiStatusCheck  
+            return stringtoStatus error 
+            }
 
+        let rec results index (workflowArray : Async<'T> []) = asyncChoice{
+              let length = Array.length workflowArray - 1 
+              if index < length || index =  length then 
+                  let workflow = Array.get workflowArray index
+                  let! status  = statusCheck workflow  
+                  if status = Ok then
+                    return! results (index + 1) workflowArray    
+                  else 
+                    return! (fail "Failed to execute all workflows.")
+              else 
+                return Ok 
+              }
+        results 0 workflowArray 
