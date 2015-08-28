@@ -69,14 +69,15 @@ module Errors =
         
     let internal checkMulti piezojena (workflowArray : Async<'T>[]) =   
         let stage = id piezojena 
-        /// Runs workflow and returns a status.
+        // Runs workflow and returns a status.
         let statusCheck (workflow:Async<'T>) = asyncChoice{
             let! workflowChoice = workflow |> AsyncChoice.liftAsync   
             let mutable error : string = Unchecked.defaultof<_> 
             stage.GetCommandError (&error)
             return stringtoStatus error 
             }
-
+        
+        // Workflow takes an async workflow array and returns an asyncChoice. 
         let rec results index (workflowArray : Async<'T> []) = asyncChoice{
               let length = Array.length workflowArray - 1 
               if index < length || index =  length then 
@@ -87,6 +88,6 @@ module Errors =
                   else 
                     return! (fail "Failed to execute all workflows.")
               else 
-                return Ok 
-              }
+                return () 
+        }
         results 0 workflowArray 

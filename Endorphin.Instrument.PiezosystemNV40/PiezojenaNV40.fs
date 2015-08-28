@@ -264,9 +264,8 @@ module PiezojenaNV40 =
                 stage.GetMeasuredValueChunk (&array)
                 let x = Array.get array 0
                 let y = Array.get array 1
-                let z = Array.get array 2
-                let coordinate = (x, y, z)
-                return coordinate
+                let z = Array.get array 2s
+                return (x, y, z)
                 }
             queryAllPositionsWorkflow |> check piezojena 
     
@@ -275,8 +274,8 @@ module PiezojenaNV40 =
         /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
         let initialise piezojena = asyncChoice{
             let stage = id piezojena 
-            do SetParameters.setAllRemoteControl piezojena On             
-            do SetParameters.setLoopModeAllChannels piezojena ClosedLoop   
+            do! SetParameters.setAllRemoteControl piezojena On             
+            do! SetParameters.setLoopModeAllChannels piezojena ClosedLoop   
             }
 
     module Motion = 
@@ -342,7 +341,6 @@ module PiezojenaNV40 =
             // Async workflow for setting all outputs. 
             do! setAllOutputs piezojena target tolerance
             // Recursive function for querying position
-            let! finalCoordinate = waitToReachPosition piezojena 0 target tolerance
-            return finalCoordinate
+            return! waitToReachPosition piezojena 0 target tolerance
             }     
   
