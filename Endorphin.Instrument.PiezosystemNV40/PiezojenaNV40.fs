@@ -228,7 +228,7 @@ module PiezojenaNV40 =
             queryAcuatorCoordinateWorkflow |> check piezojena  
 
         /// Queries closed loop  limits. 
-        let queryClosedLoppLimits piezojena (channel:Channel) = 
+        let queryClosedLoopLimits piezojena (channel:Channel) = 
             let stage = id piezojena 
             let queryClosedLoopLimitsWorkflow  = 
                 async{
@@ -240,7 +240,7 @@ module PiezojenaNV40 =
                 return (minimum, maximum)
                 }
             queryClosedLoopLimitsWorkflow |> check piezojena 
-        
+       
         /// Queries a measurement from a single channel. 
         let private queryChannelPosition piezojena (channel:Channel) = 
             let stage = id piezojena 
@@ -256,13 +256,18 @@ module PiezojenaNV40 =
         
     
     module Initialise = 
-
+        
         /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
-        let initialise piezojena = asyncChoice{
+        let initialise portName  = asyncChoice{
+            let piezojena = SerialConnection.Standard portName 
             let stage = id piezojena 
             do! SetParameters.setAllRemoteControl piezojena On             
-            do! SetParameters.setLoopModeAllChannels piezojena ClosedLoop   
+            do! SetParameters.setLoopModeAllChannels piezojena ClosedLoop 
+            return piezojena   
             }
+
+        let close piezojena = 
+            (id piezojena).Dispose()
 
     module Motion = 
         
