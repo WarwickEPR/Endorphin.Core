@@ -86,7 +86,7 @@ module IntensityMap =
             fullCoordinate orderedPosition empty 
         
         /// Compresses three element tuple into two element tuple containing elements relevant to the first and second channels. 
-        let compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float32, y:float32, z:float32) =       
+        let private compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float32, y:float32, z:float32) =       
             let firstTuple = 
                 match firstChannel with
                 | Channel0 -> (1.0f, 0.0f, 0.0f)   
@@ -120,7 +120,7 @@ module IntensityMap =
      module Generate =          
          
          /// Gets the value of the specified channel. 
-         let getValue (channel:Channel) (x:float32, y:float32, z:float32) = 
+         let private getValue (channel:Channel) (x:float32, y:float32, z:float32) = 
              match channel with         
                  | Channel0 -> x
                  | Channel1 -> y
@@ -205,7 +205,7 @@ module IntensityMap =
              }
          
          /// Generates a list of grid points and converts to an array. 
-         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
+         let private generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
              let list = generateGridPointsList firstAxis secondAxis interval start
              list |> List.toArray 
 

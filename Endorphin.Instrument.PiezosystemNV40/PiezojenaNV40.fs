@@ -264,7 +264,7 @@ module PiezojenaNV40 =
                 stage.GetMeasuredValueChunk (&array)
                 let x = Array.get array 0
                 let y = Array.get array 1
-                let z = Array.get array 2s
+                let z = Array.get array 2
                 return (x, y, z)
                 }
             queryAllPositionsWorkflow |> check piezojena 
