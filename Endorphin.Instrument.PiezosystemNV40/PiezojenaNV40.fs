@@ -318,9 +318,9 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena
 
         /// Sets all channel outputs. 
-        let private setAllOutputs piezojena (desiredOutput:float32*float32*float32) resolution =   
+        let private setAllOutputs piezojena (x:float, y:float, z:float) resolution =   
             let stage  = id piezojena
-            
+            let desiredOutput = (float32(x), float32(y), float32(z))
             let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
@@ -329,7 +329,9 @@ module PiezojenaNV40 =
             
             setAllOutputsWorkflow |> check piezojena  
 
-        let rec private waitToReachPosition piezojena count target tolerance = asyncChoice{      
+        let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = asyncChoice{      
+            let target = (float32(x), float32(y), float32(z))
+            let tolerance = float32 (tolerancefloat)
             if count > 10 then 
                 return! (fail "Failed to reach position")
             else     
@@ -339,13 +341,14 @@ module PiezojenaNV40 =
                     return coordinate 
                 else 
                     do! Async.Sleep 5 |> AsyncChoice.liftAsync 
-                    return! waitToReachPosition piezojena (count + 1) target tolerance
+                    return! waitToReachPosition piezojena (count + 1) (x, y, z) tolerancefloat 
         }
 
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
-        let setPosition piezojena target tolerance = asyncChoice{
+        let setPosition piezojena (target:(float*float*float)) (tolerance:float) = asyncChoice{
+            let newtolerance = float32 tolerance 
             // Async workflow for setting all outputs. 
-            do! setAllOutputs piezojena target tolerance
+            do! setAllOutputs piezojena target newtolerance
             // Recursive function for querying position
             return! waitToReachPosition piezojena 0 target tolerance
             }     

@@ -43,10 +43,6 @@ module internal SerialConnection =
         let serialConnection = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices ()
         serialConnection.CreateSerialPortConnection (portName, serialConfiguration)
 
-    (*let close portname = 
-        let serialConnection = new Piezojena.Protocols.SerialPortConnection ()
-        serialConnection.*)
-
     /// Opens the piezojena.  
     let private openInstrument serialPort =
         let multiServices = new Piezojena.Protocols.Nv40Multi.Nv40MultiServices()
