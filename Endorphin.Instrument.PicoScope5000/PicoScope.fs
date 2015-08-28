@@ -210,11 +210,11 @@ module PicoScope =
             asyncChoice {
                 let! modelNumber = Info.queryModelNumber picoScope
                 let! resolution = Sampling.queryResolution picoScope
-                let availableChannels = Resolution.availableChannels resolution
-                match int <| modelNumber.[1].ToString() with
-                | 2 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ]))
-                | 4 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ; ChannelC ; ChannelD ]))
-                | _ -> return! fail    <| sprintf "Unexpected model number: %s." modelNumber }
+                let! powerSource = queryPowerSource picoScope
+                return Set.intersectMany <|
+                        [ Resolution.availableChannels resolution
+                          Device.availableChannelsForModel modelNumber
+                          PowerSource.availableChannels powerSource ] }
 
         let queryAvailableAnalogueOffsetRange (PicoScope5000 picoScope) range coupling =
             let description = sprintf "Query available analogue offset range for input range %A with %A coupling" range coupling

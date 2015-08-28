@@ -60,3 +60,18 @@ module Timebase =
 module MemorySegment =
     let zero = 0u
     let next index = (index + 1u)
+
+
+[<RequireQualifiedAccess>]
+module PowerSource =
+    let availableChannels = function
+        | MainsPower -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
+        | UsbPower   -> [ ChannelA ; ChannelB ] |> Set.ofList
+
+[<RequireQualifiedAccess>]
+module Device =
+    let availableChannelsForModel (modelNumber : string) =
+        match int <| modelNumber.[1].ToString() with
+        | 2 -> [ ChannelA ; ChannelB ] |> Set.ofList 
+        | 4 -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
+        | _ -> failwithf "Unexpected model number: %s." modelNumber
