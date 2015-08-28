@@ -2,6 +2,7 @@
 
 open System
 open System.Reactive.Linq
+open ExtCore.Control
 
 /// Internal support functions for the library of transformations to events and observables defined
 /// below.
@@ -104,6 +105,10 @@ module Event =
     let bufferCountOverlapped count source =
         Support.addToEvent source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
 
+[<AutoOpen>]
+module ObservableHelpers =
+    type NotificationEvent<'T> = Event<Notification<'T>>
+
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Observable =
 
@@ -145,26 +150,12 @@ module Observable =
     let bufferCountOverlapped count source =
         Support.addToObservable source |> Support.bufferMapiCountOverlapped count (fun _ x -> x)
 
-    /// Builds a new observable sequence which completes when the supplied predicate is true for an
-    /// observation of the source observable. Otherwise it propagates the source elements.
-    let completeOn predicate (source : IObservable<_>) =
+    /// Creates an observable from a source event which emits notifications that either hold a value,
+    /// completion or error.
+    let fromNotificationEvent (source : IEvent<Notification<'T>>) =
         Observable.Create(fun (observer : IObserver<_>) ->
-            source.Subscribe( 
-                (fun x -> 
-                    if predicate x 
-                    then observer.OnCompleted()
-                    else observer.OnNext x),
-                (fun exn -> observer.OnError exn),
-                (fun ()  -> observer.OnCompleted())))
-    
-    /// Builds a new observable sequence which throws an error when the supplied error selector returns
-    /// Some error. Otherwise it propagates the source elements.
-    let errorOn errorSelector (source : IObservable<_>) =        
-        Observable.Create(fun (observer : IObserver<_>) ->
-            source.Subscribe( 
-                (fun x -> 
-                    match errorSelector x with
-                    | Some exn -> observer.OnError exn
-                    | None     -> observer.OnNext x),
-                (fun exn -> observer.OnError exn),
-                (fun ()  -> observer.OnCompleted())))
+            source.Subscribe(fun notification ->
+                match notification with
+                | Next value -> observer.OnNext value
+                | Completed  -> observer.OnCompleted()
+                | Error exn  -> observer.OnError exn))

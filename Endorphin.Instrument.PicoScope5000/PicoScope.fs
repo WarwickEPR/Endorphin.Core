@@ -110,14 +110,28 @@ module PicoScope =
             | PowerSourceStatus powerSource -> succeed <| powerSource
             | error                         -> fail    <| statusMessage error)
                         
-    let queryDeviceInfo (PicoScope5000 picoScope) deviceInfo =
-        picoScope
-        |> CommandRequestAgent.performObjectRequest (sprintf "Query device information: %A" deviceInfo) (fun device ->
-            let resultLength = 32s
-            let result = new StringBuilder(int resultLength)
-            let mutable requiredLength = 0s
-            NativeApi.GetUnitInfo(handle device, result, resultLength, &requiredLength, deviceInfoEnum deviceInfo)
-            |> checkStatusAndReturn (result.ToString()))
+   
+    module Info =
+        let private queryDeviceInfo (PicoScope5000 picoScope) deviceInfoEnum =
+            picoScope
+            |> CommandRequestAgent.performObjectRequest (sprintf "Query device information: %A" deviceInfoEnum) (fun device ->
+                let resultLength = 32s
+                let result = new StringBuilder(int resultLength)
+                let mutable requiredLength = 0s
+                NativeApi.GetUnitInfo(handle device, result, resultLength, &requiredLength, deviceInfoEnum)
+                |> checkStatusAndReturn (result.ToString()))
+
+        let queryDriverVersion           picoScope = queryDeviceInfo picoScope DeviceInfoEnum.DriverVersion
+        let queryUsbVersion              picoScope = queryDeviceInfo picoScope DeviceInfoEnum.UsbVersion
+        let queryHardwareVersion         picoScope = queryDeviceInfo picoScope DeviceInfoEnum.HardwareVersion
+        let queryModelNumber             picoScope = queryDeviceInfo picoScope DeviceInfoEnum.ModelNumber
+        let querySerialNumber            picoScope = queryDeviceInfo picoScope DeviceInfoEnum.SerialNumber
+        let queryCalibrationDate         picoScope = queryDeviceInfo picoScope DeviceInfoEnum.CalibrationDate
+        let queryKernelVersion           picoScope = queryDeviceInfo picoScope DeviceInfoEnum.KernelVersion
+        let queryDigitalHardwareVersion  picoScope = queryDeviceInfo picoScope DeviceInfoEnum.DigitalHardwareVersion
+        let queryAnalogueHardwareVersion picoScope = queryDeviceInfo picoScope DeviceInfoEnum.AnalogueHardwareVersion
+        let queryFirmwareVersion1        picoScope = queryDeviceInfo picoScope DeviceInfoEnum.FirmwareVersion1
+        let queryFirmwareVersion2        picoScope = queryDeviceInfo picoScope DeviceInfoEnum.FirmwareVersion2
 
     module Sampling =
         let setResolution (PicoScope5000 picoScope) resolution =
@@ -146,32 +160,32 @@ module PicoScope =
                 NativeApi.MaximumValue(handle device, &adcCount)
                 |> checkStatusAndReturn adcCount)
 
-        let queryMaximumDownsamplingRatio (PicoScope5000 picoScope) (SampleIndex unaggregatedSamples) downsamplingMode (MemorySegment segment) =
+        let queryMaximumDownsamplingRatio (PicoScope5000 picoScope) (unaggregatedSamples : SampleIndex) downsamplingMode (segment : MemorySegment) =
             let description = sprintf "Query maximum downsampling ratio for %A mode, %d samples and %A"
                                 downsamplingMode unaggregatedSamples segment
             picoScope
             |> CommandRequestAgent.performObjectRequest description (fun device ->
-                let mutable downsamplingRatio = 0u
+                let mutable downsamplingRatio : DownsamplingRatio = 0u
                 NativeApi.GetMaximumDownsamplingRatio(handle device, unaggregatedSamples, &downsamplingRatio, downsamplingModeEnum downsamplingMode, segment)
-                |> checkStatusAndReturn (DownsamplingRatio downsamplingRatio))
+                |> checkStatusAndReturn downsamplingRatio)
 
         let queryMaximumMemorySegments (PicoScope5000 picoScope) =
             picoScope
             |> CommandRequestAgent.performObjectRequest "Query maximum number of memory segments" (fun device ->
-                let mutable index = 0u 
+                let mutable index : MemorySegment = 0u 
                 NativeApi.GetMaximumNumberOfSegments(handle device, &index)
-                |> checkStatusAndReturn (MemorySegment index))
+                |> checkStatusAndReturn index)
 
-        let private queryIntervalAndMaxSamples (PicoScope5000 picoScope) (Timebase timebase) (MemorySegment index)  = 
+        let private queryIntervalAndMaxSamples (PicoScope5000 picoScope) (timebase : Timebase) (index : MemorySegment) = 
             let description = sprintf "Query sample interval and maximum sample count for timebase %d and segment index %d"
                                 timebase index
             picoScope
             |> CommandRequestAgent.performObjectRequest description (fun device ->
                 let mutable interval = 0
-                let mutable maxSamples = 0
+                let mutable maxSamples : SampleCount= 0
                 let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
                 NativeApi.GetTimebase(handle device, timebase, 0, &interval, &maxSamples, index)
-                |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), SampleCount maxSamples))
+                |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), maxSamples))
 
         let queryTimebaseParameters picoScope timebase segment =
             asyncChoice {
@@ -183,24 +197,24 @@ module PicoScope =
                       MaximumSamples = maxSamples
                       SampleInterval = interval } }
 
-        let segmentMemory (PicoScope5000 picoScope) (MemorySegment numberOfSegments) =
+        let segmentMemory (PicoScope5000 picoScope) (numberOfSegments : MemorySegment) =
             picoScope
             |> CommandRequestAgent.performObjectRequest (sprintf "Segmenting device memory into %d segments." numberOfSegments)
                 (fun device ->
-                    let mutable samplesPerSegment = 0
+                    let mutable samplesPerSegment : SampleCount = 0
                     NativeApi.MemorySegments(handle device, numberOfSegments, &samplesPerSegment)
-                    |> checkStatusAndReturn (SampleCount samplesPerSegment))
+                    |> checkStatusAndReturn samplesPerSegment)
 
     module ChannelSettings =
         let queryAvailableChannels picoScope =
             asyncChoice {
-                let! modelNumber = queryDeviceInfo picoScope ModelNumber
+                let! modelNumber = Info.queryModelNumber picoScope
                 let! resolution = Sampling.queryResolution picoScope
-                let availableChannels = Resolution.availableChannels resolution
-                match int <| modelNumber.[1].ToString() with
-                | 2 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ]))
-                | 4 -> return! succeed <| (Set.intersect availableChannels (Set.ofList [ ChannelA ; ChannelB ; ChannelC ; ChannelD ]))
-                | _ -> return! fail    <| sprintf "Unexpected model number: %s." modelNumber }
+                let! powerSource = queryPowerSource picoScope
+                return Set.intersectMany <|
+                        [ Resolution.availableChannels resolution
+                          Device.availableChannelsForModel modelNumber
+                          PowerSource.availableChannels powerSource ] }
 
         let queryAvailableAnalogueOffsetRange (PicoScope5000 picoScope) range coupling =
             let description = sprintf "Query available analogue offset range for input range %A with %A coupling" range coupling
@@ -278,9 +292,9 @@ module PicoScope =
             picoScope
             |> CommandRequestAgent.performCommand description (fun device ->
                 let channel = triggerChannelEnum simpleTriggerSettings.TriggerChannel
-                let threshold                  = simpleTriggerSettings.AdcThreshold
-                let thresholdDirection = levelThresholdEnum simpleTriggerSettings.ThresholdDirection
-                let (SampleIndex startSample)  = simpleTriggerSettings.StartSample
+                let threshold                 = simpleTriggerSettings.AdcThreshold
+                let thresholdDirection        = levelThresholdEnum simpleTriggerSettings.ThresholdDirection
+                let startSample : SampleIndex = simpleTriggerSettings.StartSample
                 let delay = autoTriggerDelayIntInMilliseconds simpleTriggerSettings.AutoTrigger
                 NativeApi.SetSimpleTrigger(handle device, 1s, channel, threshold, thresholdDirection, startSample, delay)
                 |> checkStatus)
@@ -300,7 +314,7 @@ module PicoScope =
                     { TriggerState = parseToggleState triggerEnabled ; PulseWidthQualifierState = parseToggleState pwqEnabled })
 
     module internal DataBuffers =
-        let setDataBuffer (PicoScope5000 picoScope) inputChannel downsamplingMode (MemorySegment index) acquisitionBuffer =
+        let setDataBuffer (PicoScope5000 picoScope) inputChannel downsamplingMode (index : MemorySegment) acquisitionBuffer =
             let description = sprintf "Set data buffer for channel %A with downsampling mode %A on memory segment %d"
                                 inputChannel downsamplingMode index
             picoScope
@@ -323,16 +337,16 @@ module PicoScope =
         let queryNumberOfCaptures (PicoScope5000 picoScope) =
             picoScope 
             |> CommandRequestAgent.performObjectRequest "Query number of captures" (fun device ->
-                let mutable index = 0u
+                let mutable index : MemorySegment = 0u
                 NativeApi.GetNumberOfCaptures(handle device, &index)
-                |> checkStatusAndReturn (MemorySegment index))
+                |> checkStatusAndReturn index)
 
         let queryNumberOfProcessedCaptures (PicoScope5000 picoScope) =
             picoScope
             |> CommandRequestAgent.performObjectRequest "Query number of processed captures" (fun device ->
-                let mutable index = 0u
+                let mutable index : MemorySegment = 0u
                 NativeApi.GetNumberOfProcessedCaptures(handle device, &index)
-                |> checkStatusAndReturn (MemorySegment index))
+                |> checkStatusAndReturn index)
 
         let private voltageOverflowChannels overflowBits =
             // determine whether any of the corresponding voltage overflow flags is set using the appropriate 
@@ -346,10 +360,10 @@ module PicoScope =
             let picoScopeCallback = // define the callback as required by the PicoScope API
                 PicoScopeStreamingReady(fun _ numberOfSamples startIndex overflowBits triggeredAt triggered didAutoStop _ ->
                     // wrap the values in a StreamingValuesReady record and send them to the user callback
-                    { NumberOfSamples = SampleCount numberOfSamples
-                      StartIndex = SampleIndex startIndex
+                    { NumberOfSamples = numberOfSamples
+                      StartIndex = startIndex
                       VoltageOverflows = voltageOverflowChannels overflowBits
-                      TriggerPosition = parseTriggerPosition (triggered <> 0s) (SampleIndex triggeredAt)
+                      TriggerPosition = parseTriggerPosition (triggered <> 0s) (triggeredAt)
                       DidAutoStop = didAutoStop <> 0s } |> callback)
             
             picoScope
@@ -363,9 +377,9 @@ module PicoScope =
             let description = "Query number of available streaming values after acquisition"
             picoScope
             |> CommandRequestAgent.performObjectRequest description (fun device ->
-                let mutable sampleIndex = 0u
+                let mutable sampleIndex : SampleIndex = 0u
                 NativeApi.NumberOfStreamingValues(handle device, &sampleIndex)
-                |> checkStatusAndReturn (SampleIndex sampleIndex))
+                |> checkStatusAndReturn sampleIndex)
 
         let startStreaming (PicoScope5000 picoScope) streamingParameters =
             let description = sprintf "Start streaming acquisition: %A" streamingParameters
@@ -373,7 +387,7 @@ module PicoScope =
             |> CommandRequestAgent.performObjectRequest description (fun device ->
                 let (timeUnit, requestedInterval)                     = timeUnitEnumAndInterval streamingParameters.SampleInterval
                 let (autoStop, preTriggerSamples, postTriggerSamples) = streamStopParameters streamingParameters.StreamStop
-                let (SampleIndex bufferLength)                        = streamingParameters.BufferLength
+                let (bufferLength)                                    = streamingParameters.BufferLength
                 
                 let downsamplingMode =
                     streamingParameters.Inputs.InputSampling
@@ -382,8 +396,8 @@ module PicoScope =
 
                 let downsamplingRatio = 
                     match streamingParameters.DownsamplingRatio with
-                    | Some (DownsamplingRatio downsamplingRatio) -> downsamplingRatio
-                    | None                                       -> 1u
+                    | Some downsamplingRatio -> downsamplingRatio
+                    | None                   -> 1u
 
                 let mutable hardwareInterval = uint32 requestedInterval
                 NativeApi.RunStreaming(handle device, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples,

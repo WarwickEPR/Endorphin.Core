@@ -22,8 +22,8 @@ module Model =
     type Voltage = internal VoltageInVolts of voltage : float32<V>
     type AdcCount = int16 // only alias int16 for performance
                 
-    type SampleCount = internal SampleCount of count : int
-    type SampleIndex = internal SampleIndex of index : uint32
+    type SampleCount = int
+    type SampleIndex = uint32
     
     [<AutoOpen>]
     module ChannelSettings =
@@ -66,19 +66,6 @@ module Model =
         type internal PicoScope5000Identity = { SerialNumber : string ; Handle : int16 }
         type PicoScope5000 = internal PicoScope5000 of agent : CommandRequestAgent<PicoScope5000Identity>
         type PowerSource = MainsPower | UsbPower
-
-        type DeviceInfo =
-            | DriverVersion           
-            | UsbVersion              
-            | HardwareVersion         
-            | ModelNumber             
-            | SerialNumber            
-            | CalibrationDate         
-            | KernelVersion           
-            | DigitalHardwareVersion  
-            | AnalogueHardwareVersion 
-            | FirmwareVersion1        
-            | FirmwareVersion2        
 
         type LedFlash =
             internal
@@ -135,10 +122,10 @@ module Model =
             | Resolution_15bit
             | Resolution_16bit
 
-        type DownsamplingRatio = internal DownsamplingRatio of ratio : uint32
-        type MemorySegment = internal MemorySegment of index : uint32
+        type DownsamplingRatio = uint32
+        type MemorySegment = uint32
 
-        type Timebase = internal Timebase of index : uint32
+        type Timebase = uint32
 
         type TimebaseParameters =
             internal { Timebase       : Timebase

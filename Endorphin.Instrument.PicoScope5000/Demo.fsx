@@ -33,6 +33,7 @@ let streamingParameters =
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
     Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
     |> Streaming.Parameters.withNoDownsampling inputs // use the previously defined inputs
+    |> Streaming.Parameters.withAutoStop 0u 500u // acquire 500 samples after the trigger (approximately 10s)
 
 let showTimeChart acquisition = async {
     do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
@@ -84,12 +85,11 @@ let experiment = asyncChoice {
         do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
         printStatusUpdates acquisition
 
-        let! acquisitionHandle = Streaming.Acquisition.start acquisition
+        let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
-        // run the acquisition for 10s and then stop manually
-        do! Async.Sleep 10000 |> AsyncChoice.liftAsync
-        do! Streaming.Acquisition.stopAndFinish acquisitionHandle
-        
+        // wait for the acquisition to finish automatically or by cancellation   
+        do! Streaming.Acquisition.waitToFinish acquisitionHandle
+
     finally Async.StartImmediate <| async {
         let! closeResult = PicoScope.close picoScope 
         match closeResult with
@@ -100,5 +100,4 @@ Async.StartWithContinuations(experiment,
     (function
     | Success () -> printfn "Successfully completed experiment."
     | Failure f  -> printfn "Failed to complete experiment due to error: %s" f),
-    ignore, 
-    (fun _ -> printfn "Cancelled experiment."), cts.Token)
+    ignore, ignore)

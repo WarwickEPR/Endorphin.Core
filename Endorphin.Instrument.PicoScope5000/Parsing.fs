@@ -38,35 +38,6 @@ module internal Parsing =
 
     [<AutoOpen>]
     module Device =
-        let parseDeviceInfo =
-            function
-            | DeviceInfoEnum.DriverVersion           -> DriverVersion           
-            | DeviceInfoEnum.UsbVersion              -> UsbVersion
-            | DeviceInfoEnum.HardwareVersion         -> HardwareVersion         
-            | DeviceInfoEnum.ModelNumber             -> ModelNumber             
-            | DeviceInfoEnum.SerialNumber            -> SerialNumber            
-            | DeviceInfoEnum.CalibrationDate         -> CalibrationDate         
-            | DeviceInfoEnum.KernelVersion           -> KernelVersion           
-            | DeviceInfoEnum.DigitalHardwareVersion  -> DigitalHardwareVersion  
-            | DeviceInfoEnum.AnalogueHardwareVersion -> AnalogueHardwareVersion 
-            | DeviceInfoEnum.FirmwareVersion1        -> FirmwareVersion1        
-            | DeviceInfoEnum.FirmwareVersion2        -> FirmwareVersion2        
-            | enum                                   -> failwithf "Unexpected device info enum value: %A." enum
-
-        let deviceInfoEnum =
-            function
-            | DriverVersion           -> DeviceInfoEnum.DriverVersion          
-            | UsbVersion              -> DeviceInfoEnum.UsbVersion             
-            | HardwareVersion         -> DeviceInfoEnum.HardwareVersion        
-            | ModelNumber             -> DeviceInfoEnum.ModelNumber            
-            | SerialNumber            -> DeviceInfoEnum.SerialNumber           
-            | CalibrationDate         -> DeviceInfoEnum.CalibrationDate        
-            | KernelVersion           -> DeviceInfoEnum.KernelVersion          
-            | DigitalHardwareVersion  -> DeviceInfoEnum.DigitalHardwareVersion 
-            | AnalogueHardwareVersion -> DeviceInfoEnum.AnalogueHardwareVersion
-            | FirmwareVersion1        -> DeviceInfoEnum.FirmwareVersion1       
-            | FirmwareVersion2        -> DeviceInfoEnum.FirmwareVersion2  
-           
         let ledFlashCounts =
             function
             | LedOff              -> 0s
@@ -253,10 +224,10 @@ module internal Parsing =
             Set.map downsamplingModeEnum
             >> Set.reduce (|||)
         
-        let streamStopParameters =
-            function
-            | ManualStop                                                               -> (0s, 0u, 1u)
-            | AutoStop (SampleIndex preTriggerSamples, SampleIndex postTriggerSamples) -> (1s, preTriggerSamples, postTriggerSamples)
+        let streamStopParameters streamStop : (int16 * SampleIndex * SampleIndex) =
+            match streamStop with
+            | ManualStop                                       -> (0s, 0u, 1u)
+            | AutoStop (preTriggerSamples, postTriggerSamples) -> (1s, preTriggerSamples, postTriggerSamples)
 
         let parseTriggerPosition triggered position =
             if triggered then Triggered position
