@@ -15,7 +15,7 @@ module PiezojenaNV40 =
     module private Logger =
 
         /// Creates log for PicoHarp 300.
-        let log = log4net.LogManager.GetLogger "PicoHarp 300"
+        let log = log4net.LogManager.GetLogger "PiezojenaNV40"
 
         /// Logs the PicoHarp.
         let logDevice (piezojena : Piezojena) message =
