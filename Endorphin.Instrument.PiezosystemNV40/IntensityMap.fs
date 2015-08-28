@@ -116,7 +116,8 @@ module IntensityMap =
              let expanded = expandCoordinates first second desired 
              let coordinate = addTuples expanded fix  
              coordinate 
-                    
+
+
      module Generate =          
          
          /// Gets the value of the specified channel. 

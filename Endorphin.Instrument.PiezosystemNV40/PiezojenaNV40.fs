@@ -1,5 +1,7 @@
 ﻿namespace Endorphin.Instrument.PiezosystemNV40
 
+// 103538, NV40 serial number.
+
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 open Endorphin.Core
@@ -352,4 +354,5 @@ module PiezojenaNV40 =
             // Recursive function for querying position
             return! waitToReachPosition piezojena 0 target tolerance
             }     
-  
+
+          
