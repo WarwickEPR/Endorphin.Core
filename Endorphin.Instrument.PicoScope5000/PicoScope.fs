@@ -182,7 +182,7 @@ module PicoScope =
             picoScope
             |> CommandRequestAgent.performObjectRequest description (fun device ->
                 let mutable interval = 0
-                let mutable maxSamples : SampleCount= 0
+                let mutable maxSamples : SampleCount = 0
                 let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
                 NativeApi.GetTimebase(handle device, timebase, 0, &interval, &maxSamples, index)
                 |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), maxSamples))

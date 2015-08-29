@@ -2,11 +2,16 @@
 
 open System.Runtime.InteropServices
 
-// this sequential StructLayout may result in non-verifiable IL code 
-// when FieldOffset attributes are also used but not in this case
+// This module uses the StructLayout attribute to define a struct used for interoperation with
+// a native C library. The sequential StructLayout may result in non-verifiable IL code when
+// FieldOffset attributes are also used (but not in this case), so suppress the warning.
 #nowarn "9"
 
+/// Contains model types required for making calls to the PicoScope 5000 series native C API.
 module internal NativeModel =
+    
+    /// Information types which can be requested from the PicoScope 5000 series C API about
+    /// the device.
     type DeviceInfoEnum = 
         | DriverVersion           = 0
         | UsbVersion              = 1
@@ -21,7 +26,10 @@ module internal NativeModel =
         | FirmwareVersion2        = 10
 
     [<AutoOpen>]
+    /// Native model types related to channel settings.
     module ChannelSettings =
+
+        /// Device channel (includes input, trigger, and output channels).
         type ChannelEnum =
             | A    = 0
             | B    = 1
@@ -31,6 +39,7 @@ module internal NativeModel =
             | Aux  = 5
             | None = 6
 
+        /// Input channel voltage range.
         type RangeEnum =
             | _10mV  = 0
             | _20mV  = 1
@@ -45,20 +54,26 @@ module internal NativeModel =
             | _20V   = 10
             | _50V   = 11
 
+        /// Input channel coupling.
         type CouplingEnum = 
             | AC = 0
             | DC = 1
 
+        /// Input channel bandwidth.
         type BandwidthLimitEnum =
             | Full   = 0
             | _20MHz = 1
 
-        /// Enumeration representing possible types channel information which can be requested from a PicoScope 5000 series device.
+        /// Information types which can be requested from the PicoScope 5000 series driver
+        /// about an input channel.
         type ChannelInfoEnum =
             | VoltageOffsetRanges = 0
 
     [<AutoOpen>]
+    /// Native model types related to triggering.
     module Triggering =
+        
+        /// Trigger channel threshold direction.
         type ThresholdDirectionEnum = 
             // values for level threshold mode
             | Above           = 0
@@ -74,6 +89,10 @@ module internal NativeModel =
             | EnterOrExit     = 4
             // none
             | None            = 2
+
+
+        // The types below are included for completeness but not currently in use and only required
+        // for more advanced types of triggering.
 
         type PulseWidthTypeEnum =
             | None = 0
@@ -164,7 +183,13 @@ module internal NativeModel =
             end
 
     [<AutoOpen>]
+    /// Native model types relating to signal sampling.
     module Acquisition =
+
+        /// Vertical resolution, set for all input channels on the device. The PicoScope 5000
+        /// series uses a variable resolution architecture which allows it to change the
+        /// resolution between 8 and 16 bit in exchange for having fewer channels and/or a
+        /// lower maximum sampling rate. 
         type ResolutionEnum =
             | _8bit  = 0
             | _12bit = 1
@@ -172,6 +197,7 @@ module internal NativeModel =
             | _15bit = 3
             | _16bit = 4
 
+        /// Time unit for sample intervals.
         type TimeUnitEnum =
             | Femtoseconds = 0
             | Picoseconds  = 1
@@ -180,12 +206,17 @@ module internal NativeModel =
             | Milliseconds = 4
             | Seconds      = 5
 
-
+        /// Equivalent time sampling mode setting. In ETS mode, the PicoScope samples a repetitive
+        /// signal by interleaving multiple captures to achieve smaller sample intervals.
         type EtsModeEnum =
             | Off  = 0
             | Fast = 1
             | Slow = 2
-    
+        
+        /// Input channel downsampling mode. Note that multiple downsampling modes can be set for
+        /// each channel and they can be set independently of other input channels. This is achieved
+        /// by combining the enumeration values using a bitwise OR operation. However, note that
+        /// the downsampling mode "None" cannot be combined with other modes.
         type DownsamplingModeEnum =
             | None      = 0
             | Averaged  = 1

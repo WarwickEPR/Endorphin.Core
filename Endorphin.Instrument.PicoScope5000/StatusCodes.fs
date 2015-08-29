@@ -1,7 +1,8 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
 module internal StatusCodes =
-    /// Lists the PicoScope 5000 series driver status codes
+
+    /// PicoScope 5000 series status codes indicating device status after all API calls.
     type StatusCode = 
         | Ok                                   = 0x0000
         | MaximumUnitsOpened                   = 0x0001
@@ -129,7 +130,7 @@ module internal StatusCodes =
         | InvalidNumberOfChannelsForResolution = 0x0121
         | ChannelDisabledDueToUsbPower         = 0x0122
 
-    /// Provides a message string describing the StatusCode.
+    /// Converts a status code to a string message describing it.
     let statusMessage = 
         function
         | StatusCode.Ok -> "OK"
