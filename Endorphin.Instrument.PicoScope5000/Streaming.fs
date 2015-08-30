@@ -190,7 +190,7 @@ module Streaming =
             let acquisitionWorkflow =
                 Async.StartWithContinuations(
                     asyncChoice {
-                            use __ = Inputs.Buffers.pinningHandle acquisition.DataBuffers
+                            use __ = Inputs.Buffers.createPinningHandle acquisition.DataBuffers
                             do! prepareDevice acquisition
                             do! startStreaming acquisition
                             do! pollUntilFinished acquisition }, 
