@@ -8,20 +8,31 @@ open ExtCore.Control
 open FSharp.Control.Reactive
 open log4net
 
+/// Functions related to running a general purpose streaming acquisition on a PicoScope 5000 series
+/// device and collecting the data.
 module Streaming =
+    
+    /// Contains information about the way a streaming acquisition was stopped, indicating whether
+    /// it was stopped manually or automatically.
     type StreamStopOptions = { AcquisitionDidAutoStop : bool }
     
+    /// Status of a streaming acquisition emitted through a status event while the acquisition is
+    /// in progress.
     type StreamStatus =
         | PreparingStream
         | Streaming of sampleInterval : Interval
         | FinishedStream of options : StreamStopOptions
         | CancelledStream
 
+    /// Contains a block of streaming samples obtained after polling the device.
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
                    Length           : SampleCount
                    VoltageOverflows : Set<InputChannel> }
 
+    /// Defines a streaming acquisition which has been set up on a PicoScope 5000 series device. This
+    /// is created once after the streaming parameters are defined and a connection to the device is
+    /// established.
     type StreamingAcquisition =
         private { Parameters      : StreamingParameters
                   PicoScope       : PicoScope5000
@@ -30,11 +41,19 @@ module Streaming =
                   StatusChanged   : NotificationEvent<StreamStatus>
                   SamplesObserved : Event<StreamingSamples> }
 
+    /// Represents a handle to a streaming acquisition which has been started on a PicoScope 5000 series
+    /// device. This can be used to stop the acquisition manually and/or wait for it to finish.
     type StreamingAcquisitionHandle = 
         private { Acquisition  : StreamingAcquisition 
                   WaitToFinish : AsyncChoice<unit, string> }
 
+    /// Functions for specifying streaming acquisition parameters.
     module Parameters =
+        
+        /// Creates streaming acquisition parameters with the specified resolution, sample interval and
+        /// buffer length and default values for everything else. The default memory segment is 0. The 
+        /// device is set to trigger automatically after 1 ms. Acquisition is set to stop manually and
+        /// no downsampling is used. No inputs are enabled.
         let create resolution sampleInterval bufferLength =
             { Resolution        = resolution
               SampleInterval    = sampleInterval
@@ -44,34 +63,74 @@ module Streaming =
               StreamStop        = ManualStop
               DownsamplingRatio = None
               Inputs            = Inputs.none }
+        
+        /// Returns modified streaming acquisition parameters with the given vertical resolution.
+        let withResolution resolution (parameters : StreamingParameters) = { parameters with Resolution = resolution }
 
-        let withResolution resolution                               (parameters : StreamingParameters) = { parameters with Resolution = resolution }
-        let withSampleInterval sampleInterval                       (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
-        let withBufferLength bufferLength                           (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
-        let withMemorySegment memorySegment                         (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
-        let withNextMemorySegment                                   (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
-        let withTrigger trigger                                     (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
-        let withManualStop                                          (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
-        let withAutoStop maxPreTriggerSamples maxPostTriggerSamples (parameters : StreamingParameters) = { parameters with StreamStop = AutoStop(maxPreTriggerSamples, maxPostTriggerSamples) }
+        /// Returns modified streaming acquisition parameters with the given sample interval.
+        let withSampleInterval sampleInterval (parameters : StreamingParameters) = { parameters with SampleInterval = sampleInterval }
+
+        /// Returns modified streaming acquisition parameters with the specified acquisition buffer length.
+        let withBufferLength bufferLength (parameters : StreamingParameters) = { parameters with BufferLength = bufferLength }
+
+        /// Returns modified streaming acquisition parameters with the specified memory segment.
+        let withMemorySegment memorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = memorySegment }
+
+        /// Returns modified streaming acquisition parameters with an incremented memory segment.
+        let withNextMemorySegment (parameters : StreamingParameters) = { parameters with MemorySegment = MemorySegment.next parameters.MemorySegment }
+        
+        /// Returns modified streaming acquisition parameters with the specified trigger settings.
+        let withTrigger trigger (parameters : StreamingParameters) = { parameters with TriggerSettings = trigger }
+
+        /// Returns modified streaming acquisition parameters specifying that the acquisition will not stop
+        /// automatically after a fixed number of samples has been acquired but have to be stopped manually.
+        let withManualStop (parameters : StreamingParameters) = { parameters with StreamStop = ManualStop }
+
+        /// Returns modified streaming acquisition parameters specifying that the acquisition will stop
+        /// automatically after the specified number of samples before and after the trigger has been
+        /// captured.
+        let withAutoStop maxPreTriggerSamples maxPostTriggerSamples (parameters : StreamingParameters) = 
+            { parameters with StreamStop = AutoStop(maxPreTriggerSamples, maxPostTriggerSamples) }
     
-        let withDownsampling downsamplingRatio inputs (parameters : StreamingParameters) =
-            if not (Inputs.hasDownsampling inputs) then
+        /// Returns modified streaming acquisition parameters with the specified downsampling ratio.
+        let withDownsamplingRatio downsamplingRatio (parameters : StreamingParameters) =
+            if not (Inputs.hasDownsampling parameters.Inputs) then
                 failwith "Cannot specifiy a downsampling ratio for an acquisition which has no downsampled inputs."
 
-            { parameters with
-                DownsamplingRatio = Some downsamplingRatio
-                Inputs = inputs }
+            { parameters with DownsamplingRatio = Some downsamplingRatio }
 
-        let withNoDownsampling inputs (parameters : StreamingParameters) =
-            if Inputs.hasDownsampling inputs then
-                failwith "Cannot specify downsampled inputs without specifying a downsampling ratio."
+        /// Returns modified streaming acquisition parameters with the specified input channel enabled with the
+        /// given input settings. Fails if the channel is already enabled.
+        let enableChannel channel coupling range voltageOffset bandwidth (parameters : StreamingParameters) =
+            { parameters with Inputs = parameters.Inputs |> Inputs.enableChannel channel coupling range voltageOffset bandwidth }
 
-            { parameters with
-                DownsamplingRatio = None
-                Inputs = inputs }
+        /// Returns modified streaming acquisition parameters with the specified list of input channels enabled
+        /// with the given input settings. Fails if any of the channels in the set is already enabled.
+        let enableChannels channels coupling range voltageOffset bandwidth (parameters : StreamingParameters) =
+            { parameters with Inputs = parameters.Inputs |> Inputs.enableChannel channels coupling range voltageOffset bandwidth }
+            
+        /// Returns modified streaming acquisition parameters with the specified input channel sampled with
+        /// the given downsampling mode. Fails if the channel is not enabled. Also fails if the acquisition
+        /// has inputs which are sampled with no downsampling while another downsampling mode is given or
+        /// vice-versa.
+        let sampleChannel channel downsamplingMode (parameters : StreamingParameters) =
+            { parameters with Inputs = parameters.Inputs |> Inputs.sampleChannel channel downsamplingMode }
+    
+        /// Returns modified streaming acquisition parameters with the specified list of input channels
+        /// sampled with the given downsampling mode. Fails if the channel is not enabled. Also fails if the
+        /// acquisition has inputs which are sampled with no downsampling while another downsampling mode is
+        /// given or vice-versa.
+        let sampleChannels channels downsamplingMode (parameters : StreamingParameters) = 
+            { parameters with Inputs = parameters.Inputs |> Inputs.sampleChannels channels downsamplingMode }
 
     module Acquisition =
         let create picoScope streamingParameters =
+            if streamingParameters.Inputs |> Inputs.hasDownsampling && streamingParameters.DownsamplingRatio = None then
+                failwith "Failed to create streaming acquisition: specified inputs have downsampling but no downsampling ratio is specified."
+
+            if not (streamingParameters.Inputs |> Inputs.hasDownsampling) && streamingParameters.DownsamplingRatio <> None then
+                failwith "Failed to create streaming acquisition: specified inputs have no downsampling but a downsampling ratio is specified."
+
             { Parameters  = streamingParameters
               PicoScope   = picoScope
               DataBuffers = 

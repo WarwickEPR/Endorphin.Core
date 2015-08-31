@@ -24,15 +24,11 @@ let cts = new CancellationTokenSource()
 form.Closed |> Observable.add (fun _ -> cts.Cancel())
 
 let streamingParameters = 
-    let inputs =
-        Inputs.none // define acquisition inputs by adding the required channels and specifying downsampling
-        |> Inputs.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
-        |> Inputs.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
-        |> Inputs.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
-
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
     Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
-    |> Streaming.Parameters.withNoDownsampling inputs // use the previously defined inputs
+    |> Streaming.Parameters.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
+    |> Streaming.Parameters.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
+    |> Streaming.Parameters.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
     |> Streaming.Parameters.withAutoStop 0u 500u // acquire 500 samples after the trigger (approximately 10s)
 
 let showTimeChart acquisition = async {

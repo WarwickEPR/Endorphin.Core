@@ -8,7 +8,7 @@ open Parsing
 
 [<RequireQualifiedAccess>]
 /// Functions for specifying acquisition inputs and sampling for a PicoScope 5000 series acquisition.
-module Inputs =
+module internal Inputs =
 
     /// Returns the set of enabled channels in the given acquisition inputs.
     let enabledChannels inputs = Map.keys inputs.InputSettings
@@ -88,13 +88,13 @@ module Inputs =
 
     /// Returns the downsampling mode enumeration value for the given set of acquisition inputs which contains
     /// all required downsampling modes combined together using bitwise OR.
-    let internal downsamplingMode inputs =
+    let downsamplingMode inputs =
         inputs.InputSampling
         |> Set.map (fun sampling -> sampling.DownsamplingMode)
         |> downsamplingModeEnumForSet
     
     /// Functions related to creating and managing acquisition buffers.
-    module internal Buffers =
+    module Buffers =
         
         /// Returns the map from input channel and buffer downsampling to acquisition buffer for the given set
         /// of acquisition buffers.
