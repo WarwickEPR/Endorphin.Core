@@ -64,7 +64,7 @@
     <Compile Include="Inputs.fs" />
     <Compile Include="PicoScope.fs" />
     <Compile Include="Streaming.fs" />
-    <None Include="Demo.fsx" />
+    <None Include="StreamingDemo.fsx" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
   </ItemGroup>
