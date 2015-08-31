@@ -3,7 +3,11 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 [<RequireQualifiedAccess>]
+/// Functions related to channel input voltage range.
 module Range =
+
+    /// Converts the given input range to a voltage. The device can sample inputs ranging between the
+    /// analogue voltage offset plus and minus this value.
     let voltage =
         function
         | Range_10mV  -> VoltageInVolts 0.010f<V>
@@ -19,7 +23,7 @@ module Range =
         | Range_20V   -> VoltageInVolts 20.0f<V>
         | Range_50V   -> VoltageInVolts 50.0f<V>
 
-    /// Returns the smallest available input range which will handle a specified zero-to-peak input voltage.
+    /// Returns the smallest available input range which will handle the specified zero-to-peak input voltage.
     let minimumForVoltage availableRanges inputVoltage =
         availableRanges
         |> Seq.sortBy voltage
