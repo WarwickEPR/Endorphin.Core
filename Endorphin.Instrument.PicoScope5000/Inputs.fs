@@ -149,7 +149,10 @@ module Inputs =
                     gcHandles |> Seq.iter (fun handle -> handle.Free())
                     GC.Collect() }
 
-        /// 
+        /// Creates a pinning handle for the given acquisition buffers which will prevent the garbage
+        /// collector from moving them in order to defragment managed memory. This is required for native
+        /// code interoperability as the native code is unaware of managed memory. The returned IDisposable
+        /// will release all allocated pinning handles, allowing the memory to be freed.
         let createPinningHandle acquisitionBuffers =
             bufferMap acquisitionBuffers
             |> Map.toSeq
