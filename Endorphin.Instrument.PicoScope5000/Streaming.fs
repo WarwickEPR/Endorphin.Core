@@ -122,8 +122,12 @@ module Streaming =
         /// given or vice-versa.
         let sampleChannels channels downsamplingMode (parameters : StreamingParameters) = 
             { parameters with Inputs = parameters.Inputs |> Inputs.sampleChannels channels downsamplingMode }
-
+    
+    /// Functions related to streaming acquisition control flow.
     module Acquisition =
+        
+        /// Creates a streaming acquisition on the given PicoScope 5000 series device with the specified
+        /// streaming parameters.
         let create picoScope streamingParameters =
             if streamingParameters.Inputs |> Inputs.hasDownsampling && streamingParameters.DownsamplingRatio = None then
                 failwith "Failed to create streaming acquisition: specified inputs have downsampling but no downsampling ratio is specified."
@@ -142,10 +146,13 @@ module Streaming =
               StatusChanged   = new NotificationEvent<StreamStatus>()
               SamplesObserved = new Event<StreamingSamples>() }
 
+        /// Returns an observable which fires when the streaming acquistion status changes.
         let status acquisition =
             acquisition.StatusChanged.Publish
             |> Observable.fromNotificationEvent
 
+        /// Prepares the device for a streaming acquisition by setting up the channel settings, triggering,
+        /// device resolution and data buffers.
         let private prepareDevice acquisition =
             asyncChoice {
                 acquisition.StatusChanged.Trigger (Next PreparingStream)
@@ -157,10 +164,13 @@ module Streaming =
                     do! PicoScope.DataBuffers.setDataBuffer acquisition.PicoScope inputSampling.InputChannel inputSampling.DownsamplingMode acquisition.Parameters.MemorySegment
                         <| Inputs.Buffers.findByInputSampling inputSampling acquisition.DataBuffers }
 
+        /// Initiates the streaming acquisition.
         let private startStreaming acquisition = asyncChoice {
             let! sampleInterval = PicoScope.Acquisition.startStreaming acquisition.PicoScope acquisition.Parameters
             acquisition.StatusChanged.Trigger (Next <| Streaming sampleInterval) }
 
+        /// Creates a sample block for the given StreamingValuesReady callback parameters with blank arrays
+        /// which have to be filled by copying values from the streaming buffers.
         let private createSampleBlock streamingValuesReady acquisition =
             let sampleCount = streamingValuesReady.NumberOfSamples 
             { Samples =
@@ -170,7 +180,9 @@ module Streaming =
                 |> Map.ofSeq
               Length           = streamingValuesReady.NumberOfSamples 
               VoltageOverflows = streamingValuesReady.VoltageOverflows }
-
+        
+        /// Copies values from the acquisition buffer into the given sample block for the given StreamingValuesReady
+        /// callback parameters. Copying is parallelised.
         let private copySampleBlockValues streamingValuesReady acquisition sampleBlock =
             Map.toSeq acquisition.DataBuffers.Buffers
             |> Seq.map (fun (inputSampling, buffer) -> async {
@@ -181,33 +193,47 @@ module Streaming =
             |> Async.Parallel
             |> Async.Ignore
 
+        /// Handles a callback with the given StreamingValues ready parameters.
         let private handleStreamingValuesReady acquisition streamingValuesReady =
+            // check if the acquisition has been stopped manually
             if not acquisition.StopCapability.IsCancellationRequested then
-                if streamingValuesReady.DidAutoStop then
+                if streamingValuesReady.DidAutoStop then // or automatically
                     acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
 
+                // if there are samples to copy then create a sample block and copy the values into it before
+                // triggering the samples observed event
                 if streamingValuesReady.NumberOfSamples <> 0 then
-
                     let sampleBlock = createSampleBlock streamingValuesReady acquisition
                     Async.StartWithContinuations(
                         copySampleBlockValues streamingValuesReady acquisition sampleBlock,
                         (fun () -> acquisition.SamplesObserved.Trigger sampleBlock),
                         ignore, ignore)
 
+        /// Polls the device continuously until the acquisition is stopped manually or automatically.
         let rec private pollUntilFinished acquisition = asyncChoice {
             if not acquisition.StopCapability.IsCancellationRequested then
                 let! __ = 
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
                     <| handleStreamingValuesReady acquisition
                 
+                // TODO: Add some kind of variable delay here to prevent the polling from prepetually
+                // using a CPU thread, while also being able to cope with fast sample intervals
                 do! pollUntilFinished acquisition }
         
+        /// Runs an acquisition with the given cancellation token. If the token is cancelled, then acquisition
+        /// will be aborted. To ensure that the acquisition is stopped cleanly, no other cancellation 
+        /// compensations should be registered with this cancellation token which will post commands to the
+        /// PicoScope. Returns a handle which can be used to stop the acquisition manually or wait for it to
+        /// finish asynchronously.
         let startWithCancellationToken acquisition cancellationToken =
             if acquisition.StopCapability.IsCancellationRequested then
                 failwith "Cannot start an acquisition which has already been stopped."
             
+            // create a result channel which will be used to register the acquisition result and await
+            // it asynchronously
             let resultChannel = new ResultChannel<_>()
 
+            // if the acquisition finishes normally, stop it and register the result
             let finishAcquisition acquisitionResult = Async.StartImmediate <| async {
                 let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
                 match acquisitionResult, stopResult with
@@ -223,6 +249,7 @@ module Streaming =
                     acquisition.StatusChanged.Trigger (Error <| Exception f)
                     resultChannel.RegisterResult (fail f) }
 
+            // if an error occurs stop the acquisition and register result result
             let stopAcquisitionAfterError exn = Async.StartImmediate <| async {
                 let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
                 match stopResult with
@@ -234,6 +261,7 @@ module Streaming =
                     acquisition.StatusChanged.Trigger (Error (Exception error))
                     resultChannel.RegisterResult (fail error) }
 
+            // if the acquisition is cancelled, stop it and register the result
             let stopAcquisitionAfterCancellation exn = Async.StartImmediate <| async { 
                 let! stopResult =  PicoScope.Acquisition.stop acquisition.PicoScope
                 match stopResult with
@@ -246,43 +274,65 @@ module Streaming =
                     acquisition.StatusChanged.Trigger (Error <| Exception error)
                     resultChannel.RegisterResult (fail error) }
 
-            let acquisitionWorkflow =
-                Async.StartWithContinuations(
-                    asyncChoice {
-                            use __ = Inputs.Buffers.createPinningHandle acquisition.DataBuffers
-                            do! prepareDevice acquisition
-                            do! startStreaming acquisition
-                            do! pollUntilFinished acquisition }, 
-                    
-                        finishAcquisition,
-                        stopAcquisitionAfterError, 
-                        stopAcquisitionAfterCancellation,
-                        cancellationToken)
+            // define the acquisition workflow
+            let acquisitionWorkflow = asyncChoice {
+                use __ = Inputs.Buffers.createPinningHandle acquisition.DataBuffers
+                do! prepareDevice acquisition
+                do! startStreaming acquisition
+                do! pollUntilFinished acquisition }
+            
+            // start it with the continuations defined above and the given cancellation token
+            Async.StartWithContinuations(
+                    acquisitionWorkflow,
+                    finishAcquisition,
+                    stopAcquisitionAfterError, 
+                    stopAcquisitionAfterCancellation,
+                    cancellationToken)
 
+            // and return an acquisition handle which can be used to await the result
             { Acquisition = acquisition ; WaitToFinish = resultChannel.AwaitResult () }
-    
-        let start acquisition = startWithCancellationToken acquisition (Async.DefaultCancellationToken)
+        
+        /// Starts a streaming acquisition. If the ability to abort the acquisition via a cancellation
+        /// token is required, then start the acquisition using startWithCancellationToken instead. Returns
+        /// a handle which can be used to stop the acquisition manually or wait for it to finish
+        /// asynchronously.
+        let start acquisition = startWithCancellationToken acquisition Async.DefaultCancellationToken
 
+        /// Starts a streaming acquisition as a child (sharing the same cancellation token) to the current
+        /// asynchronous workflow. To ensure that the acquisition is stopped cleanly, no other cancellation 
+        /// compensations should be registered with this cancellation token which will post commands to the
+        /// PicoScope. Returns a handle which can be used to stop the acquisition manually or wait for it to
+        /// finish asynchronously.
         let startAsChild acquisition = asyncChoice {
             let! ct = Async.CancellationToken |> AsyncChoice.liftAsync
             return startWithCancellationToken acquisition ct }
 
+        /// Asynchronously waits for the acquisition associated with the given handle to finish.
         let waitToFinish acquisitionHandle = acquisitionHandle.WaitToFinish   
-              
+        
+        /// Manually stops the streaming acquisition associated with the given handle.
         let stop acquisitionHandle =
             if not acquisitionHandle.Acquisition.StopCapability.IsCancellationRequested then
                 acquisitionHandle.Acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
 
+        /// Manually stops the streaming acquisition associated with the given handle and asynchronously
+        /// waits for it to finish.
         let stopAndFinish acquisitionHandle =
             stop acquisitionHandle
             waitToFinish acquisitionHandle
-
+    
+    /// Functions for obtaining the signal projections for an acquisition.
     module Signal =
+
+        /// Completes the given observable when the acquisition completes.
         let private takeUntilFinished acquisition =
             Observable.takeUntilOther (Observable.last (Acquisition.status acquisition))
         
+        /// Computes the timestamp of a sample for the given index and sample interval.
         let private time interval index = (Interval.asSeconds interval) * (float index)
         
+        /// Returns a function which converts an ADC count to a voltage for the given input sampling in an
+        /// acquisition.
         let private adcCountToVoltage (inputChannel, _) acquisition = 
             let channelSettings = Inputs.settingsForChannel inputChannel acquisition.Parameters.Inputs
             match channelSettings with
@@ -293,145 +343,227 @@ module Streaming =
                 fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
             | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel
 
+        /// Returns a function which converts an array of samples from ADC counts to voltages according to
+        /// the given array of input channel acquisition settings.
         let private adcCountsToVoltages (inputs : (InputChannel * BufferDownsampling) array) acquisition =
             Array.mapi (fun i adcCount -> adcCountToVoltage inputs.[i] acquisition adcCount)
 
+        /// Returns a sequence of sample arrays in the given sample block for the specified array of inputs.
         let private takeInputs inputs samples = seq {
             let length = samples.Length
             for i in 0 .. length - 1 ->
                 samples.Samples
                 |> Map.findArray inputs
                 |> Array.map (fun block -> block.[i]) }
+        
+        /// Returns the n-th signal from an observable which emits an array of signals at each observation.
+        let nth n = Observable.map (fun samples -> Array.get samples n)
 
-        let nth n                 = Observable.map (fun samples      -> Array.get samples n)
-        let nthIndexed n          = Observable.map (fun (t, samples) -> (t, Array.get samples n))
-        let takeXY n m            = Observable.map (fun samples      -> (Array.get samples n, Array.get samples m))
+        /// Takes the n-th and m-th signals from an observable which emits an array of signals at each
+        /// observation and combines them into a tuple.
+        let takeXY n m = Observable.map (fun samples -> (Array.get samples n, Array.get samples m))
+
+        /// Takes the n-th and m-th signals from an observable which emits an array of indexed or timestamped
+        /// signals at each observation and combines the values into a tuple, discarding the indecies.
         let takeXYFromIndexed n m = Observable.map (fun (_, samples) -> (Array.get samples n, Array.get samples m))
-        let scan signal           = Observable.fold List.cons List.empty signal |> Observable.map Seq.ofList
 
+        /// Accumulates a signal, emitting the sequence of samples observed so far at each observation.
+        let scan signal = Observable.scanInit List.empty List.cons signal |> Observable.map Seq.ofList
+
+        /// Helper function for constructing observables based on the ADC count samples for a given input.
         let private adcCountEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
             |> Event.collectSeq Seq.ofArray
-
+        
+        /// Returns an observable which emits the ADC count for every sample observed on the specified input
+        /// in an acquisition.
         let adcCount input acquisition =
             adcCountEvent input acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits the voltage for every sample observed on the specified input in
+        /// an acquisition.
         let voltage input acquisition =
             adcCountEvent input acquisition
             |> Event.map (adcCountToVoltage input acquisition)
             |> takeUntilFinished acquisition
 
-        let adcCountBy f input acquisition =
+        /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
+        /// function and ADC count for every sample observed on the specified input in an acquisition.
+        let adcCountBy indexMapping input acquisition =
             adcCountEvent input acquisition
-            |> Event.mapi (fun i adcCount -> (f i, adcCount))
+            |> Event.mapi (fun i adcCount -> (indexMapping i, adcCount))
             |> takeUntilFinished acquisition
 
-        let voltageBy f input acquisition =
+        /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
+        /// function and voltage for every sample observed on the specified input in an acquisition.
+        let voltageBy indexMapping input acquisition =
             adcCountEvent input acquisition
-            |> Event.mapi (fun i adcCount -> (f i, adcCountToVoltage input acquisition adcCount))
+            |> Event.mapi (fun i adcCount -> (indexMapping i, adcCountToVoltage input acquisition adcCount))
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits a tuple of sample index and ADC count for every sample observed
+        /// on the specified input in an acquisition.
         let adcCountByIndex = adcCountBy id
+
+        /// Returns an observable which emits a tuple of timestamp and ADC count for every sample observed on
+        /// the specified input in an acquisition.
         let adcCountByTime input acquisition = adcCountBy (time acquisition.Parameters.SampleInterval) input acquisition
 
+        /// Returns an observable which emits a tuple of sample index and voltage for every sample observed on
+        /// the specified input in an acquisition.
         let voltageByIndex = voltageBy id
+
+        /// Returns an observable which emits a tuple of timestamp and voltage for every sample observed on the
+        /// specified input in an acquisition.
         let voltageByTime input acquisition = voltageBy (time acquisition.Parameters.SampleInterval) input acquisition
         
+        /// Helper function for constructing observables based on the ADC count samples for a given array of
+        /// inputs.
         let private adcCountsEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (takeInputs inputs)
 
+        /// Returns an observable which emits an array of ADC counts for every sample observed on the specified
+        /// array of inputs in an acquisition.
         let adcCounts inputs acquisition =
             adcCountsEvent inputs acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits an array of voltages for every sample observed on the specified
+        /// array of inputs in an acquisition.
         let voltages inputs acquisition =
             adcCountsEvent inputs acquisition
             |> Event.map (adcCountsToVoltages inputs acquisition)
             |> takeUntilFinished acquisition
 
-        let adcCountsBy f inputs acquisition =
+        /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
+        /// function and array of ADC counts for every sample observed on the specified array of inputs
+        /// in an acquisition.
+        let adcCountsBy indexMapping inputs acquisition =
             adcCountsEvent inputs acquisition
-            |> Event.mapi (fun i samples -> (f i, samples))
+            |> Event.mapi (fun i samples -> (indexMapping i, samples))
             |> takeUntilFinished acquisition
 
-        let voltagesBy f inputs acquisition =
+        /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
+        /// function and array of voltages for every sample observed on the specified array of inputs in an
+        /// acquisition.
+        let voltagesBy indexMapping inputs acquisition =
             adcCountsEvent inputs acquisition
-            |> Event.mapi (fun i adcCounts -> (f i, adcCountsToVoltages inputs acquisition adcCounts))
+            |> Event.mapi (fun i adcCounts -> (indexMapping i, adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits a tuple of sample index and array of ADC counts for every sample
+        /// observed on the specified array of inputs in an acquisition.
         let adcCountsByIndex = adcCountsBy id
+
+        /// Returns an observable which emits a tuple of timestamp and array of ADC counts for every sample
+        /// observed on the specified array of inputs in an acquisition.
         let adcCountsByTime inputs acquisition = adcCountsBy (time acquisition.Parameters.SampleInterval) inputs acquisition
 
+        /// Returns an observable which emits a tuple of sample index and array of voltages for every sample
+        /// observed on the specified array of inputs in an acquisition.
         let voltagesByInex = voltagesBy id
+
+        /// Returns an observable which emits a tuple of timestamp and array of voltages for every sample
+        /// observed on the specified array of inputs in an acquisition.
         let voltagesByTime inputs acquisition = voltagesBy (time acquisition.Parameters.SampleInterval) inputs acquisition
 
+        /// Returns an observable which emits a tuple of ADC counts for each pair of samples observed on the
+        /// specified inputs in an acquisition.
         let adcCountXY xInput yInput acquisition =
             adcCounts [| xInput ; yInput |] acquisition
             |> takeXY 0 1
 
+        /// Returns an observable which emits a tuple of voltages for each pair of samples observed on the
+        /// specified inputs in an acquisition.
         let voltageXY xInput yInput acquisition =
             voltages [| xInput ; yInput |] acquisition
             |> takeXY 0 1
 
+        /// Helper function for constructing observables based on sample blocks for a given input in an
+        /// acquisition.
         let private adcCountByBlockEvent input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.find input)
 
+        /// Returns an observable which emits an array of ADC counts for each block of samples observed on the
+        /// specified input in an acquisition.
         let adcCountByBlock input acquisition =
             adcCountByBlockEvent input acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits an array of voltages for each block of samples observed on the
+        /// specified input in an acquisition.
         let voltageByBlock input acquisition =
             adcCountByBlockEvent input acquisition
             |> Event.map (Array.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
+        /// Helper function for constructing observables based on the sample blocks for a given array of inputs
+        /// in an acquisition.
         let private adcCountsByBlockEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.map (fun samples -> samples.Samples |> Map.findArray inputs)
 
+        /// Returns an observable which emits an array of ADC count blocks for each sample block observed for
+        /// the given array of inputs in an acquisition.
         let adcCountsByBlock inputs acquisition =
             adcCountsByBlockEvent inputs acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits an array of voltage blocks for each sample block observed for the
+        /// given array of inputs in an acquisition.
         let voltagesByBlock inputs acquisition = 
             adcCountsByBlockEvent inputs acquisition
             |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
+        /// Helper function for constructing observables which buffer a specified number of the latest samples
+        /// on a given input in acquisition.
         let private adcCountBufferedEvent count input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (fun samples -> samples.Samples |> Map.find input)
             |> Event.bufferCountOverlapped count
 
+        /// Returns an observable which emits the latest specified number of ADC counts sampled on a given
+        /// input after each sample block in an acquisition.
         let adcCountBuffered count input acquisition =
             adcCountBufferedEvent count input acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits the latest specified number of voltages sampled on a given input
+        /// after each sample block in an acquisition.
         let voltageBuffered windowSize input acquisition =
             adcCountBufferedEvent windowSize input acquisition
             |> Event.map (Array.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
+        /// Helper function for constructing observables which buffer a specified number of the latest samples
+        /// on a given array of inputs in an acquisition.
         let private adcCountsBufferedEvent count inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (takeInputs inputs)
             |> Event.bufferCountOverlapped count
 
-        let adcCountsBuffered ount inputs acquisition =
-            adcCountBufferedEvent ount inputs acquisition
+        /// Returns an observable which emits an array of the latest specified number of ADC counts sampled on
+        /// a given array of inputs after each sample block in an acquisition.
+        let adcCountsBuffered count inputs acquisition =
+            adcCountBufferedEvent count inputs acquisition
             |> takeUntilFinished acquisition
 
+        /// Returns an observable which emits an array of the latest specified number of voltages sampled on a
+        /// given array of inputs after each sample block in an acquisition.
         let voltagesBuffered count inputs acquisition =
             adcCountsBufferedEvent count inputs acquisition
             |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
-        let voltageOverflow inputChannel acquisition =
+        /// Returns an observable which emits a set of channels on which voltage overflow occurred if voltage 
+        /// overflow occurs on any input channel in an acquisition. 
+        let voltageOverflow acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.filter (fun block -> Set.contains inputChannel block.VoltageOverflows)
+            |> Event.filter (fun block -> not <| Set.isEmpty block.VoltageOverflows)
             |> Event.map (fun block -> block.VoltageOverflows)
             |> takeUntilFinished acquisition
