@@ -331,7 +331,7 @@ module PiezojenaNV40 =
         /// Sets all channel outputs. 
         let private setAllOutputs piezojena (x:float, y:float, z:float) resolution =   
             let stage  = id piezojena
-            let target = IntensityMap.tupleManipulations.typetoFloat32 (x, y, z)
+            let target = IntensityMap.Tuples.typetoFloat32 (x, y, z)
             let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
@@ -342,13 +342,13 @@ module PiezojenaNV40 =
         
         /// Checks if position had been reached. 
         let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = asyncChoice{      
-            let target = IntensityMap.tupleManipulations.typetoFloat32 (x, y, z)
+            let target = IntensityMap.Tuples.typetoFloat32 (x, y, z)
             let tolerance = float32 (tolerancefloat)
             if count > 10 then 
                 return! (fail "Failed to reach position")
             else     
                 let! coordinate = queryPosition piezojena 
-                let positionReached = IntensityMap.tupleManipulations.compare target coordinate tolerance
+                let positionReached = IntensityMap.Tuples.compare target coordinate tolerance
                 if positionReached then
                     return coordinate 
                 else 
@@ -356,7 +356,7 @@ module PiezojenaNV40 =
                     return! waitToReachPosition piezojena (count + 1) (x, y, z) tolerancefloat 
         }
 
-        /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
+        /// Sets all channel outputs using a 3 element tuple and then checks if in correct posistion. 
         let setPosition piezojena (target:float*float*float) tolerance = asyncChoice{
             let newtolerance = float32 tolerance 
             // Async workflow for setting all outputs. 
@@ -364,10 +364,20 @@ module PiezojenaNV40 =
             // Recursive function for querying position
             return! waitToReachPosition piezojena 0 target tolerance
             }     
+
+        /// Sets all channel outputs using a 2 element tuple and a starting position.  
+        let setGridPosition piezojena (first:Channel) (second:Channel) (target:float*float) start tolerance = asyncChoice{
+            let newtolerance = float32 tolerance 
+            let fullCoordinate = IntensityMap.Coordinates.arrangeCoordinate first second target start 
+            // Async workflow for setting all outputs. 
+            do! setAllOutputs piezojena fullCoordinate newtolerance
+            // Recursive function for querying position
+            return! waitToReachPosition piezojena 0 fullCoordinate tolerance
+            }     
     
         /// Gnerates a grid of points for intensity mapping using current position. 
         let generateGrid piezojena  (firstAxis:Axis) (secondAxis:Axis) (interval:float) = asyncChoice{
             let! start = queryPosition piezojena
-            let arrayofPoints = IntensityMap.Generate.gridPoints firstAxis secondAxis interval start
+            let arrayofPoints = IntensityMap.GridPoints.generate firstAxis secondAxis interval start
             return arrayofPoints 
             }

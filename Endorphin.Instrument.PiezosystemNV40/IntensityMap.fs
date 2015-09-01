@@ -8,10 +8,10 @@ open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
-module IntensityMap = 
+module internal IntensityMap = 
      
     [<AutoOpen>]
-    module internal tupleManipulations = 
+    module Tuples = 
        
        let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
        let multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
@@ -81,7 +81,7 @@ module IntensityMap =
                    true
            compare 
 
-    module internal Coordinate = 
+    module Coordinates = 
 
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
@@ -135,16 +135,15 @@ module IntensityMap =
             fullCoordinate orderedPosition empty 
 
         /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
-        let arrangeCoordinate (first:Channel) (second:Channel) desired start =
+        let arrangeCoordinate (first:Channel) (second:Channel) (desired: float*float) start =
              let fix = fixedCoordinates first second start 
              let expanded = expandCoordinates first second desired 
              let coordinate = addTuples expanded fix
                    
              coordinate 
-
-
-     module Generate =          
-         
+        
+     module GridPoints =          
+   
          /// Gets the value of the specified channel. 
          let private getValue (channel:Channel) (x:float, y:float, z:float) = 
              match channel with         
@@ -179,7 +178,7 @@ module IntensityMap =
                  else         
                      let rec generate (firstPosition, secondPosition) list =         
                          if firstPosition < firstMaximum || firstPosition = firstMaximum then
-                             let coordinate = Coordinate.arrangeCoordinate firstChannel secondChannel (firstPosition, secondPosition) start
+                             let coordinate = Coordinates.arrangeCoordinate firstChannel secondChannel (firstPosition, secondPosition) start
                              let newList = coordinate :: list 
                              let newPosition = (firstPosition + interval, secondPosition)
                              generate newPosition newList  
@@ -196,7 +195,7 @@ module IntensityMap =
                 else      
                     let rec generate (firstPosition, secondPosition) list = 
                         if firstPosition > 0.0 || firstPosition = 0.0 then 
-                            let coordinate = Coordinate.arrangeCoordinate firstChannel secondChannel (firstPosition, secondPosition) start
+                            let coordinate = Coordinates.arrangeCoordinate firstChannel secondChannel (firstPosition, secondPosition) start
                             let newlist = coordinate :: list 
                             let newPosition = (firstPosition - interval, secondPosition) 
                             generate newPosition newlist 
@@ -226,7 +225,7 @@ module IntensityMap =
              generateAll (firstOffset, secondOffset) points
         
          /// Generates a list of grid points and converts to an array. 
-         let gridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float32*float32*float32) = 
+         let generate (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float32*float32*float32) = 
              let newstart = typetoFloat start
              let list = generateGridPointsList firstAxis secondAxis interval newstart
              list |> List.toArray 
