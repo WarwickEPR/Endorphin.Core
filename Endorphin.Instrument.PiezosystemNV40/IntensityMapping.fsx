@@ -33,7 +33,7 @@ module IntensityMapping =
 // Test x axis. 
 let xAxis = {
     Axis = Channel0
-    Length = 100.0f}
+    Length = 100.0}
 
 // Test y aixs.
 let yAxis = {

@@ -55,8 +55,8 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="SerialConnection.fs" />
     <Compile Include="Errors.fs" />
-    <Compile Include="PiezojenaNV40.fs" />
     <Compile Include="IntensityMap.fs" />
+    <Compile Include="PiezojenaNV40.fs" />
     <None Include="IntensityMappingWithoutTriggering.fsx" />
     <None Include="IntensityMapping.fsx" />
     <None Include="SerialPort.fsx" />

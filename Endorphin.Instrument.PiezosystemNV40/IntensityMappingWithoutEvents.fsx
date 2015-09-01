@@ -29,12 +29,12 @@ module IntensityMappingWithoutTriggering =
 // Test x axis. 
 let xAxis = {
     Axis = Channel0
-    Length = 100.0f}
+    Length = 100.0}
 
 // Test y aixs.
 let yAxis = {
     Axis = Channel1
-    Length = 100.0f}
+    Length = 100.0}
 
 // Test interval and resolution. 
 let interval = 2.0
@@ -45,9 +45,11 @@ let experiment = asyncChoice{
    let! piezojena = PiezojenaNV40.Initialise.initialise "COM3" 
    /// Sets softstart initalisation. 
    do! PiezojenaNV40.SetModes.setSoftStart piezojena On
+   let! start = PiezojenaNV40.Motion.queryPosition piezojena 
    /// Measures starting coordinates and generates an array of grid points. 
-   let! arrayofPoints = IntensityMap.Generate.getGrid piezojena xAxis yAxis interval 
-   let length = Array.length arrayofPoints 
+   let arrayofPoints = IntensityMap.Generate.generateGridPoints xAxis yAxis interval start 
+   let length = Array.length arrayofPoints
+   do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
   // do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
     } 
 

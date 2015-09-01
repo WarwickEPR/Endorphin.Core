@@ -36,6 +36,7 @@ module IntensityMap =
            else
                (y, x)
         
+       /// Converts tuple with elements of type float into a tuple with elements of type float32.
        let typetoFloat32 (coordinate: float*float*float) = 
            let a =
                 match coordinate with
@@ -46,6 +47,19 @@ module IntensityMap =
            let c =  
                 match coordinate with 
                 | (x, y, z) -> float32(z) 
+           (a, b, c)   
+
+       /// Converts tuple with elements of type float32 into a tuple with elements of type float.
+       let typetoFloat (coordinate: float32*float32*float32) = 
+           let a =
+                match coordinate with
+                | (x, y, z) -> float(x)
+           let b =
+                match coordinate with
+                | (x, y, z) -> float(y)
+           let c =  
+                match coordinate with 
+                | (x, y, z) -> float(z) 
            (a, b, c)   
 
     module Coordinate = 
@@ -193,8 +207,9 @@ module IntensityMap =
              generateAll (firstOffset, secondOffset) points
         
          /// Generates a list of grid points and converts to an array. 
-         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
-             let list = generateGridPointsList firstAxis secondAxis interval start
+         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float32*float32*float32) = 
+             let newstart = typetoFloat start
+             let list = generateGridPointsList firstAxis secondAxis interval newstart
              list |> List.toArray 
 
          

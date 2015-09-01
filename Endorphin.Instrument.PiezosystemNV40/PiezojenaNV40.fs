@@ -361,7 +361,7 @@ module PiezojenaNV40 =
             setAllOutputsWorkflow |> check piezojena  
 
         let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = asyncChoice{      
-            let target = (float32(x), float32(y), float32(z))
+            let target = IntensityMap.Manipulations.typetoFloat32 (x, y, z)
             let tolerance = float32 (tolerancefloat)
             if count > 10 then 
                 return! (fail "Failed to reach position")
@@ -383,5 +383,10 @@ module PiezojenaNV40 =
             // Recursive function for querying position
             return! waitToReachPosition piezojena 0 target tolerance
             }     
-
-          
+    
+        /// Gnerates a grid of points for intensity mapping using current position. 
+        let generateGrid piezojena  (firstAxis:Axis) (secondAxis:Axis) (interval:float) = asyncChoice{
+            let! start = queryPosition piezojena
+            let arrayofPoints = IntensityMap.Generate.generateGridPoints firstAxis secondAxis interval start
+            return arrayofPoints 
+            }
