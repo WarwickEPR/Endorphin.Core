@@ -48,7 +48,7 @@ let experiment = asyncChoice{
    /// Measures starting coordinates and generates an array of grid points. 
    let! arrayofPoints = IntensityMap.Generate.getGrid piezojena xAxis yAxis interval 
    let length = Array.length arrayofPoints 
-   do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
+  // do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
     } 
 
          

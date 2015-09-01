@@ -10,11 +10,45 @@ open Endorphin.Instrument.PiezosystemNV40
 
 
 module IntensityMap = 
-    
-     module Coordinate = 
+     
+    [<AutoOpen>]
+    module Manipulations = 
+       
+       let internal addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+       let internal multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
+
+       /// Orders tuple.
+       let internal orderTuple (first:Channel) (second:Channel) (x, y) = 
+           let firstEnum = 
+               match first with 
+               | Channel0 -> 0
+               | Channel1 -> 1
+               | Channel2 -> 2
+
+           let secondEnum = 
+               match second with
+               | Channel0 -> 0
+               | Channel1 -> 1
+               | Channel2 -> 2
+
+           if firstEnum < secondEnum then
+               (x, y)
+           else
+               (y, x)
         
-        let private addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
-        let private multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
+       let typetoFloat32 (coordinate: float*float*float) = 
+           let a =
+                match coordinate with
+                | (x, y, z) -> float32(x)
+           let b =
+                match coordinate with
+                | (x, y, z) -> float32(y)
+           let c =  
+                match coordinate with 
+                | (x, y, z) -> float32(z) 
+           (a, b, c)   
+
+    module Coordinate = 
 
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
@@ -45,37 +79,19 @@ module IntensityMap =
                 | Channel2 -> (0.0,0.0,1.0)   
             firstTuple
         
-        /// Orders tuple.
-        let private orderTuple (first:Channel) (second:Channel) (x:float, y:float) = 
-            let firstEnum = 
-                match first with 
-                | Channel0 -> 0
-                | Channel1 -> 1
-                | Channel2 -> 2
-
-            let secondEnum = 
-                match second with
-                | Channel0 -> 0
-                | Channel1 -> 1
-                | Channel2 -> 2
-
-            if firstEnum < secondEnum then
-                (x, y)
-            else
-                (y, x)
 
         /// Stores starting coordinates of the channels not in use, these will remain fixed. 
-        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float*float*float))=
+        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) startingPosition =
             let empty = findEmptyChannels firstChannel secondChannel
             let fixedCoordinates = multiplyTuple startingPosition empty 
             fixedCoordinates 
 
         /// Expands a two element tuple containing desired position (on a 2D grid) into a 3 element tuple, contains zero's
         /// for channels not in use. 
-        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float*float) = 
+        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) desiredPosition = 
             let empty = findEmptyChannels firstChannel secondChannel
             let orderedPosition = orderTuple firstChannel secondChannel desiredPosition
-            let fullCoordinate (x:float, y:float) (a:float, b:float, c:float) =
+            let fullCoordinate (x, y) (a, b, c) =
                 if a = 0.0 then 
                     if b = 0.0 then
                         (x , y , 0.0)
@@ -84,37 +100,13 @@ module IntensityMap =
                 else
                     (0.0, x, y)
             fullCoordinate orderedPosition empty 
-        
-        /// Compresses three element tuple into two element tuple containing elements relevant to the first and second channels. 
-        let private compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float, y:float, z:float) =       
-            let firstTuple = 
-                match firstChannel with
-                | Channel0 -> (1.0, 0.0, 0.0)   
-                | Channel1 -> (0.0, 1.0, 0.0)
-                | Channel2 -> (0.0, 0.0, 1.0)
-
-            let secondTuple = 
-                match secondChannel with
-                | Channel0 -> (1.0, 0.0, 0.0)
-                | Channel1 -> (0.0, 1.0, 0.0)
-                | Channel2 -> (0.0, 0.0, 1.0)
-            
-            let summedTuple = addTuples firstTuple secondTuple
-            let productTuple = multiplyTuple summedTuple (x, y, z)
-            let compress (a:float, b:float, c:float) = 
-                if a = 0.0 then 
-                    (b, c)
-                elif b = 0.0 then 
-                    (a, c)
-                else 
-                    (a, b)
-            compress productTuple
 
         /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
-        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float*float) (start:float*float*float) =
+        let arrangeCoordinate (first:Channel) (second:Channel) desired start =
              let fix = fixedCoordinates first second start 
              let expanded = expandCoordinates first second desired 
-             let coordinate = addTuples expanded fix  
+             let coordinate = addTuples expanded fix
+                   
              coordinate 
 
 
@@ -127,7 +119,7 @@ module IntensityMap =
                  | Channel1 -> y
                  | Channel2 -> z
      
-         let private generateGridPointsList (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
+         let private generateGridPointsList (firstAxis:Axis) (secondAxis:Axis) interval start = 
              let firstChannel  = (firstAxis.Axis) 
              let secondChannel = (secondAxis.Axis)
              // The offsets are the starting postions of the two channels that will be used in the scan. 
@@ -200,28 +192,9 @@ module IntensityMap =
          
              generateAll (firstOffset, secondOffset) points
         
-         /// Gets the current position of all the channels. 
-         let private getCoordinates piezojena = asyncChoice{ 
-             return! PiezojenaNV40.Motion.queryPosition piezojena
-             }
-         
          /// Generates a list of grid points and converts to an array. 
-         let private generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
-             let list = generateGridPointsList firstAxis secondAxis start
+         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
+             let list = generateGridPointsList firstAxis secondAxis interval start
              list |> List.toArray 
 
-         /// Generates grid with generate grid points. 
-         let getGrid piezojena firstAxis secondAxis interval = asyncChoice{
-             let! start = getCoordinates piezojena
-             let a = 
-                match start with 
-                | (x, y, z) -> float(x)
-             let b = 
-                match start with
-                | (x, y, z) -> float(y)
-             let c = 
-                match start with
-                | (x, y, z) -> float(z)
-             let newStart = (a, b, c)
-             return generateGridPoints firstAxis secondAxis interval newStart 
-             } 
+         

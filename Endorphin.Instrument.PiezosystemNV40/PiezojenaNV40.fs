@@ -349,12 +349,13 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena
 
         /// Sets all channel outputs. 
-        let private setAllOutputs piezojena (x:float32, y:float32, z:float32) resolution =   
+        let private setAllOutputs piezojena (x:float, y:float, z:float) resolution =   
             let stage  = id piezojena
+            let target = IntensityMap.Manipulations.typetoFloat32 (x, y, z)
             let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
-                Parsing.tupletoArray (x,y,z) |> stage.SetDesiredOutputChunk  
+                Parsing.tupletoArray target |> stage.SetDesiredOutputChunk  
                 }
             
             setAllOutputsWorkflow |> check piezojena  
@@ -375,7 +376,7 @@ module PiezojenaNV40 =
         }
 
         /// Sets all channel outputs, then checks if in correct posistion, if not then attempts again. 
-        let setPosition piezojena (target:(float*float*float)) (tolerance:float) = asyncChoice{
+        let setPosition piezojena (target:float*float*float) tolerance = asyncChoice{
             let newtolerance = float32 tolerance 
             // Async workflow for setting all outputs. 
             do! setAllOutputs piezojena target newtolerance
