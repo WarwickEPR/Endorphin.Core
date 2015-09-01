@@ -62,30 +62,35 @@ module PicoScope =
     let openDevice serial =
         // use a CommandRequestAgent for the underlying implementation which will serialise
         // commands to the hardware
-        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") (fun () -> asyncChoice {
+        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") (fun () -> async {
             if serial <> null 
             then sprintf "Opening device %s with resolution: %A." serial Resolution_8bit |> logOp
             else sprintf "Opening first available device with resolution: %A." Resolution_8bit |> logOp
             
             // open a connection and get the device handle and power source
             let mutable handle = 0s 
-            let! powerSource = 
+            let powerSourceResult = 
                 NativeApi.OpenUnit (&handle, serial, resolutionEnum Resolution_8bit)
                 |> checkInitialisationStatus
 
-            // get the serial number to be stored with the device identity information and used
-            // to log communications with the hardware
-            let resultLength = 32s
-            let result = new StringBuilder(int resultLength)
-            let mutable requiredLength = 0s
-            let! serial =
-                NativeApi.GetUnitInfo(handle, result, resultLength, &requiredLength, DeviceInfoEnum.SerialNumber)
-                |> checkStatusAndReturn (result.ToString())
-                |> logQueryResult
-                    (sprintf "Successfully opened device with power source %A: %s." powerSource)
-                    (sprintf "Failed to open device: %s.")
+            match powerSourceResult with
+            | Success powerSource -> 
+                // get the serial number to be stored with the device identity information and used
+                // to log communications with the hardware
+                let resultLength = 32s
+                let result = new StringBuilder(int resultLength)
+                let mutable requiredLength = 0s
+                let serialResult =
+                    NativeApi.GetUnitInfo(handle, result, resultLength, &requiredLength, DeviceInfoEnum.SerialNumber)
+                    |> checkStatusAndReturn (result.ToString())
+                    |> logQueryResult
+                        (sprintf "Successfully opened device with power source %A: %s." powerSource)
+                        (sprintf "Failed to open device: %s.")
 
-            return { SerialNumber = serial ; Handle = handle } })
+                match serialResult with
+                | Success serial -> return succeed { SerialNumber = serial ; Handle = handle }
+                | Failure exn    -> return fail exn
+            | Failure exn -> return fail exn })
         |> Async.map PicoScope5000 // wrap the agent as a PicoScope5000
         
     /// Asynchronously opens a connection to the first available PicoScope 5000 series device.
