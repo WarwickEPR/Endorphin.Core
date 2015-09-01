@@ -1,57 +1,12 @@
-﻿namespace ExtCore.Control
+﻿namespace Endorphin.Core
 
 open System.Threading
-
-[<AutoOpen>]
-module ErrorHandling =
-    /// Wraps a value as a success represented by a Choice<'T, 'Error>.
-    let succeed = Choice1Of2
-    /// Wraps a value as a failure represented by a Choice<'T, 'Error>.
-    let fail = Choice2Of2
-
-    /// Conventional definition for pattern-matching Choice<'T, 'Error> as Success or Failure.
-    let (|Success|Failure|) =
-        function
-        | Choice1Of2 s -> Success s
-        | Choice2Of2 f -> Failure f
-
-    /// A handle to a capability to reply to a PostAndReply message with either success or failure.
-    type AsyncChoiceReplyChannel<'T, 'Error> = AsyncReplyChannel<Choice<'T, 'Error>>
-
-    // Extensions to AsyncChoice builder which bind and return from Choice<'T, 'Error> and Async<'T> values.
-    type AsyncChoiceBuilder with
-
-        /// Binds an expression of type Choice<'T, 'Error>.
-        member __.Bind (choice : Choice<'T, 'Error>, binder : 'T -> AsyncChoice<'U, 'Error>) =
-            async {
-                match choice with
-                | Success s -> return! binder s
-                | Failure f -> return fail f }
-
-        /// Returns from an expression of type Choice<'T, 'Error>.
-        member __.ReturnFrom (choice : Choice<'T, 'Error>) =
-            choice |> async.Return
-
-module Choice =
-    /// Make a Choice<'a,'b> into a Choice<'a option,'b>.
-    let liftInsideOption = function
-        | Success s -> succeed (Some s)
-        | Failure f -> fail f
-
-    /// Map a list, where each mapping results in a choice, binding the result of each mapping.
-    let mapList map list =
-        let rec loop acc list = choice {
-            match list with
-            | [] -> return List.rev acc
-            | hd :: tl ->
-                let! hd' = map hd
-                return! loop (hd' :: acc) tl }
-        loop [] list
 
 [<AutoOpen>]
 module Utils =
     let defer f = { new System.IDisposable with member __.Dispose() = f () }
 
+(*
 module AsyncChoice =
     let liftAsync comp = comp |> Async.map succeed
     let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
@@ -97,7 +52,7 @@ module AsyncChoice =
                  : AsyncChoice<'T [], 'EState> =
         async {
             let! sequence' = sequence |> Async.Parallel
-            return foldChoices fold state sequence' }
+            return foldChoices fold state sequence' } *)
 
 [<AutoOpen>]
 module AsyncExtensions =

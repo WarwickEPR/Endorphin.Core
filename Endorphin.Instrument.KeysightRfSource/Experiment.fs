@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open Endorphin.Core
-open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
@@ -186,7 +185,7 @@ module Experiment =
                 else
                     rfPulses
                     |> checkPhaseCycles
-                    |> Choice.liftInsideOption
+                    |> Choice.map Some
 
             /// Convert a duration in seconds into a SampleCount.
             let private shotRepetitionSampleCount (DurationInSec time) =

@@ -2,7 +2,6 @@
 
 open System
 open System.Reactive.Linq
-open ExtCore.Control
 
 /// Internal support functions for the library of transformations to events and observables defined
 /// below.
@@ -107,6 +106,11 @@ module Event =
 
 [<AutoOpen>]
 module ObservableHelpers =
+    type Notification<'T> =
+        | Completed
+        | Next of 'T
+        | Error of exn
+
     type NotificationEvent<'T> = Event<Notification<'T>>
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

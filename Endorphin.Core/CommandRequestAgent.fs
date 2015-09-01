@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Core
 
 open System
-open ExtCore.Control
 open log4net
 
 [<AutoOpen>]

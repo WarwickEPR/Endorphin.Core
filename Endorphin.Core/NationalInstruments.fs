@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Core
 
 open Endorphin.Core.String
-open ExtCore.Control
 open NationalInstruments.VisaNS
 open log4net
 
@@ -24,8 +23,8 @@ module NationalInstruments =
             async {
                 try
                     let! result = asyncRead
-                    return succeed result
-                with exn -> return fail exn.Message }
+                    return Choice.succeed result
+                with exn -> return Choice.fail exn.Message }
 
         /// Create an asynchronous computation which reads a byte array from an NI VISA device
         /// session.
@@ -37,8 +36,8 @@ module NationalInstruments =
             async {
                 try
                     let! result = asyncReadBytes
-                    return succeed result
-                with exn -> return fail exn.Message }
+                    return Choice.succeed result
+                with exn -> return Choice.fail exn.Message }
 
         /// Returns an asynchronous computation which writes a string message to an NI VISA
         /// device session.
@@ -52,9 +51,9 @@ module NationalInstruments =
             async {
                 try
                     do! asyncWrite
-                    return succeed ()
+                    return Choice.succeed ()
                 with
-                    exn -> return fail exn.Message }
+                    exn -> return Choice.fail exn.Message }
 
         /// Create an asynchronous computation which writes a byte array message to an NI
         /// VISA device session.
@@ -66,9 +65,9 @@ module NationalInstruments =
             async {
                 try
                     do! asyncWrite
-                    return succeed ()
+                    return Choice.succeed ()
                 with
-                    exn -> return fail exn.Message }
+                    exn -> return Choice.fail exn.Message }
 
         /// Returns an asynchronous computation which first writes a string message to an NI
         /// VISA device session and then awaits a response to that message.
@@ -166,8 +165,8 @@ module NationalInstruments =
                     if mailbox.CurrentQueueLength <> 0 then
                         let error = sprintf "Closing session with %d messages remaining in mailbox queue." mailbox.CurrentQueueLength 
                         log.Error error 
-                        fail error |> replyChannel.Reply
-                    else succeed () |> replyChannel.Reply }
+                        Choice.fail error |> replyChannel.Reply
+                    else Choice.succeed () |> replyChannel.Reply }
 
                 // dequeues VisaMessages from the mailbox and handles them if communication to the
                 // instrument fails
@@ -187,13 +186,13 @@ module NationalInstruments =
                     | ReadString replyChannel
                     | QueryString (_, replyChannel) ->
                         errorMessage |> log.Error
-                        (fail errorMessage) |> replyChannel.Reply
+                        (Choice.fail errorMessage) |> replyChannel.Reply
                         return! failed error
 
                     | ReadBytes replyChannel
                     | QueryBytes (_, replyChannel) ->
                         errorMessage |> log.Error
-                        (fail errorMessage) |> replyChannel.Reply
+                        (Choice.fail errorMessage) |> replyChannel.Reply
                         return! failed error }
 
                 // dequeus VisaMessages from the mailbox and communicates accordingly with the VISA

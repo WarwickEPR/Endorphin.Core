@@ -40,7 +40,7 @@ module String =
 
     /// Parses each comma-separated substring in a string using the provided parsing function and 
     /// returns the elements.
-    let parseCsvSeq  parseFunc  = String.split [|','|] >> Seq.map parseFunc
+    let parseCsvSeq  parseFunc (str : string) = str.Split [|','|] |> Seq.map parseFunc
     
     /// Returns a comma-separated string, consisiting of the elements of the provided sequence
     /// mapped onto the provided string conversion function.
