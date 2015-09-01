@@ -2,9 +2,11 @@
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module List =
+    let ofSet set = Set.toList set
+
     let duplicates list =
         let rec findDuplicates acc = function
-            | []                            -> List.ofSet acc
+            | []                            -> ofSet acc
             | x::xs when List.contains x xs -> findDuplicates (Set.add x acc) xs
             | x::xs                         -> findDuplicates acc xs
         findDuplicates Set.empty list
