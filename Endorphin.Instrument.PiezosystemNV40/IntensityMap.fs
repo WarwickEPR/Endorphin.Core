@@ -8,17 +8,16 @@ open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
-
 module IntensityMap = 
      
     [<AutoOpen>]
-    module Manipulations = 
+    module internal tupleManipulations = 
        
-       let internal addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
-       let internal multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
+       let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+       let multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
 
        /// Orders tuple.
-       let internal orderTuple (first:Channel) (second:Channel) (x, y) = 
+       let orderTuple (first:Channel) (second:Channel) (x, y) = 
            let firstEnum = 
                match first with 
                | Channel0 -> 0
@@ -62,7 +61,27 @@ module IntensityMap =
                 | (x, y, z) -> float(z) 
            (a, b, c)   
 
-    module Coordinate = 
+       /// Checks if the desired and current positions are within 50nm of each other. 
+       let compare (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
+           let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
+           let difference = tupleSubtract desired current 
+           let first  = 
+               match difference with
+               | (x, y, z) -> x
+           let second =
+               match difference with
+               | (x, y, z) -> y
+           let third  =
+               match difference with 
+               | (x, y, z) -> z
+           let compare =     
+               if first > resolution || second > resolution || third > resolution then
+                   false  
+               else 
+                   true
+           compare 
+
+    module internal Coordinate = 
 
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
@@ -207,7 +226,7 @@ module IntensityMap =
              generateAll (firstOffset, secondOffset) points
         
          /// Generates a list of grid points and converts to an array. 
-         let generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float32*float32*float32) = 
+         let gridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float32*float32*float32) = 
              let newstart = typetoFloat start
              let list = generateGridPointsList firstAxis secondAxis interval newstart
              list |> List.toArray 

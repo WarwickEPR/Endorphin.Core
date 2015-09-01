@@ -301,26 +301,6 @@ module PiezojenaNV40 =
     module Motion = 
         
         let PositionSet = new Event<float32*float32*float32>()
-
-        /// Checks if the desired and current positions are within 50nm of each other. 
-        let private compare (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
-            let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
-            let difference = tupleSubtract desired current 
-            let first  = 
-                match difference with
-                | (x, y, z) -> x
-            let second =
-                match difference with
-                | (x, y, z) -> y
-            let third  =
-                match difference with 
-                | (x, y, z) -> z
-            let compare =     
-                if first > resolution || second > resolution || third > resolution then
-                    false  
-                else 
-                    true
-            compare 
        
         /// Queries all measurements from three channels. 
         let queryPosition piezojena = 
@@ -351,7 +331,7 @@ module PiezojenaNV40 =
         /// Sets all channel outputs. 
         let private setAllOutputs piezojena (x:float, y:float, z:float) resolution =   
             let stage  = id piezojena
-            let target = IntensityMap.Manipulations.typetoFloat32 (x, y, z)
+            let target = IntensityMap.tupleManipulations.typetoFloat32 (x, y, z)
             let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
@@ -359,15 +339,16 @@ module PiezojenaNV40 =
                 }
             
             setAllOutputsWorkflow |> check piezojena  
-
+        
+        /// Checks if position had been reached. 
         let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = asyncChoice{      
-            let target = IntensityMap.Manipulations.typetoFloat32 (x, y, z)
+            let target = IntensityMap.tupleManipulations.typetoFloat32 (x, y, z)
             let tolerance = float32 (tolerancefloat)
             if count > 10 then 
                 return! (fail "Failed to reach position")
             else     
                 let! coordinate = queryPosition piezojena 
-                let positionReached = compare target coordinate tolerance
+                let positionReached = IntensityMap.tupleManipulations.compare target coordinate tolerance
                 if positionReached then
                     return coordinate 
                 else 
@@ -387,6 +368,6 @@ module PiezojenaNV40 =
         /// Gnerates a grid of points for intensity mapping using current position. 
         let generateGrid piezojena  (firstAxis:Axis) (secondAxis:Axis) (interval:float) = asyncChoice{
             let! start = queryPosition piezojena
-            let arrayofPoints = IntensityMap.Generate.generateGridPoints firstAxis secondAxis interval start
+            let arrayofPoints = IntensityMap.Generate.gridPoints firstAxis secondAxis interval start
             return arrayofPoints 
             }

@@ -45,13 +45,12 @@ let experiment = asyncChoice{
    let! piezojena = PiezojenaNV40.Initialise.initialise "COM3" 
    /// Sets softstart initalisation. 
    do! PiezojenaNV40.SetModes.setSoftStart piezojena On
-   let! start = PiezojenaNV40.Motion.queryPosition piezojena 
    /// Measures starting coordinates and generates an array of grid points. 
-   let arrayofPoints = IntensityMap.Generate.generateGridPoints xAxis yAxis interval start 
+   let! arrayofPoints = PiezojenaNV40.Motion.generateGrid piezojena xAxis yAxis interval  
    let length = Array.length arrayofPoints
    do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
-  // do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
-    } 
+   // do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
+   } 
 
          
  

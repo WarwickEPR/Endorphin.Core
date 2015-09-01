@@ -38,7 +38,7 @@ let xAxis = {
 // Test y aixs.
 let yAxis = {
     Axis = Channel1
-    Length = 100.0f}
+    Length = 100.0}
 
 // Test interval and resolution. 
 let interval = 2.0f 
