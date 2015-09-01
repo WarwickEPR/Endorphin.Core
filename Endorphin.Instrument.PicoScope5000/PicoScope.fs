@@ -140,8 +140,7 @@ module PicoScope =
                 match response with
                 | PowerSourceStatus powerSource -> succeed <| powerSource
                 | error                         -> fail    <| Exception (statusMessage error))
-                        
-    
+                           
     /// Functions related to querying device information.
     module Info =
         

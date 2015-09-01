@@ -80,7 +80,7 @@ let experiment picoScope = async {
     let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
     // wait for the acquisition to finish automatically or by cancellation   
-    let! result =  Streaming.Acquisition.waitToFinish acquisitionHandle
+    let! result = Streaming.Acquisition.waitToFinish acquisitionHandle
     match result with
     | Streaming.StreamCompleted -> printfn "Stream completed successfully."
     | Streaming.StreamError exn -> printfn "Stream failed: %s" exn.Message
