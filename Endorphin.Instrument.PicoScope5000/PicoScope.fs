@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
 open ExtCore.Control
+open System
 open System.Text
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Parsing
@@ -24,25 +25,25 @@ module PicoScope =
         let private log = log4net.LogManager.GetLogger typeof<PicoScope5000>
         
         /// Checks whether the given status indicates that a command completed successfully
-        /// and returns an error message string if not.
+        /// and returns an exception if not.
         let checkStatus =
             function
             | Ok            -> succeed ()
-            | Error message -> fail message
+            | Error message -> fail (Exception message)
 
         /// Checks whether the give status indicates that q query completed successfully and
-        /// returns the given value if so, or an error message otherwise.
+        /// returns the given value if so, or an exception otherwise.
         let checkStatusAndReturn value status = choice {
             do! checkStatus status
             return value }
 
         /// Checks a status code returned by the PicoScope API during initialisation and returns
-        /// the device power source if so or an error message otherwise.
+        /// the device power source if so or an exception otherwise.
         let checkInitialisationStatus =
             function
             | Ok                            -> succeed MainsPower
             | PowerSourceStatus powerSource -> succeed powerSource
-            | Error message                 -> fail message
+            | Error message                 -> fail (Exception message)
         
         /// Logs a string describing an operation which is about to be performed.
         let logOp = log.Info
@@ -51,8 +52,8 @@ module PicoScope =
         /// applies the given function to create a log message for the result.
         let logQueryResult successMessageFunc failureMessageFunc input =
             match input with
-            | Success value -> successMessageFunc value |> log.Debug
-            | Failure error -> failureMessageFunc error |> log.Error
+            | Success result      -> successMessageFunc result      |> log.Debug
+            | Failure (exn : exn) -> failureMessageFunc exn.Message |> log.Error
             input
 
     /// Asynchronously opens a connection to a PicoScope 5000 series with a given serial number.
@@ -61,7 +62,7 @@ module PicoScope =
     let openDevice serial =
         // use a CommandRequestAgent for the underlying implementation which will serialise
         // commands to the hardware
-        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") false (fun () -> asyncChoice {
+        CommandRequestAgent.create (serialNumber >> sprintf "PicoScope %s") (fun () -> asyncChoice {
             if serial <> null 
             then sprintf "Opening device %s with resolution: %A." serial Resolution_8bit |> logOp
             else sprintf "Opening first available device with resolution: %A." Resolution_8bit |> logOp
@@ -85,8 +86,8 @@ module PicoScope =
                     (sprintf "Failed to open device: %s.")
 
             return { SerialNumber = serial ; Handle = handle } })
-        |> AsyncChoice.map PicoScope5000 // wrap the agent as a PicoScope5000
-
+        |> Async.map PicoScope5000 // wrap the agent as a PicoScope5000
+        
     /// Asynchronously opens a connection to the first available PicoScope 5000 series device.
     let openFirst () = openDevice null
 
@@ -101,21 +102,25 @@ module PicoScope =
             (fun device -> NativeApi.CloseUnit (handle device) |> checkStatus)
 
     /// Enumerates the list of connected PicoScope 5000 series devices.
-    let enumerateDevices () =
+    let enumerateDevices () = async {
         sprintf "Enumerating connected devices." |> logOp
         let mutable count = 0s
         let mutable stringLength = 32s
         let serials = new StringBuilder(int stringLength)
         let status = NativeApi.EnumerateUnits (&count, serials, &stringLength)
         
-        match status with
-        | Found false -> succeed <| Seq.empty
-        | Found true  -> succeed <| (Seq.ofArray <| serials.ToString().Split [| ',' |])
-        | error       -> fail    <| statusMessage error
-        |> logQueryResult
-            (Seq.length >> sprintf "Found %d connected devices.")
-            (sprintf "Failed to enumerate devices: %s.")
-        |> AsyncChoice.liftChoice
+        let result =
+            match status with
+            | Found false -> succeed <| Seq.empty
+            | Found true  -> succeed <| (Seq.ofArray <| serials.ToString().Split [| ',' |])
+            | error       -> fail    <| Exception (statusMessage error)
+            |> logQueryResult
+                (Seq.length >> sprintf "Found %d connected devices.")
+                (sprintf "Failed to enumerate devices: %s.") 
+            
+        match result with
+        | Success s   -> return s
+        | Failure exn -> raise exn ; return Unchecked.defaultof<string seq> }
     
     /// Asynchronously sets the front panel LED flash of a PicoScope 5000 series device.
     let setLedFlash (PicoScope5000 picoScope) ledFlash =
@@ -134,7 +139,7 @@ module PicoScope =
                 let response = NativeApi.CurrentPowerSource (handle device)
                 match response with
                 | PowerSourceStatus powerSource -> succeed <| powerSource
-                | error                         -> fail    <| statusMessage error)
+                | error                         -> fail    <| Exception (statusMessage error))
                         
     
     /// Functions related to querying device information.
@@ -267,7 +272,7 @@ module PicoScope =
         /// Asynchronously queries the parameters for the specified timebase on a PicoScope 5000 series
         /// device with the current vertical resolution.
         let queryTimebaseParameters picoScope timebase segment =
-            asyncChoice {
+            async {
                 let! resolution = queryResolution picoScope
                 let! (interval, maxSamples) = queryIntervalAndMaxSamples picoScope timebase segment
                 return
@@ -290,7 +295,7 @@ module PicoScope =
 
         /// Asynchronously queries the set of available input channels on a PicoScope 5000 series device.
         let queryAvailableChannels picoScope =
-            asyncChoice {
+            async {
                 let! modelNumber = Info.queryModelNumber picoScope
                 let! resolution = Sampling.queryResolution picoScope
                 let! powerSource = queryPowerSource picoScope
@@ -346,7 +351,7 @@ module PicoScope =
         /// Asynchronously enables the specified input channel with the given input settings on a PicoScope
         /// 5000 series device.
         let private setChannelEnabled picoScope inputChannel inputSettings =
-            asyncChoice {
+            async {
                 do! setChannelInputSettings picoScope inputChannel inputSettings
                 do! setBandwidthFilter picoScope inputChannel inputSettings.BandwidthLimit }
         
@@ -367,12 +372,11 @@ module PicoScope =
         /// Asynchronously sets up all input channels on a PicoScope 5000 series device with the given
         /// acquisition input settings.
         let setAcquisitionInputChannels picoScope acquisitionInputs =
-            asyncChoice {
+            async {
                 let requiredChannels   = Map.keys acquisitionInputs.InputSettings
                 let! availableChannels = queryAvailableChannels picoScope
                 if not (Set.isSubset requiredChannels availableChannels) then
-                    return! fail
-                    <| "The specified acquisition inputs require input channels which are not available on the current device." 
+                    failwith "The specified acquisition inputs require input channels which are not available on the current device." 
                 for channel in availableChannels do
                     do! Inputs.settingsForChannel channel acquisitionInputs
                         |> setChannelSettings picoScope channel }
@@ -494,7 +498,7 @@ module PicoScope =
                     let response = NativeApi.GetStreamingLatestValues(handle device, picoScopeCallback, System.IntPtr.Zero)
                     match response with
                     | AvailabilityStatus status -> succeed <| status
-                    | error                     -> fail    <| statusMessage error)
+                    | error                     -> fail    <| Exception (statusMessage error))
         
         /// Asynchronously queries the number of samples stored in the PicoScope 5000 series device memory
         /// after a streaming acquisition has been stopped.

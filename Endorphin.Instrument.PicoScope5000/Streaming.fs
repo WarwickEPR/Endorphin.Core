@@ -24,6 +24,13 @@ module Streaming =
         | FinishedStream of options : StreamStopOptions
         | CancelledStream
 
+    /// Contains the result of a streaming acquisition, indicating whether the stream finished
+    /// successfully, failed or was cancelled.
+    type StreamResult =
+        | StreamCompleted
+        | StreamError of exn
+        | StreamCancelled
+
     /// Contains a block of streaming samples obtained after polling the device.
     type StreamingSamples =
         internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
@@ -45,7 +52,7 @@ module Streaming =
     /// device. This can be used to stop the acquisition manually and/or wait for it to finish.
     type StreamingAcquisitionHandle = 
         private { Acquisition  : StreamingAcquisition 
-                  WaitToFinish : AsyncChoice<unit, string> }
+                  WaitToFinish : Async<StreamResult> }
 
     /// Functions for specifying streaming acquisition parameters.
     module Parameters =
@@ -154,7 +161,7 @@ module Streaming =
         /// Prepares the device for a streaming acquisition by setting up the channel settings, triggering,
         /// device resolution and data buffers.
         let private prepareDevice acquisition =
-            asyncChoice {
+            async {
                 acquisition.StatusChanged.Trigger (Next PreparingStream)
                 do! PicoScope.ChannelSettings.setAcquisitionInputChannels acquisition.PicoScope acquisition.Parameters.Inputs
                 do! PicoScope.Triggering.setTriggerSettings acquisition.PicoScope acquisition.Parameters.TriggerSettings
@@ -165,7 +172,7 @@ module Streaming =
                         <| Inputs.Buffers.findByInputSampling inputSampling acquisition.DataBuffers }
 
         /// Initiates the streaming acquisition.
-        let private startStreaming acquisition = asyncChoice {
+        let private startStreaming acquisition = async {
             let! sampleInterval = PicoScope.Acquisition.startStreaming acquisition.PicoScope acquisition.Parameters
             acquisition.StatusChanged.Trigger (Next <| Streaming sampleInterval) }
 
@@ -210,7 +217,7 @@ module Streaming =
                         ignore, ignore)
 
         /// Polls the device continuously until the acquisition is stopped manually or automatically.
-        let rec private pollUntilFinished acquisition = asyncChoice {
+        let rec private pollUntilFinished acquisition = async {
             if not acquisition.StopCapability.IsCancellationRequested then
                 let! __ = 
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
@@ -234,48 +241,45 @@ module Streaming =
             let resultChannel = new ResultChannel<_>()
 
             // if the acquisition finishes normally, stop it and register the result
-            let finishAcquisition acquisitionResult = Async.StartImmediate <| async {
-                let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
-                match acquisitionResult, stopResult with
-                | Success (), Success () -> 
-                    acquisition.StatusChanged.Trigger (Next <| FinishedStream acquisition.StopCapability.Options)
-                    acquisition.StatusChanged.Trigger Completed
-                    resultChannel.RegisterResult (succeed ())
-                | _, Failure f -> 
-                    let error = sprintf "Acquisition failed to stop: %s" f
-                    acquisition.StatusChanged.Trigger (Error (Exception error))
-                    resultChannel.RegisterResult (fail error)
-                | Failure f, _ ->
-                    acquisition.StatusChanged.Trigger (Error <| Exception f)
-                    resultChannel.RegisterResult (fail f) }
+            let finishAcquisition acquisitionResult = 
+                Async.StartWithContinuations(
+                    PicoScope.Acquisition.stop acquisition.PicoScope,
+                    (fun () ->
+                        acquisition.StatusChanged.Trigger (Next <| FinishedStream acquisition.StopCapability.Options)
+                        acquisition.StatusChanged.Trigger Completed
+                        resultChannel.RegisterResult StreamCompleted),
+                    (fun stopExn ->
+                        acquisition.StatusChanged.Trigger (Error stopExn)
+                        resultChannel.RegisterResult (StreamError stopExn)),
+                    ignore)
 
             // if an error occurs stop the acquisition and register result result
-            let stopAcquisitionAfterError exn = Async.StartImmediate <| async {
-                let! stopResult = PicoScope.Acquisition.stop acquisition.PicoScope
-                match stopResult with
-                | Success () ->
-                    acquisition.StatusChanged.Trigger (Error exn)
-                    resultChannel.RegisterResult (fail exn.Message)
-                | Failure f ->
-                    let error = sprintf "Acquisition failed to stop after exception: %s" exn.Message
-                    acquisition.StatusChanged.Trigger (Error (Exception error))
-                    resultChannel.RegisterResult (fail error) }
-
+            let stopAcquisitionAfterError exn =
+                Async.StartWithContinuations(
+                    PicoScope.Acquisition.stop acquisition.PicoScope,
+                    (fun () ->
+                        acquisition.StatusChanged.Trigger (Error exn)
+                        resultChannel.RegisterResult (StreamError exn)),
+                    (fun stopExn ->
+                        acquisition.StatusChanged.Trigger (Error stopExn)
+                        resultChannel.RegisterResult (StreamError stopExn)),
+                    ignore)
+  
             // if the acquisition is cancelled, stop it and register the result
-            let stopAcquisitionAfterCancellation exn = Async.StartImmediate <| async { 
-                let! stopResult =  PicoScope.Acquisition.stop acquisition.PicoScope
-                match stopResult with
-                | Success () ->
-                    acquisition.StatusChanged.Trigger (Next <| CancelledStream)
-                    acquisition.StatusChanged.Trigger Completed
-                    resultChannel.RegisterResult (succeed ())
-                | Failure f ->
-                    let error = sprintf "Acquisition failed to stop after cancellation: %s" f
-                    acquisition.StatusChanged.Trigger (Error <| Exception error)
-                    resultChannel.RegisterResult (fail error) }
+            let stopAcquisitionAfterCancellation _ = 
+                Async.StartWithContinuations(
+                    PicoScope.Acquisition.stop acquisition.PicoScope,
+                    (fun () ->
+                        acquisition.StatusChanged.Trigger (Next <| CancelledStream)
+                        acquisition.StatusChanged.Trigger Completed
+                        resultChannel.RegisterResult StreamCancelled),
+                    (fun stopExn ->
+                        acquisition.StatusChanged.Trigger (Error stopExn)
+                        resultChannel.RegisterResult (StreamError stopExn)),
+                    ignore)
 
             // define the acquisition workflow
-            let acquisitionWorkflow = asyncChoice {
+            let acquisitionWorkflow = async {
                 use __ = Inputs.Buffers.createPinningHandle acquisition.DataBuffers
                 do! prepareDevice acquisition
                 do! startStreaming acquisition
@@ -303,11 +307,12 @@ module Streaming =
         /// compensations should be registered with this cancellation token which will post commands to the
         /// PicoScope. Returns a handle which can be used to stop the acquisition manually or wait for it to
         /// finish asynchronously.
-        let startAsChild acquisition = asyncChoice {
-            let! ct = Async.CancellationToken |> AsyncChoice.liftAsync
+        let startAsChild acquisition = async {
+            let! ct = Async.CancellationToken
             return startWithCancellationToken acquisition ct }
 
-        /// Asynchronously waits for the acquisition associated with the given handle to finish.
+        /// Asynchronously waits for the acquisition associated with the given handle to finish and returns
+        /// the result.
         let waitToFinish acquisitionHandle = acquisitionHandle.WaitToFinish   
         
         /// Manually stops the streaming acquisition associated with the given handle.

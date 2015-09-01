@@ -1,5 +1,4 @@
 ﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
-#r "../packages/ExtCore.0.8.45/lib/net45/ExtCore.dll"
 #r "../packages/FSharp.Control.Reactive.3.2.0/lib/net40/FSharp.Control.Reactive.dll"
 #r "../packages/FSharp.Charting.0.90.12/lib/net40/FSharp.Charting.dll"
 #r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"
@@ -50,7 +49,7 @@ let showTimeChart acquisition = async {
     |> form.Controls.Add
     
     // return to the thread pool context
-    do! Async.SwitchToThreadPool() } |> AsyncChoice.liftAsync
+    do! Async.SwitchToThreadPool() }
 
 let showChartXY acquisition = async {
     do! Async.SwitchToContext uiContext // add the chart to the form using the UI thread context
@@ -66,34 +65,36 @@ let showChartXY acquisition = async {
     |> form.Controls.Add
 
     // return to the thread pool context
-    do! Async.SwitchToThreadPool () } |> AsyncChoice.liftAsync
+    do! Async.SwitchToThreadPool () }
 
 let printStatusUpdates acquisition =
     Streaming.Acquisition.status acquisition
     |> Observable.add (printfn "%A") // print stream status updates (preparing, streaming, finished...) 
 
-let experiment = asyncChoice {
-    let! picoScope = PicoScope.openFirst() 
+let experiment picoScope = async {
+    // create an acquisition with the previously defined parameters and start it after subscribing to its events
+    let acquisition = Streaming.Acquisition.create picoScope streamingParameters
+    do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
+    printStatusUpdates acquisition
 
-    try
-        // create an acquisition with the previously defined parameters and start it after subscribing to its events
-        let acquisition = Streaming.Acquisition.create picoScope streamingParameters
-        do! showTimeChart acquisition // use showTimeChart to show X and Y vs T or showXYChart to to plot Y vs X 
-        printStatusUpdates acquisition
-
-        let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
+    let acquisitionHandle = Streaming.Acquisition.startWithCancellationToken acquisition cts.Token
     
-        // wait for the acquisition to finish automatically or by cancellation   
-        do! Streaming.Acquisition.waitToFinish acquisitionHandle
+    // wait for the acquisition to finish automatically or by cancellation   
+    let! result =  Streaming.Acquisition.waitToFinish acquisitionHandle
+    match result with
+    | Streaming.StreamCompleted -> printfn "Stream completed successfully."
+    | Streaming.StreamError exn -> printfn "Stream failed: %s" exn.Message
+    | Streaming.StreamCancelled -> printfn "Stream cancelled successuflly." }
 
-    finally Async.StartImmediate <| async {
-        let! closeResult = PicoScope.close picoScope 
-        match closeResult with
-        | Success () -> printfn "Successfully closed connection to PicoScope."
-        | Failure f  -> printfn "Failed to close connection to PicoScope due to error: %s" f } }
-
-Async.StartWithContinuations(experiment,
-    (function
-    | Success () -> printfn "Successfully completed experiment."
-    | Failure f  -> printfn "Failed to complete experiment due to error: %s" f),
-    ignore, ignore)
+Async.Start (async {
+    try
+        let! picoScope = PicoScope.openFirst() 
+        try
+            do! experiment picoScope
+        finally
+            Async.StartWithContinuations(
+                PicoScope.close picoScope,
+                (fun ()  -> printfn "Successfully closed connection to PicoScope."),
+                (fun exn -> printfn "Failed to close connection to PicoScope: %s" exn.Message),
+                ignore)
+    with exn -> printfn "Experiment failed: %s" exn.Message })
