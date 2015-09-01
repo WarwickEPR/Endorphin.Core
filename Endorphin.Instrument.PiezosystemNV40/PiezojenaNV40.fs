@@ -217,15 +217,15 @@ module PiezojenaNV40 =
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
             workflowArray |> checkMulti piezojena 
                           
-        /// Sets soft start, if true then soft start turned on, if false then off. 
-        let private setSoftStart piezojena (softstart:Switch) = 
-            
+        /// Sets soft start initalisation and then sleeps for 10 seconds. 
+        let setSoftStart piezojena (softstart:Switch) = 
             let setSoftStartWorkflow =     
-                let stage = id piezojena 
                 async{
+                let stage = id piezojena 
                 let boolean = Parsing.switchBoolean(softstart)
                 logDevice piezojena "Changing soft start settings."
                 stage.SetSoftStart (boolean)
+                Async.Sleep 10000 |> Async.RunSynchronously
                 }
             setSoftStartWorkflow |> check piezojena  
 
@@ -300,6 +300,8 @@ module PiezojenaNV40 =
 
     module Motion = 
         
+        let PositionSet = new Event<float32*float32*float32>()
+
         /// Checks if the desired and current positions are within 50nm of each other. 
         let private compare (desired: float32*float32*float32) (current: float32*float32*float32) (resolution:float32) =
             let tupleSubtract (x:float32, y:float32, z:float32) (a:float32, b:float32, c:float32) = (abs (x - a), abs (y - b), abs (z - c))
@@ -347,13 +349,12 @@ module PiezojenaNV40 =
             setOutputWorkflow |> check piezojena
 
         /// Sets all channel outputs. 
-        let private setAllOutputs piezojena (x:float, y:float, z:float) resolution =   
+        let private setAllOutputs piezojena (x:float32, y:float32, z:float32) resolution =   
             let stage  = id piezojena
-            let desiredOutput = (float32(x), float32(y), float32(z))
             let setAllOutputsWorkflow  =         
                 async{
                 logDevice piezojena "Setting outputs of all channels."
-                Parsing.tupletoArray desiredOutput |> stage.SetDesiredOutputChunk  
+                Parsing.tupletoArray (x,y,z) |> stage.SetDesiredOutputChunk  
                 }
             
             setAllOutputsWorkflow |> check piezojena  

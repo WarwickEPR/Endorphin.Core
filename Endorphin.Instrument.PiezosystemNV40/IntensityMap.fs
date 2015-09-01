@@ -13,8 +13,8 @@ module IntensityMap =
     
      module Coordinate = 
         
-        let private addTuples (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x + a, y + b, z + c)
-        let private multiplyTuple (x:float32,y:float32,z:float32) (a:float32,b:float32,c:float32) = (x*a , y*b, z*c)
+        let private addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
+        let private multiplyTuple (x:float,y:float, z:float) (a:float,b:float,c:float) = (x*a , y*b, z*c)
 
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
@@ -40,13 +40,13 @@ module IntensityMap =
             let first = Array.get emptyChannels 0 
             let firstTuple = 
                 match first with 
-                | Channel0 -> (1.0f,0.0f,0.0f)
-                | Channel1 -> (0.0f,1.0f,0.0f)
-                | Channel2 -> (0.0f,0.0f,1.0f)   
+                | Channel0 -> (1.0,0.0,0.0)
+                | Channel1 -> (0.0,1.0,0.0)
+                | Channel2 -> (0.0,0.0,1.0)   
             firstTuple
         
         /// Orders tuple.
-        let private orderTuple (first:Channel) (second:Channel) (x:float32, y:float32) = 
+        let private orderTuple (first:Channel) (second:Channel) (x:float, y:float) = 
             let firstEnum = 
                 match first with 
                 | Channel0 -> 0
@@ -65,53 +65,53 @@ module IntensityMap =
                 (y, x)
 
         /// Stores starting coordinates of the channels not in use, these will remain fixed. 
-        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float32*float32*float32))=
+        let private fixedCoordinates (firstChannel: Channel) (secondChannel: Channel) (startingPosition: (float*float*float))=
             let empty = findEmptyChannels firstChannel secondChannel
             let fixedCoordinates = multiplyTuple startingPosition empty 
             fixedCoordinates 
 
         /// Expands a two element tuple containing desired position (on a 2D grid) into a 3 element tuple, contains zero's
         /// for channels not in use. 
-        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float32*float32) = 
+        let private expandCoordinates (firstChannel:Channel) (secondChannel: Channel) (desiredPosition:float*float) = 
             let empty = findEmptyChannels firstChannel secondChannel
             let orderedPosition = orderTuple firstChannel secondChannel desiredPosition
-            let fullCoordinate (x:float32, y:float32) (a:float32, b:float32, c:float32) =
-                if a = 0.0f then 
-                    if b = 0.0f then
-                        (x , y , 0.0f)
+            let fullCoordinate (x:float, y:float) (a:float, b:float, c:float) =
+                if a = 0.0 then 
+                    if b = 0.0 then
+                        (x , y , 0.0)
                     else 
-                        (x, 0.0f, y)
+                        (x, 0.0, y)
                 else
-                    (0.0f, x, y)
+                    (0.0, x, y)
             fullCoordinate orderedPosition empty 
         
         /// Compresses three element tuple into two element tuple containing elements relevant to the first and second channels. 
-        let private compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float32, y:float32, z:float32) =       
+        let private compressCoordinate (firstChannel:Channel) (secondChannel:Channel) (x:float, y:float, z:float) =       
             let firstTuple = 
                 match firstChannel with
-                | Channel0 -> (1.0f, 0.0f, 0.0f)   
-                | Channel1 -> (0.0f, 1.0f, 0.0f)
-                | Channel2 -> (0.0f, 0.0f, 1.0f)
+                | Channel0 -> (1.0, 0.0, 0.0)   
+                | Channel1 -> (0.0, 1.0, 0.0)
+                | Channel2 -> (0.0, 0.0, 1.0)
 
             let secondTuple = 
                 match secondChannel with
-                | Channel0 -> (1.0f, 0.0f, 0.0f)
-                | Channel1 -> (0.0f, 1.0f, 0.0f)
-                | Channel2 -> (0.0f, 0.0f, 1.0f)
+                | Channel0 -> (1.0, 0.0, 0.0)
+                | Channel1 -> (0.0, 1.0, 0.0)
+                | Channel2 -> (0.0, 0.0, 1.0)
             
             let summedTuple = addTuples firstTuple secondTuple
             let productTuple = multiplyTuple summedTuple (x, y, z)
-            let compress (a:float32, b:float32, c:float32) = 
-                if a = 0.0f then 
+            let compress (a:float, b:float, c:float) = 
+                if a = 0.0 then 
                     (b, c)
-                elif b = 0.0f then 
+                elif b = 0.0 then 
                     (a, c)
                 else 
                     (a, b)
             compress productTuple
 
         /// Adds fixed coordinate tuple to expanded desired coordinate tuple to get full coordinates. 
-        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float32*float32) (start:float32*float32*float32) =
+        let arrangeCoordinate (first:Channel) (second:Channel) (desired:float*float) (start:float*float*float) =
              let fix = fixedCoordinates first second start 
              let expanded = expandCoordinates first second desired 
              let coordinate = addTuples expanded fix  
@@ -121,13 +121,13 @@ module IntensityMap =
      module Generate =          
          
          /// Gets the value of the specified channel. 
-         let private getValue (channel:Channel) (x:float32, y:float32, z:float32) = 
+         let private getValue (channel:Channel) (x:float, y:float, z:float) = 
              match channel with         
                  | Channel0 -> x
                  | Channel1 -> y
                  | Channel2 -> z
      
-         let private generateGridPointsList (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
+         let private generateGridPointsList (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
              let firstChannel  = (firstAxis.Axis) 
              let secondChannel = (secondAxis.Axis)
              // The offsets are the starting postions of the two channels that will be used in the scan. 
@@ -170,7 +170,7 @@ module IntensityMap =
                     coordinateList
                 else      
                     let rec generate (firstPosition, secondPosition) list = 
-                        if firstPosition > 0.0f || firstPosition = 0.0f then 
+                        if firstPosition > 0.0 || firstPosition = 0.0 then 
                             let coordinate = Coordinate.arrangeCoordinate firstChannel secondChannel (firstPosition, secondPosition) start
                             let newlist = coordinate :: list 
                             let newPosition = (firstPosition - interval, secondPosition) 
@@ -206,12 +206,22 @@ module IntensityMap =
              }
          
          /// Generates a list of grid points and converts to an array. 
-         let private generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float32) (start:float32*float32*float32) = 
-             let list = generateGridPointsList firstAxis secondAxis interval start
+         let private generateGridPoints (firstAxis:Axis) (secondAxis:Axis) (interval:float) (start:float*float*float) = 
+             let list = generateGridPointsList firstAxis secondAxis start
              list |> List.toArray 
 
          /// Generates grid with generate grid points. 
          let getGrid piezojena firstAxis secondAxis interval = asyncChoice{
-             let! start = getCoordinates piezojena  
-             return generateGridPoints firstAxis secondAxis interval start
+             let! start = getCoordinates piezojena
+             let a = 
+                match start with 
+                | (x, y, z) -> float(x)
+             let b = 
+                match start with
+                | (x, y, z) -> float(y)
+             let c = 
+                match start with
+                | (x, y, z) -> float(z)
+             let newStart = (a, b, c)
+             return generateGridPoints firstAxis secondAxis interval newStart 
              } 

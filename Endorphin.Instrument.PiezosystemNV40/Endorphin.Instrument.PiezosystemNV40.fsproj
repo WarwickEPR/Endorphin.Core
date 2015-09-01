@@ -57,9 +57,8 @@
     <Compile Include="Errors.fs" />
     <Compile Include="PiezojenaNV40.fs" />
     <Compile Include="IntensityMap.fs" />
+    <None Include="IntensityMappingWithoutTriggering.fsx" />
     <None Include="IntensityMapping.fsx" />
-    <None Include="Test.fsx" />
-    <None Include="Test2.fsx" />
     <None Include="SerialPort.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />

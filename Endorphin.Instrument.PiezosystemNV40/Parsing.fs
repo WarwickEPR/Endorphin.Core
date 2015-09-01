@@ -21,10 +21,10 @@ module Parsing =
         | None -> failwithf "Cannot have coordinate None."
     
     /// Converts a three element tuple into an array
-    let tupletoArray (tuple:float32*float32*float32) =
-        let x = float32(first tuple)
-        let y = float32(second tuple)
-        let z = float32(third tuple)
+    let tupletoArray (tuple:'T*'T*'T) =
+        let x = first tuple
+        let y = second tuple
+        let z = third tuple
         let array = [|x; y; z|]
         array
 

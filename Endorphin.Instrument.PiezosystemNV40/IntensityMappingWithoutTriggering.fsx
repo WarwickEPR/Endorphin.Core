@@ -15,17 +15,13 @@ open FSharp.Control.Reactive
 open Endorphin.Core
 open Endorphin.Instrument.PiezosystemNV40
 
-module IntensityMapping = 
+module IntensityMappingWithoutTriggering = 
 
-    let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
-
-    let rec private scanMap piezojena count length arrayofPoints resolution = asyncChoice{
+    let rec scanMap piezojena count length arrayofPoints resolution = asyncChoice{
             if count < length || count = length then
-                let desiredOutput = Array.get arrayofPoints 0
+                let desiredOutput = (Array.get arrayofPoints 0)
                 let! setPosition = PiezojenaNV40.Motion.setPosition piezojena desiredOutput resolution 
                 Async.Sleep 100 |> Async.RunSynchronously 
-                PiezojenaNV40.Motion.PositionSet.Trigger setPosition
-                /// Add wait for trigger here. 
                 return! scanMap piezojena (count + 1) length arrayofPoints resolution  
             else 
                 return ()}
@@ -41,17 +37,21 @@ let yAxis = {
     Length = 100.0f}
 
 // Test interval and resolution. 
-let interval = 2.0f 
-let resolution = 0.05f   
+let interval = 2.0
+let resolution = 0.05    
 
 let experiment = asyncChoice{
-    /// Initalises piezojena, connects to serial port and returns piezojena of type Piezojena.
-    let! piezojena = PiezojenaNV40.Initialise.initialise "COM3" 
-    /// Sets softstart initalisation. 
-    do! PiezojenaNV40.SetModes.setSoftStart piezojena On
-    /// Measures starting coordinates.
-    let! start = PiezojenaNV40.Motion.queryPosition piezojena 
-    // Generates an array of grid points. 
-    // let arrayofPoints = IntensityMap.Generate.getGrid xAxis yAxis interval 
-    return ()
-    }
+   /// Initalises piezojena, connects to serial port and returns piezojena of type Piezojena.
+   let! piezojena = PiezojenaNV40.Initialise.initialise "COM3" 
+   /// Sets softstart initalisation. 
+   do! PiezojenaNV40.SetModes.setSoftStart piezojena On
+   /// Measures starting coordinates and generates an array of grid points. 
+   let! arrayofPoints = IntensityMap.Generate.getGrid piezojena xAxis yAxis interval 
+   let length = Array.length arrayofPoints 
+   do! IntensityMappingWithoutTriggering.scanMap piezojena 0 length arrayofPoints resolution 
+    } 
+
+         
+ 
+
+  
