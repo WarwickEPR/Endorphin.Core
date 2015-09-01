@@ -38,7 +38,7 @@ module PiezojenaNV40 =
 
         let logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
     
-    module PiezojenaInformation =      
+    module Piezojena =      
         
         /// Retrieves Piezojena identification string. 
         let getIdentification piezojena = 
@@ -80,7 +80,27 @@ module PiezojenaNV40 =
                 }
             getVersionWorkflow |> check piezojena 
     
-    module SetParameters = 
+        /// Sets econder values.
+        let private setEncoder piezojena (encoder:Encoder) =
+            let stage = id piezojena         
+            let setEncoderWorkflow = 
+                async{
+                let mode       = Parsing.modeMap (encoder.Mode)
+                let time       = encoder.Time
+                let steplimit  = encoder.StepLimit
+                let closedstep = encoder.ClosedStep
+                let openstep   = encoder.OpenStep
+                /// encoder.Exponent of type byte option, NativeApi function expects type byte.
+                /// If Exponent is None then set exponent to 0uy, if Some byte then set to byte using byteOptionConvert. 
+                let exponent   =     
+                    if encoder.Exponent = None then 0uy
+                    else Parsing.byteOptionConvert(encoder.Exponent)
+                logDevice piezojena "Setting encoder values."            
+                stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
+                }
+            setEncoderWorkflow |> check piezojena 
+    
+    module SetModes = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
         let private setLoopMode piezojena (channel:Channel) (mode:Loop) = 
@@ -153,26 +173,6 @@ module PiezojenaNV40 =
             let workflowArray = [|setRemoteZeroWorkflow; setRemoteOneWorkflow; setRemoteTwoWorkflow|]
             workflowArray |> checkMulti piezojena 
                           
-        /// Sets econder values.
-        let private setEncoder piezojena (encoder:Encoder) =
-            let stage = id piezojena         
-            let setEncoderWorkflow = 
-                async{
-                let mode       = Parsing.modeMap (encoder.Mode)
-                let time       = encoder.Time
-                let steplimit  = encoder.StepLimit
-                let closedstep = encoder.ClosedStep
-                let openstep   = encoder.OpenStep
-                /// encoder.Exponent of type byte option, NativeApi function expects type byte.
-                /// If Exponent is None then set exponent to 0uy, if Some byte then set to byte using byteOptionConvert. 
-                let exponent   =     
-                    if encoder.Exponent = None then 0uy
-                    else Parsing.byteOptionConvert(encoder.Exponent)
-                logDevice piezojena "Setting encoder values."            
-                stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
-                }
-            setEncoderWorkflow |> check piezojena 
-        
         /// Sets soft start, if true then soft start turned on, if false then off. 
         let private setSoftStart piezojena (softstart:Switch) = 
             
@@ -263,8 +263,8 @@ module PiezojenaNV40 =
         let initialise portName  = asyncChoice{
             let piezojena = SerialConnection.Standard portName 
             let stage = id piezojena 
-            do! SetParameters.setAllRemoteControl piezojena On             
-            do! SetParameters.setLoopModeAllChannels piezojena ClosedLoop 
+            do! SetModes.setAllRemoteControl piezojena On             
+            do! SetModes.setLoopModeAllChannels piezojena ClosedLoop 
             return piezojena   
             }
 

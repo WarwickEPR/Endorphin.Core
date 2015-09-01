@@ -28,7 +28,7 @@ module IntensityMapping =
 
     /// Measures current coordinates.
     let start piezojena = asyncChoice {
-        let! coordinate = PiezojenaNV40.Query.queryAllPositions piezojena 
+        let! coordinate = PiezojenaNV40.Motion.queryPosition piezojena 
         return coordinate}
 
     let PositionSetSuccess = PiezojenaNV40.Motion.PositionSet.Publish 
