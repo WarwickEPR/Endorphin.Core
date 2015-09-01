@@ -26,12 +26,21 @@ module Errors =
         | Ok            -> succeed ()
         | Error message -> fail message
 
+    //let getListofErrors piezojena = 
+    //    let stage = id piezojena 
+    //    let 
+    //    let getListofErrors = 
+    //        async{
+    //        stage.GetCommandList
+    //        
+    //        }
+
     /// Handles errors, if no errors returns function values else fails. 
     let internal check piezojena (workflow:Async<'T>) = asyncChoice {
         let stage = id piezojena 
         let! workflowResult = workflow |> AsyncChoice.liftAsync
         let mutable error : string = Unchecked.defaultof<_>
-        stage.GetCommandError (&error)
+        stage.GetCommandError (&error) 
         let statusError = stringtoStatus error
         do! if statusError = Ok then
                 Ok |> checkStatus

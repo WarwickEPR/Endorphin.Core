@@ -16,17 +16,8 @@ open Endorphin.Core
 open Endorphin.Instrument.PiezosystemNV40
 
 module IntensityMapping = 
-    
-    let dummyEvent = new Event<bool>()
-    let publishedDummyEvent = dummyEvent.Publish
-    publishedDummyEvent.Add (fun boolean -> if boolean = true then printfn "Trigger."
-                                            else printfn "Don't trigger.")
 
-    let sleep = async{ 
-        Async.Sleep 2000 |> Async.RunSynchronously
-        return true} 
-
-    /// Measures current coordinates.
+    /// Measures starting coordinates.
     let start piezojena = asyncChoice {
         let! coordinate = PiezojenaNV40.Motion.queryPosition piezojena 
         return coordinate}

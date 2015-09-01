@@ -117,3 +117,9 @@ let test value =
             PositionSet.Trigger coordinate 
         else ()
     ()
+
+
+    let dummyEvent = new Event<bool>()
+    let publishedDummyEvent = dummyEvent.Publish
+    publishedDummyEvent.Add (fun boolean -> if boolean = true then printfn "Trigger."
+                                            else printfn "Don't trigger.")

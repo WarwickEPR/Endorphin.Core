@@ -80,8 +80,11 @@ module PiezojenaNV40 =
                 }
             getVersionWorkflow |> check piezojena 
     
+    
+    module Display = 
+        
         /// Sets econder values.
-        let private setEncoder piezojena (encoder:Encoder) =
+        let setEncoder piezojena (encoder:Encoder) =
             let stage = id piezojena         
             let setEncoderWorkflow = 
                 async{
@@ -99,6 +102,47 @@ module PiezojenaNV40 =
                 stage.SetEncoder (mode, time, steplimit, exponent, closedstep, openstep)
                 }
             setEncoderWorkflow |> check piezojena 
+
+        /// Queries the encoders values. 
+        let queryEncoder piezojena =     
+            let stage = id piezojena 
+            let queryEncoderWorkflow =
+                async{  
+                let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
+                let mutable time : int           = Unchecked.defaultof<_>
+                let mutable stepLimit : int      = Unchecked.defaultof<_>
+                let mutable exponent : byte      = Unchecked.defaultof<_>
+                let mutable closedStep : float32 = Unchecked.defaultof<_> 
+                let mutable openStep : float32   = Unchecked.defaultof<_>
+                logDevice piezojena "Retrieving encoder values."
+                stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
+                return (mode, time, stepLimit, exponent, closedStep, openStep)
+                }
+            queryEncoderWorkflow |> check piezojena  
+            
+        /// Sets display brigthness. 
+        let setDisplayBrightness piezojena (brightness:byte) = 
+            let stage = id piezojena 
+            let setBrightnessWorkflow = 
+                async{
+                logDevice piezojena "Setting display brightness."
+                stage.SetDisplayBrightness brightness 
+                }   
+            setBrightnessWorkflow |> check piezojena 
+
+        /// Queries the display brightness. 
+        let queryDisplayBrightness piezojena = 
+            let stage = id piezojena 
+            let queryBrightnessWorkflow = 
+                async{
+                let mutable brightness : byte = Unchecked.defaultof<_>
+                logDevice piezojena "Retrieving display brightness."
+                stage.GetDisplayBrightness (&brightness)
+                return brightness
+                }
+            queryBrightnessWorkflow |> check piezojena 
+
+
     
     module SetModes = 
 
@@ -186,23 +230,6 @@ module PiezojenaNV40 =
             setSoftStartWorkflow |> check piezojena  
 
     module Query = 
-
-        /// Queries the encoders values. 
-        let private queryEncoder piezojena =     
-            let stage = id piezojena 
-            let queryEncoderWorkflow =
-                async{  
-                let mutable mode : Piezojena.Protocols.Nv40Multi.Nv40MultiEncoderMode = Unchecked.defaultof<_>
-                let mutable time : int           = Unchecked.defaultof<_>
-                let mutable stepLimit : int      = Unchecked.defaultof<_>
-                let mutable exponent : byte      = Unchecked.defaultof<_>
-                let mutable closedStep : float32 = Unchecked.defaultof<_> 
-                let mutable openStep : float32   = Unchecked.defaultof<_>
-                logDevice piezojena "Retrieving encoder values."
-                stage.GetEncoder ( &mode , &time, &stepLimit, &exponent, &closedStep, &openStep)
-                return (mode, time, stepLimit, exponent, closedStep, openStep)
-                }
-            queryEncoderWorkflow |> check piezojena   
 
         /// Queries the actuators temperature. 
         let queryTemperature piezojena =     
