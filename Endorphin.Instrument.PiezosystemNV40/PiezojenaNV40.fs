@@ -12,31 +12,6 @@ open Endorphin.Instrument.PiezosystemNV40
 open FSharp.Control.Reactive
 
 module PiezojenaNV40 = 
-
-    [<AutoOpen>]
-    module private Logger =
-
-        /// Creates log for PicoHarp 300.
-        let log = log4net.LogManager.GetLogger "PiezojenaNV40"
-
-        /// Logs the PicoHarp.
-        let logDevice (piezojena : Piezojena) message =
-            sprintf "[%A] %s" piezojena message |> log.Info
-
-        /// Logs a success or failure message based on result of function. 
-        let logQueryResult successMessageFunc failureMessageFunc input =
-            match input with
-            | Success value -> successMessageFunc value |> log.Debug
-            | Failure error -> failureMessageFunc error |> log.Error
-            input 
-            
-        /// Logs a success or failure message based on result of function using the PicoHarp's index.
-        let logDeviceQueryResult (piezojena : Piezojena) successMessageFunc failureMessageFunc =
-            logQueryResult 
-                (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
-                (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
-
-        let logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
     
     module Piezojena =      
         

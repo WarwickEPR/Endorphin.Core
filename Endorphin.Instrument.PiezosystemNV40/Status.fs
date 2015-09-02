@@ -26,7 +26,7 @@ module Status =
         | _                         -> failwithf "Invalid error."
 
     let statusString = function
-        | NoError                   -> "OK, No errors."                         
+        | NoError                   -> "OK. No errors."                         
         | ActuatorUnplugged         -> "The actuator is not plugged in."
         | WrongActuatorType         -> "The actuator is of the incorrect type."
         | ActuatorShortCircuitFault -> "Actuator short circuit."
@@ -35,7 +35,7 @@ module Status =
         | TemperatureOutofRange     -> "Temperature out range."
      
     let parseStatus = function 
-        | "OK, No errors."                         -> NoError                  
+        | "OK. No errors."                         -> NoError                  
         | "The actuator is not plugged in."        -> ActuatorUnplugged        
         | "The actuator is of the incorrect type." -> WrongActuatorType        
         | "Actuator short circuit."                -> ActuatorShortCircuitFault
