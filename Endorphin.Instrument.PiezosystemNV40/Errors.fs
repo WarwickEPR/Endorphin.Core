@@ -35,7 +35,7 @@ module Errors =
                 (fun value -> sprintf "[%A] %s" piezojena (successMessageFunc value))
                 (fun error -> sprintf "[%A] %s" piezojena (failureMessageFunc error))
 
-        let logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
+        let logDeviceOpResult piezojena successMessage = logDeviceQueryResult piezojena (fun _ -> successMessage)
 
     [<AutoOpen>]
     module internal CheckErrros = 
