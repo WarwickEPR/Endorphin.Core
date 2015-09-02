@@ -41,22 +41,22 @@ module Errors =
     module internal CheckErrros = 
        
         /// Returns Ok or Error with the error string. 
-        let private stringtoStatus = function
+        let stringtoStatus = function
             | "OK. No Error." -> Ok
             | str -> Error str
         
         /// Converts string from status.
-        let private statustoString = function
+        let statustoString = function
             | Ok        -> "Ok. No Error."
             | Error str -> str
 
         /// Checks return value of the NativeApi function and converts to a success or gives an error message.
-        let internal checkStatus = function
+        let checkStatus = function
             | Ok            -> succeed ()
             | Error message -> fail message
 
         /// Handles errors, if no errors returns function values else fails. 
-        let internal check piezojena (workflow:Async<'T>) = asyncChoice {
+        let check piezojena (workflow:Async<'T>) = asyncChoice {
             let stage = id piezojena 
             let! workflowResult = workflow |> AsyncChoice.liftAsync
             let mutable error : string = Unchecked.defaultof<_>
@@ -70,7 +70,7 @@ module Errors =
             return workflowResult }
         
         /// Checks the errors for multiple async workflows.      
-        let internal checkMulti piezojena (workflowArray : Async<'T>[]) =   
+        let checkMulti piezojena (workflowArray : Async<'T>[]) =   
             let stage = id piezojena 
             // Runs workflow and returns a status.
             let statusCheck (workflow:Async<'T>) = asyncChoice {
