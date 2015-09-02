@@ -4,7 +4,6 @@ open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Core
-open ExtCore.Control
 open FSharp.Control.Reactive
 open log4net
 

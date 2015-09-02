@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core
 open NativeModel
 open StatusCodes
 
@@ -18,9 +19,9 @@ module internal Parsing =
         /// Matches StatusCode.Ok as Ok and all other status codes as errors. Note that this
         /// is not always the desired behaviour as some status codes indicate different device
         /// states rather than failure.
-        let (|Ok|Error|) = function
+        let (|Ok|HasError|) = function
             | StatusCode.Ok -> Ok
-            | error         -> Error (statusMessage error)
+            | error         -> HasError (statusMessage error)
 
         /// Parses the provided status as an availability status, matching StatusCode.Ok as
         /// Available and StatusCode.Busy as Busy. Doesn't match any other status codes.

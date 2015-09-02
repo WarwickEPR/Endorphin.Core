@@ -1,13 +1,12 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
-open ExtCore.Control
 open System
 open System.Text
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Parsing
 open StatusCodes
 open NativeModel
-open Endorphin.Core.CommandRequestAgent
+open Endorphin.Core
 
 [<RequireQualifiedAccess>]
 /// Functions for performing commands and sending requests to a PicoScope 5000 series device.
@@ -26,10 +25,9 @@ module PicoScope =
         
         /// Checks whether the given status indicates that a command completed successfully
         /// and returns an exception if not.
-        let checkStatus =
-            function
-            | Ok            -> succeed ()
-            | Error message -> fail (Exception message)
+        let checkStatus = function
+            | Ok               -> Choice.succeed ()
+            | HasError message -> Choice.fail (Exception message)
 
         /// Checks whether the give status indicates that q query completed successfully and
         /// returns the given value if so, or an exception otherwise.
@@ -39,11 +37,10 @@ module PicoScope =
 
         /// Checks a status code returned by the PicoScope API during initialisation and returns
         /// the device power source if so or an exception otherwise.
-        let checkInitialisationStatus =
-            function
-            | Ok                            -> succeed MainsPower
-            | PowerSourceStatus powerSource -> succeed powerSource
-            | Error message                 -> fail (Exception message)
+        let checkInitialisationStatus = function
+            | Ok                            -> Choice.succeed MainsPower
+            | PowerSourceStatus powerSource -> Choice.succeed powerSource
+            | HasError message              -> Choice.fail (Exception message)
         
         /// Logs a string describing an operation which is about to be performed.
         let logOp = log.Info
@@ -88,9 +85,9 @@ module PicoScope =
                         (sprintf "Failed to open device: %s.")
 
                 match serialResult with
-                | Success serial -> return succeed { SerialNumber = serial ; Handle = handle }
-                | Failure exn    -> return fail exn
-            | Failure exn -> return fail exn })
+                | Success serial -> return Choice.succeed { SerialNumber = serial ; Handle = handle }
+                | Failure exn    -> return Choice.fail exn
+            | Failure exn -> return Choice.fail exn })
         |> Async.map PicoScope5000 // wrap the agent as a PicoScope5000
         
     /// Asynchronously opens a connection to the first available PicoScope 5000 series device.
@@ -116,9 +113,9 @@ module PicoScope =
         
         let result =
             match status with
-            | Found false -> succeed <| Seq.empty
-            | Found true  -> succeed <| (Seq.ofArray <| serials.ToString().Split [| ',' |])
-            | error       -> fail    <| Exception (statusMessage error)
+            | Found false -> Choice.succeed <| Seq.empty
+            | Found true  -> Choice.succeed <| (Seq.ofArray <| serials.ToString().Split [| ',' |])
+            | error       -> Choice.fail    <| Exception (statusMessage error)
             |> logQueryResult
                 (Seq.length >> sprintf "Found %d connected devices.")
                 (sprintf "Failed to enumerate devices: %s.") 
@@ -143,8 +140,8 @@ module PicoScope =
             (fun device ->
                 let response = NativeApi.CurrentPowerSource (handle device)
                 match response with
-                | PowerSourceStatus powerSource -> succeed <| powerSource
-                | error                         -> fail    <| Exception (statusMessage error))
+                | PowerSourceStatus powerSource -> Choice.succeed <| powerSource
+                | error                         -> Choice.fail    <| Exception (statusMessage error))
                            
     /// Functions related to querying device information.
     module Info =
@@ -501,8 +498,8 @@ module PicoScope =
                 (fun device ->
                     let response = NativeApi.GetStreamingLatestValues(handle device, picoScopeCallback, System.IntPtr.Zero)
                     match response with
-                    | AvailabilityStatus status -> succeed <| status
-                    | error                     -> fail    <| Exception (statusMessage error))
+                    | AvailabilityStatus status -> Choice.succeed <| status
+                    | error                     -> Choice.fail    <| Exception (statusMessage error))
         
         /// Asynchronously queries the number of samples stored in the PicoScope 5000 series device memory
         /// after a streaming acquisition has been stopped.

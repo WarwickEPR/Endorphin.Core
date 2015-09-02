@@ -1,9 +1,9 @@
 ﻿namespace Endorphin.Instrument.PicoScope5000
 
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open System.Runtime.InteropServices
-open ExtCore.Control
 open Parsing
 
 [<RequireQualifiedAccess>]
