@@ -129,9 +129,9 @@ module Experiment =
             /// Check if a phase cycle has a non-zero length.
             let private nonZero length =
                 if length = 0 then
-                    fail "Phase cycle has no phases in it"
+                    Choice.fail "Phase cycle has no phases in it"
                 else
-                    succeed length
+                    Choice.succeed length
 
             /// Check that the length of all the phase cycles in a sequence of pulses are the same.
             /// If they are, then return that number.  If not, then return a failure.
@@ -142,9 +142,9 @@ module Experiment =
                     |> nonZero
                 return!
                     if List.exists (incorrectCycleLength length) pulses then
-                        fail "Not all phase cycles are the same length"
+                        Choice.fail "Not all phase cycles are the same length"
                     else
-                        succeed length }
+                        Choice.succeed length }
 
             /// Perform a Boolean OR on each field of the markers record, returning a record of the
             /// result.
@@ -163,12 +163,12 @@ module Experiment =
                     | _ -> state
                 let markers = Seq.fold folder Markers.empty experiment.Pulses
                 if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
-                    fail "At least one marker channel must be blank throughout for internal use"
+                    Choice.fail "At least one marker channel must be blank throughout for internal use"
                 else
-                    if   not markers.M4 then succeed RouteMarker4
-                    elif not markers.M3 then succeed RouteMarker3
-                    elif not markers.M2 then succeed RouteMarker2
-                    else                     succeed RouteMarker1
+                    if   not markers.M4 then Choice.succeed RouteMarker4
+                    elif not markers.M3 then Choice.succeed RouteMarker3
+                    elif not markers.M2 then Choice.succeed RouteMarker2
+                    else                     Choice.succeed RouteMarker1
 
             /// Convert a pulse into a VerifiedPulse type. The calling function is assumed to have
             /// actually done the verification.
@@ -181,7 +181,7 @@ module Experiment =
             /// as an option.
             let private countRfPhases (rfPulses : Pulse list) =
                 if rfPulses.Length = 0 then
-                    succeed None
+                    Choice.succeed None
                 else
                     rfPulses
                     |> checkPhaseCycles
@@ -190,27 +190,27 @@ module Experiment =
             /// Convert a duration in seconds into a SampleCount.
             let private shotRepetitionSampleCount (DurationInSec time) =
                 if time < 0.0<s> then
-                    fail "Must have a non-negative shot repetition time!"
+                    Choice.fail "Must have a non-negative shot repetition time!"
                 else
                     time / ARB.shortestPulseDuration
                     |> uint32
                     |> SampleCount
-                    |> succeed
+                    |> Choice.succeed
 
             /// Check that a valid number of repetitions of the experiment is set.
             let private repetitions experiment =
-                if experiment.Repetitions < 1 then fail "Must do the experiment at least once!"
-                else succeed ()
+                if experiment.Repetitions < 1 then Choice.fail "Must do the experiment at least once!"
+                else Choice.succeed ()
 
             /// Check that the number of shots per point is valid.
             let private shotsPerPoint (experiment : Experiment) =
-                if experiment.ShotsPerPoint = 0us then fail "Must have at least 1 shot per point!"
-                else succeed ()
+                if experiment.ShotsPerPoint = 0us then Choice.fail "Must have at least 1 shot per point!"
+                else Choice.succeed ()
 
             /// Check that the frequencies in an experiment are valid.
             let private frequencies (experiment : Experiment) =
-                if Seq.isEmpty experiment.Frequencies then fail "Must have at least one frequency"
-                else succeed ()
+                if Seq.isEmpty experiment.Frequencies then Choice.fail "Must have at least one frequency"
+                else Choice.succeed ()
 
             /// Get the duration of a pulse.
             let private pulseLength = function
@@ -226,9 +226,9 @@ module Experiment =
                     if length < Segment.minimumLength then
                         Segment.minimumLength
                         |> sprintf "Experiment is shorter than the minimum length of %d samples"
-                        |> fail
+                        |> Choice.fail
                     else
-                        succeed () }
+                        Choice.succeed () }
 
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
@@ -236,13 +236,13 @@ module Experiment =
             let private rfSpacing (experiment : Experiment) =
                 let minimum = minimumRfPulseSeparation
                 let rec loop space = function
-                    | [] -> succeed ()
+                    | [] -> Choice.succeed ()
                     | hd :: tl when isRfPulse hd ->
                         let minimum = minimumRfPulseSeparation
                         if space < minimum then
                             minimum
                             |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
-                            |> fail
+                            |> Choice.fail
                         else
                             loop 0u tl
                     | hd :: tl ->
@@ -677,10 +677,6 @@ module Experiment =
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 { compressed with CompressedPoints = (SequenceType curExperiment' :: tailExperiments) }
 
-            /// A joiner function for Map.join which just ignores clashes of keys, and returns the first
-            /// value passed to it.
-            let private ignoreKeyClash (_ : 'Key) (value : 'T) (_ : 'T) = value
-
             /// Prepend a different segment onto the passed compressed experiment.
             // Map.add is safe even if the segment already exists because it just doesn't do
             // anything in that case.
@@ -689,8 +685,8 @@ module Experiment =
                     match compressed.CompressedPoints with
                     | [] -> [ SequenceType [ element.Element ] ]
                     | (SequenceType hd) :: tl -> (SequenceType (element.Element :: hd)) :: tl
-                { Segments = Map.join ignoreKeyClash compressed.Segments element.Segments
-                  Sequences = Map.join ignoreKeyClash compressed.Sequences element.Sequences
+                { Segments = Map.union compressed.Segments element.Segments
+                  Sequences = Map.union compressed.Sequences element.Sequences
                   CompressedPoints = points
                   Metadata = compressed.Metadata }
 
@@ -726,8 +722,8 @@ module Experiment =
             /// Join two compressed experiments into one by concatenating the experiment sequences
             /// and joining the maps.
             let private joinCompressedExperiments (acc : CompressedExperiment) (input : CompressedExperiment) =
-                { Segments = Map.join ignoreKeyClash acc.Segments input.Segments
-                  Sequences = Map.join ignoreKeyClash acc.Sequences input.Sequences
+                { Segments = Map.union acc.Segments input.Segments
+                  Sequences = Map.union acc.Sequences input.Sequences
                   CompressedPoints = input.CompressedPoints @ acc.CompressedPoints
                   Metadata = acc.Metadata }
 
@@ -805,12 +801,12 @@ module Experiment =
         module Print =
             open ARB.Print
             /// Get a compiled experiment.
-            let toCompiledExperiment experiment = asyncChoice {
+            let toCompiledExperiment experiment = choice {
                 let! verified = verify experiment
                 return verified |> compile }
 
             /// Get a compressed experiment.
-            let toCompressedExperiment experiment = asyncChoice {
+            let toCompressedExperiment experiment = choice {
                 let! verified = verify experiment
                 return verified
                     |> compile

@@ -1,8 +1,8 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
 open System
-open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open Endorphin.Core
 
 [<RequireQualifiedAccess>]
 module ARB =
@@ -318,7 +318,7 @@ module ARB =
                     do! setSourcePolarity instrument polarity
                     do! setSourceDelay instrument delay
                 | _ -> () }
-            | None -> AsyncChoice.liftChoice <| succeed ()
+            | None -> AsyncChoice.liftChoice <| Choice.succeed ()
 
         /// Query the source of the dual ARB's triggering system.
         let private querySource instrument mode = asyncChoice {

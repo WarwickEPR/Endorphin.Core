@@ -1,8 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
-open Endorphin.Core.String
-open Endorphin.Core.NationalInstruments
+open Endorphin.Core
 open System.Text
 
 /// Common functions to set/query values of a VISA Keysight instrument.
@@ -43,8 +41,8 @@ module internal IO =
             if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
         
             match parts.[0] with
-            | ParseInteger code -> { Code = code ; Message = parts.[1] }
-            | _                 -> failwithf "Unexpected error code string: %s." parts.[0]
+            | String.ParseInteger code -> { Code = code ; Message = parts.[1] }
+            | _                        -> failwithf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
         let private errorString error = sprintf "%d: %s" error.Code error.Message
@@ -75,8 +73,8 @@ module internal IO =
                 errors
                 |> Seq.map errorString
                 |> String.concat "\n" 
-                |> fail 
-            else succeed ()
+                |> Choice.fail 
+            else Choice.succeed ()
 
     /// Create the string representation of a command, ready for writing to the instrument.
     let private createCommandString valueMap key value =
@@ -156,9 +154,9 @@ module internal IO =
             let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
             let parts = str.Split [|','|]
             if Array.length parts <> 4 then
-                fail <| sprintf "Unexpected device ID string: %s." str
+                Choice.fail <| sprintf "Unexpected device ID string: %s." str
             else
-                succeed <| {
+                Choice.succeed <| {
                 Manufacturer = parts.[0] |> trimWhiteSpace
                 ModelNumber  = parts.[1] |> trimWhiteSpace
                 SerialNumber = parts.[2] |> trimWhiteSpace
@@ -182,8 +180,8 @@ module internal IO =
 
         /// Check that the model number of a machine is known by the program.
         let private checkModelNumber = function
-            | "N5172B" -> succeed N5172B
-            | model    -> fail <| sprintf "Unexpected RF source model number: %s." model
+            | "N5172B" -> Choice.succeed N5172B
+            | model    -> Choice.fail <| sprintf "Unexpected RF source model number: %s." model
 
         /// Get the model number of the given RfSource, and raise an exception if this model
         /// is not known to the program.
@@ -237,9 +235,9 @@ module internal IO =
     let queryFrequency = queryKeyString parseFrequencyInHz
 
     /// Set a sequence of frequency values at the given key.
-    let setFrequencySeq key = setValueString (csvSeqString frequencyString) key
+    let setFrequencySeq key = setValueString (String.csvSeqString frequencyString) key
     /// Query a sequence of frequencies, returning the values in Hz.
-    let queryFrequencySeq = queryKeyString (parseCsvSeq parseFrequencyInHz)
+    let queryFrequencySeq = queryKeyString (String.parseCsvSeq parseFrequencyInHz)
 
     /// Set the amplitude of the given key to have the given value.
     let setAmplitude = setValueString amplitudeString
@@ -253,7 +251,7 @@ module internal IO =
         return parseAmplitudeInDbm response }
 
     /// Set a sequence of amplitude values.
-    let setAmplitudeSeq key = setValueString (csvSeqString amplitudeString) key 
+    let setAmplitudeSeq key = setValueString (String.csvSeqString amplitudeString) key 
     /// Query a sequence of amplitudes, returning the values in dBm.
     let queryAmplitudeSeq key (RfSource rfSource) = asyncChoice {
         let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
@@ -266,9 +264,9 @@ module internal IO =
     let queryDuration = queryKeyString parseDurationInSec
 
     /// Set a sequence of durations to have the given values.
-    let setDurationSeq key = setValueString (csvSeqString durationString) key
+    let setDurationSeq key = setValueString (String.csvSeqString durationString) key
     /// Query a sequence of durations, returning the values in seconds.
-    let queryDurationSeq = queryKeyString (parseCsvSeq parseDurationInSec)
+    let queryDurationSeq = queryKeyString (String.parseCsvSeq parseDurationInSec)
 
     /// Set the phase of the given key.
     let setPhase = setValueString phaseString
@@ -314,7 +312,7 @@ module internal IO =
     /// Write the given key with a sequence of filenames as arguments.
     let setFileSequence key instrument sequence =
         let makeFileName (folder, id) = fileNameString folder id
-        setValueString (csvSeqString makeFileName) key instrument sequence
+        setValueString (String.csvSeqString makeFileName) key instrument sequence
 
     /// Write the given key with the given low/high state.
     let setLowHighState = setValueString lowHighStateString

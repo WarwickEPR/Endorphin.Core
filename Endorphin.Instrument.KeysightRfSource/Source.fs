@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
-open Endorphin.Core.String
+open Endorphin.Core
 
 module Source =
     module internal Translate =

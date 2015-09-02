@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
+open Endorphin.Core
 
 [<RequireQualifiedAccess>]
 module Routing =

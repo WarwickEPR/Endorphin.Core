@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open Endorphin.Core.NationalInstruments
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 /// Model of the possible configurations of a Keysight RF source.

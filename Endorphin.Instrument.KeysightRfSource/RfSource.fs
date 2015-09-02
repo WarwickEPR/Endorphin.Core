@@ -1,7 +1,5 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
-
 /// Command set of the Keysight RF instrument.
 /// Implements functions to modify & query configuration.
 /// Organised by subsystem mirroring the Keysight configuration.

@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 /// Functions to translate between internal and machine representations.

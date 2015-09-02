@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Instrument.Keysight
 
-open ExtCore.Control
+open Endorphin.Core
 open Source
 
 module Modulation =
@@ -172,16 +172,16 @@ module Modulation =
             let duplicateSources  = settings |> List.map modulationSource |> List.duplicates
             // TODO: when PM is added, check that PM and FM paths are exclusive
             if not duplicateChannels.IsEmpty then
-                do! fail << sprintf "Repeated modulation channels: %s"
-                         << List.prettyPrint
-                         << List.map (fun channel -> modulationChannelString channel)
-                         <| duplicateChannels
+                do! Choice.fail << sprintf "Repeated modulation channels: %s"
+                                << List.prettyPrint
+                                << List.map (fun channel -> modulationChannelString channel)
+                                <| duplicateChannels
             if not duplicateSources.IsEmpty then
-                do! fail << sprintf "Modulation sources used more than once: %s"
-                         << List.prettyPrint
-                         << List.map (sourceProvider >> sourceString)
-                         <| duplicateSources
-            return! succeed () }
+                do! Choice.fail << sprintf "Modulation sources used more than once: %s"
+                                << List.prettyPrint
+                                << List.map (sourceProvider >> sourceString)
+                                <| duplicateSources
+            return! Choice.succeed () }
 
         /// Apply a given modulation to the machine.
         let private applyModulation rfSource modulation = asyncChoice {
