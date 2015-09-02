@@ -8,8 +8,9 @@ open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
+[<RequireQualifiedAccess>] 
 module internal IntensityMap = 
-     
+    
     [<AutoOpen>]
     module Tuples = 
        
@@ -80,29 +81,13 @@ module internal IntensityMap =
                else 
                    true
            compare 
-
+    
+    [<RequireQualifiedAccess>] 
     module Coordinates = 
 
         /// Returns a tuple cotaining 1's and 0's, 1's indicate that the channel is not in use. 
         let private findEmptyChannels (firstChannel:Channel) (secondChannel:Channel) = 
             let channels = [|Channel0; Channel1; Channel2|] 
-            //if firstChannel = secondChannel then 
-            //    let emptyChannels = Array.filter (fun elem -> elem <> firstChannel) channels
-            //    let first  = Array.get emptyChannels 0
-            //    let second = Array.get emptyChannels 1    
-            //    let firstTuple = 
-            //        match first with
-            //        | Channel0 -> (1.0,0.0,0.0)
-            //        | Channel1 -> (0.0,1.0,0.0)
-            //        | Channel2 -> (0.0,0.0,1.0)
-            //    let secondTuple = 
-            //        match second with 
-            //        | Channel0 -> (1.0,0.0,0.0)
-            //        | Channel1 -> (0.0,1.0,0.0)
-            //        | Channel2 -> (0.0,0.0,1.0)
-            //    let addTuples (x:float,y:float,z:float) (a:float,b:float,c:float) = (x + a, y + b, z + c)
-            //    addTuples firstTuple secondTuple 
-            //else 
             let emptyChannels = Array.filter (fun elem -> elem <> firstChannel && elem <> secondChannel) channels
             let first = Array.get emptyChannels 0 
             let firstTuple = 
@@ -141,7 +126,8 @@ module internal IntensityMap =
              let coordinate = addTuples expanded fix
                    
              coordinate 
-        
+     
+     [<RequireQualifiedAccess>] 
      module GridPoints =          
    
          /// Gets the value of the specified channel. 
@@ -221,7 +207,6 @@ module internal IntensityMap =
                  // the list containing all points is returned. 
                  else 
                      list 
-         
              generateAll (firstOffset, secondOffset) points
         
          /// Generates a list of grid points and converts to an array. 

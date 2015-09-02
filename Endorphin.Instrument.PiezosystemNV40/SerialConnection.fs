@@ -9,8 +9,8 @@ open ExtCore.Control.Choice
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 
-[<AutoOpen>]
-module internal SerialConnection = 
+ [<RequireQualifiedAccess>] 
+ module internal SerialConnection = 
     
     /// The device identification string. 
     let private identification (Piezojena ID) = ID     

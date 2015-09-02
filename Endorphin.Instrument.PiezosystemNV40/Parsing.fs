@@ -2,6 +2,7 @@
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+[<RequireQualifiedAccess>] 
 module Parsing = 
        
     /// Takes first value from a tuple. 

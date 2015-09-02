@@ -1,7 +1,5 @@
 ﻿namespace Endorphin.Instrument.PiezosystemNV40
-
 // 103538, NV40 serial number.
-
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 open Endorphin.Core
@@ -11,8 +9,10 @@ open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 open FSharp.Control.Reactive
 
+[<RequireQualifiedAccess>] 
 module PiezojenaNV40 = 
     
+    [<RequireQualifiedAccess>] 
     module Piezojena =      
         
         /// Retrieves Piezojena identification string. 
@@ -55,7 +55,7 @@ module PiezojenaNV40 =
                 }
             getVersionWorkflow |> check piezojena 
     
-    
+    [<RequireQualifiedAccess>] 
     module Display = 
         
         /// Sets econder values.
@@ -116,7 +116,8 @@ module PiezojenaNV40 =
                 return brightness
                 }
             queryBrightnessWorkflow |> check piezojena 
-
+    
+    [<RequireQualifiedAccess>] 
     module SetModes = 
 
         /// Sets closed loop on and off, if the mode boolean is true then closed loop, if false then open loop. 
@@ -201,7 +202,8 @@ module PiezojenaNV40 =
                 Async.Sleep 10000 |> Async.RunSynchronously
                 }
             setSoftStartWorkflow |> check piezojena  
-
+    
+    [<RequireQualifiedAccess>] 
     module Query = 
 
         /// Queries the actuators temperature. 
@@ -256,7 +258,7 @@ module PiezojenaNV40 =
                 }
             queryChannelPositionWorkflow |> check piezojena 
         
-    
+    [<RequireQualifiedAccess>] 
     module Initialise = 
         
         /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
@@ -271,10 +273,9 @@ module PiezojenaNV40 =
         let close piezojena = 
             (id piezojena).Dispose()
 
+    [<RequireQualifiedAccess>] 
     module Motion = 
-        
-        let PositionSet = new Event<float32*float32*float32>()
-       
+               
         /// Queries all measurements from three channels. 
         let queryPosition piezojena = 
             let stage = id piezojena 
