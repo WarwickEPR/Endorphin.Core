@@ -54,6 +54,13 @@ module AsyncChoice =
             let! sequence' = sequence |> Async.Parallel
             return foldChoices fold state sequence' } *)
 
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Async =
+    /// Apply a mapping function inside an async workflow.
+    let map mapping workflow = async {
+        let! result = workflow
+        return mapping result }
+
 [<AutoOpen>]
 module AsyncExtensions =
     

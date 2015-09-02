@@ -160,6 +160,6 @@ module Observable =
         Observable.Create(fun (observer : IObserver<_>) ->
             source.Subscribe(fun notification ->
                 match notification with
-                | Next value -> observer.OnNext value
-                | Completed  -> observer.OnCompleted()
-                | Error exn  -> observer.OnError exn))
+                | Notification.Next value -> observer.OnNext value
+                | Notification.Completed  -> observer.OnCompleted()
+                | Notification.Error exn  -> observer.OnError exn))
