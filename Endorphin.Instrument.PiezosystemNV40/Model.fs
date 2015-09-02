@@ -84,9 +84,6 @@ module Model =
 //        | PositionZ 
 //        | PositionNone
 
-    /// Coordinate in form of a three element tuple. 
-    type Coordinate = Coordinate of coordinate : float32*float32*float32
-
     /// Type containing all parameters required to check and use the encoder. 
     type Encoder = {
         Mode: Mode
