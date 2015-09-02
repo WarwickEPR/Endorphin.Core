@@ -60,6 +60,7 @@
     <Compile Include="String.fs" />
     <Compile Include="Byte.fs" />
     <Compile Include="Units.fs" />
+    <Compile Include="VisaAgent.fs" />
     <Compile Include="NationalInstruments.fs" />
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="CRC.fs" />

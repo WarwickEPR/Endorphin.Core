@@ -1,5 +1,5 @@
 ﻿namespace Endorphin.Core
-
+(*
 open Endorphin.Core.String
 open NationalInstruments.VisaNS
 open log4net
@@ -24,7 +24,7 @@ module NationalInstruments =
                 try
                     let! result = asyncRead
                     return Choice.succeed result
-                with exn -> return Choice.fail exn.Message }
+                with exn -> return Choice.fail exn }
 
         /// Create an asynchronous computation which reads a byte array from an NI VISA device
         /// session.
@@ -37,7 +37,7 @@ module NationalInstruments =
                 try
                     let! result = asyncReadBytes
                     return Choice.succeed result
-                with exn -> return Choice.fail exn.Message }
+                with exn -> return Choice.fail exn }
 
         /// Returns an asynchronous computation which writes a string message to an NI VISA
         /// device session.
@@ -53,7 +53,7 @@ module NationalInstruments =
                     do! asyncWrite
                     return Choice.succeed ()
                 with
-                    exn -> return Choice.fail exn.Message }
+                    exn -> return Choice.fail exn }
 
         /// Create an asynchronous computation which writes a byte array message to an NI
         /// VISA device session.
@@ -72,12 +72,11 @@ module NationalInstruments =
         /// Returns an asynchronous computation which first writes a string message to an NI
         /// VISA device session and then awaits a response to that message.
         member session.QueryAsync message =
-            asyncChoice {
+            async {
                 // The cancellation handler ensures that no outstanding asynchronous reads or writes
                 // are still on-going when a query is cancelled and that the device buffers are cleared.
                 use! __ = 
-                    AsyncChoice.liftAsync 
-                    <| Async.OnCancel(fun() -> 
+                    Async.OnCancel(fun() -> 
                         session.Terminate()
                         session.Clear())
                 do! session.WriteAsync message
@@ -86,10 +85,9 @@ module NationalInstruments =
         /// Create an asynchronous workflow which writes a byte array to an NI VISA device session,
         /// then reads a response from the same device.
         member session.QueryBytesAsync message =
-            asyncChoice {
+            async {
                 use! __ =
-                    AsyncChoice.liftAsync
-                    <| Async.OnCancel(fun() ->
+                    Async.OnCancel(fun() ->
                         session.Terminate()
                         session.Clear())
                 do! session.WriteAsync message
@@ -101,13 +99,13 @@ module NationalInstruments =
         /// Provides an interface for communicating with a devices over a National Instruments VISA
         /// MessageBasedSession. Requests are queued and handled asynchronously.
         type VisaInstrument =
-            internal { ReadString  : unit -> AsyncChoice<string, string>
+            internal { ReadString  : unit -> Async<Choice<string, exn>>
                        WriteString : string -> unit
-                       QueryString : string -> AsyncChoice<string, string>
-                       ReadBytes   : unit -> AsyncChoice<byte [], string>
+                       QueryString : string -> Async<Choice<string, exn>>
+                       ReadBytes   : unit -> Async<Choice<byte [], exn>>
                        WriteBytes  : byte array -> unit
-                       QueryBytes  : string -> AsyncChoice<byte array, string>
-                       Close       : unit -> AsyncChoice<unit, string> } 
+                       QueryBytes  : string -> Async<Choice<byte array, exn>>
+                       Close       : unit -> Async<Choice<unit, exn>> } 
 
     [<RequireQualifiedAccess>]
     /// Contains functions for communication with devices which support the National Instruments VISA
@@ -117,18 +115,18 @@ module NationalInstruments =
         /// Truncates a message string to 25 characters for logging.
         let private truncateString str =
             if String.length str > 25
-            then (String.sub str 0 22 |> String.ofSubstring) + "..."
+            then sprintf "%22s..." str
             else str
         
         /// Represents messages which can be sent over a VISA message-based session.
         type private VisaMessage =
-            | ReadString   of replyChannel : AsyncChoiceReplyChannel<string,string>
+            | ReadString   of replyChannel : AsyncReplyChannel<Choice<string,exn>>
             | WriteString  of visaCommand : string
-            | QueryString  of visaCommand : string * replyChannel : AsyncChoiceReplyChannel<string,string>
-            | ReadBytes    of replyChannel  : AsyncChoiceReplyChannel<byte [],string>
+            | QueryString  of visaCommand : string * replyChannel : AsyncReplyChannel<Choice<string,exn>>
+            | ReadBytes    of replyChannel  : AsyncReplyChannel<Choice<byte [],exn>>
             | WriteBytes   of visaCommand  : byte []
-            | QueryBytes   of visaCommand  : string * replyChannel : AsyncChoiceReplyChannel<byte [], string>
-            | CloseSession of replyChannel : AsyncChoiceReplyChannel<unit,string>
+            | QueryBytes   of visaCommand  : string * replyChannel : AsyncReplyChannel<Choice<byte [], exn>>
+            | CloseSession of replyChannel : AsyncReplyChannel<Choice<unit,exn>>
 
         /// Returns a description of the given VisaMessage.
         let private messageDescription = function
@@ -147,7 +145,7 @@ module NationalInstruments =
                 let log = LogManager.GetLogger (sprintf "VISA Instrument \"%s\"" visaAddress)
                 
                 // trims terminantion characters at the end of a response.     
-                let trimResponse = Choice.map (String.trimEnd [|'\n' ; '\r'|])
+                let trimResponse = Choice.map (fun (str : string) -> str.TrimEnd [| '\n'; '\r' |])
 
                 // logs a string read from the VISA session if the read was successful
                 let logString = function
@@ -160,7 +158,7 @@ module NationalInstruments =
                     | Failure _     -> ()
 
                 // closes the VISA session and returns a response over the specified reply channel
-                let closeSession (replyChannel : AsyncChoiceReplyChannel<unit, string>) = async {
+                let closeSession (replyChannel : AsyncReplyChannel<Choice<unit, exn>>) = async {
                     "Closing session." |> log.Info
                     if mailbox.CurrentQueueLength <> 0 then
                         let error = sprintf "Closing session with %d messages remaining in mailbox queue." mailbox.CurrentQueueLength 
@@ -297,3 +295,4 @@ module NationalInstruments =
 
         /// Writes a byte array to the VISA instrument session and awaits a response.
         let queryBytes      instrument = instrument.QueryBytes
+*)
