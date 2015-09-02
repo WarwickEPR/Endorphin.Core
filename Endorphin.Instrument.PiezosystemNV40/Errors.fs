@@ -11,6 +11,7 @@ open Endorphin.Instrument.PiezosystemNV40
 [<AutoOpen>]    
 module Errors =
     
+    /// Module contains functions for logging.
     [<AutoOpen>]
     module internal Logger =
 
@@ -37,7 +38,7 @@ module Errors =
         let logDeviceOpResult picoHarp300 successMessage = logDeviceQueryResult picoHarp300 (fun _ -> successMessage)
 
     [<AutoOpen>]
-    module internal check = 
+    module internal CheckErrros = 
        
         /// Returns Ok or Error with the error string. 
         let private stringtoStatus = function
