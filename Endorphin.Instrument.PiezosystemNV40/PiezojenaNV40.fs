@@ -270,12 +270,14 @@ module PiezojenaNV40 =
             return piezojena   
             }
 
+        /// Sets all channels to open loop and switches off remote mode. 
         let clearModeSetting piezojena = asyncChoice{
             let stage = id piezojena
             do! SetModes.setAllRemoteControl piezojena Off
             do! SetModes.setLoopModeAllChannels piezojena OpenLoop
             }
 
+        /// Closes the serial connection to the piezojena. 
         let close piezojena = 
             (id piezojena).Dispose()
 
