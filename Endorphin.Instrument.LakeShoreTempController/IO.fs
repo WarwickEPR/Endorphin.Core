@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Instrument.LakeShoreTempController
 
-open Endorphin.Core.NationalInstruments
-open ExtCore.Control
+open Endorphin.Core
 
 /// Internal functions for workflows which set and query model values to and from the instrument.
 module internal IO =
@@ -13,7 +12,7 @@ module internal IO =
         return! tryParseFunc response }
 
     /// Performs a query asynchronously and parses the result with the given parsing function.
-    let private performQuery parseFunc = tryPerformQuery (parseFunc >> succeed)
+    let private performQuery parseFunc = tryPerformQuery (parseFunc >> Choice.succeed)
 
     /// Performs a query for the value corrseponding to the given key and tries to parse the
     /// result with the given parsing function which returns a Choice<'T, string> indicating

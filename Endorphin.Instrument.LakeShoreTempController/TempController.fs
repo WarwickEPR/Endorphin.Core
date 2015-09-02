@@ -1,7 +1,6 @@
 ﻿namespace Endorphin.Instrument.LakeShoreTempController
 
-open Endorphin.Core.NationalInstruments
-open ExtCore.Control
+open Endorphin.Core
 
 /// Fnctions posting commands and performs queries to a LakeShore model 325 temperature
 /// controller. 

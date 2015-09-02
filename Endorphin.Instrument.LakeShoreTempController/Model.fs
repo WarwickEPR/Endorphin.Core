@@ -2,7 +2,7 @@
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-open Endorphin.Core.NationalInstruments
+open Endorphin.Core
 
 [<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.

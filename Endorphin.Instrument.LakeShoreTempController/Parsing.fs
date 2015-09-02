@@ -3,8 +3,7 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 
-open Endorphin.Core.String
-open ExtCore.Control
+open Endorphin.Core
 
 [<AutoOpen>]
 /// Internal parsing functions between model types and their corresponding VISA command
@@ -18,11 +17,11 @@ module internal Parsing =
             String.split [|','|] str
             |> Array.map (String.trimStart [|' '|] >> String.trimEnd [|' '|])
 
-        if Array.length parts <> 4   then fail <| sprintf "Unexpected device ID string: %s." str
-        elif parts.[0] <> "LSCI"     then fail <| sprintf "Unexpected device manufacturer: %s." parts.[0]
-        elif parts.[1] <> "MODEL325" then fail <| sprintf "Unexpected device model number: %s." parts.[1]
+        if Array.length parts <> 4   then Choice.fail <| sprintf "Unexpected device ID string: %s." str
+        elif parts.[0] <> "LSCI"     then Choice.fail <| sprintf "Unexpected device manufacturer: %s." parts.[0]
+        elif parts.[1] <> "MODEL325" then Choice.fail <| sprintf "Unexpected device model number: %s." parts.[1]
         else
-            succeed <| 
+            Choice.succeed <| 
                 { Manufacturer = parts.[0]
                   ModelNumber  = parts.[1]
                   SerialNumber = parts.[2]
@@ -81,7 +80,7 @@ module internal Parsing =
     let parsePidSettings str = 
         let regex = @"\G([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4})\s$"
         match str with
-        | ParseRegex regex [ ParseFloat p ; ParseFloat i ; ParseFloat d ] ->
+        | String.ParseRegex regex [ String.ParseFloat p ; String.ParseFloat i ; String.ParseFloat d ] ->
             { Proportional = p
               Integral    = i
               Differential = d }
