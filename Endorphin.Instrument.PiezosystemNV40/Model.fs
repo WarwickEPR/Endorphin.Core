@@ -18,7 +18,7 @@ module Model =
     type Piezojena = internal Piezojena of stage : Piezojena.Protocols.Nv40Multi.Nv40Multi
 
     /// Extracts the string ID from the type Piezojena.
-    let  id (Piezojena multi) = multi 
+    let internal id (Piezojena multi) = multi 
 
     /// Type used to store software version, version in the form Major.Minor.Build.
     /// Also stroes the time at which the software version was retrieved.
@@ -77,12 +77,12 @@ module Model =
         | ClosedLoop
         | OpenLoop
     
-    /// Type used to check posistion of Piezojena on all three axes. 
-    type ActuatorPosition = 
-        | PositionX 
-        | PositionY 
-        | PositionZ 
-        | PositionNone
+//    /// Type used to check posistion of Piezojena on all three axes. 
+//    type ActuatorPosition = 
+//        | PositionX 
+//        | PositionY 
+//        | PositionZ 
+//        | PositionNone
 
     /// Coordinate in form of a three element tuple. 
     type Coordinate = Coordinate of coordinate : float32*float32*float32

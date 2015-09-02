@@ -117,11 +117,9 @@ module PiezojenaNV40 =
                 }
             queryBrightnessWorkflow |> check piezojena 
 
-
-    
     module SetModes = 
 
-        /// Sets closed loop on and off, if the mode boolean is true then closed lopp, if false then open loop. 
+        /// Sets closed loop on and off, if the mode boolean is true then closed loop, if false then open loop. 
         let private setLoopMode piezojena (channel:Channel) (mode:Loop) = 
             let stage = id piezojena
             let setLoopModeWorkflow =         

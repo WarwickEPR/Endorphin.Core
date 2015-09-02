@@ -67,23 +67,23 @@ module Parsing =
         | true  -> On
         | false -> Off
 
-    /// Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
-    let actuatorPositionMap = function
-        | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
-        | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
-        | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
-        | PositionNone -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None
-
-    /// Converts type expected by the NativeApi functions (ActuatorCoordinate) into type AcuatorPosition.
-    /// Includes fields Phi and Theta, can be returned from NativeApi functions. 
-    let parseActuatorPosition= function
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X     -> PositionX
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y     -> PositionY
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z     -> PositionZ
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Phi   -> failwithf "Phi positioning not avalible."
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Theta -> failwithf "Theta positioning not avalible."
-        | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
-        | _ -> failwithf "Not a valid coordinate axis."
+//     // Converts type ActuatorPosition into type expected by the NativeApi functions (ActuatorCoordinate).
+//     let actuatorPositionMap = function
+//         | PositionX -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X
+//         | PositionY -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y
+//         | PositionZ -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z
+//         | PositionNone -> Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None
+//     
+//     /// Converts type expected by the NativeApi functions (ActuatorCoordinate) into type AcuatorPosition.
+//     /// Includes fields Phi and Theta, can be returned from NativeApi functions. 
+//     let parseActuatorPosition= function
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.X     -> PositionX
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Y     -> PositionY
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Z     -> PositionZ
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Phi   -> failwithf "Phi positioning not avalible."
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.Theta -> failwithf "Theta positioning not avalible."
+//         | Piezojena.Protocols.Nv40Multi.Nv40MultiActuatorCoordinate.None  -> PositionNone
+//         | _ -> failwithf "Not a valid coordinate axis."
 
     /// Converts type mode into type expected by NativeApi functions (EncoderMode).
     let modeMap = function

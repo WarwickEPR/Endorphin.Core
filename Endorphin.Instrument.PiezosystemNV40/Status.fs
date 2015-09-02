@@ -4,7 +4,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 
 [<AutoOpen>]
-module Status =    
+module internal Status =    
     
     type ErrorCode =
         | NoError
