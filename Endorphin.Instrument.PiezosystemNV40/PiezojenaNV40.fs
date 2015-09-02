@@ -270,6 +270,12 @@ module PiezojenaNV40 =
             return piezojena   
             }
 
+        let clearModeSetting piezojena = asyncChoice{
+            let stage = id piezojena
+            do! SetModes.setAllRemoteControl piezojena Off
+            do! SetModes.setLoopModeAllChannels piezojena OpenLoop
+            }
+
         let close piezojena = 
             (id piezojena).Dispose()
 
