@@ -5,7 +5,7 @@ open System.Text
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Collections
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
     
     /// Partial active pattern which returns the list of matches (excluding the complete pattern)
@@ -62,7 +62,7 @@ module String =
     let csvSeqString stringFunc = Seq.map stringFunc   >> String.concat ","
 
     /// Returns a hexidecimal string for a provided byte array.
-    let bytesToHexidecimalString (bytes : byte array) =
+    let hexOfBytes (bytes : byte array) =
         let hex = new StringBuilder((Array.length bytes) * 2)
         for byte in bytes do
             hex.AppendFormat("{0:x2}", byte) |> ignore
