@@ -3,13 +3,17 @@
 open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
+exception InstrumentError of string seq
+exception InvalidSettings of string
+exception UnexpectedReply of string
+
 /// Model of the possible configurations of a Keysight RF source.
 [<AutoOpen>]
 module Model =
     [<AutoOpen>]
     module Instrument =
         /// An opened and connected RF source, which can have commands written to it.
-        type RfSource = internal RfSource of VisaInstrument
+        type RfSource = internal RfSource of Visa.Instrument
 
         /// A record of the identification information a device provides.
         type DeviceId = {

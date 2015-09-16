@@ -9,28 +9,28 @@ open System.Text
 [<RequireQualifiedAccess>]
 module internal IO =
     /// Query a key with a specific value, and parse the response into the internal representation.
-    let queryKeyByValueString parseFunc key (RfSource rfSource) value = asyncChoice {
-        let! response = sprintf "%s? %s" key value |> Visa.queryString rfSource
+    let queryKeyByValueString parseFunc key (RfSource rfSource) value = async {
+        let! response = sprintf "%s? %s" key value |> Visa.String.query rfSource
         return parseFunc response }
 
     /// Query an RfSource for the value of a particular key, and parse the response into
     /// the internal representation.
-    let queryKeyString parseFunc key (RfSource rfSource) = asyncChoice {
-        let! response = sprintf "%s?" key |> Visa.queryString rfSource
+    let queryKeyString parseFunc key (RfSource rfSource) = async {
+        let! response = sprintf "%s?" key |> Visa.String.query rfSource
         return parseFunc response }
 
     /// Query an RfSource for the value of a particular key, then try to parse the response
     /// into the internal representation.  If it fails, then return an error message.
-    let tryQueryKeyString (tryParseFunc : string -> Choice<'T, string>) key rfSource = asyncChoice {
+    let tryQueryKeyString (tryParseFunc : string -> Choice<'T, string>) key rfSource = async {
         let! response = queryKeyString id key rfSource
-        return! tryParseFunc response }
+        return tryParseFunc response }
 
-    let queryKeyByValueBytes parseFunc key (RfSource rfSource) value = asyncChoice {
-        let! response = sprintf "%s? %s" key value |> Visa.queryBytes rfSource
+    let queryKeyByValueBytes parseFunc key (RfSource rfSource) value = async {
+        let! response = sprintf "%s? %s" key value |> Visa.Bytes.query rfSource
         return parseFunc response }
 
-    let queryKeyBytes parseFunc key (RfSource rfSource) value = asyncChoice {
-        let! response = sprintf "%s?" key |> Visa.queryBytes rfSource
+    let queryKeyBytes parseFunc key (RfSource rfSource) value = async {
+        let! response = sprintf "%s?" key |> Visa.Bytes.query rfSource
         return parseFunc response }
 
     [<AutoOpen>]
@@ -38,11 +38,11 @@ module internal IO =
         /// Parse an error message into an error code and the associated message.
         let internal parseError (str : string) =
             let parts = str.Split ([|','|], 2) // split only on the first comma
-            if Array.length parts <> 2 then failwithf "Unexpected error string: %s." str
+            if Array.length parts <> 2 then raise << UnexpectedReply <| sprintf "Unexpected error string: %s." str
         
             match parts.[0] with
             | String.ParseInteger code -> { Code = code ; Message = parts.[1] }
-            | _                        -> failwithf "Unexpected error code string: %s." parts.[0]
+            | _                        -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
         let private errorString error = sprintf "%d: %s" error.Code error.Message
@@ -61,7 +61,7 @@ module internal IO =
         /// Loop through the error queue of the machine, creating a sequence of all the listed
         /// errors until the queue is empty.
         let queryErrorQueue rfSource = 
-            let rec errorQueueLoop errorList = asyncChoice {
+            let rec errorQueueLoop errorList = async {
                 let! nextError = queryNextErrorInQueue rfSource
                 if nextError.Code <> 0 then return! errorQueueLoop (nextError :: errorList)
                 else return Seq.ofList <| List.rev errorList }
@@ -70,11 +70,8 @@ module internal IO =
         /// Check if the machine's error queue has any messages in it.
         let checkErrorQueueIsEmpty errors =
             if Seq.length errors <> 0 then
-                errors
-                |> Seq.map errorString
-                |> String.concat "\n" 
-                |> Choice.fail 
-            else Choice.succeed ()
+                raise <| InstrumentError (Seq.map errorString errors)
+            else ()
 
     /// Create the string representation of a command, ready for writing to the instrument.
     let private createCommandString valueMap key value =
@@ -104,10 +101,10 @@ module internal IO =
         arr
 
     /// Generic function for writing any command to an RF source, then query the error queue.
-    let private writeCommand writer (RfSource rfSource) command = asyncChoice {
+    let private writeCommand writer (RfSource rfSource) command = async {
         command |> writer rfSource
         let! errors = queryErrorQueue (RfSource rfSource)
-        do! checkErrorQueueIsEmpty errors }
+        do checkErrorQueueIsEmpty errors }
 
     /// Generic function to create a command, then write that value to the machine.
     let private setValue creater writer valueMap key rfSource value =
@@ -125,7 +122,7 @@ module internal IO =
     /// Set a quantity on the machine to a certain value by covnerting an internal
     /// representation to a machine representation, using the given valueMap.
     let setValueString valueMap key rfSource value =
-        setValue createCommandString Visa.writeString valueMap key rfSource value
+        setValue createCommandString Visa.String.write valueMap key rfSource value
 
     /// Set a quantity on the machine to a certain value by covnerting an internal
     /// representation to a machine representation, using the given valueMap.  This request
@@ -133,15 +130,15 @@ module internal IO =
     /// and manipulate these values, but there is no risk of errant data causing problems
     /// when encoded to UTF-8.
     let setValueBytes valueMap key rfSource value =
-        setValue createCommandBytes Visa.writeBytes valueMap key rfSource value
+        setValue createCommandBytes Visa.Bytes.write valueMap key rfSource value
 
     /// Write a sequence of commands as one single command in string format.
     let setValueStringSequence commands rfSource =
-        setValueSequence createCommandString concatenateCommandStrings Visa.writeString commands rfSource
+        setValueSequence createCommandString concatenateCommandStrings Visa.String.write commands rfSource
 
     /// Write a sequence of commands as one single command in bytes format.
     let setValueBytesSequence commands rfSource =
-        setValueSequence createCommandBytes concatenateCommandBytes Visa.writeBytes commands rfSource
+        setValueSequence createCommandBytes concatenateCommandBytes Visa.Bytes.write commands rfSource
 
     /// Write a key without a value to the machine.  Useful for "delete all" style functions.
     let writeKey key rfSource = setValueString (fun _ -> "") key rfSource None
@@ -150,43 +147,32 @@ module internal IO =
     module Identify =
         /// Attempt to parse a device ID string into an internal representation of a
         /// device ID.
-        let private tryParseDeviceId (str : string) =
+        let private parseDeviceId (str : string) =
             let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
             let parts = str.Split [|','|]
             if Array.length parts <> 4 then
-                Choice.fail <| sprintf "Unexpected device ID string: %s." str
+                raise << UnexpectedReply <| sprintf "Unexpected device ID string: %s." str
             else
-                Choice.succeed <| {
-                Manufacturer = parts.[0] |> trimWhiteSpace
-                ModelNumber  = parts.[1] |> trimWhiteSpace
-                SerialNumber = parts.[2] |> trimWhiteSpace
-                Version      = parts.[3] |> trimWhiteSpace }
-
-        /// Get an internal representation of a device ID from a string, and raise an exception
-        /// if the string is not in the correct format.
-        let private parseDeviceId str =
-            match tryParseDeviceId str with
-            | Success id    -> id
-            | Failure error -> failwith error
+                { Manufacturer = parts.[0] |> trimWhiteSpace
+                  ModelNumber  = parts.[1] |> trimWhiteSpace
+                  SerialNumber = parts.[2] |> trimWhiteSpace
+                  Version      = parts.[3] |> trimWhiteSpace }
 
         /// Key needed to query the identity of any SCPI device.
         let private identityKey = "*IDN"
         /// Query the identity of the given device, and raise an exception if the returned
         /// identity string is not in the expected format.
         let queryIdentity = queryKeyString parseDeviceId identityKey
-        /// Attempt to query the identity of the given device, wrapping up a failure inside a
-        /// choice failure.
-        let tryQueryIdentity = tryQueryKeyString tryParseDeviceId identityKey
 
         /// Check that the model number of a machine is known by the program.
         let private checkModelNumber = function
-            | "N5172B" -> Choice.succeed N5172B
-            | model    -> Choice.fail <| sprintf "Unexpected RF source model number: %s." model
+            | "N5172B" -> N5172B
+            | model    -> raise << UnexpectedReply <| sprintf "Unexpected RF source model number: %s." model
 
         /// Get the model number of the given RfSource, and raise an exception if this model
         /// is not known to the program.
-        let identity rfSource = asyncChoice {
-            let! identity = tryQueryIdentity rfSource
+        let identity rfSource = async {
+            let! identity = queryIdentity rfSource
             return checkModelNumber (identity.ModelNumber) }
 
     /// Functions for connecting and disconnecting from instruments.
@@ -194,7 +180,7 @@ module internal IO =
     module Connect =
         /// Open an instrument for communication at the given VISA address, with a specified
         /// timeout in milliseconds.
-        let openInstrument visaAddress timeout = asyncChoice {
+        let openInstrument visaAddress timeout = async {
             let visaInstrument = Visa.openInstrument visaAddress timeout
             let rfSource = RfSource <| visaInstrument
             let! _ = Identify.identity rfSource
@@ -244,19 +230,19 @@ module internal IO =
     // TODO: Handle other units?
     /// Query the amplitude at the given key.  Currently only supports returning the value as
     /// dBm, rather than as a ratio.
-    let queryAmplitude key (RfSource rfSource) = asyncChoice {
+    let queryAmplitude key (RfSource rfSource) = async {
         // Leaves units in original state
-        let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
-        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryString rfSource
+        let! powerUnit = ":UNIT:POW?" |> Visa.String.query rfSource
+        let! response = sprintf ":UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.String.query rfSource
         return parseAmplitudeInDbm response }
 
     /// Set a sequence of amplitude values.
     let setAmplitudeSeq key = setValueString (String.csvSeqString amplitudeString) key 
     /// Query a sequence of amplitudes, returning the values in dBm.
-    let queryAmplitudeSeq key (RfSource rfSource) = asyncChoice {
-        let! powerUnit = ":UNIT:POW?" |> Visa.queryString rfSource
-        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.queryString rfSource
-        return parseCsvSeq parseAmplitudeInDbm <| response }
+    let queryAmplitudeSeq key (RfSource rfSource) = async {
+        let! powerUnit = ":UNIT:POW?" |> Visa.String.query rfSource
+        let! response = sprintf "UNIT:POW DBM; %s?; :UNIT:POW %s" key powerUnit |> Visa.String.query rfSource
+        return String.parseCsvSeq parseAmplitudeInDbm <| response }
 
     /// Set the duration of the given key to have the given value in seconds.
     let setDuration = setValueString durationString 

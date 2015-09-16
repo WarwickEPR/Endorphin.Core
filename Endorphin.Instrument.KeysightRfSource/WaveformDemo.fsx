@@ -1,17 +1,10 @@
-﻿#r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
-#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
-#r "NationalInstruments.Common.dll"
-#r "NationalInstruments.VisaNS.dll"
+﻿#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
+open Endorphin.Core
 open Endorphin.Instrument.Keysight
-open ExtCore.Control
 open Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-
-let printResult = function
-    | Success ()    -> printfn "Successfully did things."
-    | Failure error -> printfn "Bad things happened: %s" error
 
 let numSamples = 1000us
 
@@ -51,8 +44,8 @@ let sequence2 =
     |> Sequence.add segment1 3us
     |> Sequence.toWaveform
 
-asyncChoice {
-    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
+async {
+    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000<ms>
 
     let! storedSegment1 = storeWaveform keysight segment1
     let! storedSegment2 = storeWaveform keysight segment2
@@ -69,4 +62,3 @@ asyncChoice {
 
     do RfSource.closeInstrument |> ignore }
 |> Async.RunSynchronously
-|> printResult

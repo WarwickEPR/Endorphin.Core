@@ -128,23 +128,19 @@ module Experiment =
 
             /// Check if a phase cycle has a non-zero length.
             let private nonZero length =
-                if length = 0 then
-                    Choice.fail "Phase cycle has no phases in it"
-                else
-                    Choice.succeed length
+                if length = 0 then raise <| InvalidSettings "Phase cycle has no phases in it"
+                else length
 
             /// Check that the length of all the phase cycles in a sequence of pulses are the same.
             /// If they are, then return that number.  If not, then return a failure.
-            let private checkPhaseCycles (pulses : List<Pulse>) = choice {
-                let! length =
+            let private checkPhaseCycles (pulses : List<Pulse>) =
+                let length =
                     pulses.Head
                     |> rfPulseCycleLength
                     |> nonZero
-                return!
-                    if List.exists (incorrectCycleLength length) pulses then
-                        Choice.fail "Not all phase cycles are the same length"
-                    else
-                        Choice.succeed length }
+                if List.exists (incorrectCycleLength length) pulses then
+                    raise <| InvalidSettings "Not all phase cycles are the same length"
+                else length
 
             /// Perform a Boolean OR on each field of the markers record, returning a record of the
             /// result.
@@ -163,12 +159,12 @@ module Experiment =
                     | _ -> state
                 let markers = Seq.fold folder Markers.empty experiment.Pulses
                 if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
-                    Choice.fail "At least one marker channel must be blank throughout for internal use"
+                    raise <| InvalidSettings "At least one marker channel must be blank throughout for internal use"
                 else
-                    if   not markers.M4 then Choice.succeed RouteMarker4
-                    elif not markers.M3 then Choice.succeed RouteMarker3
-                    elif not markers.M2 then Choice.succeed RouteMarker2
-                    else                     Choice.succeed RouteMarker1
+                    if   not markers.M4 then RouteMarker4
+                    elif not markers.M3 then RouteMarker3
+                    elif not markers.M2 then RouteMarker2
+                    else                     RouteMarker1
 
             /// Convert a pulse into a VerifiedPulse type. The calling function is assumed to have
             /// actually done the verification.
@@ -181,36 +177,35 @@ module Experiment =
             /// as an option.
             let private countRfPhases (rfPulses : Pulse list) =
                 if rfPulses.Length = 0 then
-                    Choice.succeed None
+                    None
                 else
                     rfPulses
                     |> checkPhaseCycles
-                    |> Choice.map Some
+                    |> Some
 
             /// Convert a duration in seconds into a SampleCount.
             let private shotRepetitionSampleCount (DurationInSec time) =
                 if time < 0.0<s> then
-                    Choice.fail "Must have a non-negative shot repetition time!"
+                    raise <| InvalidSettings "Must have a non-negative shot repetition time!"
                 else
                     time / ARB.shortestPulseDuration
                     |> uint32
                     |> SampleCount
-                    |> Choice.succeed
 
             /// Check that a valid number of repetitions of the experiment is set.
             let private repetitions experiment =
-                if experiment.Repetitions < 1 then Choice.fail "Must do the experiment at least once!"
-                else Choice.succeed ()
+                if experiment.Repetitions < 1 then raise <| InvalidSettings "Must do the experiment at least once!"
+                else ()
 
             /// Check that the number of shots per point is valid.
             let private shotsPerPoint (experiment : Experiment) =
-                if experiment.ShotsPerPoint = 0us then Choice.fail "Must have at least 1 shot per point!"
-                else Choice.succeed ()
+                if experiment.ShotsPerPoint = 0us then raise <| InvalidSettings "Must have at least 1 shot per point!"
+                else ()
 
             /// Check that the frequencies in an experiment are valid.
             let private frequencies (experiment : Experiment) =
-                if Seq.isEmpty experiment.Frequencies then Choice.fail "Must have at least one frequency"
-                else Choice.succeed ()
+                if Seq.isEmpty experiment.Frequencies then raise <| InvalidSettings "Must have at least one frequency"
+                else ()
 
             /// Get the duration of a pulse.
             let private pulseLength = function
@@ -220,15 +215,14 @@ module Experiment =
 
             /// Check that the total minimum length of the experiment is longer than the shortest
             /// allowable experiment.
-            let private checkMinimumLength (experiment : Experiment) = choice {
+            let private checkMinimumLength (experiment : Experiment) =
                 let length = Seq.sumBy pulseLength experiment.Pulses
-                return!
-                    if length < Segment.minimumLength then
-                        Segment.minimumLength
-                        |> sprintf "Experiment is shorter than the minimum length of %d samples"
-                        |> Choice.fail
-                    else
-                        Choice.succeed () }
+                if length < Segment.minimumLength then
+                    Segment.minimumLength
+                    |> sprintf "Experiment is shorter than the minimum length of %d samples"
+                    |> InvalidSettings
+                    |> raise
+                else ()
 
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
@@ -236,13 +230,14 @@ module Experiment =
             let private rfSpacing (experiment : Experiment) =
                 let minimum = minimumRfPulseSeparation
                 let rec loop space = function
-                    | [] -> Choice.succeed ()
+                    | [] -> ()
                     | hd :: tl when isRfPulse hd ->
                         let minimum = minimumRfPulseSeparation
                         if space < minimum then
                             minimum
                             |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
-                            |> Choice.fail
+                            |> InvalidSettings
+                            |> raise
                         else
                             loop 0u tl
                     | hd :: tl ->
@@ -279,46 +274,45 @@ module Experiment =
 
             /// Add the shot repetition time, and any necessary padding for the FIR filter onto the
             /// pulse sequence.
-            let private updateExperimentPulses (experiment : Experiment) = choice {
-                let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
+            let private updateExperimentPulses (experiment : Experiment) =
+                let shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
                 let pulses =
                     if shotRepetitionTime = SampleCount 0u then
                         experiment.Pulses
                     else
                         experiment.Pulses |> Seq.appendSingleton (Delay (shotRepetitionTime, SampleCount 0u))
                 let pulses' = pulses |> addSpaceForFir
-                return { experiment with Pulses = pulses' } }
+                { experiment with Pulses = pulses' }
 
             /// Convert an experiment into a VerifiedExperiment.
-            let private toVerifiedExperiment (experiment : Experiment) = choice {
+            let private toVerifiedExperiment (experiment : Experiment) =
                 let pulses = experiment.Pulses |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
-                let! rfPhaseCount = countRfPhases rfPulses
-                let! shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
-                let! rfBlankMarker = checkRfBlankMarker experiment
-                return {
-                    Pulses = [ (pulses |> List.map toVerifiedPulse) ]
-                    Metadata =
-                    { ExperimentRepetitions = experiment.Repetitions
-                      PulseCount = pulses.Length
-                      RfPulseCount = rfPulses.Length
-                      RfPhaseCount = rfPhaseCount
-                      RfBlankMarker = rfBlankMarker
-                      ShotRepetitionTime = shotRepCount
-                      ShotsPerPoint = experiment.ShotsPerPoint
-                      Frequencies = experiment.Frequencies
-                      Power = experiment.Power } } }
+                let rfPhaseCount = countRfPhases rfPulses
+                let shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
+                let rfBlankMarker = checkRfBlankMarker experiment
+                { Pulses = [ (pulses |> List.map toVerifiedPulse) ]
+                  Metadata =
+                  { ExperimentRepetitions = experiment.Repetitions
+                    PulseCount = pulses.Length
+                    RfPulseCount = rfPulses.Length
+                    RfPhaseCount = rfPhaseCount
+                    RfBlankMarker = rfBlankMarker
+                    ShotRepetitionTime = shotRepCount
+                    ShotsPerPoint = experiment.ShotsPerPoint
+                    Frequencies = experiment.Frequencies
+                    Power = experiment.Power } }
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
-            let verify experiment = choice {
-                do! repetitions experiment
-                do! rfSpacing experiment
-                do! shotsPerPoint experiment
-                do! frequencies experiment
-                let! experiment' = updateExperimentPulses experiment
-                do! checkMinimumLength experiment'
-                return! toVerifiedExperiment experiment' }
+            let verify experiment =
+                repetitions experiment
+                rfSpacing experiment
+                shotsPerPoint experiment
+                frequencies experiment
+                let experiment' = updateExperimentPulses experiment
+                checkMinimumLength experiment'
+                toVerifiedExperiment experiment'
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
@@ -787,13 +781,7 @@ module Experiment =
                   Metadata = compressed.Metadata }
 
             /// Encode an experiment into a writeable form.
-            let toEncodedExperiment experiment = choice {
-                let! verified = experiment |> verify
-                return
-                    verified
-                    |> compile
-                    |> compress
-                    |> encode }
+            let toEncodedExperiment = verify >> compile >> compress >> encode
 
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.
@@ -801,16 +789,10 @@ module Experiment =
         module Print =
             open ARB.Print
             /// Get a compiled experiment.
-            let toCompiledExperiment experiment = choice {
-                let! verified = verify experiment
-                return verified |> compile }
+            let toCompiledExperiment = verify >> compile
 
             /// Get a compressed experiment.
-            let toCompressedExperiment experiment = choice {
-                let! verified = verify experiment
-                return verified
-                    |> compile
-                    |> compress }
+            let toCompressedExperiment = verify >> compile >> compress
 
             /// Pretty-print out a compiled experiment.
             let printCompiledExperiment (compiled : CompiledExperiment) =

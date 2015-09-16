@@ -11,7 +11,7 @@ module Sweep =
             | "FIX"
             | "FIXED" -> Fixed
             | "LIST"  -> Swept
-            | str     -> failwithf "Unexpected sweep mode string: %s." str
+            | str     -> raise << UnexpectedReply <| sprintf "Unexpected sweep mode string: %s." str
 
         /// Convert the internal representation of the sweep mode into the machine representation.
         let sweepModeString = function
@@ -23,7 +23,7 @@ module Sweep =
             match String.toUpper str with
             | "LIN" | "LINEAR"      -> LinearStepSpacing
             | "LOG" | "LOGARITHMIC" -> LogarithmicStepSpacing
-            | _                     -> failwithf "Unexpected step spacing string: %s." str
+            | _                     -> raise << UnexpectedReply <| sprintf "Unexpected step spacing string: %s." str
 
         /// Convert the internal representation of the step spacing into the machine representation.
         let stepSpacingString = function
@@ -35,7 +35,7 @@ module Sweep =
             match String.toUpper str with
             | "LIST" -> List
             | "STEP" -> Step
-            | _      -> failwithf "Unexpected sweep type string: %s." str
+            | _      -> raise << UnexpectedReply <| sprintf "Unexpected sweep type string: %s." str
 
         /// Convert the internal representation of the sweep type to the machine representation.
         let sweepTypeString = function
@@ -173,7 +173,7 @@ module Sweep =
         let queryRetrace = IO.queryOnOffState retraceKey
 
         /// Apply the given sweep options to the machine.
-        let internal setSweepOptions rfSource options = asyncChoice {
+        let internal setSweepOptions rfSource options = async {
             do! setDirection rfSource options.Direction
             match options.StepTrigger with
             | Some trig -> do! Triggering.Control.setTriggerSource StepTrigger rfSource trig
@@ -183,8 +183,8 @@ module Sweep =
             | None -> ()
             match options.DwellTime with
                 | Some t -> do! setDwellTime rfSource t
-                | None   -> if options.ListTrigger == Some Immediate
-                            then return! fail "Dwell time required for free-running, immediate trigger sweep through a list of points"
+                | None   -> if options.ListTrigger = Some Immediate
+                            then return raise <| UnexpectedReply "Dwell time required for free-running, immediate trigger sweep through a list of points"
             do! setRetrace rfSource options.Retrace 
             do! setAttenuationProtection rfSource options.AttentuationProtection
             do! setMode rfSource options.Mode }
@@ -207,7 +207,7 @@ module Sweep =
             let queryPointsCount = IO.queryInt pointsCountKey
 
             /// Set the frequency sweep to use the given frequency sweep settings.
-            let setFrequencySweep rfSource frequencySweep = asyncChoice {
+            let setFrequencySweep rfSource frequencySweep = async {
                 match frequencySweep with
                 | FixedFrequency f ->
                     do! setCarrierFrequency rfSource f
@@ -218,7 +218,7 @@ module Sweep =
                     do! setFrequencySweepMode rfSource Swept }
 
             /// Set the amplitude sweep to use the given amplitude sweep settings.
-            let setAmplitudeSweep rfSource amplitudeSweep = asyncChoice {
+            let setAmplitudeSweep rfSource amplitudeSweep = async {
                 match amplitudeSweep with
                 | FixedAmplitude a ->
                     do! setCarrierAmplitude rfSource a
@@ -305,7 +305,7 @@ module Sweep =
             let private storeListKey = ":MMEM:STORE:LIST"
             /// Store the currently loaded list sweep into a file in the non-volatile memory of the
             /// machine, so it can be reloaded later.
-            let storeListFileById instrument id = asyncChoice {
+            let storeListFileById instrument id = async {
                 do! IO.setFile storeListKey instrument (listFolder, id)
                 return toStoredSweep id }
 
@@ -440,7 +440,7 @@ module Sweep =
     module Apply =
         open Control
         /// Set up an RF step sweep from a model.
-        let stepSweep rfSource (stepSweep : StepSweep) = asyncChoice {
+        let stepSweep rfSource (stepSweep : StepSweep) = async {
             do! Step.setFrequencySweep rfSource stepSweep.Frequency
             do! Step.setAmplitudeSweep rfSource stepSweep.Amplitude
             do! Step.setPointsCount rfSource stepSweep.Points

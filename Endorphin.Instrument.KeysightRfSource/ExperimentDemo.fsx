@@ -1,18 +1,10 @@
-#r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
 #r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
-#r "NationalInstruments.Common.dll"
-#r "NationalInstruments.VisaNS.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Instrument.Keysight
-open ExtCore.Control
 open Experiment
 open Control
-
-let result = function
-    | Success ()    -> printfn "Success!"
-    | Failure error -> printfn "Bad things happened: %s" error
 
 let cycle1 =
     Phase.empty
@@ -39,10 +31,10 @@ let experiment =
     |> withRepetitions 128
     |> withShotRepetitionTime 10e-6<s>
 
-asyncChoice {
-    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000
+async {
+    let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000<ms>
 
-    do! printCompressedExperiment experiment
+    do printCompressedExperiment experiment
     let! storedExperiment = storeExperiment keysight experiment
 
     (*
@@ -52,4 +44,3 @@ asyncChoice {
 
     do RfSource.closeInstrument |> ignore }
 |> Async.RunSynchronously
-|> result

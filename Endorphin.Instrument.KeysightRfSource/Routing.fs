@@ -9,7 +9,9 @@ module Routing =
         /// If a type claiming to provide an interface we're using is passed, but we don't know about
         /// it, we have to fail execution.
         let failIncorrectType signal =
-            failwithf "Unexpected output signal in interface %A, %A" signal.GetType signal
+            sprintf "Unexpected output signal in interface %A, %A" signal.GetType signal
+            |> UnexpectedReply
+            |> raise
 
         /// Convert an internal representation of a marker route into a machine representation.
         let private markerString = function
@@ -379,7 +381,7 @@ module Routing =
     let internal setRfBlankRoute instrument route = setSignalRoute rfBlankKey instrument route
 
     /// Set all the available output routes to the given values.
-    let private setOutputRouting instrument routing = asyncChoice {
+    let private setOutputRouting instrument routing = async {
         do! setSignalRoute basebandTrigger1Key instrument routing.BbTrig1
         do! setSignalRoute basebandTrigger2Key instrument routing.BbTrig2
         do! setSignalRoute event1Key instrument routing.Event1
@@ -389,32 +391,32 @@ module Routing =
         do! setSignalRoute trigger2Key instrument routing.Trig2 }
 
     /// Set all the available input routes to the given values.
-    let private setInputRouting instrument routing = asyncChoice {
+    let private setInputRouting instrument routing = async {
         do! setSignalRoute patternTrigger1Key instrument routing.PatTrig1
         do! setSignalRoute patternTrigger2Key instrument routing.PatTrig2 }
 
     /// Set all the available internal routes to the given values.
-    let private setInternalRouting instrument routing = asyncChoice {
+    let private setInternalRouting instrument routing = async {
         do! setSignalRoute alternateAmplitudeKey instrument routing.AltAmplitude
         do! setSignalRoute alcHoldKey instrument routing.AlcHold
         do! setSignalRoute rfBlankKey instrument routing.RfBlank }
 
     /// Set the polarities of the markers.
-    let private setMarkerPolarities instrument routing = asyncChoice {
+    let private setMarkerPolarities instrument routing = async {
         do! setMarkerPolarity RouteMarker1 instrument routing.PolarityM1
         do! setMarkerPolarity RouteMarker2 instrument routing.PolarityM2
         do! setMarkerPolarity RouteMarker3 instrument routing.PolarityM3
         do! setMarkerPolarity RouteMarker4 instrument routing.PolarityM4 }
 
     /// Set all the routings for the machine to the given values.
-    let set instrument routing = asyncChoice {
+    let set instrument routing = async {
         do! setOutputRouting instrument routing.Output
         do! setInputRouting instrument routing.Input
         do! setInternalRouting instrument routing.Internal
         do! setMarkerPolarities instrument routing.MarkerPolarities }
 
     /// Query the machine for the currently setup output routing.
-    let private queryOutputRouting instrument = asyncChoice {
+    let private queryOutputRouting instrument = async {
         let! bbTrig1  = queryUserSignal basebandTrigger1Key instrument
         let! bbTrig2  = queryUserSignal basebandTrigger2Key instrument
         let! event1   = queryUserSignal event1Key instrument
@@ -432,7 +434,7 @@ module Routing =
             Trig2    = trig2 } }
 
     /// Query the machine for the currently setup input routing.
-    let private queryInputRouting instrument = asyncChoice {
+    let private queryInputRouting instrument = async {
         let! patTrig1 = queryUserBncSignal patternTrigger1Key instrument
         let! patTrig2 = queryUserBncSignal patternTrigger2Key instrument
         return {
@@ -440,7 +442,7 @@ module Routing =
             PatTrig2 = patTrig2 } }
 
     /// Query the machine for the currently setup internal routing.
-    let private queryInternalRouting instrument = asyncChoice {
+    let private queryInternalRouting instrument = async {
         let! altAmp  = queryMarkerSignal alternateAmplitudeKey instrument
         let! alcHold = queryMarkerSignal alcHoldKey instrument
         let! rfBlank = queryMarkerSignal rfBlankKey instrument
@@ -450,7 +452,7 @@ module Routing =
             RfBlank      = rfBlank } }
 
     /// Query the polarities of the marker signals.
-    let private queryMarkerPolarities instrument = asyncChoice {
+    let private queryMarkerPolarities instrument = async {
         let! m1 = queryMarkerPolarity RouteMarker1 instrument
         let! m2 = queryMarkerPolarity RouteMarker2 instrument
         let! m3 = queryMarkerPolarity RouteMarker3 instrument
@@ -462,7 +464,7 @@ module Routing =
             PolarityM4 = m4 } }
 
     /// Query the machine for the currently setup routings.
-    let query instrument = asyncChoice {
+    let query instrument = async {
         let! output = queryOutputRouting instrument
         let! input = queryInputRouting instrument
         let! internal' = queryInternalRouting instrument

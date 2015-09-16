@@ -2,23 +2,14 @@
 // for more guidance on F# programming.
 
 #r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
-#r @"..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll"
 #r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
-#r "NationalInstruments.Common.dll"
-#r "NationalInstruments.VisaNS.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Instrument.Keysight
 open log4net.Config
-open ExtCore.Control
 
 BasicConfigurator.Configure()
-
-let printResult =
-    function
-    | Success ()    -> printfn "Successfully did things."
-    | Failure error -> printfn "Bad things happened: %s" error
 
 open Sweep.Configure
 open Modulation.Configure
@@ -44,8 +35,8 @@ let modulationSettings = [ am ; fm ]
 
 
 let sweepExperiment startFrequency stopFrequency =
-    asyncChoice {
-        let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000
+    async {
+        let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 3000<ms>
         //let keysight = Dummy.openDumbInstrument
         let! identity = RfSource.queryIdentity keysight
         printf "%A" identity
@@ -77,4 +68,3 @@ let sweepExperiment startFrequency stopFrequency =
 
 let out = sweepExperiment 1.0e9<Hz> 2.0e9<Hz>
            |> Async.RunSynchronously
-out |> printResult

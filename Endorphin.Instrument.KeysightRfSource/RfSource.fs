@@ -14,7 +14,7 @@ module RfSource =
     let queryIdentity = IO.Identify.queryIdentity
 
     /// Apply a set of settings to the given RfSource machine.
-    let applySettings rfSource settings = asyncChoice {
+    let applySettings rfSource settings = async {
         match settings.Sweep with
         | NoSweep (frequency,amplitude)
             -> do! setCarrierFrequency rfSource frequency

@@ -172,19 +172,21 @@ module Modulation =
             let duplicateSources  = settings |> List.map modulationSource |> List.duplicates
             // TODO: when PM is added, check that PM and FM paths are exclusive
             if not duplicateChannels.IsEmpty then
-                do! Choice.fail << sprintf "Repeated modulation channels: %s"
+                do! Choice.fail << InvalidSettings
+                                << sprintf "Repeated modulation channels: %s"
                                 << List.prettyPrint
                                 << List.map (fun channel -> modulationChannelString channel)
                                 <| duplicateChannels
             if not duplicateSources.IsEmpty then
-                do! Choice.fail << sprintf "Modulation sources used more than once: %s"
+                do! Choice.fail << InvalidSettings
+                                << sprintf "Modulation sources used more than once: %s"
                                 << List.prettyPrint
                                 << List.map (sourceProvider >> sourceString)
                                 <| duplicateSources
             return! Choice.succeed () }
 
         /// Apply a given modulation to the machine.
-        let private applyModulation rfSource modulation = asyncChoice {
+        let private applyModulation rfSource modulation = async {
             printfn "applyModulation: %A" modulation
             match modulation with
             | AmplitudeModulation (path,settings,source) ->
@@ -202,8 +204,8 @@ module Modulation =
 
         /// Apply a list of modulation settings to the machine in order, after first
         /// verifying them.
-        let modulationSettings rfSource settings = asyncChoice {
-            do! verifyModulationSettings settings
+        let modulationSettings rfSource settings = async {
+            Choice.bindOrRaise <| verifyModulationSettings settings
             for modulation in settings do
                 printfn "About to apply modulation %A" modulation
                 do! applyModulation rfSource modulation }

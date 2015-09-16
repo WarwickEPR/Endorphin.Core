@@ -24,24 +24,19 @@ module Control =
         /// How many Seqeunces to write in one chunk when writing a whole sequence of them.
         let private sequencesPerChunk = 32
 
-        /// Concatenate two error strings into one string.
-        let private addErrorStrings str1 str2 = str1 + " AND ALSO " + str2
-        /// Generic function to parallelise the the storage of a sequence of storables.
-        let private parallelizeStorageFold errorState errorFold store instrument sequence =
-            sequence
-            |> Seq.map (store instrument)
-            |> AsyncChoice.Parallel errorState errorFold
         /// Parallelise the storage of a sequence of storables, concatenating any errors which may
         /// occur.
         let private parallelizeStorage store instrument sequence =
-            parallelizeStorageFold "" addErrorStrings store instrument sequence
+            sequence
+            |> Seq.map (store instrument)
+            |> Async.Parallel
 
         /// Write several storage commands concatenated into one semi-colon separated SCPI command.
         /// The sequence must be a sequence of identifiers and the data to be written.
         let private storeConcatenatedById store
                                           (construct : 'Id -> 'StoredType)
                                           (instrument : RfSource)
-                                          commands = asyncChoice {
+                                          commands = async {
             do! store commands instrument
             let sequence = Seq.map (fun (_, _, el) -> el) commands
             return Seq.map (fun (id, _) -> construct id) sequence |> Array.ofSeq }
@@ -60,7 +55,7 @@ module Control =
 
         /// Set the header file of the given waveform to have the currently set ARB settings, except
         /// also with the passed 
-        let private setHeaderArbClockFrequency instrument frequency waveform = asyncChoice {
+        let private setHeaderArbClockFrequency instrument frequency waveform = async {
             do! selectWaveform instrument waveform
             do! ARB.setClock instrument frequency
             do! ARB.setHeaderFile instrument }
@@ -78,7 +73,7 @@ module Control =
             let commands = seq {
                     yield (ARB.Encode.waveformDataString, storeDataKey, encoded)
                     yield (ARB.Encode.markersDataString, storeDataKey, encoded) }
-            asyncChoice {
+            async {
                 do! IO.setValueBytesSequence commands instrument
                 let stored = toStoredSegment id
                 do! setHeaderArbClockFrequency instrument ARB.defaultClockFrequency stored
@@ -93,7 +88,7 @@ module Control =
             IO.queryFileBytes ARB.Decode.parseMarkerFile storeDataKey instrument (markerFolder, id)
 
         /// Query a pair of segment files (waveform and markers) for their segment.
-        let private querySegment instrument id = asyncChoice {
+        let private querySegment instrument id = async {
             let! (i, q) = queryWaveformFile instrument id
             let! markers = queryMarkerFile instrument id
             let samples = Array.map3 ARB.Decode.parseSample i q markers
@@ -113,7 +108,7 @@ module Control =
 
         /// Store a sequence of segments and their ids into the volatile memory of the machine.
         /// Returns an array of StoredSegments.
-        let internal storeSegmentSequence instrument sequence = asyncChoice {
+        let internal storeSegmentSequence instrument sequence = async {
             let encoded = Seq.map (fun (id, seg) -> (id, ARB.Encode.segment id seg)) sequence
             let builder map (_, _) = fun (_, el) -> map el
             let zipper map = zipIdCommands (builder map) storeDataKey encoded
@@ -127,7 +122,7 @@ module Control =
             let store = storeConcatenatedById IO.setValueBytesSequence toStoredSegment
             let! waveforms =
                 parallelizeStorage store instrument commands
-                |> AsyncChoice.map Array.concat
+                |> Async.map Array.concat
             for waveform in waveforms do
                 do! setHeaderArbClockFrequency instrument ARB.defaultClockFrequency waveform
             return waveforms }
@@ -136,7 +131,7 @@ module Control =
         /// Command reference p.345.
         let private storeSequenceKey = ":RAD:ARB:SEQ"
         /// Write a sequence file to the machine and returns the stored sequence type.
-        let internal storeSequence instrument (id, sequence) = asyncChoice {
+        let internal storeSequence instrument (id, sequence) = async {
             do! IO.setValueString (ARB.Encode.sequence id) storeSequenceKey instrument sequence
             let stored = toStoredSequence id
             do! setHeaderArbClockFrequency instrument ARB.defaultClockFrequency stored
@@ -144,7 +139,7 @@ module Control =
 
         /// Write a sequence of sequences files to the machine, and return an array of the stored
         /// sequence type.
-        let internal storeSequenceSequence instrument (sequence : seq<string * Sequence>) = asyncChoice {
+        let internal storeSequenceSequence instrument (sequence : seq<string * Sequence>) = async {
             let builder (_, _) = fun (id, el) -> ARB.Encode.sequence id el
             let commands =
                 sequence
@@ -153,7 +148,7 @@ module Control =
             let store = storeConcatenatedById IO.setValueStringSequence toStoredSequence
             let! sequences =
                 parallelizeStorage store instrument commands
-                |> AsyncChoice.map Array.concat
+                |> Async.map Array.concat
             for sequence in sequences do
                 do! setHeaderArbClockFrequency instrument ARB.defaultClockFrequency sequence
             return sequences }
@@ -164,7 +159,7 @@ module Control =
             | Sequence (id, data) -> storeSequence instrument (id, data)
 
         /// Store a sequence of waveforms onto the machine.
-        let storeWaveformSequence instrument (sequence : Waveform seq) = asyncChoice {
+        let storeWaveformSequence instrument (sequence : Waveform seq) = async {
             let arr = Array.create (Seq.length sequence) Unchecked.defaultof<StoredWaveform>
             let mutable i = 0
             for element in sequence do
@@ -176,9 +171,9 @@ module Control =
         /// Store an experiment onto the machine as a set of necessary sequences and samples.
         /// Turns off the ARB before writing, because the machine doesn't seem to like doing both
         /// at once.  This is just stored, it isn't ready to play yet.
-        let storeExperiment instrument experiment = asyncChoice {
+        let storeExperiment instrument experiment = async {
             do! ARB.turnOff instrument
-            let! encoded = toEncodedExperiment experiment
+            let encoded = toEncodedExperiment experiment
             let! storedSegments = storeSegmentSequence instrument encoded.Segments
             let! storedSequences = encoded.Sequences |> storeSequenceSequence instrument
             let! storedPoints = encoded.Points |> storeSequenceSequence instrument
@@ -192,7 +187,7 @@ module Control =
                 Power            = encoded.Metadata.Power } }
 
         /// Steps needed to set up the sweep for use.
-        let private setUpSweep instrument trigger (stored : StoredExperiment) = asyncChoice {
+        let private setUpSweep instrument trigger (stored : StoredExperiment) = async {
             let options =
                 defaultSweepOptions
                 |> optionsWithStepTrigger None
@@ -201,13 +196,13 @@ module Control =
                 |> optionsWithRetrace Off
             do! setSweepOptions instrument options
             do! setSweepType instrument List
-            let waveforms = Seq.replicate (Seq.length stored.Frequencies) [ stored.StoredExperiment ]
+            let waveforms = Seq.replicate (Seq.length stored.Frequencies) stored.StoredExperiment
             do! setListWaveformSequence instrument waveforms
             do! setFrequencies instrument stored.Frequencies
             do! setPowers instrument [ stored.Power ] }
 
         /// Steps needed to turn the outputs on.
-        let private setUpOutputs instrument stored = asyncChoice {
+        let private setUpOutputs instrument stored = async {
             // ensure the RF blank marker is set, and is the correct polarity
             do! Routing.setRfBlankRoute instrument stored.RfBlankRoute
             do! Routing.setMarkerPolarity stored.RfBlankRoute instrument Positive
@@ -218,13 +213,13 @@ module Control =
 
         /// Load a previously stored experiment into the list sweep file, overwriting whatever's
         /// already there.
-        let loadStoredExperiment instrument trigger stored = asyncChoice {
+        let loadStoredExperiment instrument trigger stored = async {
             do! setUpSweep instrument trigger stored
             do! setUpOutputs instrument stored }
 
         /// Store an experiment on the machine, then immediately load it into the list sweep file,
         /// ready to start playback.
-        let storeAndPrimeExperiment instrument trigger experiment = asyncChoice {
+        let storeAndPrimeExperiment instrument trigger experiment = async {
             let! stored = storeExperiment instrument experiment
             do! loadStoredExperiment instrument trigger stored
             return stored }
@@ -256,19 +251,19 @@ module Control =
         let deleteStoredWaveform = IO.setValueString storedWaveformFilename deleteFileKey
 
         /// Delete all stored waveforms on the machine.
-        let deleteAllStoredWaveforms instrument = asyncChoice {
+        let deleteAllStoredWaveforms instrument = async {
             do! deleteAllStoredSegments instrument
             do! deleteAllStoredSequences instrument }
 
     [<AutoOpen>]
     module Play =
         /// Begin playing a waveform stored on the instrument.
-        let playStoredWaveform instrument stored = asyncChoice {
+        let playStoredWaveform instrument stored = async {
             do! selectWaveform instrument stored
             do! ARB.turnOn instrument }
 
         /// Store a segment file on to the machine, then begin playing it back as soon as possible.
-        let playWaveform instrument waveform = asyncChoice {
+        let playWaveform instrument waveform = async {
             let! stored = storeWaveform instrument waveform
             do! playStoredWaveform instrument stored
             return stored }
@@ -279,14 +274,14 @@ module Control =
         open Experiment.Translate
 
         /// In debug mode, compiled the experiment, then print it out, rather than writing to the machine.
-        let printCompiledExperiment experiment = asyncChoice {
-            let! compiled = toCompiledExperiment experiment
-            printCompiledExperiment compiled }
+        let printCompiledExperiment experiment =
+            let compiled = toCompiledExperiment experiment
+            printCompiledExperiment compiled
 
         /// In debug mode, compress the experiment, then print it out, rather than writing to the machine.
-        let printCompressedExperiment experiment = asyncChoice {
-            let! compressed = toCompressedExperiment experiment
-            printCompressedExperiment compressed }
+        let printCompressedExperiment experiment =
+            let compressed = toCompressedExperiment experiment
+            printCompressedExperiment compressed
 
         /// Print out the sequence files used by each experiment in order.
         let printExperimentSequences stored =

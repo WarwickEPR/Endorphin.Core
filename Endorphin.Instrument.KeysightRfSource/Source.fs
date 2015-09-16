@@ -43,11 +43,12 @@ module Source =
             let private rampKey =  ":SHAPE:RAMP"
             /// Query the shape of the machine, given the correct source and subsystem.
             let internal queryShape prefix fg rfSource str =
-                let getRamp = asyncChoice { let rkey = functionKey rampKey prefix fg
-                                            let! polarity = IO.queryPolarity rkey rfSource
-                                            return Ramp polarity }
+                let getRamp = async {
+                    let rkey = functionKey rampKey prefix fg
+                    let! polarity = IO.queryPolarity rkey rfSource
+                    return Ramp polarity }
                 let key = functionKey shapeKey prefix fg
-                asyncChoice {
+                async {
                     let! shape = IO.queryKeyString String.toUpper key rfSource
                     match shape with
                     | "SINE"             -> return Sine
@@ -60,7 +61,7 @@ module Source =
             let internal setShape prefix fg rfSource (shape : FunctionShape) = 
                 let key = functionKey shapeKey prefix fg
                 let rkey = functionKey rampKey prefix fg 
-                asyncChoice {
+                async {
                     do! IO.setValueString functionShapeString key rfSource shape
                     match shape with
                     | Ramp polarity -> do! IO.setPolarity rkey rfSource polarity
@@ -95,7 +96,7 @@ module Source =
         open Control
 
         /// Apply the given source configurations to the machine.
-        let internal setup prefix source rfSource = asyncChoice {
+        let internal setup prefix source rfSource = async {
             let sourceProvider = sourceProvider source
             match source with
             | ExternalSource (_, settings) ->

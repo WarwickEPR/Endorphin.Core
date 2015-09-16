@@ -104,7 +104,7 @@ module Triggering =
 
         /// Set the trigger source of the machine, given a type of trigger and a value to set
         /// the source to.
-        let setTriggerSource trigger rfSource triggerSource = asyncChoice {
+        let setTriggerSource trigger rfSource triggerSource = async {
             match triggerSource with
             | Immediate  -> do! setSourceType trigger rfSource ImmediateType
             | TriggerKey -> do! setSourceType trigger rfSource TriggerKeyType

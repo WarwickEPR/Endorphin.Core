@@ -37,7 +37,7 @@ module ARB =
 
     /// Set the state of the ARB generator of the given instrument. Can either be On
     /// or Off.
-    let private setState value instrument = asyncChoice {
+    let private setState value instrument = async {
         do! IO.setOnOffState arbStateKey instrument value
         do! IO.setOnOffState modulationStateKey instrument value
         do! IO.setOnOffState outputStateKey instrument value }
@@ -254,7 +254,7 @@ module ARB =
             IO.setValueString segmentAdvanceModeString segmentAdvanceModeKey
 
         /// Set the dual ARB trigger mode to have the value given.
-        let internal setMode instrument mode = asyncChoice {
+        let internal setMode instrument mode = async {
             do! setModeType instrument mode
             match mode with
             | ArbContinuous mode'     -> do! setContinuousMode instrument mode'
@@ -265,22 +265,22 @@ module ARB =
             | ArbSegmentAdvance mode' -> do! setSegmentAdvanceMode instrument mode' }
 
         /// Query the currently set value of the dual ARB system triggering.
-        let private queryMode instrument = asyncChoice {
+        let private queryMode instrument = async {
             let helper str =
                 match String.toUpper str with
                     | "CONT" | "CONTINUOUS" ->
                         IO.queryKeyString parseContinuousMode continuousModeKey instrument
-                        |> AsyncChoice.map ArbContinuous
+                        |> Async.map ArbContinuous
                     | "SING" | "SINGLE" ->
                         let reps = IO.queryUint16 singleRepeatsKey instrument
                         let retrigger = IO.queryKeyString parseRetriggerMode retriggerModeKey instrument
-                        AsyncChoice.map2 (fun a b -> ArbSingle (a, b)) reps retrigger
+                        Async.map2 (fun a b -> ArbSingle (a, b)) reps retrigger
                     | "GATE" ->
                         IO.queryLowHighState gatePolarityKey instrument
-                        |> AsyncChoice.map ArbGate
+                        |> Async.map ArbGate
                     | "SADV" | "SADVANCE" ->
                         IO.queryKeyString parseSegmentAdvanceMode segmentAdvanceModeKey instrument
-                        |> AsyncChoice.map ArbSegmentAdvance
+                        |> Async.map ArbSegmentAdvance
                     | str -> failwithf "Unexpected ARB trigger type string: %s" str
             let! triggerType = IO.queryKeyString (fun str -> str) modeTypeKey instrument
             return! helper triggerType }
@@ -294,13 +294,13 @@ module ARB =
             IO.setValueString externalConnectorString sourceLocationKey
 
         /// Set the polarity of the dual ARB external trigger source.
-        let private setSourcePolarity instrument polarity = asyncChoice {
+        let private setSourcePolarity instrument polarity = async {
             match polarity with
             | Some p -> do! IO.setPolarity polarityKey instrument p
             | None -> () }
 
         /// Set the delay of the dual ARB trigger system for external trigges.
-        let private setSourceDelay instrument delay = asyncChoice {
+        let private setSourceDelay instrument delay = async {
             match delay with
             | Some d ->
                 do! IO.setDuration delayKey instrument d
@@ -309,19 +309,20 @@ module ARB =
                 do! IO.setOnOffState delayStateKey instrument Off }
 
         /// Set the dual ARB trigger source.
-        let internal setSource instrument = function
-            | Some source -> asyncChoice {
+        let internal setSource instrument src = async {
+            match src with
+            | Some source ->
                 do! setSourceType instrument source
                 match source with
                 | ArbExternal (connector, polarity, delay) ->
                     do! setSourceConnector instrument connector
                     do! setSourcePolarity instrument polarity
                     do! setSourceDelay instrument delay
-                | _ -> () }
-            | None -> AsyncChoice.liftChoice <| Choice.succeed ()
+                | _ -> ()
+            | None -> () }
 
         /// Query the source of the dual ARB's triggering system.
-        let private querySource instrument mode = asyncChoice {
+        let private querySource instrument mode = async {
             let! sourceType = IO.queryKeyString (fun str -> str) sourceTypeKey instrument
             match String.toUpper sourceType with
             | "KEY" -> return Some ArbKey
@@ -330,23 +331,23 @@ module ARB =
                 let! connector = IO.queryKeyString parseExternalConnector sourceLocationKey instrument
                 let! polarity =
                     match mode with
-                    | ArbGate _ -> AsyncChoice.liftChoice <| succeed None
-                    | _ -> AsyncChoice.map Some <| IO.queryPolarity polarityKey instrument
+                    | ArbGate _ -> async { return None }
+                    | _ -> Async.map Some <| IO.queryPolarity polarityKey instrument
                 let! state = IO.queryOnOffState delayStateKey instrument
                 let! delay =
                     match state with
-                    | On -> AsyncChoice.map Some <| IO.queryDuration delayKey instrument
-                    | Off -> AsyncChoice.liftChoice <| succeed None
+                    | On -> Async.map Some <| IO.queryDuration delayKey instrument
+                    | Off -> async { return None }
                 return Some <| ArbExternal (connector, polarity, delay)
-            | _ -> return! (fail <| sprintf "Unexpected ARB trigger source string: %s" sourceType) }
+            | _ -> return raise << UnexpectedReply <| sprintf "Unexpected ARB trigger source string: %s" sourceType }
 
         /// Completely set the dual ARB system's trigger.
-        let set instrument (ArbTrigger (mode, source)) = asyncChoice {
+        let set instrument (ArbTrigger (mode, source)) = async {
             do! setMode instrument mode
             do! setSource instrument source }
 
         /// Query the complete settings of the dual ARB's current trigger.
-        let query instrument = asyncChoice {
+        let query instrument = async {
             let! mode = queryMode instrument
             let! source = querySource instrument mode
             return ArbTrigger (mode, source) }
