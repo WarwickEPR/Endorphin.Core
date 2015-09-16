@@ -125,7 +125,7 @@ module Visa =
 
         /// Query a VISA instrument for a reply in the form of a string, using a string as a query.
         let private queryString instrument query = queryGeneric readString instrument query
-        /// QUery a VISA instrument for a reply of a byte array, using a string as a query.
+        /// Query a VISA instrument for a reply of a byte array, using a string as a query.
         let private queryBytes  instrument query = queryGeneric readBytes  instrument query
 
         /// Create an agent for communication with a VISA instrument.
