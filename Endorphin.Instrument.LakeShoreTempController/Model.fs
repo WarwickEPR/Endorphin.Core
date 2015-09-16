@@ -4,6 +4,10 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Core
 
+exception Command of string
+exception Parameter of string
+exception UnexpectedReply of string
+
 [<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.
 module Model =
@@ -12,7 +16,7 @@ module Model =
     module Instrument =
         
         /// LakeShore model 325 temperature controlller.    
-        type TempController = internal TempController of tempController : VisaInstrument
+        type TempController = internal TempController of tempController : Visa.Instrument
 
         /// LakeShore model 325 temperature controller identity details.
         type Identity =

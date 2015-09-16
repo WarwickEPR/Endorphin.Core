@@ -4,12 +4,9 @@ open Endorphin.Core
 
 /// Internal functions for workflows which set and query model values to and from the instrument.
 module internal IO =
-    
-    /// Performs a query asynchronously and tries to parse the result with the given parsing
-    /// function which returns a Choice<'T, string> indicating success or failure.
-    let private tryPerformQuery (tryParseFunc : string -> Choice<'T, string>) query (TempController tempController) = asyncChoice {
-        let! response = query |> Visa.queryString tempController
-        return! tryParseFunc response }
+    let private tryPerformQuery (tryParseFunc : string -> Choice<'T, exn>) query (TempController tempController) = async {
+        let! response = query |> Visa.String.query tempController
+        return Choice.bindOrRaise <| tryParseFunc response }
 
     /// Performs a query asynchronously and parses the result with the given parsing function.
     let private performQuery parseFunc = tryPerformQuery (parseFunc >> Choice.succeed)
@@ -36,11 +33,11 @@ module internal IO =
 
     /// Sends the provided command string to the instrument and immediately checks the standard
     /// event status byte for errors.
-    let private performCommand command (TempController tempController) = asyncChoice {
-        command |> Visa.writeString tempController
+    let private performCommand command (TempController tempController) = async {
+        command |> Visa.String.write tempController
         let! status = queryStandardEventStatus (TempController tempController)
-        if Status.commandError   status then return! fail "Invalid command sent to instrument."
-        if Status.executionError status then return! fail "Invalid parameters for command." }
+        if Status.commandError   status then return raise <| Command "Invalid command sent to instrument."
+        if Status.executionError status then return raise <| Parameter "Invalid parameters for command." }
 
     /// Sets the value corresponding to the given key to the instrument after converting it to a
     /// string with the provided string conversion function.

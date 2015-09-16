@@ -11,7 +11,7 @@ module TempController =
 
     /// Open the temperature controller at the specified VISA address with the specified 
     /// timeout for commands.
-    let openInstrument visaAddress timeout = asyncChoice {
+    let openInstrument visaAddress timeout = async {
         let visaInstrument = Visa.openInstrument visaAddress timeout
         let tempController = TempController <| visaInstrument
         let! _ = queryIdentity tempController

@@ -17,9 +17,9 @@ module internal Parsing =
             String.split [|','|] str
             |> Array.map (String.trimStart [|' '|] >> String.trimEnd [|' '|])
 
-        if Array.length parts <> 4   then Choice.fail <| sprintf "Unexpected device ID string: %s." str
-        elif parts.[0] <> "LSCI"     then Choice.fail <| sprintf "Unexpected device manufacturer: %s." parts.[0]
-        elif parts.[1] <> "MODEL325" then Choice.fail <| sprintf "Unexpected device model number: %s." parts.[1]
+        if Array.length parts <> 4   then Choice.fail << UnexpectedReply <| sprintf "Unexpected device ID string: %s." str
+        elif parts.[0] <> "LSCI"     then Choice.fail << UnexpectedReply <| sprintf "Unexpected device manufacturer: %s." parts.[0]
+        elif parts.[1] <> "MODEL325" then Choice.fail << UnexpectedReply <| sprintf "Unexpected device model number: %s." parts.[1]
         else
             Choice.succeed <| 
                 { Manufacturer = parts.[0]
