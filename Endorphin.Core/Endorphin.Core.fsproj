@@ -61,7 +61,6 @@
     <Compile Include="Byte.fs" />
     <Compile Include="Units.fs" />
     <Compile Include="VisaAgent.fs" />
-    <Compile Include="NationalInstruments.fs" />
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="CRC.fs" />
     <None Include="app.config" />
@@ -72,13 +71,13 @@
       <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Ivi.Visa, Version=5.6.0.0, Culture=neutral, PublicKeyToken=a128c98f1d7717c1" />
     <Reference Include="log4net">
       <HintPath>..\packages\log4net.2.0.3\lib\net40-full\log4net.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="NationalInstruments.Common, Version=13.0.40.190, Culture=neutral, PublicKeyToken=dc6ad606294fc298" />
-    <Reference Include="NationalInstruments.VisaNS, Version=13.0.45.167, Culture=neutral, PublicKeyToken=4febd62461bf11a4" />
+    <Reference Include="NationalInstruments.Visa, Version=15.0.0.49152, Culture=neutral, PublicKeyToken=2eaa5af0834e221d" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
