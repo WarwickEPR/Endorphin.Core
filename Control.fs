@@ -13,9 +13,14 @@ module Async =
         let! result = workflow
         return mapping result }
 
+    /// Apply a mapping function which takes two async workflows and returns a new one.
+    let map2 mapping workflow1 workflow2 = async {
+        let! result1 = workflow1
+        let! result2 = workflow2
+        return mapping result1 result2 }
+
 [<AutoOpen>]
 module AsyncExtensions =
-    
     /// A single-fire result channel which can be used to await a result asynchronously.
     type ResultChannel<'T>() =               
         let mutable result = None   // result is None until one is registered
