@@ -1,14 +1,13 @@
 ﻿namespace Endorphin.Instrument.TwickenhamSmc
 
-open Endorphin.Core.StringUtils
-open Endorphin.Core.Units
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 /// Represents the Twickenham magnet controller current direction.
 type CurrentDirection =
     /// Forward current (typically opposing the main magnet).
     | Forward
-    /// Reverse current (typically alligned with the main magnet).
+    /// Reverse current (typically aligned with the main magnet).
     | Reverse
 
     with
@@ -73,7 +72,7 @@ type OutputParameters =
             
         // extract the match groups from the response into a list and then parse the elements accordingly
         match responseString with
-        | ParseRegex regex [ ParseFloat i; ParseFloat v; ParseRampTarget r ] ->
+        | String.ParseRegex regex [ String.ParseFloat i; String.ParseFloat v; ParseRampTarget r ] ->
             { OutputCurrent = i * 1.0<A>
               OutputVoltage = v * 1.0<V>
               RampTarget = r }
@@ -101,7 +100,7 @@ type CurrentParameters =
             
         // extract the match groups from the response into a list and then parse the elements accordingly
         match responseString with
-        | ParseRegex regex [ ParseRampTarget r; ParseIntegerBool m; ParseIntegerBool p ] ->
+        | String.ParseRegex regex [ ParseRampTarget r; String.ParseIntegerBool m; String.ParseIntegerBool p ] ->
             { RampTarget = r 
               ReachedTarget = m
               IsPaused = p }
@@ -125,7 +124,7 @@ type OperatingParameters =
             
         // extract the match groups from the response into a list and then parse the elements accordingly
         match responseString with
-        | ParseRegex regex [ ParseFloat a; ParseCurrentDirection d ] ->
+        | String.ParseRegex regex [ String.ParseFloat a; ParseCurrentDirection d ] ->
             { RampRate = a * 1.0<A/s>
               CurrentDirection = d }
         | _ -> 
@@ -154,7 +153,7 @@ type SetPointParameters =
 
         // extract the match groups from the response into a list and then parse the elements accordingly
         match responseString with
-        | ParseRegex regex [ ParseFloat u; ParseFloat l; ParseFloat y ] ->
+        | String.ParseRegex regex [ String.ParseFloat u; String.ParseFloat l; String.ParseFloat y ] ->
             { LowerSetPoint = l * 1.0<A>
               UpperSetPoint = u * 1.0<A>
               TripVoltage = y * 1.0<V> }
@@ -231,7 +230,7 @@ type MagnetControllerParameters =
         if index >= (Seq.length magnetControllerParams.AvailableCurrentRampRates) || index < 0
             then failwith "Ramp rate index out of range."
             
-        Seq.nth index (magnetControllerParams.AvailableCurrentRampRates) 
+        Seq.item index (magnetControllerParams.AvailableCurrentRampRates) 
 
     /// The collection of field ramp rates available on the magnet controller in tesla per second (converted from current
     /// ramp rates to field ramp rates using the calibration constant), below the ramp rate limit in ascending order.
@@ -244,7 +243,7 @@ type MagnetControllerParameters =
         if index >= (Seq.length magnetControllerParams.AvailableFieldRampRates) || index < 0
             then failwith "Ramp rate index out of range."
             
-        Seq.nth index (magnetControllerParams.AvailableFieldRampRates)
+        Seq.item index (magnetControllerParams.AvailableFieldRampRates)
 
     /// The number of digitised output steps available on the magnet controller as determined by the output resolution.
     member magnetControllerParams.NumberOfCurrentSteps =
