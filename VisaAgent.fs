@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Core
 
-open Ivi.Visa
+open NationalInstruments.VisaNS
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open log4net
@@ -46,7 +46,7 @@ module Visa =
         let private truncate (str : string) =
             let length = 75
             if str.Length <= length then str
-            else sprintf "%*s..." (length - 3) str
+            else sprintf "%s..." str.[0 .. length - 4]
 
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
@@ -63,7 +63,10 @@ module Visa =
 
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
         let private openSession visaId (timeout : int<ms>) =
-            GlobalResourceManager.Open (visaId, AccessModes.None, int <| timeout) :?> IMessageBasedSession
+            let rm = ResourceManager.GetLocalManager ()
+            let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> MessageBasedSession
+            instrument.Timeout <- int <| timeout
+            instrument
 
         /// A try/catch wrapper around the standard Async.FromBeginEnd to convert exceptions encountered
         /// into Choice failures instead.  This way, exceptions can be propagated up from the agent, and
@@ -76,48 +79,43 @@ module Visa =
 
         /// The generic read operation on an instrument, with F# allocating the space.  The ender function
         /// is passed the buffer, so it can choose what it wants to do with it.
-        let private readGeneric ender (instrument : IMessageBasedSession) =
-            let buffer = Array.zeroCreate<byte> bufferSize
+        let private readGeneric ender (instrument : MessageBasedSession) =
             beginEndWrapper (fun (callback, state) ->
-                                let visaCallback = new VisaAsyncCallback (fun result -> callback.Invoke result)
-                                upcast instrument.RawIO.BeginRead (buffer, visaCallback, state))
-                            ((fun result -> result :?> IVisaAsyncResult) >> ender buffer)
+                                instrument.BeginRead (instrument.DefaultBufferSize, callback, state))
+                            ender
 
         /// The generic write operation on a VISA instrument, regardless of the type of data to be written.
         /// The writer function actually handles the writing, the generic part handles putting the
         /// callback into the correct type, and dealing with the result.
-        let private writeGeneric writer (instrument : IMessageBasedSession) message =
-            beginEndWrapper (fun (callback, state) ->
-                                let visaCallback = new VisaAsyncCallback (fun result -> callback.Invoke result)
-                                upcast writer message)
-                            ((fun result -> result :?> IVisaAsyncResult) >> instrument.RawIO.EndWrite >> ignore)
+        let private writeGeneric writer (instrument : MessageBasedSession) message =
+            beginEndWrapper (fun (callback, state) -> writer (message, callback, state))
+                            instrument.EndWrite
 
         /// Read a string from a VISA instrument using an Async.FromBeginEnd layout to do the reading
         /// asynchronously.
-        let private readString (instrument : IMessageBasedSession) =
-            readGeneric (fun _ result -> instrument.RawIO.EndReadString result) instrument
+        let private readString (instrument : MessageBasedSession) =
+            readGeneric instrument.EndReadString instrument
 
         /// Read an array of bytes from a VISA instrument using an Async.FromBeginEnd layout to do the
         /// reading asynchronously.
-        let private readBytes (instrument : IMessageBasedSession) =
-            readGeneric (fun buffer result ->
-                            let count = instrument.RawIO.EndRead result
-                            buffer.[0 .. int count - 1] )
-                        instrument
+        let private readBytes (instrument : MessageBasedSession) =
+            readGeneric instrument.EndReadByteArray instrument
 
         /// Write a string to a VISA instrument using an Async.FromBeginEnd layout to do the writing
         /// asynchronously.
-        let private writeString (instrument : IMessageBasedSession) (str : string) =
-            writeGeneric (fun (str : string) -> instrument.RawIO.BeginWrite str) instrument str
+        let private writeString (instrument : MessageBasedSession) (str : string) =
+            writeGeneric (fun (str : string, callback, state) -> instrument.BeginWrite (str, callback, state)) instrument str
 
         /// Write an array of bytes to a VISA instrument using an Async.FromBeginEnd layout to do the
         /// writing asynchronously.
-        let private writeBytes (instrument : IMessageBasedSession) (bytes : byte []) =
-            writeGeneric (fun (bytes : byte []) -> instrument.RawIO.BeginWrite bytes) instrument bytes
+        let private writeBytes (instrument : MessageBasedSession) (bytes : byte []) =
+            writeGeneric (fun ((bytes : byte []), callback, state) ->
+                             instrument.BeginWrite (bytes, 0, bytes.Length, callback, state))
+                         instrument bytes
 
         /// The generic form of the query operation, with the reader used to interpret the returned
         /// message.  Regardless of the read type, the writing is always done as a string.
-        let queryGeneric reader (instrument : IMessageBasedSession) (query : string) = async {
+        let queryGeneric reader (instrument : MessageBasedSession) (query : string) = async {
             let! writeResult = writeString instrument query
             match writeResult with
                 | Success () -> return! reader instrument
@@ -219,7 +217,7 @@ module Visa =
                             return! continueLoop result
 
                         | QueryString (query, reply) ->
-                            let! result = queryString instrument query
+                            let! result = queryString instrument query |> Async.map removeTerminators
                             result |> reply.Reply
                             logResponse desc passthrough result
                             return! continueLoop result
