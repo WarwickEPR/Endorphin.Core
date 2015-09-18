@@ -31,10 +31,6 @@ module Visa =
 
     /// Functions for managing the agent through which communications to the VISA instrument must pass.
     module private Agent =
-        /// The buffer size to use when communicating with the VISA instrument.
-        [<Literal>]
-        let private bufferSize = 1048576   // 1024 * 1024 (i.e. 1kB)
-
         /// Get a string representation of the unit type.
         let private unitString () = "unit"
 
