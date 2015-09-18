@@ -136,7 +136,7 @@ module Modulation =
         let defaultFunctionSettings = {
             Shape = Sine
             Frequency = FrequencyInHz 1.0e3<Hz>
-            PhaseOffset = PhaseInRad 0.0<rad> }
+            PhaseOffset = Phase_rad 0.0<rad> }
         /// Change the shape of the given settings to match the new value.
         let withShape shape (settings : FunctionSettings) = { settings with Shape = shape }
         /// Change the frequency (in Hz) of the given settings to match the new value.
@@ -145,7 +145,7 @@ module Modulation =
         /// Change the phase offset (in radians) of the given settings to match the
         /// new value.
         let withPhaseOffsetInRad phase (settings : FunctionSettings) =
-            { settings with PhaseOffset = PhaseInRad phase }
+            { settings with PhaseOffset = Phase_rad phase }
 
         /// Create a new sine-shaped function generator source with the given frequency in Hz.
         let internalSineSourceInHz frequency =

@@ -37,13 +37,13 @@ module Model =
 
         /// A phase for an I/Q signal, either in radians or degrees.
         type Phase =
-            | PhaseInRad of float<rad>
-            | PhaseInDeg of float<deg>
+            | Phase_rad of float<rad>
+            | Phase_deg of float<deg>
         /// A list of phases to cycle through.
         type PhaseCycle = internal PhaseCycle of Phase array
 
         /// A duration that something lasts for.
-        type Duration = DurationInSec of float<s>
+        type Duration = Duration_sec of float<s>
         /// A percentage of a total.
         type Percentage = Percentage of float<pct>
         /// A relative amplitude, measured in dB rather than dBm.

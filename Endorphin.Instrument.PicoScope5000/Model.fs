@@ -27,15 +27,15 @@ module Model =
     /// Time interval with unit of measure.
     type Interval =
         internal
-        | IntervalInFemtoseconds of interval : int<fs>
-        | IntervalInPicoseconds  of interval : int<ps>
-        | IntervalInNanoseconds  of interval : int<ns>
-        | IntervalInMicroseconds of inverval : int<us>
-        | IntervalInMilliseconds of interval : int<ms>
-        | IntervalInSeconds      of interval : int<s>
+        | Interval_fs of interval : int<fs>
+        | Interval_ps of interval : int<ps>
+        | Interval_ns of interval : int<ns>
+        | Interval_us of inverval : int<us>
+        | Interval_ms of interval : int<ms>
+        | Interval_s  of interval : int<s>
 
     /// Voltage with unit of measure.
-    type Voltage = internal VoltageInVolts of voltage : float32<V>
+    type Voltage = internal Voltage_V of voltage : float32<V>
     
     /// Type alias for a 16-bit integer which is the format of all samples returned by the
     /// hardware.

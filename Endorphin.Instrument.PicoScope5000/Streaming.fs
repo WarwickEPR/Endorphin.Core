@@ -341,8 +341,8 @@ module Streaming =
             let channelSettings = Inputs.settingsForChannel inputChannel acquisition.Parameters.Inputs
             match channelSettings with
             | EnabledChannel settings ->
-                let (VoltageInVolts voltageRange)   = Range.voltage settings.Range
-                let (VoltageInVolts analogueOffset) = settings.AnalogueOffset
+                let (Voltage_V voltageRange)   = Range.voltage settings.Range
+                let (Voltage_V analogueOffset) = settings.AnalogueOffset
                 let maximumAdcCounts                = Resolution.maximumAdcCounts acquisition.Parameters.Resolution
                 fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
             | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel

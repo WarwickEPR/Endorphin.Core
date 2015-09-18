@@ -268,7 +268,7 @@ module PicoScope =
                     let mutable maxSamples : SampleCount = 0
                     let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
                     NativeApi.GetTimebase(handle device, timebase, 0, &interval, &maxSamples, index)
-                    |> checkStatusAndReturn (IntervalInNanoseconds (nanosec interval), maxSamples))
+                    |> checkStatusAndReturn (Interval_ns (nanosec interval), maxSamples))
 
         /// Asynchronously queries the parameters for the specified timebase on a PicoScope 5000 series
         /// device with the current vertical resolution.
@@ -315,7 +315,7 @@ module PicoScope =
                     let mutable minOffset = 0.0f
                     let volts = LanguagePrimitives.Float32WithMeasure<V>
                     NativeApi.GetAnalogueOffset(handle device, rangeEnum range, couplingEnum coupling, &maxOffset, &minOffset)
-                    |> checkStatusAndReturn (VoltageInVolts (volts maxOffset), VoltageInVolts (volts minOffset)))
+                    |> checkStatusAndReturn (Voltage_V (volts maxOffset), Voltage_V (volts minOffset)))
 
         /// Asynchronously queries the set of avaiable channels available input channel voltage ranges
         /// for the specified input channel on a PicoScope 5000 series device.

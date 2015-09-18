@@ -8,39 +8,39 @@ open NativeModel
 module Interval =
 
     /// Creates an integer time interval in femtoseconds.
-    let fromFemtoseconds = IntervalInFemtoseconds 
+    let fromFemtoseconds = Interval_fs 
 
     /// Creates an integer time interval in picoseconds.
-    let fromPicoseconds  = IntervalInPicoseconds  
+    let fromPicoseconds  = Interval_ps  
 
     /// Creates an integer time interval in nanoseconds.
-    let fromNanoseconds  = IntervalInNanoseconds  
+    let fromNanoseconds  = Interval_ns  
 
     /// Creates an integer time interval in microseconds.
-    let fromMicroseconds = IntervalInMicroseconds
+    let fromMicroseconds = Interval_us
 
     /// Creates an integer time interval in milliseconds.
-    let fromMilliseconds = IntervalInMilliseconds 
+    let fromMilliseconds = Interval_ms 
 
     /// Creates an integer time interval in seconds.
-    let fromSeconds      = IntervalInSeconds      
+    let fromSeconds      = Interval_s      
     
     /// Converts the given time interval to a floating point value in seconds.
     let asSeconds =
         function
-        | IntervalInFemtoseconds  interval -> (float interval) * 1e-15<s>
-        | IntervalInPicoseconds   interval -> (float interval) * 1e-12<s>
-        | IntervalInNanoseconds   interval -> (float interval) * 1e-9<s>
-        | IntervalInMicroseconds  interval -> (float interval) * 1e-6<s>
-        | IntervalInMilliseconds  interval -> (float interval) * 1e-3<s>
-        | IntervalInSeconds       interval -> (float interval) * 1.0<s>
+        | Interval_fs  interval -> (float interval) * 1e-15<s>
+        | Interval_ps   interval -> (float interval) * 1e-12<s>
+        | Interval_ns   interval -> (float interval) * 1e-9<s>
+        | Interval_us  interval -> (float interval) * 1e-6<s>
+        | Interval_ms  interval -> (float interval) * 1e-3<s>
+        | Interval_s       interval -> (float interval) * 1.0<s>
 
 [<RequireQualifiedAccess>]
 /// Functions for creating and manipulating voltages.
 module Voltage =
     
     /// Creates a floating point voltage in volts.
-    let fromVolts = VoltageInVolts
+    let fromVolts = Voltage_V
 
     /// Creates a voltage corresponding to zero volts.
-    let zero = VoltageInVolts 0.0f<V>
+    let zero = Voltage_V 0.0f<V>

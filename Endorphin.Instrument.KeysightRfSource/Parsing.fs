@@ -17,16 +17,16 @@ module internal Parsing =
     let frequencyString (FrequencyInHz frequency) = sprintf "%e Hz" (float frequency)        
 
     /// Convert a string containing a number into a phase in radians.
-    let parsePhaseInRad (str : string) = PhaseInRad (float str * 1.0<rad>)
+    let parsePhaseInRad (str : string) = Phase_rad (float str * 1.0<rad>)
     /// Convert a phase into a string representation of that number and unit.
     let phaseString = function
-        | PhaseInRad phase -> sprintf "%e RAD" (float phase)
-        | PhaseInDeg phase -> sprintf "%e DEG" (float phase)
+        | Phase_rad phase -> sprintf "%e RAD" (float phase)
+        | Phase_deg phase -> sprintf "%e DEG" (float phase)
 
     /// Convert a string containing a number into a duration in seconds.
-    let parseDurationInSec (str : string) = DurationInSec (float str * 1.0<s>)
+    let parseDurationInSec (str : string) = Duration_sec (float str * 1.0<s>)
     /// Convert a duration in seconds into a string representation.
-    let durationString (DurationInSec duration) = sprintf "%e s" (float duration)
+    let durationString (Duration_sec duration) = sprintf "%e s" (float duration)
 
     /// Convert a string containing a number into a percentage.
     let parsePercentage (str : string) = Percentage (float str * 1.0<pct>)

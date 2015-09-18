@@ -67,27 +67,27 @@ module internal Parsing =
     /// an interval with unit of measure.
     let parseIntervalWithInterval (interval, unit) =
         match unit with
-        | TimeUnitEnum.Femtoseconds -> IntervalInFemtoseconds (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Picoseconds  -> IntervalInPicoseconds  (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Nanoseconds  -> IntervalInNanoseconds  (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Microseconds -> IntervalInMicroseconds (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Milliseconds -> IntervalInMilliseconds (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Seconds      -> IntervalInSeconds      (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Femtoseconds -> Interval_fs (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Picoseconds  -> Interval_ps  (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Nanoseconds  -> Interval_ns  (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Microseconds -> Interval_us (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Milliseconds -> Interval_ms (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Seconds      -> Interval_s      (LanguagePrimitives.Int32WithMeasure interval)
         | enum                      -> failwithf "Unexpected time unit enum value: %A" enum
 
     /// Converts the provided interval with unit of measure to an integer interval with an
     /// enumeration indicating the time unit.
     let intervalAndTimeUnitEnum = function
-        | IntervalInFemtoseconds interval -> (int interval, TimeUnitEnum.Femtoseconds)
-        | IntervalInPicoseconds  interval -> (int interval, TimeUnitEnum.Picoseconds )
-        | IntervalInNanoseconds  interval -> (int interval, TimeUnitEnum.Nanoseconds )
-        | IntervalInMicroseconds interval -> (int interval, TimeUnitEnum.Microseconds)
-        | IntervalInMilliseconds interval -> (int interval, TimeUnitEnum.Milliseconds)
-        | IntervalInSeconds      interval -> (int interval, TimeUnitEnum.Seconds     )
+        | Interval_fs interval -> (int interval, TimeUnitEnum.Femtoseconds)
+        | Interval_ps  interval -> (int interval, TimeUnitEnum.Picoseconds )
+        | Interval_ns  interval -> (int interval, TimeUnitEnum.Nanoseconds )
+        | Interval_us interval -> (int interval, TimeUnitEnum.Microseconds)
+        | Interval_ms interval -> (int interval, TimeUnitEnum.Milliseconds)
+        | Interval_s      interval -> (int interval, TimeUnitEnum.Seconds     )
     
     /// Converts the provided voltage with unit of measure to a 32-bit precision floating point
     /// voltage in volts.
-    let voltageFloatInVolts (VoltageInVolts v) = float32 v
+    let voltageFloatInVolts (Voltage_V v) = float32 v
     
     /// Converts an AutoTriggerDelay option to a corresponding 16-bit integer indicating either that
     /// there is no auto-trigger or the auto-trigger delay value in milliseconds.

@@ -7,7 +7,7 @@ open System
 [<RequireQualifiedAccess>]
 module Phase =
     /// A phase for use when we don't care what the phase actually is.
-    let internal unused = PhaseInRad 0.0<rad>
+    let internal unused = Phase_rad 0.0<rad>
 
     /// A phase cycle with no phases in it.
     let empty = PhaseCycle Array.empty
@@ -42,7 +42,7 @@ module Experiment =
     let empty = {
         Pulses = Seq.empty
         Repetitions = 1
-        ShotRepetitionTime = DurationInSec 0.0<s>
+        ShotRepetitionTime = Duration_sec 0.0<s>
         ShotsPerPoint = 1us
         Frequencies = [ FrequencyInHz 150e6<Hz> ]
         Power = PowerInDbm 4.0<dBm> }
@@ -88,7 +88,7 @@ module Experiment =
 
     /// Set the shot repetition time of the experiment.
     let withShotRepetitionTime time (experiment : Experiment) =
-        { experiment with ShotRepetitionTime = DurationInSec time }
+        { experiment with ShotRepetitionTime = Duration_sec time }
 
     /// Set the number of shots per point.
     let withShotsPerPoint shots (experiment : Experiment) =
@@ -184,7 +184,7 @@ module Experiment =
                     |> Some
 
             /// Convert a duration in seconds into a SampleCount.
-            let private shotRepetitionSampleCount (DurationInSec time) =
+            let private shotRepetitionSampleCount (Duration_sec time) =
                 if time < 0.0<s> then
                     raise <| InvalidSettings "Must have a non-negative shot repetition time!"
                 else

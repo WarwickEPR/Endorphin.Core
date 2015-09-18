@@ -26,7 +26,7 @@ module Model =
               Version      : string }
 
     /// Temperature in Kelvin.
-    type Temperature = TemperatureInK of temperature : float<K>
+    type Temperature = Temperature_K of temperature : float<K>
     
     /// Heater output in percent.
     type HeaterOutput = HeaterOutput of output : float<pct>

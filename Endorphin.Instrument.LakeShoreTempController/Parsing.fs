@@ -28,10 +28,10 @@ module internal Parsing =
                   Version      = parts.[3] }
 
     /// Parse a temperature string in degrees K.
-    let parseTemperatureInK (str : string) = TemperatureInK ((float str) * 1.0<K>)
+    let parseTemperatureInK (str : string) = Temperature_K ((float str) * 1.0<K>)
 
     /// Encode a temperatures in degrees K to a string.
-    let temperatureString (TemperatureInK temp) = sprintf "%+.5g" (float temp)
+    let temperatureString (Temperature_K temp) = sprintf "%+.5g" (float temp)
 
     /// Parse a heater output string in percent.
     let parseHeaterOuptput (str : string) = HeaterOutput ((float str) * 1.0<pct>)
