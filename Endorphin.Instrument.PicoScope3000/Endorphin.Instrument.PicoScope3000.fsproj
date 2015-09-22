@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="StatusCodes.fs" />
     <Compile Include="NativeModel.fs" />
+    <Compile Include="NativeApi.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
