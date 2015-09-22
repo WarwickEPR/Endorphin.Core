@@ -62,10 +62,6 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Charting">
-      <HintPath>..\packages\FSharp.Charting.0.90.9\lib\net40\FSharp.Charting.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="FSharp.Control.Reactive">
       <HintPath>..\packages\FSharp.Control.Reactive.3.2.0\lib\net40\FSharp.Control.Reactive.dll</HintPath>
       <Private>True</Private>
