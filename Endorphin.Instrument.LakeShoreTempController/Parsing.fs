@@ -3,6 +3,8 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 
+open FSharp.Text.RegexProvider
+
 open Endorphin.Core
 
 [<AutoOpen>]
@@ -76,15 +78,16 @@ module internal Parsing =
         | Loop1 -> "1"
         | Loop2 -> "2"
 
+    type private PidRegex = Regex< @"\G(?<Proportional>[\+\-]\d{1,4}\.\d{0,4}),(?<Integral>[\+\-]\d{1,4}\.\d{0,4}),(?<Differential>[\+\-]\d{1,4}\.\d{0,4})\s$" >
+
     /// Parse a PID settings string.
     let parsePidSettings str = 
-        let regex = @"\G([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4}),([\+\-]\d{1,4}\.\d{0,4})\s$"
-        match str with
-        | String.ParseRegex regex [ String.ParseFloat p ; String.ParseFloat i ; String.ParseFloat d ] ->
-            { Proportional = p
-              Integral    = i
-              Differential = d }
-        | str -> failwith "Unexpected PID string: %s." str
+        let pidMatch = PidRegex().Match(str)
+        if pidMatch.Success then
+            { Proportional = float pidMatch.Proportional.Value
+              Integral     = float pidMatch.Integral.Value
+              Differential = float pidMatch.Differential.Value }
+        else failwith "Unexpected PID string: %s." str
 
     /// Encode PID settings to a string.
     let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Integral pid.Differential
