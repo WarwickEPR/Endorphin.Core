@@ -128,7 +128,7 @@ module Experiment =
 
             /// Check if a phase cycle has a non-zero length.
             let private nonZero length =
-                if length = 0 then raise <| InvalidSettings "Phase cycle has no phases in it"
+                if length = 0 then invalidArg "Phase cycle" "Phase cycle has no phases in it"
                 else length
 
             /// Check that the length of all the phase cycles in a sequence of pulses are the same.
@@ -139,7 +139,7 @@ module Experiment =
                     |> rfPulseCycleLength
                     |> nonZero
                 if List.exists (incorrectCycleLength length) pulses then
-                    raise <| InvalidSettings "Not all phase cycles are the same length"
+                    invalidArg "Phase cycle list" "Not all phase cycles are the same length"
                 else length
 
             /// Perform a Boolean OR on each field of the markers record, returning a record of the
@@ -159,7 +159,7 @@ module Experiment =
                     | _ -> state
                 let markers = Seq.fold folder Markers.empty experiment.Pulses
                 if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
-                    raise <| InvalidSettings "At least one marker channel must be blank throughout for internal use"
+                    invalidArg "Markers" "At least one marker channel must be blank throughout for internal use"
                 else
                     if   not markers.M4 then RouteMarker4
                     elif not markers.M3 then RouteMarker3
@@ -186,7 +186,7 @@ module Experiment =
             /// Convert a duration in seconds into a SampleCount.
             let private shotRepetitionSampleCount (Duration_sec time) =
                 if time < 0.0<s> then
-                    raise <| InvalidSettings "Must have a non-negative shot repetition time!"
+                    invalidArg "Shot repetition time" "Must have a non-negative shot repetition time!"
                 else
                     time / ARB.shortestPulseDuration
                     |> uint32
@@ -194,17 +194,17 @@ module Experiment =
 
             /// Check that a valid number of repetitions of the experiment is set.
             let private repetitions experiment =
-                if experiment.Repetitions < 1 then raise <| InvalidSettings "Must do the experiment at least once!"
+                if experiment.Repetitions < 1 then invalidArg "Repetitions" "Must do the experiment at least once!"
                 else ()
 
             /// Check that the number of shots per point is valid.
             let private shotsPerPoint (experiment : Experiment) =
-                if experiment.ShotsPerPoint = 0us then raise <| InvalidSettings "Must have at least 1 shot per point!"
+                if experiment.ShotsPerPoint = 0us then invalidArg "Shots per point" "Must have at least 1 shot per point!"
                 else ()
 
             /// Check that the frequencies in an experiment are valid.
             let private frequencies (experiment : Experiment) =
-                if Seq.isEmpty experiment.Frequencies then raise <| InvalidSettings "Must have at least one frequency"
+                if Seq.isEmpty experiment.Frequencies then invalidArg "Frequencies" "Must have at least one frequency"
                 else ()
 
             /// Get the duration of a pulse.
@@ -220,8 +220,7 @@ module Experiment =
                 if length < Segment.minimumLength then
                     Segment.minimumLength
                     |> sprintf "Experiment is shorter than the minimum length of %d samples"
-                    |> InvalidSettings
-                    |> raise
+                    |> invalidArg "Pulse sequence"
                 else ()
 
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
@@ -236,8 +235,7 @@ module Experiment =
                         if space < minimum then
                             minimum
                             |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
-                            |> InvalidSettings
-                            |> raise
+                            |> invalidArg "Pulse sequence"
                         else
                             loop 0u tl
                     | hd :: tl ->

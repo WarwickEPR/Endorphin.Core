@@ -11,7 +11,7 @@ module Sweep =
             | "FIX"
             | "FIXED" -> Fixed
             | "LIST"  -> Swept
-            | str     -> raise << UnexpectedReply <| sprintf "Unexpected sweep mode string: %s." str
+            | str     -> raise << UnexpectedReplyException <| sprintf "Unexpected sweep mode string: %s." str
 
         /// Convert the internal representation of the sweep mode into the machine representation.
         let sweepModeString = function
@@ -23,7 +23,7 @@ module Sweep =
             match String.toUpper str with
             | "LIN" | "LINEAR"      -> LinearStepSpacing
             | "LOG" | "LOGARITHMIC" -> LogarithmicStepSpacing
-            | _                     -> raise << UnexpectedReply <| sprintf "Unexpected step spacing string: %s." str
+            | _                     -> raise << UnexpectedReplyException <| sprintf "Unexpected step spacing string: %s." str
 
         /// Convert the internal representation of the step spacing into the machine representation.
         let stepSpacingString = function
@@ -35,7 +35,7 @@ module Sweep =
             match String.toUpper str with
             | "LIST" -> List
             | "STEP" -> Step
-            | _      -> raise << UnexpectedReply <| sprintf "Unexpected sweep type string: %s." str
+            | _      -> raise << UnexpectedReplyException <| sprintf "Unexpected sweep type string: %s." str
 
         /// Convert the internal representation of the sweep type to the machine representation.
         let sweepTypeString = function
@@ -184,7 +184,7 @@ module Sweep =
             match options.DwellTime with
                 | Some t -> do! setDwellTime rfSource t
                 | None   -> if options.ListTrigger = Some Immediate
-                            then return raise <| UnexpectedReply "Dwell time required for free-running, immediate trigger sweep through a list of points"
+                            then return raise <| UnexpectedReplyException "Dwell time required for free-running, immediate trigger sweep through a list of points"
             do! setRetrace rfSource options.Retrace 
             do! setAttenuationProtection rfSource options.AttentuationProtection
             do! setMode rfSource options.Mode }

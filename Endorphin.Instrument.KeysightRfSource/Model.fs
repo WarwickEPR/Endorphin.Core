@@ -3,9 +3,8 @@
 open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
-exception InstrumentError of string seq
-exception InvalidSettings of string
-exception UnexpectedReply of string
+exception InstrumentErrorException of string seq
+exception UnexpectedReplyException of string
 
 /// Model of the possible configurations of a Keysight RF source.
 [<AutoOpen>]

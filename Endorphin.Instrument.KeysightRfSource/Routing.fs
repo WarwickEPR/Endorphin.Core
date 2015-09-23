@@ -10,7 +10,7 @@ module Routing =
         /// it, we have to fail execution.
         let failIncorrectType signal =
             sprintf "Unexpected output signal in interface %A, %A" signal.GetType signal
-            |> UnexpectedReply
+            |> UnexpectedReplyException
             |> raise
 
         /// Convert an internal representation of a marker route into a machine representation.

@@ -172,13 +172,13 @@ module Modulation =
             let duplicateSources  = settings |> List.map modulationSource |> List.duplicates
             // TODO: when PM is added, check that PM and FM paths are exclusive
             if not duplicateChannels.IsEmpty then
-                do! Choice.fail << InvalidSettings
+                do! Choice.fail << System.ArgumentException
                                 << sprintf "Repeated modulation channels: %s"
                                 << List.prettyPrint
                                 << List.map (fun channel -> modulationChannelString channel)
                                 <| duplicateChannels
             if not duplicateSources.IsEmpty then
-                do! Choice.fail << InvalidSettings
+                do! Choice.fail << System.ArgumentException
                                 << sprintf "Modulation sources used more than once: %s"
                                 << List.prettyPrint
                                 << List.map (sourceProvider >> sourceString)

@@ -339,7 +339,7 @@ module ARB =
                     | On -> Async.map Some <| IO.queryDuration delayKey instrument
                     | Off -> async { return None }
                 return Some <| ArbExternal (connector, polarity, delay)
-            | _ -> return raise << UnexpectedReply <| sprintf "Unexpected ARB trigger source string: %s" sourceType }
+            | _ -> return raise << UnexpectedReplyException <| sprintf "Unexpected ARB trigger source string: %s" sourceType }
 
         /// Completely set the dual ARB system's trigger.
         let set instrument (ArbTrigger (mode, source)) = async {

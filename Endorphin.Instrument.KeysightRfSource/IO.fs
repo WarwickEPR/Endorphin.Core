@@ -38,10 +38,10 @@ module internal IO =
         /// Parse an error message into an error code and the associated message.
         let internal parseError (str : string) =
             let parts = str.Split ([|','|], 2) // split only on the first comma
-            if Array.length parts <> 2 then raise << UnexpectedReply <| sprintf "Unexpected error string: %s." str
+            if Array.length parts <> 2 then raise << UnexpectedReplyException <| sprintf "Unexpected error string: %s." str
             match String.tryParse<int> parts.[0] with
             | Some code -> { Code = code ; Message = parts.[1] }
-            | None      -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
+            | None      -> raise << UnexpectedReplyException <| sprintf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
         let private errorString error = sprintf "%d: %s" error.Code error.Message
@@ -69,7 +69,7 @@ module internal IO =
         /// Check if the machine's error queue has any messages in it.
         let checkErrorQueueIsEmpty errors =
             if Seq.length errors <> 0 then
-                raise <| InstrumentError (Seq.map errorString errors)
+                raise <| InstrumentErrorException (Seq.map errorString errors)
             else ()
 
     /// Create the string representation of a command, ready for writing to the instrument.
@@ -150,7 +150,7 @@ module internal IO =
             let trimWhiteSpace (str : string) = str.TrimStart([|' '|]).TrimEnd([|' '|])
             let parts = str.Split [|','|]
             if Array.length parts <> 4 then
-                raise << UnexpectedReply <| sprintf "Unexpected device ID string: %s." str
+                raise << UnexpectedReplyException <| sprintf "Unexpected device ID string: %s." str
             else
                 { Manufacturer = parts.[0] |> trimWhiteSpace
                   ModelNumber  = parts.[1] |> trimWhiteSpace
@@ -166,7 +166,7 @@ module internal IO =
         /// Check that the model number of a machine is known by the program.
         let private checkModelNumber = function
             | "N5172B" -> N5172B
-            | model    -> raise << UnexpectedReply <| sprintf "Unexpected RF source model number: %s." model
+            | model    -> raise << UnexpectedReplyException <| sprintf "Unexpected RF source model number: %s." model
 
         /// Get the model number of the given RfSource, and raise an exception if this model
         /// is not known to the program.

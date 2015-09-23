@@ -43,7 +43,7 @@ module internal Parsing =
         | "50"      -> Impedance_50Ohm
         | "600"     -> Impedance_600Ohm
         | "1000000" -> Impedance_1MOhm
-        | str       -> raise << UnexpectedReply <| sprintf "Unexpected impedance string: %s." str
+        | str       -> raise << UnexpectedReplyException <| sprintf "Unexpected impedance string: %s." str
 
     /// Convert an internal representation of an impedance into a machine representation.
     let impedanceString = function
@@ -56,7 +56,7 @@ module internal Parsing =
         match String.toUpper str with
         | "UP"   -> Up
         | "DOWN" -> Down
-        | _      -> raise << UnexpectedReply <| sprintf "Unexpected direction string: %s." str
+        | _      -> raise << UnexpectedReplyException <| sprintf "Unexpected direction string: %s." str
 
     /// Convert an internal representation of a direction into a machine representation.
     let directionString = function
@@ -68,7 +68,7 @@ module internal Parsing =
         match String.toUpper str with
         | "AC" -> AC
         | "DC" -> DC
-        | _    -> raise << UnexpectedReply <| sprintf "Unexpected coupling string: %s." str
+        | _    -> raise << UnexpectedReplyException <| sprintf "Unexpected coupling string: %s." str
 
     /// Convert an internal representation of a coupling into a machine representation.
     let couplingString = function
@@ -80,7 +80,7 @@ module internal Parsing =
         match String.toUpper str with
         | "0" | "OFF" -> Off
         | "1" | "ON"  -> On
-        | str         -> raise << UnexpectedReply <| sprintf "Unexpected on-off string: %s." str
+        | str         -> raise << UnexpectedReplyException <| sprintf "Unexpected on-off string: %s." str
 
     /// Convert an internal representation of an on/off state into a machine representation.
     let onOffStateString = function
@@ -93,7 +93,7 @@ module internal Parsing =
         match String.toUpper str with
         | "AUTO"           -> Auto
         | "MAN" | "MANUAL" -> Manual
-        | _                -> raise << UnexpectedReply <| sprintf "Unexpected auto-manual string: %s." str
+        | _                -> raise << UnexpectedReplyException <| sprintf "Unexpected auto-manual string: %s." str
 
     /// Convert an internal representation of an automatic/manual state into a
     /// machine representation.
@@ -106,7 +106,7 @@ module internal Parsing =
         match String.toUpper str with
         | "POS" | "POSITIVE" -> Positive
         | "NEG" | "NEGATIVE" -> Negative
-        | _                  -> raise << UnexpectedReply <| sprintf "Unexpected trigger polarity string: %s." str
+        | _                  -> raise << UnexpectedReplyException <| sprintf "Unexpected trigger polarity string: %s." str
 
     /// Convert an internal representation of a polarity into a machine representation.
     let polarityString = function
@@ -133,7 +133,7 @@ module internal Parsing =
         match String.toUpper str with
         | "LOW" -> Low
         | "HIGH" -> High
-        | _ -> raise << UnexpectedReply <| sprintf "Unexpected low/high state string: %s" str
+        | _ -> raise << UnexpectedReplyException <| sprintf "Unexpected low/high state string: %s" str
 
     /// Make an ASCII string out of an object's ToString() method.
     let asciiString obj =
