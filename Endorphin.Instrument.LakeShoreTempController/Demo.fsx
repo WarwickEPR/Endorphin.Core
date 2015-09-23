@@ -32,8 +32,8 @@ let pidSettings =
 
 // set point parameters: the initial set point is held for the specified delay and then changed
 // to the final set point value
-let initialSetPoint = TemperatureInK 80.0<K>
-let finalSetPoint   = TemperatureInK 100.0<K>
+let initialSetPoint = Temperature_K 80.0<K>
+let finalSetPoint   = Temperature_K 100.0<K>
 let setPointDelay   = 10000 // ms
 
 // number of measurements and interval between them
@@ -57,12 +57,12 @@ let showTimeChart () = async {
     let chart = 
         Chart.Combine [ 
             temperatureMeasurement.Publish
-            |> Event.mapi (fun i (TemperatureInK temp) -> ((i * measurementInterval / 1000), temp))
+            |> Event.mapi (fun i (Temperature_K temp) -> ((i * measurementInterval / 1000), temp))
             |> Observable.observeOnContext uiContext
             |> LiveChart.FastLineIncremental
 
             targetTemperature.Publish
-            |> Event.mapi (fun i (TemperatureInK temp) -> ((i * measurementInterval / 1000), temp))
+            |> Event.mapi (fun i (Temperature_K temp) -> ((i * measurementInterval / 1000), temp))
             |> Observable.observeOnContext uiContext
             |> LiveChart.FastLineIncremental
             
@@ -109,7 +109,7 @@ let experiment = async {
     // set the initial set point and enable the specified PID settings
     do! TempController.setSetPoint tempController controlLoop initialSetPoint
     do! TempController.setPidSettings tempController controlLoop pidSettings
-    do! TempController.setControlMode tempController controlLoop ManualPID
+    do! TempController.setControlMode tempController controlLoop ManualPid
 
     // start a workflow which will change the set point after the specified delay and begin
     // monitoring the temperature and heater output
