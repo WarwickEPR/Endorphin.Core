@@ -39,10 +39,9 @@ module internal IO =
         let internal parseError (str : string) =
             let parts = str.Split ([|','|], 2) // split only on the first comma
             if Array.length parts <> 2 then raise << UnexpectedReply <| sprintf "Unexpected error string: %s." str
-        
-            match parts.[0] with
-            | String.ParseInteger code -> { Code = code ; Message = parts.[1] }
-            | _                        -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
+            match String.tryParse<int> parts.[0] with
+            | Some code -> { Code = code ; Message = parts.[1] }
+            | None      -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
         let private errorString error = sprintf "%d: %s" error.Code error.Message

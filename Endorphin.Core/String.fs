@@ -7,6 +7,13 @@ open Microsoft.FSharp.Collections
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
+    /// Try and parse a string into the given type, returning an option.
+    let inline tryParse< ^T when ^T : (static member TryParse : string * byref< ^T > -> bool) and ^T : (new : unit -> ^T)> valueToParse =
+        let mutable output = new ^T ()
+        let parsed = (^T : (static member TryParse  : string * byref< ^T > -> bool) (valueToParse, &output))
+        match parsed with
+        | true -> output |> Some
+        | _ -> None
 
     /// Trims any characters found in the `chars` array from the end of the string.
     let trimEnd chars (str : string) = str.TrimEnd chars
