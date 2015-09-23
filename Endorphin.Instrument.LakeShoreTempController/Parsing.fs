@@ -11,7 +11,6 @@ open Endorphin.Core
 /// Internal parsing functions between model types and their corresponding VISA command
 /// string formats.
 module internal Parsing =
-
     /// Attempt to parse the given identity string and check if correspond to a LakeShore
     /// model 325 temperature controller.
     let internal tryParseIdentity str =
@@ -19,9 +18,9 @@ module internal Parsing =
             String.split [|','|] str
             |> Array.map (String.trimStart [|' '|] >> String.trimEnd [|' '|])
 
-        if Array.length parts <> 4   then Choice.fail << UnexpectedReply <| sprintf "Unexpected device ID string: %s." str
-        elif parts.[0] <> "LSCI"     then Choice.fail << UnexpectedReply <| sprintf "Unexpected device manufacturer: %s." parts.[0]
-        elif parts.[1] <> "MODEL325" then Choice.fail << UnexpectedReply <| sprintf "Unexpected device model number: %s." parts.[1]
+        if Array.length parts <> 4   then Choice.fail << UnexpectedReplyException <| sprintf "Unexpected device ID string: %s." str
+        elif parts.[0] <> "LSCI"     then Choice.fail << UnexpectedReplyException <| sprintf "Unexpected device manufacturer: %s." parts.[0]
+        elif parts.[1] <> "MODEL325" then Choice.fail << UnexpectedReplyException <| sprintf "Unexpected device model number: %s." parts.[1]
         else
             Choice.succeed <| 
                 { Manufacturer = parts.[0]
@@ -46,7 +45,7 @@ module internal Parsing =
         | "0" -> HeaterOff
         | "1" -> HeaterLow
         | "2" -> HeaterHigh
-        | str -> failwithf "Unexpected heater range string: %s." str
+        | str -> raise << UnexpectedReplyException <| sprintf "Unexpected heater range string: %s." str
 
     /// Encode a heater range to a string.
     let heaterRangeString = function
@@ -62,7 +61,7 @@ module internal Parsing =
         | "4" -> AutoTunePid
         | "5" -> AutoTunePi
         | "6" -> AutoTuneP
-        | str -> failwithf "Unexpected control mode string: %s" str
+        | str -> raise << UnexpectedReplyException <| sprintf "Unexpected control mode string: %s" str
 
     /// Encode a control mode to a string.
     let controlModeString = function
@@ -87,7 +86,7 @@ module internal Parsing =
             { Proportional = float pidMatch.Proportional.Value
               Integral     = float pidMatch.Integral.Value
               Differential = float pidMatch.Differential.Value }
-        else failwith "Unexpected PID string: %s." str
+        else raise << UnexpectedReplyException <| sprintf "Unexpected PID string: %s." str
 
     /// Encode PID settings to a string.
     let pidSettingsString pid = sprintf "%+.5g, %+.5g, %+.5g" pid.Proportional pid.Integral pid.Differential

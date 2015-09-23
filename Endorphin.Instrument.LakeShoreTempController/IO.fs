@@ -28,8 +28,8 @@ module internal IO =
     let private performCommand command (TempController tempController) = async {
         command |> Visa.String.write tempController
         let! status = queryStandardEventStatus (TempController tempController)
-        if Status.commandError   status then return raise <| Command "Invalid command sent to instrument."
-        if Status.executionError status then return raise <| Parameter "Invalid parameters for command." }
+        if Status.commandError   status then invalidArg command "Invalid command sent to instrument."
+        if Status.executionError status then invalidArg command "Invalid parameters for command." }
 
     /// Sets the value corresponding to the given key to the instrument after converting it to a
     /// string with the provided string conversion function.

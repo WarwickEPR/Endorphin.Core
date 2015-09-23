@@ -3,7 +3,6 @@
 [<RequireQualifiedAccess>]
 /// VISA command keys for instrument.
 module internal Keys =
-    
     /// Device identity.
     let identity = "*IDN"
     

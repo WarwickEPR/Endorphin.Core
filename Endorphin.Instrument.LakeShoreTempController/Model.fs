@@ -4,9 +4,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Core
 
-exception Command of string
-exception Parameter of string
-exception UnexpectedReply of string
+exception UnexpectedReplyException of string
 
 [<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.
