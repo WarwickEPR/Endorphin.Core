@@ -56,21 +56,21 @@ module internal Parsing =
 
     /// Parse a control mode string.
     let parseControlMode = function
-        | "1" -> ManualPID
+        | "1" -> ManualPid
         | "2" -> ZoneMode
         | "3" -> OpenLoop
-        | "4" -> AutoTunePID
-        | "5" -> AutoTunePI
+        | "4" -> AutoTunePid
+        | "5" -> AutoTunePi
         | "6" -> AutoTuneP
         | str -> failwithf "Unexpected control mode string: %s" str
 
     /// Encode a control mode to a string.
     let controlModeString = function
-        | ManualPID   -> "1"
+        | ManualPid   -> "1"
         | ZoneMode    -> "2"
         | OpenLoop    -> "3"
-        | AutoTunePID -> "4"
-        | AutoTunePI  -> "5"
+        | AutoTunePid -> "4"
+        | AutoTunePi  -> "5"
         | AutoTuneP   -> "6"
 
     /// Encode a control loop to a string.
