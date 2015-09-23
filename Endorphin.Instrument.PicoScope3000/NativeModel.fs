@@ -54,7 +54,7 @@ module internal NativeModel =
             | _1  = 0x81
             /// Channels 16--23
             | _2  = 0x82
-            /// Channels 24-31
+            /// Channels 24--31
             | _3  = 0x83
 
         /// A selector for the digital channel of the device.
@@ -306,17 +306,6 @@ module internal NativeModel =
     [<AutoOpen>]
     /// Native model types relating to signal sampling.
     module Acquisition =
-        /// Vertical resolution, set for all input channels on the device. The PicoScope 3000
-        /// series uses a variable resolution architecture which allows it to change the
-        /// resolution between 8 and 16 bit in exchange for having fewer channels and/or a
-        /// lower maximum sampling rate.
-        type ResolutionEnum =
-            | _8bit  = 0
-            | _12bit = 1
-            | _14bit = 2
-            | _15bit = 3
-            | _16bit = 4
-
         /// Time unit for sample intervals.
         type TimeUnitEnum =
             | Femtoseconds = 0

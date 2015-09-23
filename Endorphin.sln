@@ -30,6 +30,9 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.LakeShoreTempController", "Endorphin.Instrument.LakeShoreTempController\Endorphin.Instrument.LakeShoreTempController.fsproj", "{958F39D3-7489-4B57-994B-9A4E861B0AA8}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.PicoScope3000", "Endorphin.Instrument.PicoScope3000\Endorphin.Instrument.PicoScope3000.fsproj", "{603FCD0A-8AD4-42B7-8954-63196031C311}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B1887520-0F25-4FF4-958E-12B964DF20F9} = {B1887520-0F25-4FF4-958E-12B964DF20F9}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
