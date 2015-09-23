@@ -387,7 +387,7 @@ module PicoScope =
 
         /// Asynchronously sets a PicoScope 5000 series device to trigger automatically after the specified
         /// delay.
-        let private setAutoTrigger (PicoScope5000 picoScope) (AutoTriggerDelayInMilliseconds delay) =
+        let private setAutoTrigger (PicoScope5000 picoScope) (AutoTriggerDelay_ms delay) =
             let description = sprintf "Set auto-trigger with delay: %d ms" (int16 delay)
             picoScope |> CommandRequestAgent.performCommand description (fun device -> 
                 NativeApi.SetSimpleTrigger(handle device, 0s, ChannelEnum.A, 0s, ThresholdDirectionEnum.None, 0u, int16 delay)

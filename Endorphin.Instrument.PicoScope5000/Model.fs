@@ -134,7 +134,7 @@ module Model =
             | EnterOrExit
 
         /// Auto-trigger delay.
-        type AutoTriggerDelay = internal AutoTriggerDelayInMilliseconds of delay : int16<ms>
+        type AutoTriggerDelay = internal AutoTriggerDelay_ms of delay : int16<ms>
 
         /// Defines simple trigger settings, which are able to trigger acquisition on a voltage
         /// threshold crossing on a specified trigger channel, or optionally also trigger

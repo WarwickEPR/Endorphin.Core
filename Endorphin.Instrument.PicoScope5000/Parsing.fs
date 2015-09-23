@@ -79,11 +79,11 @@ module internal Parsing =
     /// enumeration indicating the time unit.
     let intervalAndTimeUnitEnum = function
         | Interval_fs interval -> (int interval, TimeUnitEnum.Femtoseconds)
-        | Interval_ps  interval -> (int interval, TimeUnitEnum.Picoseconds )
-        | Interval_ns  interval -> (int interval, TimeUnitEnum.Nanoseconds )
+        | Interval_ps interval -> (int interval, TimeUnitEnum.Picoseconds )
+        | Interval_ns interval -> (int interval, TimeUnitEnum.Nanoseconds )
         | Interval_us interval -> (int interval, TimeUnitEnum.Microseconds)
         | Interval_ms interval -> (int interval, TimeUnitEnum.Milliseconds)
-        | Interval_s      interval -> (int interval, TimeUnitEnum.Seconds     )
+        | Interval_s  interval -> (int interval, TimeUnitEnum.Seconds     )
     
     /// Converts the provided voltage with unit of measure to a 32-bit precision floating point
     /// voltage in volts.
@@ -92,8 +92,8 @@ module internal Parsing =
     /// Converts an AutoTriggerDelay option to a corresponding 16-bit integer indicating either that
     /// there is no auto-trigger or the auto-trigger delay value in milliseconds.
     let autoTriggerDelayIntInMilliseconds = function
-        | Some (AutoTriggerDelayInMilliseconds delay) -> int16 delay
-        | None                                        -> 0s
+        | Some (AutoTriggerDelay_ms delay) -> int16 delay
+        | None                             -> 0s
 
     [<AutoOpen>]
     /// Parsing functions related to channel settings.

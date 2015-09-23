@@ -19,7 +19,7 @@ module Trigger =
     let auto delay =
         if delay <= 0s<ms> then
             failwith "Auto-trigger delay must be positive and non-zero."
-        AutoTrigger (AutoTriggerDelayInMilliseconds delay)
+        AutoTrigger (AutoTriggerDelay_ms delay)
 
     /// Specifies simple trigger settings with the provided trigger channel but not auto-trigger.
     let simple triggerChannel adcThreshold levelThreshold startSample =
@@ -35,4 +35,4 @@ module Trigger =
           AdcThreshold       = adcThreshold
           ThresholdDirection = levelThreshold
           StartSample        = startSample
-          AutoTrigger        = Some <| AutoTriggerDelayInMilliseconds autoTriggerDelay }
+          AutoTrigger        = Some <| AutoTriggerDelay_ms autoTriggerDelay }
