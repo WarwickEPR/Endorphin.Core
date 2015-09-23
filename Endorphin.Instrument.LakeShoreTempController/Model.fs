@@ -36,11 +36,11 @@ module Model =
 
     /// Control mode of the temperature controller.
     type ControlMode =
-        | ManualPID
+        | ManualPid
         | ZoneMode
         | OpenLoop
-        | AutoTunePID
-        | AutoTunePI
+        | AutoTunePid
+        | AutoTunePi
         | AutoTuneP 
 
     /// The sensor loop of the temperature controller.
@@ -48,7 +48,7 @@ module Model =
 
     /// Proportional, integral and differential coefficients for the temperature controller output
     /// in closed loop mode.
-    type PIDSettings =
+    type PidSettings =
         { Proportional : float
           Integral     : float
           Differential : float }
