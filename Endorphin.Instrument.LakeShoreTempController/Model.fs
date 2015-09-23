@@ -11,10 +11,8 @@ exception UnexpectedReply of string
 [<AutoOpen>]
 /// Model for LakeShore model 325 temperature controller.
 module Model =
-
     [<AutoOpen>]
     module Instrument =
-        
         /// LakeShore model 325 temperature controlller.    
         type TempController = internal TempController of tempController : Visa.Instrument
 

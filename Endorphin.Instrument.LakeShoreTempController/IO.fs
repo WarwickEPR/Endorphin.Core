@@ -4,18 +4,10 @@ open Endorphin.Core
 
 /// Internal functions for workflows which set and query model values to and from the instrument.
 module internal IO =
-    let private tryPerformQuery (tryParseFunc : string -> Choice<'T, exn>) query (TempController tempController) = async {
-        let! response = query |> Visa.String.query tempController
-        return Choice.bindOrRaise <| tryParseFunc response }
-
     /// Performs a query asynchronously and parses the result with the given parsing function.
-    let private performQuery parseFunc = tryPerformQuery (parseFunc >> Choice.succeed)
-
-    /// Performs a query for the value corrseponding to the given key and tries to parse the
-    /// result with the given parsing function which returns a Choice<'T, string> indicating
-    /// success or failure.
-    let private tryQueryValue tryParseFunc key =
-        tryPerformQuery tryParseFunc (sprintf "%s?" key)
+    let private performQuery (parseFunc : string -> 'T) query (TempController tempController) = async {
+        let! response = query |> Visa.String.query tempController
+        return parseFunc response }
 
     /// Performs a query for the value corresponding to the given key and parses the result with
     /// the given parsing function.
@@ -51,7 +43,7 @@ module internal IO =
 
     /// Query the device identity and fail if it does not correspond to a LakeShore model 325
     /// temperature controller.
-    let queryIdentity = tryQueryValue tryParseIdentity
+    let queryIdentity = queryValue tryParseIdentity
 
     /// Query the temperature corresponding to the given key for the given instrument control
     /// loop asynchronously.

@@ -5,7 +5,6 @@ open Endorphin.Core
 /// Fnctions posting commands and performs queries to a LakeShore model 325 temperature
 /// controller. 
 module TempController =
-    
     /// Query the device identity information.
     let queryIdentity = IO.queryIdentity Keys.identity
 
