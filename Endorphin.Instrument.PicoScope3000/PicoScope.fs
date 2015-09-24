@@ -288,7 +288,7 @@ module PicoScope =
 
         /// Asynchronously queries the set of avaiable channels available input channel voltage ranges
         /// for the specified input channel on a PicoScope 3000 series device.
-        let queryAvaiableChannelRanges (PicoScope3000 picoScope) inputChannel =
+        let queryAvailableChannelRanges (PicoScope3000 picoScope) inputChannel =
             let description = sprintf "Query available input ranges for channel %A" inputChannel
             picoScope |> CommandRequestAgent.performObjectRequest description
                 (fun device ->
