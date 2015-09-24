@@ -96,6 +96,18 @@ module internal Parsing =
     [<AutoOpen>]
     /// Parsing functions related to channel settings.
     module ChannelSettings =
+        /// Parse an enumeration as a digital port.  This does not currently parse all possible values of
+        /// the enumeration, because the PicoScope 3406D MSO (which is what we have) doesn't support them.
+        let parseDigitalPort = function
+            | DigitalPortEnum._0 -> DigitalPort0
+            | DigitalPortEnum._1 -> DigitalPort1
+            | enum               -> unexpectedReply <| sprintf "Unexpected digital port value: %A." enum
+
+        /// Convert the provided digital port into an enumeration.
+        let digitalPortEnum = function
+            | DigitalPort0 -> DigitalPortEnum._0
+            | DigitalPort1 -> DigitalPortEnum._1
+
         /// Parses an enumeration as an input channel. Note that this does not parse all possible
         /// values of ChannelEnum as not all of these indicate an input channel.
         let parseInputChannel = function
