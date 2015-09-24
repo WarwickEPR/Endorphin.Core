@@ -195,8 +195,6 @@ module Streaming =
 
         /// Handles a callback with the given StreamingValues ready parameters.
         let private handleStreamingValuesReady acquisition streamingValuesReady =
-            printfn "Hellooo... %A" (streamingValuesReady.DidAutoStop, streamingValuesReady.NumberOfSamples)
-            
             // check if the acquisition has been stopped manually
             if not acquisition.StopCapability.IsCancellationRequested then
                 if streamingValuesReady.DidAutoStop then // or automatically
@@ -341,8 +339,9 @@ module Streaming =
             | EnabledChannel settings ->
                 let (Voltage_V voltageRange)   = Range.voltage settings.Range
                 let (Voltage_V analogueOffset) = settings.AnalogueOffset
-                let maximumAdcCounts           = 32767s // TODO: magic!
-                fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
+                (fun (adcCounts : int16) ->
+                    voltageRange * (float32 adcCounts) / (float32 NativeApi.Quantities.maximumAdcCounts)
+                    - analogueOffset)
             | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel
 
         /// Returns a function which converts an array of samples from ADC counts to voltages according to

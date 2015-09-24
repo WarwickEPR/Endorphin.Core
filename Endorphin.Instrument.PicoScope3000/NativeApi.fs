@@ -9,6 +9,12 @@ open StatusCodes
 /// descriptions are copied from the PicoScope 3000 series programming guide. See the guide for argument description details.
 [<RequireQualifiedAccess>]
 module internal NativeApi =
+    module Quantities =
+        /// Maximum number of ADC counts on one channel.  Number found in the PicoScope 3000A C# console
+        /// source file of the SDK.
+        [<Literal>]
+        let maximumAdcCounts = 32512
+
     [<Literal>]
     let dllName = "ps3000a.dll" // import dll name
 
