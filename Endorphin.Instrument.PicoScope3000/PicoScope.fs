@@ -264,7 +264,6 @@ module PicoScope =
 
     /// Functions related to input channel settings.
     module ChannelSettings =
-
         /// Asynchronously queries the set of available input channels on a PicoScope 3000 series device.
         let queryAvailableChannels picoScope =
             async {
@@ -353,7 +352,6 @@ module PicoScope =
 
     /// Functions related to acquisition triggering.
     module Triggering = 
-
         /// Asynchronously sets a PicoScope 3000 series device to trigger automatically after the specified
         /// delay.
         let private setAutoTrigger (PicoScope3000 picoScope) (AutoTriggerDelay_ms delay) =
@@ -396,7 +394,6 @@ module PicoScope =
 
     /// Functions related to setting up data buffers for an acquisition.
     module internal DataBuffers =
-        
         /// Asynchronously sets a data buffer to a PicoScope 3000 series device which will be used to
         /// transfer samples from the device memory to the computer.
         let setDataBuffer (PicoScope3000 picoScope) inputChannel downsamplingMode (index : MemorySegment) acquisitionBuffer =
@@ -416,7 +413,6 @@ module PicoScope =
 
     /// Functions related to acquisition.
     module internal Acquisition =
-        
         /// Asynchronously stops a PicoScope 3000 series acquisition currently in progress.
         let stop (PicoScope3000 picoScope) =
             picoScope |> CommandRequestAgent.performCommand "Stop acquisition"

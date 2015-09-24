@@ -163,7 +163,7 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps3000aIsReady")>]
     /// This function may be used instead of a callback function to receive data from RunBlock. To use this method, pass a NULL pointer as the lpReady
     /// argument to RunBlock. You must then poll the driver to see if it has finished collecting the requested samples.
-    extern StatusCode IsReady (int16 handle, int16& ready);
+    extern StatusCode IsReady (int16 handle, int16& ready)
 
     [<DllImport(dllName, EntryPoint = "ps3000aIsTriggerOrPulseWidthQualifierEnabled")>]
     /// This function discovers whether a trigger, or pulse width triggering, is enabled. 
@@ -184,11 +184,11 @@ module internal NativeApi =
     /// This function sets the number of memory segments that the scope will use. When the scope is opened, the number of segments defaults to 1,
     /// meaning that each capture fills the scope's available memory. This function allows you to divide the memory into a number of segments so that
     /// the scope can store several waveforms sequentially.
-    extern StatusCode MemorySegments (int16 handle, uint32 numberOfSegments, int& samplesPerSegment);
+    extern StatusCode MemorySegments (int16 handle, uint32 numberOfSegments, int& samplesPerSegment)
 
     [<DllImport(dllName, EntryPoint = "ps3000aNoOfStreamingValues")>]
     /// This function returns the number of samples available after data collection in streaming mode. Call it after calling Stop.
-    extern StatusCode NumberOfStreamingValues (int16 handle, uint32& numberOfValues);
+    extern StatusCode NumberOfStreamingValues (int16 handle, uint32& numberOfValues)
 
     [<DllImport(dllName, EntryPoint = "ps3000aOpenUnit")>]
     /// This function opens a PicoScope 3000 Series scope attached to the computer. The maximum number
@@ -209,7 +209,7 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps3000aPingUnit")>]
     /// This function can be used to check that the already opened device is still connected to the USB port
     /// and communication is successful.
-    extern StatusCode PingUnit (int16 handle);
+    extern StatusCode PingUnit (int16 handle)
 
     [<DllImport(dllName, EntryPoint = "ps3000aRunBlock")>]
     /// This function starts collecting data in block mode. See the programming guide for details.
