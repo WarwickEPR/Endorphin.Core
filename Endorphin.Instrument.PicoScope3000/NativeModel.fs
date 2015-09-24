@@ -337,18 +337,20 @@ module internal NativeModel =
             /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a block acquisition.
             /// Format: handle, status, state -> unit
             type internal PicoScopeBlockReady =
-                delegate of int16 * int16 * nativeint -> unit
+                delegate of int16 * StatusCode * nativeint -> unit
 
-            /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a streaming acquisition.
-            /// Format; handle, numberOfSamples, startIndex, overflows, triggeredAt, triggered, autoStop, state -> unit
+            /// Callback delegate type used by the PicoScope driver to indicate that it has written new data
+            /// to the buffer during a streaming acquisition.
+            /// Format: handle, numberOfSamples, startIndex, overflows, triggeredAt,
+            ///         triggered, autoStop, state -> unit
             type internal PicoScopeStreamingReady =
                 delegate of int16 * int * uint32 * int16 * uint32 * int16 * int16 * nativeint -> unit
 
-            /// Callback delegate type used by the PicoScope driver to indicate that it has finished writing data to a buffer when reading data already
-            /// stored in the device memory.
-            /// Format: handle, numberOfSamples, overflows, triggeredAt, triggered, state -> unit
+            /// Callback delegate type used by the PicoScope driver to indicate that it has finished writing
+            /// data to a buffer when data already stored in the device memory.
+            /// Format: handle, status, noOfSamples, overflow, status -> unit
             type internal PicoScopeDataReady =
-                delegate of int16 * int * int16 * uint32 * int16 * nativeint -> unit
+                delegate of int16 * StatusCode * uint32 * int16 * nativeint -> unit
 
     [<AutoOpen>]
     module SignalGenerator =

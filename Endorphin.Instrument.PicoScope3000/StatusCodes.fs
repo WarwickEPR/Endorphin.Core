@@ -2,6 +2,7 @@
 
 module internal StatusCodes =
     /// PicoScope 3000 series status codes indicating device status after all API calls.
+    /// Must always be of type int.
     type StatusCode = 
         | Ok                                   = 0x0000
         | MaximumUnitsOpened                   = 0x0001

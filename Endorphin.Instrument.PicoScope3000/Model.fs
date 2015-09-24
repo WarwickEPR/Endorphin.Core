@@ -47,6 +47,12 @@ module Model =
     [<AutoOpen>]
     /// Model types related to channel settings.
     module ChannelSettings =
+        /// Digital port selection.  Port 0 corresponds to digital channels 0 to 7, and port 1 corresponds
+        /// to channels 8 to 15.
+        type DigitalPort =
+            | DigitalPort0
+            | DigitalPort1
+
         /// Input channel.
         type InputChannel =
             | ChannelA

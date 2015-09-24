@@ -1,7 +1,7 @@
 ﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
 #r "../packages/FSharp.Control.Reactive.3.2.0/lib/net40/FSharp.Control.Reactive.dll"
 #r "../packages/FSharp.Charting.0.90.12/lib/net40/FSharp.Charting.dll"
-#r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"
+#r "bin/Debug/Endorphin.Instrument.PicoScope3000.dll"
 #r "System.Windows.Forms.DataVisualization.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
@@ -13,7 +13,7 @@ open FSharp.Charting
 open FSharp.Control.Reactive
 
 open Endorphin.Core
-open Endorphin.Instrument.PicoScope5000
+open Endorphin.Instrument.PicoScope3000
 
 let form = new Form(Visible = true, TopMost = true, Width = 800, Height = 600)
 let uiContext = SynchronizationContext.Current
@@ -23,7 +23,7 @@ form.Closed |> Observable.add (fun _ -> cts.Cancel())
 
 let streamingParameters = 
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
-    Streaming.Parameters.create Resolution_14bit (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
+    Streaming.Parameters.create (Interval.fromMilliseconds 20<ms>) (64u)
     |> Streaming.Parameters.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
     |> Streaming.Parameters.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
     |> Streaming.Parameters.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling

@@ -12,14 +12,6 @@ module internal NativeApi =
     [<Literal>]
     let dllName = "ps3000a.dll" // import dll name
 
-    [<DllImport(dllName, EntryPoint = "ps3000aBlockReady")>]
-    /// This callback function is part of your application.  You register it with the ps3000a driver using
-    /// `ps3000aRunBlock()`, and the driver calls it back when block-mode data is ready.  You can then
-    /// download the data using `ps3000aGetValues`.  Your callback function should do nothing more than copy
-    /// the data to another buffer within your application.  To maintain the best application performance,
-    /// the function should return as quickly as possible without attempting to process or display the data.
-    extern unit BlockReady (PicoScopeBlockReady callback)
-
     [<DllImport(dllName, EntryPoint = "ps3000aChangePowerSource")>]
     /// This function selects the power supply mode. If USB power is required, you must explicitly allow it by calling this function.
     /// If the AC power adapter is connected or disconnected during use, you must also call this function. If you change power source
@@ -34,13 +26,6 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps3000aCurrentPowerSource")>]
     /// This function returns the current power state of the device.
     extern StatusCode CurrentPowerSource (int16 handle)
-
-    [<DllImport(dllName, EntryPoint = "ps3000aDataReady")>]
-    /// This is a callback function that you write to collect data from the driver.  You supply a pointer to
-    /// the function when you call `ps3000aGetValuesAsync()`, and the driver calls your function back when the
-    /// data is ready.
-    extern unit DataReady (int16 handle, StatusCode status, uint32 noOfSamples, int16 overflow,
-                           PicoScopeDataReady callback, nativeint state)
 
     [<DllImport(dllName, EntryPoint = "ps3000aEnumerateUnits")>]
     /// This function counts the number of PicoScope 3000A units connected to the computer, and returns a list of serial numbers as a
