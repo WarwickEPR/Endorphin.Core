@@ -254,7 +254,7 @@ module PicoScope =
                       SampleInterval = interval } }
 
         /// Asynchronously segments the memory of a PicoScope 3000 series device into the specified
-        /// number of segments.
+        /// number of segments.  Returns the number of samples which will fit in each new segment.
         let segmentMemory (PicoScope3000 picoScope) (numberOfSegments : MemorySegment) =
             picoScope |> CommandRequestAgent.performObjectRequest (sprintf "Segmenting device memory into %d segments." numberOfSegments)
                 (fun device ->
@@ -273,7 +273,7 @@ module PicoScope =
                         [ Device.availableChannelsForModel modelNumber
                           PowerSource.availableChannels powerSource ] }
 
-        /// Asyhnchronously queries the available range of analogue voltage offsets for an input channel
+        /// Asynchronously queries the available range of analogue voltage offsets for an input channel
         /// for a PicoScope 3000 series device using the specified input voltage range and coupling.
         let queryAvailableAnalogueOffsetRange (PicoScope3000 picoScope) range coupling =
             let description = sprintf "Query available analogue offset range for input range %A with %A coupling" range coupling
@@ -299,7 +299,7 @@ module PicoScope =
         /// Asynchronously sets the bandwidth filter for the specified input channel on a PicoScope 3000
         /// series device.
         let private setBandwidthFilter (PicoScope3000 picoScope) inputChannel bandwidthLimit =
-            let description = sprintf "Set bandwidth %A to channel %A" inputChannel bandwidthLimit
+            let description = sprintf "Set channel %A to bandwidth %A" inputChannel bandwidthLimit
             picoScope |> CommandRequestAgent.performCommand description 
                 (fun device ->
                     NativeApi.SetBandwidthFilter(handle device, inputChannelEnum inputChannel, bandwidthLimitEnum bandwidthLimit)
@@ -340,15 +340,14 @@ module PicoScope =
 
         /// Asynchronously sets up all input channels on a PicoScope 3000 series device with the given
         /// acquisition input settings.
-        let setAcquisitionInputChannels picoScope acquisitionInputs =
-            async {
-                let requiredChannels   = Map.keys acquisitionInputs.InputSettings
-                let! availableChannels = queryAvailableChannels picoScope
-                if not (Set.isSubset requiredChannels availableChannels) then
-                    failwith "The specified acquisition inputs require input channels which are not available on the current device." 
-                for channel in availableChannels do
-                    do! Inputs.settingsForChannel channel acquisitionInputs
-                        |> setChannelSettings picoScope channel }
+        let setAcquisitionInputChannels picoScope acquisitionInputs = async {
+            let requiredChannels   = Map.keys acquisitionInputs.InputSettings
+            let! availableChannels = queryAvailableChannels picoScope
+            if not (Set.isSubset requiredChannels availableChannels) then
+                invalidArg "Input channels" "The specified acquisition inputs require input channels which are not available on the current device."
+            for channel in availableChannels do
+                do! Inputs.settingsForChannel channel acquisitionInputs
+                    |> setChannelSettings picoScope channel }
 
     /// Functions related to acquisition triggering.
     module Triggering = 

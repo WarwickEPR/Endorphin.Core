@@ -96,7 +96,7 @@ module Streaming =
         /// Returns modified streaming acquisition parameters with the specified downsampling ratio.
         let withDownsamplingRatio downsamplingRatio (parameters : StreamingParameters) =
             if not (Inputs.hasDownsampling parameters.Inputs) then
-                failwith "Cannot specifiy a downsampling ratio for an acquisition which has no downsampled inputs."
+                invalidArg "Downsampling ratio" "Cannot specifiy a downsampling ratio for an acquisition which has no downsampled inputs."
 
             { parameters with DownsamplingRatio = Some downsamplingRatio }
 
@@ -126,15 +126,14 @@ module Streaming =
     
     /// Functions related to streaming acquisition control flow.
     module Acquisition =
-        
         /// Creates a streaming acquisition on the given PicoScope 3000 series device with the specified
         /// streaming parameters.
         let create picoScope streamingParameters =
             if streamingParameters.Inputs |> Inputs.hasDownsampling && streamingParameters.DownsamplingRatio = None then
-                failwith "Failed to create streaming acquisition: specified inputs have downsampling but no downsampling ratio is specified."
+                invalidArg "Downsampling ratio" "Failed to create streaming acquisition: specified inputs have downsampling but no downsampling ratio is specified."
 
             if not (streamingParameters.Inputs |> Inputs.hasDownsampling) && streamingParameters.DownsamplingRatio <> None then
-                failwith "Failed to create streaming acquisition: specified inputs have no downsampling but a downsampling ratio is specified."
+                invalidArg "Downsampling ratio" "Failed to create streaming acquisition: specified inputs have no downsampling but a downsampling ratio is specified."
 
             { Parameters  = streamingParameters
               PicoScope   = picoScope
@@ -154,8 +153,7 @@ module Streaming =
 
         /// Prepares the device for a streaming acquisition by setting up the channel settings, triggering,
         /// device resolution and data buffers.
-        let private prepareDevice acquisition =
-            async {
+        let private prepareDevice acquisition = async {
                 acquisition.StatusChanged.Trigger (Next PreparingStream)
                 do! PicoScope.ChannelSettings.setAcquisitionInputChannels acquisition.PicoScope acquisition.Parameters.Inputs
                 do! PicoScope.Triggering.setTriggerSettings acquisition.PicoScope acquisition.Parameters.TriggerSettings
