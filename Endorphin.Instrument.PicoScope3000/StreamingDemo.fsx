@@ -3,6 +3,7 @@
 #r "../packages/FSharp.Charting.0.90.12/lib/net40/FSharp.Charting.dll"
 #r "bin/Debug/Endorphin.Instrument.PicoScope3000.dll"
 #r "System.Windows.Forms.DataVisualization.dll"
+#r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
@@ -15,6 +16,8 @@ open FSharp.Control.Reactive
 open Endorphin.Core
 open Endorphin.Instrument.PicoScope3000
 
+// log4net.Config.BasicConfigurator.Configure()
+
 let form = new Form(Visible = true, TopMost = true, Width = 800, Height = 600)
 let uiContext = SynchronizationContext.Current
 let cts = new CancellationTokenSource()
@@ -23,7 +26,7 @@ form.Closed |> Observable.add (fun _ -> cts.Cancel())
 
 let streamingParameters = 
     // define the streaming parameters: 14 bit resolution, 20 ms sample interval, 64 kSample bufffer
-    Streaming.Parameters.create (Interval.fromMilliseconds 20<ms>) (64u)
+    Streaming.Parameters.create (Interval.fromMilliseconds 20<ms>) (64u * 1024u)
     |> Streaming.Parameters.enableChannel ChannelA DC Range_500mV Voltage.zero FullBandwidth
     |> Streaming.Parameters.enableChannel ChannelB DC Range_2V Voltage.zero Bandwidth_20MHz
     |> Streaming.Parameters.sampleChannels [ ChannelA ; ChannelB ] NoDownsampling
