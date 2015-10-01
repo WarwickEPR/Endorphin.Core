@@ -34,3 +34,32 @@ module Device =
         | 2 -> [ ChannelA ; ChannelB ] |> Set.ofList 
         | 4 -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
         | _ -> unexpectedReply <| sprintf "Unexpected model number: %s." modelNumber
+
+    /// Returns a set of the available digital ports for the specified model number.  Only MSO
+    /// models have any digital ports at all.
+    let internal availablePortsForModel (modelNumber : string) =
+        match modelNumber.[-3 .. -1] with
+        | "MSO" -> [ DigitalPort0 ; DigitalPort1 ] |> Set.ofList
+        | _     -> Set.empty
+
+/// Functions related to the logic level of digital ports - what voltage must be reached for the port to
+/// switch from 0 to 1.
+module internal LogicLevel =
+    /// The minimum logic level the machine can deal with.
+    [<Literal>]
+    let minimum = -5.0f<V>
+
+    /// The maximum logic level the machine can deal with.
+    [<Literal>]
+    let maximum = 5.0f<V>
+
+    /// Raise an exception if the specified logic level is not in the allowed range for the instrument.
+    let check level =
+        if not <| Voltage.between (Voltage.fromVolts minimum) (Voltage.fromVolts maximum) level then
+            invalidArg "Logic level" <| sprintf "Logic level must be between %f V and %f V" minimum maximum
+
+    /// Get the logic level as an int16 from a voltage.
+    let fromVoltage voltage =
+        check voltage
+        let volts = Voltage.asVolts voltage
+        int16 <| (float volts / float maximum) * (float NativeApi.Quantities.maximumLogicLevel)

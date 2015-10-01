@@ -15,6 +15,14 @@ module internal NativeApi =
         [<Literal>]
         let maximumAdcCounts = 32512
 
+        /// Minimum value that the logic level of a digital port may take.
+        [<Literal>]
+        let minimumLogicLevel = -32767
+
+        /// Maximum value that the logic level of a digital port may take.
+        [<Literal>]
+        let maximumLogicLevel = 32767
+
     [<Literal>]
     let dllName = "ps3000a.dll" // import dll name
 

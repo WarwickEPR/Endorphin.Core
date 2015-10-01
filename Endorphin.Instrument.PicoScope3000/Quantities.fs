@@ -41,3 +41,11 @@ module Voltage =
 
     /// Creates a voltage corresponding to zero volts.
     let zero = Voltage_V 0.0f<V>
+
+    /// Convert a voltage into a floating point value in volts.
+    let asVolts = function
+        | Voltage_V voltage -> (single voltage) * 1.0f<V>
+
+    /// Return a Boolean representing whether the value to check is in the sepcified range or not.
+    let between lowerBound upperBound toCheck =
+        ((asVolts lowerBound) <= (asVolts toCheck)) && ((asVolts toCheck) <= (asVolts upperBound))
