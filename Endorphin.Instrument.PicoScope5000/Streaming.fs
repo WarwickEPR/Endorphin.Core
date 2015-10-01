@@ -333,7 +333,12 @@ module Streaming =
             Observable.takeUntilOther (Observable.last (Acquisition.status acquisition))
         
         /// Computes the timestamp of a sample for the given index and sample interval.
-        let private time interval index = (Interval.asSeconds interval) * (float index)
+        let private time interval (downsampling : DownsamplingRatio option) index =
+            let ratio =
+                match downsampling with
+                | None -> 1.0
+                | Some ratio -> float ratio
+            (Interval.asSeconds interval) * (float index) * ratio
         
         /// Returns a function which converts an ADC count to a voltage for the given input sampling in an
         /// acquisition.
@@ -413,7 +418,11 @@ module Streaming =
 
         /// Returns an observable which emits a tuple of timestamp and ADC count for every sample observed on
         /// the specified input in an acquisition.
-        let adcCountByTime input acquisition = adcCountBy (time acquisition.Parameters.SampleInterval) input acquisition
+        let adcCountByTime input acquisition =
+            adcCountBy
+            <| time acquisition.Parameters.SampleInterval acquisition.Parameters.DownsamplingRatio
+            <| input
+            <| acquisition
 
         /// Returns an observable which emits a tuple of sample index and voltage for every sample observed on
         /// the specified input in an acquisition.
@@ -421,7 +430,11 @@ module Streaming =
 
         /// Returns an observable which emits a tuple of timestamp and voltage for every sample observed on the
         /// specified input in an acquisition.
-        let voltageByTime input acquisition = voltageBy (time acquisition.Parameters.SampleInterval) input acquisition
+        let voltageByTime input acquisition =
+            voltageBy
+            <| time acquisition.Parameters.SampleInterval acquisition.Parameters.DownsamplingRatio
+            <| input
+            <| acquisition
         
         /// Helper function for constructing observables based on the ADC count samples for a given array of
         /// inputs.
@@ -464,7 +477,11 @@ module Streaming =
 
         /// Returns an observable which emits a tuple of timestamp and array of ADC counts for every sample
         /// observed on the specified array of inputs in an acquisition.
-        let adcCountsByTime inputs acquisition = adcCountsBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+        let adcCountsByTime inputs acquisition =
+            adcCountsBy
+            <| time acquisition.Parameters.SampleInterval acquisition.Parameters.DownsamplingRatio
+            <| inputs
+            <| acquisition
 
         /// Returns an observable which emits a tuple of sample index and array of voltages for every sample
         /// observed on the specified array of inputs in an acquisition.
@@ -472,7 +489,11 @@ module Streaming =
 
         /// Returns an observable which emits a tuple of timestamp and array of voltages for every sample
         /// observed on the specified array of inputs in an acquisition.
-        let voltagesByTime inputs acquisition = voltagesBy (time acquisition.Parameters.SampleInterval) inputs acquisition
+        let voltagesByTime inputs acquisition =
+            voltagesBy
+            <| time acquisition.Parameters.SampleInterval acquisition.Parameters.DownsamplingRatio
+            <| inputs
+            <| acquisition
 
         /// Returns an observable which emits a tuple of ADC counts for each pair of samples observed on the
         /// specified inputs in an acquisition.
