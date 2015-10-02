@@ -75,7 +75,7 @@ module ARB =
         /// Set the mode of the ARB triggering system to "segment advance", with the given mode
         /// for received triggers.
         /// Also needs a trigger source to be set.
-        let segmentAdvace mode = ArbTrigger (ArbSegmentAdvance mode, None)
+        let segmentAdvance mode = ArbTrigger (ArbSegmentAdvance mode, None)
 
         /// Set the source of the ARB trigger to be the front-panel "Trigger" key.
         let byKey (ArbTrigger (mode, _)) = ArbTrigger (mode, Some ArbKey)
