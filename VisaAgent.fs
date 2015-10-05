@@ -250,7 +250,9 @@ module Visa =
           Close       = close }
 
     /// Close the connection to a VISA instrument.
-    let closeInstrument instrument = instrument.Close
+    let closeInstrument instrument = async {
+        let! result = instrument.Close ()
+        return Choice.bindOrRaise result }
 
     module String =
         /// Read a string that the VISA instrument is broadcasting.
