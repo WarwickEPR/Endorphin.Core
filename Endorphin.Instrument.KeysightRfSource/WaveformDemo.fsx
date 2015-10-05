@@ -8,17 +8,15 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 let numSamples = 1000us
 
-let sample1 =
-    Sample.empty
-    |> Sample.withI 10000s
-    |> Sample.withQ 10000s
-    |> Sample.withMarker1 true
+let markers = Markers.create true true false true
+
+let sample1 = Sample.create 10000s 10000s |> Sample.withMarker1 true
 
 let sample2 =
     Sample.empty
     |> Sample.withI -10000s
     |> Sample.withQ 20000s
-    |> Sample.withMarker2 true
+    |> Sample.withMarkers markers
 
 let segment1 =
     Segment.empty
