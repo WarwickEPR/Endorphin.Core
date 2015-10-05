@@ -1,10 +1,15 @@
 #r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
+// I don't open any modules throughout to demonstrate exactly where each function comes from.
+// Most (if not all) modules may be opened to simplify this, but in general I suggest you don't
+// do that due to naming clashes.
+
+// It's ok to open the "Control" module, though - due to the nature of the module compared to
+// other modules, it's unlikely to have any naming collisions.
+
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Instrument.Keysight
-open Experiment
-open Control
 
 // a phase for use with RF pulses - this sets I and Q to have the same
 // relative power
@@ -15,26 +20,27 @@ let marker1 = Markers.empty |> Markers.withMarker1 true
 let marker2 = Markers.empty |> Markers.withMarker2 true
 let marker3 = Markers.empty |> Markers.withMarker3 true
 
-// define the pulse sequence
+// Define the pulse sequence.  We can use up to three marker channels (even though there are four), because
+// Endorphin needs one internally for the RF blanking pulse.
 let pulses = seq {
     // pi/2 pulse
-    yield rf equalIQ 60u
+    yield Pulse.rf equalIQ 60u
     // tau pulse
-    yield delayWithIncrement 60u 10u
+    yield Pulse.delayWithIncrement 60u 10u
     // pi pulse
-    yield rf equalIQ 120u
+    yield Pulse.rf equalIQ 120u
     // tau pulse
-    yield delayWithIncrement 60u 10u
+    yield Pulse.delayWithIncrement 60u 10u
     // trigger to begin acquisition
-    yield trigger marker1 }
+    yield Pulse.trigger marker1 }
 
 // define parameters to do with the experiment
 let experiment =
     Experiment.empty
-    |> withPulseSeq pulses
-    |> withRepetitions 128
-    |> withShotsPerPoint 128us
-    |> withShotRepetitionTime 10e-6<s>
+    |> Experiment.withPulseSeq pulses
+    |> Experiment.withRepetitions 128
+    |> Experiment.withShotsPerPoint 128us
+    |> Experiment.withShotRepetitionTime 10e-6<s>
 
 // define the routing of the marker channels
 let routing =
@@ -61,14 +67,14 @@ async {
     do! setCarrierAmplitude keysight <| Power_dBm 4.0<dBm>
 
     // store the experiment on the machine
-    let! storedExperiment = Experiment.store keysight experiment
+    let! storedExperiment = Control.Experiment.store keysight experiment
 
     // if we want to change anything before we begin playback, this tells us which file
     // holds the experiment - only exists when the library is compiled in debug mode
-    do Print.experimentFile storedExperiment
+    do Control.Print.experimentFile storedExperiment
 
     // play the experiment
-    do! Experiment.playStored keysight storedExperiment
+    do! Control.Experiment.playStored keysight storedExperiment
 
     // tidy up and close
     do! RfSource.closeInstrument keysight }
