@@ -72,11 +72,11 @@ module Experiment =
         ShotRepetitionTime = Duration_sec 0.0<s>
         ShotsPerPoint = 1us }
 
-    /// Append a pulse to an experiment.
+    /// Yield the same experiment, but with the given pulse as its sequence.
     let withPulse pulse (experiment : Experiment) =
         { experiment with Pulses = seq { yield pulse } }
 
-    /// Append a pulse sequence to an experiment.
+    /// Yield the same experiment, but with the given pulse sequence as its sequence.
     let withPulseSeq pulses (experiment : Experiment) =
         { experiment with Pulses = pulses }
 
