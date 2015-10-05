@@ -3,7 +3,6 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
-[<RequireQualifiedAccess>]
 module Markers =
     /// A markers record with all markers turned off.
     let empty = { M1 = false; M2 = false; M3 = false; M4 = false }
@@ -29,7 +28,6 @@ module Markers =
         ((Convert.ToByte markers.M4) <<< 3) ||| ((Convert.ToByte markers.M3) <<< 2)
         ||| ((Convert.ToByte markers.M2) <<< 1) ||| (Convert.ToByte markers.M1)
 
-[<RequireQualifiedAccess>]
 module Sample =
     /// Basic data form of IQ point.
     let empty = {
@@ -111,7 +109,6 @@ module Sample =
     /// Get a hash of a sample.
     let internal hash = toBytes >> Hash.bytes
 
-[<RequireQualifiedAccess>]
 module Segment =
     /// An empty segment, ready to have samples added to it.
     let empty = {
@@ -162,7 +159,6 @@ module Segment =
     /// Complete a segment, creating a waveform to write to the machine.
     let toWaveform segment = Segment (hash segment, segment)
 
-[<RequireQualifiedAccess>]
 module Sequence =
     /// An empty sequence, ready to have waveforms added to it.
     let empty = SequenceType List.empty

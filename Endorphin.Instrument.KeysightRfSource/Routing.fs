@@ -2,7 +2,6 @@
 
 open Endorphin.Core
 
-[<RequireQualifiedAccess>]
 module Routing =
     [<AutoOpen>]
     module private Parsing =

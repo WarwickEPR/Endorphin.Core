@@ -4,7 +4,6 @@ open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 
-[<RequireQualifiedAccess>]
 module ARB =
     /// The shortest length of time a pulse can be, measured in seconds.
     let shortestPulseDuration = (2.0e-8<s>)/3.0
@@ -47,7 +46,6 @@ module ARB =
     /// Turn off the ARB generator of the instrument.
     let turnOff = setState Off
 
-    [<RequireQualifiedAccess>]
     module Trigger =
         /// The default mode for the ARB triggering system.
         let private emptyMode = ArbContinuous FreeRun
