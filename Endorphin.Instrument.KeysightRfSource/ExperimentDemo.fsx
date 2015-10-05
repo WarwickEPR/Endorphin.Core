@@ -65,5 +65,5 @@ async {
     do! Experiment.playStored keysight storedExperiment
 
     // tidy up and close
-    do RfSource.closeInstrument |> ignore }
+    do! RfSource.closeInstrument keysight }
 |> Async.RunSynchronously
