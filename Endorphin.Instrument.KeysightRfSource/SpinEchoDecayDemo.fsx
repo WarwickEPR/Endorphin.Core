@@ -33,6 +33,7 @@ let experiment =
     Experiment.empty
     |> withPulseSeq pulses
     |> withRepetitions 128
+    |> withShotsPerPoint 128us
     |> withShotRepetitionTime 10e-6<s>
 
 // define the routing of the marker channels
