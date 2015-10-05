@@ -22,6 +22,9 @@ let marker3 = Markers.empty |> Markers.withMarker3 true
 
 // Define the pulse sequence.  We can use up to three marker channels (even though there are four), because
 // Endorphin needs one internally for the RF blanking pulse.
+
+// At the default (currently unchangeable in experiment mode) ARB clock rate, one sample is equal to
+// 1/(150Mhz), or 6.67ns.
 let pulses = seq {
     // pi/2 pulse
     yield Pulse.rf equalIQ 60u
@@ -48,6 +51,7 @@ let routing =
     |> Routing.withBasebandTrigger1 RouteMarker1
     |> Routing.withBasebandTrigger2 RouteMarker2
     |> Routing.withEvent1           RouteMarker3
+    // the markers default to positive polarity, but let's be on the safe side
     |> Routing.withMarker1Polarity  Positive
     |> Routing.withMarker2Polarity  Positive
     |> Routing.withMarker3Polarity  Positive
