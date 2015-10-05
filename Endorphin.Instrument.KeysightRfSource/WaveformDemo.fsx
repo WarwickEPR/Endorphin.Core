@@ -62,6 +62,9 @@ async {
     let! storedSequence1 = Waveform.store keysight sequence1
     let! storedSequence2 = Waveform.store keysight sequence2
 
+    // begin playback on a stored waveform
+    do! Waveform.playStored keysight storedSequence1
+
     // delete a single waveform file
     do! Waveform.delete keysight storedSegment2
 
