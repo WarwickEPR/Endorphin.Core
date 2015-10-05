@@ -47,18 +47,16 @@ let sequence2 =
 async {
     let! keysight = RfSource.openInstrument "TCPIP0::192.168.1.2" 10000<ms>
 
-    let! storedSegment1 = storeWaveform keysight segment1
-    let! storedSegment2 = storeWaveform keysight segment2
+    let! storedSegment1 = Waveform.store keysight segment1
+    let! storedSegment2 = Waveform.store keysight segment2
 
-    let! storedSequence1 = storeWaveform keysight sequence1
-    let! storedSequence2 = storeWaveform keysight sequence2
+    let! storedSequence1 = Waveform.store keysight sequence1
+    let! storedSequence2 = Waveform.store keysight sequence2
 
-    // do! deleteStoredWaveform keysight storedSegment2
-    // do! deleteStoredWaveform keysight storedSequence2
-
-    // do! deleteAllStoredSegments keysight
-    // do! deleteAllStoredSequences keysight
-    // do! deleteAllStoredWaveforms keysight
+    // do! Waveform.delete keysight storedSegment2
+    // do! Waveform.Segment.deleteAll  keysight
+    // do! Waveform.Sequence.deleteAll keysight
+    // do! Waveform.deleteAll          keysight
 
     do RfSource.closeInstrument |> ignore }
 |> Async.RunSynchronously

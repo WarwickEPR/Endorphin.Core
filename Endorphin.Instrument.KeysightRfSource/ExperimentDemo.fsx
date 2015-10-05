@@ -55,10 +55,10 @@ async {
     do! ARB.Trigger.set keysight <| ARB.Trigger.continuous FreeRun
 
     // store the experiment on the machine
-    let! storedExperiment = storeExperiment keysight experiment
+    let! storedExperiment = Experiment.store keysight experiment
 
     // play the experiment
-    do! playStoredWaveform keysight storedExperiment.StoredExperiment
+    do! Experiment.playStored keysight storedExperiment
 
     // tidy up and close
     do RfSource.closeInstrument |> ignore }
