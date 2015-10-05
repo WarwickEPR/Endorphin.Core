@@ -58,7 +58,8 @@ module Routing =
             | "M3"   -> RouteMarker3 :> IMarkerSignal
             | "M4"   -> RouteMarker4 :> IMarkerSignal
             | "NONE" -> NoSignal     :> IMarkerSignal
-            | _ -> failwithf "Unexpted marker signal string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpted marker signal string: %s" str
 
         /// Convert a machine representation of a user output route into an internal representation.
         let parseUserSignal str =
@@ -69,7 +70,8 @@ module Routing =
             | "M4"    -> RouteMarker4 :> IUserSignal
             | "AUX29" -> RouteAux29   :> IUserSignal
             | "NONE"  -> NoSignal     :> IUserSignal
-            | _ -> failwithf "Unexpected user output signal string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected user output signal string: %s" str
 
         /// Convert an internal representation of a common system routing into a machine representation.
         let private systemSignalCommonString = function
@@ -114,7 +116,8 @@ module Routing =
             | "SWE" | "SWEEP"     -> RouteSweepOut          :> ISweepOutSignal
             | "SRUN"              -> RouteSweepRun          :> ISweepOutSignal
             | "NONE"              -> NoSignal               :> ISweepOutSignal
-            | _ -> failwithf "Unexpected sweep out signal string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected sweep out signal string: %s" str
 
         /// Convert a machine representation of a trigger routing into an internal representation.
         let parseTriggerSignal str =
@@ -129,7 +132,8 @@ module Routing =
             | "TRIG" | "TRIGGER1" | "TRIGGER2"
                                   -> RouteOtherTrigger      :> ITriggerSignal
             | "NONE"              -> NoSignal               :> ITriggerSignal
-            | _ -> failwithf "Unexpected trigger signal string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected trigger signal string: %s" str
 
         /// Convert a machine representation of a user BNC routing into an internal representation.
         let parseUserBncSignal str =
@@ -141,7 +145,8 @@ module Routing =
                                      -> RouteEvent1  :> IUserBncSignal
             | "PTR" | "PTRIGGER"     -> RoutePatternTrigger :> IUserBncSignal
             | "NONE"                 -> NoSignal     :> IUserBncSignal
-            | _ -> failwithf "Unexpected user BNC signal string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected user BNC signal string: %s" str
 
         /// Convert an internal representation of an output routing into a machine representation.
         let signalString (signal : ISignal) =

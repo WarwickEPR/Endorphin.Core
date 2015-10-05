@@ -16,7 +16,7 @@ module Source =
             | "EXT1" -> ExternalPort EXT1
             | "EXT2" -> ExternalPort EXT2
             | "FUNCTION1" -> InternalGenerator Function1
-            | str -> failwithf "Unexpected source: %s" str
+            | str -> raise << UnexpectedReplyException <| sprintf "Unexpected source: %s" str
 
     module Control =
         open Translate
@@ -55,7 +55,8 @@ module Source =
                     | "TRI" | "TRIANGLE" -> return Triangle
                     | "SQU" | "SQUARE"   -> return Square
                     | "RAMP"             -> return! getRamp
-                    | _                  -> return failwithf "Unexpected function shape type string: %s" str }
+                    | _                  -> return raise << UnexpectedReplyException
+                                                   <| sprintf "Unexpected function shape type string: %s" str }
 
             /// Set the shape of the function generator.
             let internal setShape prefix fg rfSource (shape : FunctionShape) = 

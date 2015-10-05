@@ -32,7 +32,7 @@ module Modulation =
             match String.toUpper str with
             | "LIN" | "LINEAR" -> LinearType
             | "EXP" | "EXPONENTIAL" -> ExponentialType
-            | str -> failwithf "Unexpected depth type: %s" str
+            | str -> raise << UnexpectedReplyException <| sprintf "Unexpected depth type: %s" str
 
         /// Convert the internal representation of the depth type into the machine
         /// representation.
