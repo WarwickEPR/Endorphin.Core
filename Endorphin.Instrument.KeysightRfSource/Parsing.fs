@@ -7,14 +7,14 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 [<AutoOpen>]
 module internal Parsing =
     /// Convert a string containing a number into a power in dBm.
-    let parseAmplitudeInDbm (str : string) = PowerInDbm (float str * 1.0<dBm>)
+    let parseAmplitudeInDbm (str : string) = Power_dBm (float str * 1.0<dBm>)
     /// Convert an amplitude in dBm into a string representation.
-    let amplitudeString (PowerInDbm amplitude) = sprintf "%e dBm" (float amplitude)
+    let amplitudeString (Power_dBm amplitude) = sprintf "%e dBm" (float amplitude)
 
     /// Convert a string containing a number into a frequence in Hz.
-    let parseFrequencyInHz (str : string) = FrequencyInHz (float str * 1.0<Hz>)
+    let parseFrequencyInHz (str : string) = Frequency_Hz (float str * 1.0<Hz>)
     /// Convert a frequency in Hz into a string representation.
-    let frequencyString (FrequencyInHz frequency) = sprintf "%e Hz" (float frequency)        
+    let frequencyString (Frequency_Hz frequency) = sprintf "%e Hz" (float frequency)
 
     /// Convert a string containing a number into a phase in radians.
     let parsePhaseInRad (str : string) = Phase_rad (float str * 1.0<rad>)

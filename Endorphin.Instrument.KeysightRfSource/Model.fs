@@ -30,9 +30,9 @@ module Model =
     [<AutoOpen>]
     module Quantities =
         /// An absolute amplitude of a signal, given as a float type with units of dBm.
-        type Amplitude = PowerInDbm of float<dBm>
+        type Amplitude = Power_dBm of float<dBm>
         /// A frequency for a signal, given as a float type with units of Hz.
-        type Frequency = FrequencyInHz of float<Hz>
+        type Frequency = Frequency_Hz of float<Hz>
 
         /// A phase for an I/Q signal, either in radians or degrees.
         type Phase =
@@ -472,18 +472,14 @@ module Model =
             Pulses : Pulse seq
             Repetitions : int
             ShotRepetitionTime : Duration
-            ShotsPerPoint : uint16
-            Frequencies : Frequency seq
-            Power  : Amplitude }
+            ShotsPerPoint : uint16 }
 
         /// The data associated with a stored experiment - its name and dependencies.
         type StoredExperiment = {
             StoredExperiment : StoredWaveform
             StoredPoints     : StoredWaveform array
             StoredWaveforms  : StoredWaveform array
-            RfBlankRoute     : UserSignalMarker
-            Frequencies      : Frequency seq
-            Power            : Amplitude }
+            RfBlankRoute     : UserSignalMarker }
 
     /// A complete record of settings for the Keysight box, based on the sweep/modulation model.
     type KeysightRfSettings = {

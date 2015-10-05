@@ -229,9 +229,7 @@ module Control =
                 StoredExperiment = storedExperiment
                 StoredPoints     = storedPoints
                 StoredWaveforms  = Array.append storedSegments storedSequences
-                RfBlankRoute     = encoded.Metadata.RfBlankMarker
-                Frequencies      = encoded.Metadata.Frequencies
-                Power            = encoded.Metadata.Power } }
+                RfBlankRoute     = encoded.Metadata.RfBlankMarker } }
 
         /// Play a previously stored experiment through the dual ARB system.
         let playStored instrument experiment = Waveform.playStored instrument experiment.StoredExperiment

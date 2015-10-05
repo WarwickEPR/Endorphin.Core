@@ -9,7 +9,7 @@ module ARB =
     /// The shortest length of time a pulse can be, measured in seconds.
     let shortestPulseDuration = (2.0e-8<s>)/3.0
     /// The default clock rate for the dual ARB system.
-    let defaultClockFrequency = FrequencyInHz 150.0e6<Hz>
+    let defaultClockFrequency = Frequency_Hz 150.0e6<Hz>
 
     /// Key for use with the dual ARB clock frequency.
     /// Command reference p.344.

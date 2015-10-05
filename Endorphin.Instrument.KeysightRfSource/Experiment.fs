@@ -43,9 +43,7 @@ module Experiment =
         Pulses = Seq.empty
         Repetitions = 1
         ShotRepetitionTime = Duration_sec 0.0<s>
-        ShotsPerPoint = 1us
-        Frequencies = [ FrequencyInHz 150e6<Hz> ]
-        Power = PowerInDbm 4.0<dBm> }
+        ShotsPerPoint = 1us }
 
     /// Append a pulse to an experiment.
     let withPulse pulse (experiment : Experiment) =
@@ -93,18 +91,6 @@ module Experiment =
     /// Set the number of shots per point.
     let withShotsPerPoint shots (experiment : Experiment) =
         { experiment with ShotsPerPoint = shots }
-
-    /// Set an experiment to run at the single set carrier frequency (given in Hz).
-    let withCarrierFrequency frequency (experiment : Experiment) =
-        { experiment with Frequencies = [ FrequencyInHz frequency ] }
-
-    /// Set an experiment to run at a sweep of carrier frequencies (given in Hz).
-    let withCarrierFrequencySweep frequencies (experiment : Experiment) =
-        { experiment with Frequencies = Seq.map FrequencyInHz frequencies }
-
-    /// Set an experiment to run at the specified carrier wave power (in dBm).
-    let withCarrierPower power (experiment : Experiment) =
-        { experiment with Power = PowerInDbm power }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -202,11 +188,6 @@ module Experiment =
                 if experiment.ShotsPerPoint = 0us then invalidArg "Shots per point" "Must have at least 1 shot per point!"
                 else ()
 
-            /// Check that the frequencies in an experiment are valid.
-            let private frequencies (experiment : Experiment) =
-                if Seq.isEmpty experiment.Frequencies then invalidArg "Frequencies" "Must have at least one frequency"
-                else ()
-
             /// Get the duration of a pulse.
             let private pulseLength = function
                 | Rf (_, SampleCount dur, _) -> dur
@@ -297,9 +278,7 @@ module Experiment =
                     RfPhaseCount = rfPhaseCount
                     RfBlankMarker = rfBlankMarker
                     ShotRepetitionTime = shotRepCount
-                    ShotsPerPoint = experiment.ShotsPerPoint
-                    Frequencies = experiment.Frequencies
-                    Power = experiment.Power } }
+                    ShotsPerPoint = experiment.ShotsPerPoint }}
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
@@ -307,7 +286,6 @@ module Experiment =
                 repetitions experiment
                 rfSpacing experiment
                 shotsPerPoint experiment
-                frequencies experiment
                 let experiment' = updateExperimentPulses experiment
                 checkMinimumLength experiment'
                 toVerifiedExperiment experiment'

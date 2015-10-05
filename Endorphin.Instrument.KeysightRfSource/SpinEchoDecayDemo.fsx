@@ -54,6 +54,11 @@ async {
     // set the triggering of the ARB
     do! ARB.Trigger.set keysight <| ARB.Trigger.continuous FreeRun
 
+    // set the frequency of the carrier wave
+    do! setCarrierFrequency keysight <| Frequency_Hz 150e6<Hz>
+    // set the power of the carrier wave
+    do! setCarrierAmplitude keysight <| Power_dBm 4.0<dBm>
+
     // store the experiment on the machine
     let! storedExperiment = Experiment.store keysight experiment
 
