@@ -260,4 +260,8 @@ module Control =
             stored.StoredExperiment
             |> extractStoredWaveformId
             |> printfn "%s"
+
+        /// Print out the filename of a stored experiment.
+        let experimentFile stored =
+            printfn "%s" (storedWaveformFilename stored.StoredExperiment)
 #endif

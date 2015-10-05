@@ -57,6 +57,10 @@ async {
     // store the experiment on the machine
     let! storedExperiment = Experiment.store keysight experiment
 
+    // if we want to change anything before we begin playback, this tells us which file
+    // holds the experiment - only exists when the library is compiled in debug mode
+    do Print.experimentFile storedExperiment
+
     // play the experiment
     do! Experiment.playStored keysight storedExperiment
 
