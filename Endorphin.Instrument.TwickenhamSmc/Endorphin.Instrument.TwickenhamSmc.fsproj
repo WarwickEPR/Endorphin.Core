@@ -57,6 +57,8 @@
     <Compile Include="MagnetController.fs" />
     <Compile Include="FieldTarget.fs" />
     <Compile Include="FieldSweep.fs" />
+    <None Include="FieldTargetDemo.fsx" />
+    <None Include="FieldSweepDemo.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
