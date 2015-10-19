@@ -100,8 +100,11 @@ module Units =
             let toPicoseconds  (t : float<fs>) = t * picosecondsPerFemtosecond
 
     /// Binary bits.
-    [<Measure>] type bits
+    [<Measure>] type bit
     
+    /// Number of digital steps.
+    [<Measure>] type step
+
     /// Decimal places.
     [<Measure>] type dp
 
