@@ -50,11 +50,6 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Parameters.fs" />
-    <Compile Include="MagnetController.fs" />
-    <Compile Include="MagnetControllerSession.fs" />
-    <Compile Include="RampWorker.fs" />
-    <Compile Include="StaticFieldWorker.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net">
