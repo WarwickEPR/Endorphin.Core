@@ -40,9 +40,9 @@ module internal IO =
             let parts = str.Split ([|','|], 2) // split only on the first comma
             if Array.length parts <> 2 then raise << UnexpectedReply <| sprintf "Unexpected error string: %s." str
         
-            match parts.[0] with
-            | String.ParseInteger code -> { Code = code ; Message = parts.[1] }
-            | _                        -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
+            match System.Int32.TryParse parts.[0] with
+            | (true, code) -> { Code = code ; Message = parts.[1] }
+            | _            -> raise << UnexpectedReply <| sprintf "Unexpected error code string: %s." parts.[0]
 
         /// Format an error type nicely as a string.
         let private errorString error = sprintf "%d: %s" error.Code error.Message
@@ -181,7 +181,7 @@ module internal IO =
         /// Open an instrument for communication at the given VISA address, with a specified
         /// timeout in milliseconds.
         let openInstrument visaAddress timeout = async {
-            let visaInstrument = Visa.openInstrument visaAddress timeout
+            let visaInstrument = Visa.openInstrument visaAddress timeout None
             let rfSource = RfSource <| visaInstrument
             let! _ = Identify.identity rfSource
             let! _ = Error.queryErrorQueue rfSource // clear the error queue before doing anything

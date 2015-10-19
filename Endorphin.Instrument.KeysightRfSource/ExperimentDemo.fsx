@@ -8,12 +8,12 @@ open Control
 
 let cycle1 =
     Phase.empty
-    |> Phase.add (PhaseInRad 0.0<rad>)
-    |> Phase.add (PhaseInDeg 90.0<deg>)
+    |> Phase.add (Phase_rad 0.0<rad>)
+    |> Phase.add (Phase_deg 90.0<deg>)
 
 let cycle2 =
     Phase.empty
-    |> Phase.addSeq [| for i in 1 .. 2 -> PhaseInDeg (float i * 90.0<deg>) |]
+    |> Phase.addSeq [| for i in 1 .. 2 -> Phase_deg (float i * 90.0<deg>) |]
 
 let marker1 = Markers.empty |> Markers.withMarker1 true
 let markers1And3 = marker1  |> Markers.withMarker3 true
@@ -42,5 +42,5 @@ async {
     do! deleteAllStoredSequences keysight
     *)
 
-    do RfSource.closeInstrument |> ignore }
+    do! RfSource.closeInstrument keysight }
 |> Async.RunSynchronously

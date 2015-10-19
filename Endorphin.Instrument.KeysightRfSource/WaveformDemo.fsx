@@ -60,5 +60,5 @@ async {
     // do! deleteAllStoredSequences keysight
     // do! deleteAllStoredWaveforms keysight
 
-    do RfSource.closeInstrument |> ignore }
+    do! RfSource.closeInstrument keysight }
 |> Async.RunSynchronously

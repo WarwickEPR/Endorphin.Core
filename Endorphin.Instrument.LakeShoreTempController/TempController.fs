@@ -2,7 +2,7 @@
 
 open Endorphin.Core
 
-/// Fnctions posting commands and performs queries to a LakeShore model 325 temperature
+/// Functions posting commands and performs queries to a LakeShore model 325 temperature
 /// controller. 
 module TempController =
     
@@ -12,10 +12,14 @@ module TempController =
     /// Open the temperature controller at the specified VISA address with the specified 
     /// timeout for commands.
     let openInstrument visaAddress timeout = async {
-        let visaInstrument = Visa.openInstrument visaAddress timeout
+        let visaInstrument = Visa.openInstrument visaAddress timeout None
         let tempController = TempController <| visaInstrument
         let! _ = queryIdentity tempController
         return tempController }
+
+    /// Asynchronously close the connection to the given temperature controller.
+    let closeInstrument (TempController tempController) =
+        Visa.closeInstrument tempController
     
     /// Querry the current temperature readout for the specified control loop on the
     /// temperature controller.
