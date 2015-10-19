@@ -52,6 +52,8 @@
   <ItemGroup>
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="Keys.fs" />
+    <Compile Include="IO.fs" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
