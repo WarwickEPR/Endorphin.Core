@@ -103,17 +103,25 @@ let experiment = async {
     // connect to the temperature controller
     let! tempController = TempController.openInstrument visaAdddress 3000<ms>
 
-    // add the live chart to the form
-    do! showTimeChart ()
+    try
+        // add the live chart to the form
+        do! showTimeChart ()
 
-    // set the initial set point and enable the specified PID settings
-    do! TempController.setSetPoint tempController controlLoop initialSetPoint
-    do! TempController.setPidSettings tempController controlLoop pidSettings
-    do! TempController.setControlMode tempController controlLoop ManualPid
+        // set the initial set point and enable the specified PID settings
+        do! TempController.setSetPoint tempController controlLoop initialSetPoint
+        do! TempController.setPidSettings tempController controlLoop pidSettings
+        do! TempController.setControlMode tempController controlLoop ManualPid
 
-    // start a workflow which will change the set point after the specified delay and begin
-    // monitoring the temperature and heater output
-    Async.Start (setSetPoint tempController setPointDelay finalSetPoint |> Async.Ignore)
-    do! monitorController tempController measurementRepeats measurementInterval }
+        // start a workflow which will change the set point after the specified delay and begin
+        // monitoring the temperature and heater output
+        Async.Start (setSetPoint tempController setPointDelay finalSetPoint |> Async.Ignore)
+        do! monitorController tempController measurementRepeats measurementInterval
+    
+    finally 
+        Async.StartWithContinuations(
+            TempController.closeInstrument tempController,
+            (fun ()  -> printfn "Successfully closed connection to temperature controller."),
+            (fun exn -> printfn "Failed to close connection to temperature controller: %s" exn.Message),
+            ignore) }
 
 Async.RunSynchronously experiment

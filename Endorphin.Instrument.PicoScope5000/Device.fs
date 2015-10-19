@@ -13,11 +13,11 @@ module Resolution =
     /// Returns the value of the resolution in bits.
     let valueInBits =
         function
-        | Resolution_8bit  ->  8<bits>
-        | Resolution_12bit -> 12<bits>
-        | Resolution_14bit -> 14<bits>
-        | Resolution_15bit -> 15<bits>
-        | Resolution_16bit -> 16<bits>
+        | Resolution_8bit  ->  8<bit>
+        | Resolution_12bit -> 12<bit>
+        | Resolution_14bit -> 14<bit>
+        | Resolution_15bit -> 15<bit>
+        | Resolution_16bit -> 16<bit>
 
     /// Returns a set of available channels for the given resolution. Note that fewer
     /// channels may be available depending on the device model, power source and

@@ -1,4 +1,7 @@
 ﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
+#r "../packages/Rx-Core.2.2.5/lib/net45/System.Reactive.Core.dll"
+#r "../packages/Rx-Interfaces.2.2.5/lib/net45/System.Reactive.Interfaces.dll"
+#r "../packages/Rx-Linq.2.2.5/lib/net45/System.Reactive.Linq.dll"
 #r "../packages/FSharp.Control.Reactive.3.2.0/lib/net40/FSharp.Control.Reactive.dll"
 #r "../packages/FSharp.Charting.0.90.12/lib/net40/FSharp.Charting.dll"
 #r "bin/Debug/Endorphin.Instrument.PicoScope5000.dll"

@@ -41,8 +41,8 @@ module Visa =
         /// end characters with "..." if necessary.
         let private truncate (str : string) =
             let length = 75
-            if str.Length <= length then str
-            else sprintf "%s..." str.[0 .. length - 4]
+            if str.Length <= length then str |> String.trimEnd [| '\r' ; '\n' |]
+            else sprintf "%s..." str.[0 .. length - 4] |> String.trimEnd [| '\r' ; '\n' |]
 
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
@@ -122,8 +122,9 @@ module Visa =
         /// Query a VISA instrument for a reply of a byte array, using a string as a query.
         let private queryBytes  instrument query = queryGeneric readBytes  instrument query
 
-        /// Create an agent for communication with a VISA instrument.
-        let create visaId (timeout : int<ms>) =
+        /// Create an agent for communication with a VISA instrument. The optional write delay is used to
+        /// delay further communication with the hardware after each write command for a specified period.
+        let create visaId (timeout : int<ms>) (writeDelay : int<ms> option) =
             let instrument = openSession visaId timeout
             Agent.Start (fun (mailbox : Agent<Message>) ->
                 /// The log to write commands in the agent to.
@@ -150,32 +151,11 @@ module Visa =
                     response |> replyChannel.Reply
                     logResponse description unitString response }
 
-                /// Loop through any remaining messages in the agent's queue, printing their contents to
-                /// the log.
-                let rec failed error = async {
-                    let! message = mailbox.Receive ()
-                    let desc = description message
-                    let logMessage =
-                        sprintf "After communication failed because of \"%s\", a message was received to \"%s\"" error desc
-
-                    match message with
-                    | Close replyChannel -> do! close desc replyChannel
-                    | WriteString _
-                    | WriteBytes  _ ->
-                        logMessage |> log.Error
-                        return! failed error
-
-                    | ReadString replyChannel
-                    | QueryString (_, replyChannel) ->
-                        logMessage |> log.Error
-                        Choice.fail (Exception logMessage) |> replyChannel.Reply
-                        return! failed error
-
-                    | ReadBytes replyChannel
-                    | QueryBytes (_, replyChannel) ->
-                        logMessage |> log.Error
-                        Choice.fail (Exception logMessage) |> replyChannel.Reply
-                        return! failed error }
+                /// Asynchronously sleeps for the write delay if one is specified.
+                let writeSleep () = async {
+                    match writeDelay with
+                    | Some delay -> do! Async.Sleep (int delay)
+                    | None       -> return () }
 
                 /// Loop through messages waiting in the mailbox of the agent, passing them onto the
                 /// VISA instrument.
@@ -184,54 +164,53 @@ module Visa =
                     let desc = description message
                     do sprintf "Received message \"%s\"" desc |> log.Info
 
-                    let continueLoop = function
-                        | Success _           -> loop ()
-                        | Failure (exn : exn) ->
-                            let error = sprintf "Communication with instrument failed with message \"%s\"" exn.Message
-                            error |> log.Error
-                            failed error
-
                     match message with
                         | ReadString reply ->
                             let! result = readString instrument |> Async.map removeTerminators
                             result |> reply.Reply
                             logResponse desc passthrough result
-                            return! continueLoop result
+                            return! loop ()
 
                         | ReadBytes reply ->
                             let! result = readBytes instrument
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
-                            return! continueLoop result
+                            return! loop ()
 
                         | WriteString msg ->
                             let! result = writeString instrument msg
-                            return! continueLoop result
+                            do! writeSleep ()
+                            return! loop ()
 
                         | WriteBytes msg ->
                             let! result = writeBytes instrument msg
-                            return! continueLoop result
+                            do! writeSleep ()
+                            return! loop ()
 
                         | QueryString (query, reply) ->
                             let! result = queryString instrument query |> Async.map removeTerminators
                             result |> reply.Reply
                             logResponse desc passthrough result
-                            return! continueLoop result
+                            return! loop ()
 
                         | QueryBytes (query, reply) ->
                             let! result = queryBytes instrument query
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
-                            return! continueLoop result
+                            return! loop ()
 
                         | Close reply ->
                             do! close desc reply }
-                loop () |> Async.map ignore)
+                
+                async { 
+                    do! writeSleep()
+                    return! loop () } )
 
     /// Open a VISA instrument with the given VISA identifier address and a timeout in milliseconds to
-    /// wait for each raw command.
-    let openInstrument visaId (timeout : int<ms>) =
-        let agent = Agent.create visaId timeout
+    /// wait for each raw command. The optional write delay is used to delay further communication with
+    /// the hardware after each write command for a specified period.
+    let openInstrument visaId timeout writeDelay =
+        let agent = Agent.create visaId timeout writeDelay
 
         let queryString visaCommand = agent.PostAndAsyncReply(fun replyChannel -> QueryString(visaCommand, replyChannel))
         let readString () = agent.PostAndAsyncReply ReadString
@@ -250,9 +229,7 @@ module Visa =
           Close       = close }
 
     /// Close the connection to a VISA instrument.
-    let closeInstrument instrument = async {
-        let! result = instrument.Close ()
-        return Choice.bindOrRaise result }
+    let closeInstrument instrument = instrument.Close () |> Async.map Choice.bindOrRaise
 
     module String =
         /// Read a string that the VISA instrument is broadcasting.

@@ -24,7 +24,7 @@ let fun3 = internalGeneralSourceInHz 1.0e5<Hz> (Ramp Positive) (degreesToRadians
 let functionSource frequency = InternalSource ( Function1,
                                                 { Shape = Sine
                                                   Frequency = frequency
-                                                  PhaseOffset = PhaseInRad 0.0<rad> } )
+                                                  PhaseOffset = Phase_rad 0.0<rad> } )
 
 let test = { Depth = depthInPercentage (Percentage 50.0<pct>) }
  
@@ -45,7 +45,7 @@ let sweepExperiment startFrequency stopFrequency =
             frequencyStepSweepInHz startFrequency stopFrequency
             |> withPoints 200
             |> withFixedPowerInDbm -3.0<dBm>
-            |> withDwellTime (Some (DurationInSec 1e-2<s>))   
+            |> withDwellTime (Some (Duration_sec 1e-2<s>))   
 
         printfn "\nSetting up experiment:\n%A" sweepSettings
 //        do! Sweep.Apply.stepSweep keysight sweepSettings
@@ -63,7 +63,7 @@ let sweepExperiment startFrequency stopFrequency =
         //let! amplitude = queryCwAmplitude keysight
         //printfn "%A" amplitude 
         
-        do RfSource.closeInstrument keysight |> ignore }
+        do! RfSource.closeInstrument keysight }
 
 
 let out = sweepExperiment 1.0e9<Hz> 2.0e9<Hz>
