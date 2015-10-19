@@ -41,8 +41,8 @@ module Visa =
         /// end characters with "..." if necessary.
         let private truncate (str : string) =
             let length = 75
-            if str.Length <= length then str
-            else sprintf "%s..." str.[0 .. length - 4]
+            if str.Length <= length then str |> String.trimEnd [| '\r' ; '\n' |]
+            else sprintf "%s..." str.[0 .. length - 4] |> String.trimEnd [| '\r' ; '\n' |]
 
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
