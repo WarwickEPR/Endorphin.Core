@@ -55,6 +55,7 @@
     <Compile Include="Keys.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="MagnetController.fs" />
+    <Compile Include="FieldTarget.fs" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
