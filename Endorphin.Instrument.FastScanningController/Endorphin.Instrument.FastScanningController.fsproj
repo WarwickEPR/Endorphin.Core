@@ -46,11 +46,19 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Model.fs" />
     <None Include="Script.fsx" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="ScanningController.fs" />
+    <Compile Include="IO.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">
       <Name>Endorphin.Core</Name>
       <Project>{b1887520-0f25-4ff4-958e-12b964df20f9}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Endorphin.Utilities.Position\Endorphin.Utilities.Position.fsproj">
+      <Name>Endorphin.Utilities.Position</Name>
+      <Project>{7b4e58c2-4351-4969-80e2-60abfe773baf}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

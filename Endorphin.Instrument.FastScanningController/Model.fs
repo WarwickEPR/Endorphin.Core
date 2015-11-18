@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Instrument.FastScanningController
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+open Endorphin.Core
 
 
 [<AutoOpen>]
@@ -20,6 +21,4 @@ module Model =
                   Y     : decimal<m/V>
                   Z     : decimal<m/V> }
 
-    type ScanningController = internal { PortName : string; Calibration : PositionCalibration }
-
-
+    type ScanningController = internal ScanningController of scanningController : Visa.Instrument * settings : PositionCalibration
