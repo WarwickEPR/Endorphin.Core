@@ -4,7 +4,6 @@ open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
-[<RequireQualifiedAccess>]
 module Phase =
     /// A phase for use when we don't care what the phase actually is.
     let internal unused = Phase_rad 0.0<rad>
@@ -26,6 +25,34 @@ module Phase =
         |> Array.append (Array.ofSeq phases)
         |> PhaseCycle
 
+module Pulse =
+    /// Create an RF pulse to an experiment with an increment each repetition.
+    let rfWithIncrement phases duration increment =
+        Rf (phases, SampleCount duration, SampleCount increment)
+
+    /// Create an RF pulse to an experiment with no increment.
+    let rf phases duration = rfWithIncrement phases duration 0u
+
+    /// Create a delay between pulses to the experiment, with an increment each repetition.
+    let delayWithIncrement duration increment =
+        Delay (SampleCount duration, SampleCount increment)
+
+    /// Create a single delay pulse to an experiment, the same length each repetition.
+    let delay duration = delayWithIncrement duration 0u
+
+    /// Create a marker pulse with set markers and an incremement each repetition to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let markerWithIncrement markers duration increment =
+        Marker (markers, SampleCount duration, SampleCount increment)
+
+    /// Create a marker pulse with set markers to an experiment, which is the same length each repetition.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let marker markers duration = markerWithIncrement markers duration 0u
+
+    /// Create a single-sample trigger pulse on the given markers to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let trigger markers = marker markers 1u
+
 module Experiment =
     /// Pre-computed coefficients for the FIR filter.
     let internal riseCoefficients =
@@ -43,44 +70,15 @@ module Experiment =
         Pulses = Seq.empty
         Repetitions = 1
         ShotRepetitionTime = Duration_sec 0.0<s>
-        ShotsPerPoint = 1us
-        Frequencies = [ FrequencyInHz 150e6<Hz> ]
-        Power = PowerInDbm 4.0<dBm> }
+        ShotsPerPoint = 1us }
 
-    /// Append a pulse to an experiment.
+    /// Yield the same experiment, but with the given pulse as its sequence.
     let withPulse pulse (experiment : Experiment) =
         { experiment with Pulses = seq { yield pulse } }
 
-    /// Append a pulse sequence to an experiment.
+    /// Yield the same experiment, but with the given pulse sequence as its sequence.
     let withPulseSeq pulses (experiment : Experiment) =
         { experiment with Pulses = pulses }
-
-    /// Add an RF pulse to an experiment with an increment each repetition.
-    let rfWithIncrement phases duration increment =
-        Rf (phases, SampleCount duration, SampleCount increment)
-
-    /// Add an RF pulse to an experiment with no increment.
-    let rf phases duration = rfWithIncrement phases duration 0u
-
-    /// Add a delay between pulses to the experiment, with an increment each repetition.
-    let delayWithIncrement duration increment =
-        Delay (SampleCount duration, SampleCount increment)
-
-    /// Add a single delay pulse to an experiment, the same length each repetition.
-    let delay duration = delayWithIncrement duration 0u
-
-    /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
-    /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let markerWithIncrement markers duration increment =
-        Marker (markers, SampleCount duration, SampleCount increment)
-
-    /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
-    /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let marker markers duration = markerWithIncrement markers duration 0u
-
-    /// Add a single-sample trigger pulse on the given markers to an experiment.
-    /// At least one marker must be left blank throughout for internal use by Endorphin.
-    let trigger markers = marker markers 1u
 
     /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
     let withRepetitions reps (experiment : Experiment) =
@@ -93,18 +91,6 @@ module Experiment =
     /// Set the number of shots per point.
     let withShotsPerPoint shots (experiment : Experiment) =
         { experiment with ShotsPerPoint = shots }
-
-    /// Set an experiment to run at the single set carrier frequency (given in Hz).
-    let withCarrierFrequency frequency (experiment : Experiment) =
-        { experiment with Frequencies = [ FrequencyInHz frequency ] }
-
-    /// Set an experiment to run at a sweep of carrier frequencies (given in Hz).
-    let withCarrierFrequencySweep frequencies (experiment : Experiment) =
-        { experiment with Frequencies = Seq.map FrequencyInHz frequencies }
-
-    /// Set an experiment to run at the specified carrier wave power (in dBm).
-    let withCarrierPower power (experiment : Experiment) =
-        { experiment with Power = PowerInDbm power }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -202,11 +188,6 @@ module Experiment =
                 if experiment.ShotsPerPoint = 0us then invalidArg "Shots per point" "Must have at least 1 shot per point!"
                 else ()
 
-            /// Check that the frequencies in an experiment are valid.
-            let private frequencies (experiment : Experiment) =
-                if Seq.isEmpty experiment.Frequencies then invalidArg "Frequencies" "Must have at least one frequency"
-                else ()
-
             /// Get the duration of a pulse.
             let private pulseLength = function
                 | Rf (_, SampleCount dur, _) -> dur
@@ -297,9 +278,7 @@ module Experiment =
                     RfPhaseCount = rfPhaseCount
                     RfBlankMarker = rfBlankMarker
                     ShotRepetitionTime = shotRepCount
-                    ShotsPerPoint = experiment.ShotsPerPoint
-                    Frequencies = experiment.Frequencies
-                    Power = experiment.Power } }
+                    ShotsPerPoint = experiment.ShotsPerPoint }}
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
@@ -307,7 +286,6 @@ module Experiment =
                 repetitions experiment
                 rfSpacing experiment
                 shotsPerPoint experiment
-                frequencies experiment
                 let experiment' = updateExperimentPulses experiment
                 checkMinimumLength experiment'
                 toVerifiedExperiment experiment'

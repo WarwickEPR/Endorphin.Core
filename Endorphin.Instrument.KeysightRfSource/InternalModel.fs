@@ -41,11 +41,7 @@ module internal InternalModel =
             /// How long to wait before firing the next shot.
             ShotRepetitionTime : SampleCount
             /// How many shots to take at each point.
-            ShotsPerPoint : uint16
-            /// What frequencies to run the experiment at.
-            Frequencies : Frequency seq
-            /// What power to run the experiment at.
-            Power : Amplitude }
+            ShotsPerPoint : uint16 }
 
         // No need for type aliases here because there's no other step which uses similar types
         /// A single pulse which can be easily converted into a single segment, for use after the

@@ -4,12 +4,11 @@ open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 
-[<RequireQualifiedAccess>]
 module ARB =
     /// The shortest length of time a pulse can be, measured in seconds.
     let shortestPulseDuration = (2.0e-8<s>)/3.0
     /// The default clock rate for the dual ARB system.
-    let defaultClockFrequency = FrequencyInHz 150.0e6<Hz>
+    let defaultClockFrequency = Frequency_Hz 150.0e6<Hz>
 
     /// Key for use with the dual ARB clock frequency.
     /// Command reference p.344.
@@ -47,7 +46,6 @@ module ARB =
     /// Turn off the ARB generator of the instrument.
     let turnOff = setState Off
 
-    [<RequireQualifiedAccess>]
     module Trigger =
         /// The default mode for the ARB triggering system.
         let private emptyMode = ArbContinuous FreeRun
@@ -75,7 +73,7 @@ module ARB =
         /// Set the mode of the ARB triggering system to "segment advance", with the given mode
         /// for received triggers.
         /// Also needs a trigger source to be set.
-        let segmentAdvace mode = ArbTrigger (ArbSegmentAdvance mode, None)
+        let segmentAdvance mode = ArbTrigger (ArbSegmentAdvance mode, None)
 
         /// Set the source of the ARB trigger to be the front-panel "Trigger" key.
         let byKey (ArbTrigger (mode, _)) = ArbTrigger (mode, Some ArbKey)
@@ -188,7 +186,8 @@ module ARB =
             | "FREE" -> FreeRun
             | "TRIG" | "TRIGGER" -> TriggerThenRun
             | "RES" | "RESET" -> ResetOnTrigger
-            | _ -> failwithf "Unexpected ARB continuous mode trigger type string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected ARB continuous mode trigger type string: %s" str
 
         /// Convert an internal representation of the single trigger retrigger mode of the dual
         /// ARB trigger system into a machine representation.
@@ -204,7 +203,8 @@ module ARB =
             | "ON"  | "1" -> BufferedRetrigger
             | "OFF" | "0" -> NoRetrigger
             | "IMM" | "IMMEDIATE" -> RestartRetrigger
-            | _ -> failwithf "Unexpected dual ARB retrigger string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected dual ARB retrigger string: %s" str
 
         /// Convert an internal representation of the segment advance type mode of the dual ARB
         /// triggering system into a machine representation.
@@ -218,7 +218,8 @@ module ARB =
             match String.toUpper str with
             | "SING" | "SINGLE" -> ArbSegmentAdvanceMode.SinglePlay
             | "CONT" | "CONTINUOUS" -> ContinuousPlay
-            | _ -> failwithf "Unexpected ARB segment advance mode trigger type string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected ARB segment advance mode trigger type string: %s" str
 
         /// Convert an internal representation of the physical location of an external dual ARB
         /// trigger into a machine representation.
@@ -232,7 +233,8 @@ module ARB =
             match String.toUpper str with
             | "EPT1" | "EPTRIGGER1" -> ArbBnc
             | "EPT2" | "EPTRIGGER2" -> ArbAux
-            | _ -> failwithf "Unexpected ARB external trigger source location string: %s" str
+            | _ -> raise << UnexpectedReplyException
+                   <| sprintf "Unexpected ARB external trigger source location string: %s" str
 
         /// Set the type of the ARB trigger to the given type.
         let private setModeType = IO.setValueString modeTypeString modeTypeKey
@@ -281,7 +283,8 @@ module ARB =
                     | "SADV" | "SADVANCE" ->
                         IO.queryKeyString parseSegmentAdvanceMode segmentAdvanceModeKey instrument
                         |> Async.map ArbSegmentAdvance
-                    | str -> failwithf "Unexpected ARB trigger type string: %s" str
+                    | str -> raise << UnexpectedReplyException
+                             <| sprintf "Unexpected ARB trigger type string: %s" str
             let! triggerType = IO.queryKeyString (fun str -> str) modeTypeKey instrument
             return! helper triggerType }
 
@@ -387,7 +390,7 @@ module ARB =
             let length = data.Length
             let digits = length.ToString().Length
             if digits >= 10 then
-                failwith "Can't write 1GB in one go!"
+                invalidArg "Data string size" "Can't write 1GB in one go!"
             Array.concat [
                 "#"B
                 Text.Encoding.ASCII.GetBytes(digits.ToString())

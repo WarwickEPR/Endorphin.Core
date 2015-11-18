@@ -32,7 +32,7 @@ module Modulation =
             match String.toUpper str with
             | "LIN" | "LINEAR" -> LinearType
             | "EXP" | "EXPONENTIAL" -> ExponentialType
-            | str -> failwithf "Unexpected depth type: %s" str
+            | str -> raise << UnexpectedReplyException <| sprintf "Unexpected depth type: %s" str
 
         /// Convert the internal representation of the depth type into the machine
         /// representation.
@@ -135,13 +135,13 @@ module Modulation =
         /// functions.
         let defaultFunctionSettings = {
             Shape = Sine
-            Frequency = FrequencyInHz 1.0e3<Hz>
+            Frequency = Frequency_Hz 1.0e3<Hz>
             PhaseOffset = Phase_rad 0.0<rad> }
         /// Change the shape of the given settings to match the new value.
         let withShape shape (settings : FunctionSettings) = { settings with Shape = shape }
         /// Change the frequency (in Hz) of the given settings to match the new value.
         let withFrequencyInHz frequency (settings : FunctionSettings) =
-            { settings with Frequency = FrequencyInHz frequency }
+            { settings with Frequency = Frequency_Hz frequency }
         /// Change the phase offset (in radians) of the given settings to match the
         /// new value.
         let withPhaseOffsetInRad phase (settings : FunctionSettings) =

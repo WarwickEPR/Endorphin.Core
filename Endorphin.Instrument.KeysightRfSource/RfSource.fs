@@ -3,7 +3,6 @@
 /// Command set of the Keysight RF instrument.
 /// Implements functions to modify & query configuration.
 /// Organised by subsystem mirroring the Keysight configuration.
-[<RequireQualifiedAccess>]
 module RfSource =
     /// Open an RfSource given a VISA address and timeout in milliseconds.
     let openInstrument  = IO.Connect.openInstrument

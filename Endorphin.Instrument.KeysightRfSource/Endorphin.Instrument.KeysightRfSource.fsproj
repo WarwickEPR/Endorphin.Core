@@ -73,7 +73,7 @@
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
     <None Include="WaveformDemo.fsx" />
-    <None Include="ExperimentDemo.fsx" />
+    <None Include="SpinEchoDecayDemo.fsx" />
     <None Include="Demo.fsx" />
     <None Include="app.config" />
     <Content Include="packages.config" />

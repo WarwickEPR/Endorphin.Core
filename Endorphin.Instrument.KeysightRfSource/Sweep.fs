@@ -346,14 +346,14 @@ module Sweep =
         open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
         /// Create an absolute value of fixed amplitude.
-        let fixedPowerInDbm power = FixedAmplitude <| PowerInDbm power
+        let fixedPowerInDbm power = FixedAmplitude <| Power_dBm power
         /// Create an amplitude sweep between two values, both in absolute dBm.
-        let powerSweepInDbm a b = AmplitudeSweep <| range (PowerInDbm a) (PowerInDbm b)
+        let powerSweepInDbm a b = AmplitudeSweep <| range (Power_dBm a) (Power_dBm b)
 
         /// Create a fixed frequency value in Hz.
-        let fixedFrequencyInHz frequency = FixedFrequency <| FrequencyInHz frequency
+        let fixedFrequencyInHz frequency = FixedFrequency <| Frequency_Hz frequency
         /// Create a frequency sweep between two values of frequency, both in Hz.
-        let frequencySweepInHz a b = FrequencySweep <| range (FrequencyInHz a) (FrequencyInHz b)
+        let frequencySweepInHz a b = FrequencySweep <| range (Frequency_Hz a) (Frequency_Hz b)
 
         /// A default set of options for a sweep.  These are the values the machine uses after a
         /// (*RST) command.

@@ -11,7 +11,8 @@ module Triggering =
             | "TRIG1" | "TRIGGER1" -> Trigger1
             | "TRIG2" | "TRIGGER2" -> Trigger2
             | "PULS" | "PULSE"     -> Pulse
-            | _                    -> failwithf "Unexpected external trigger source string: %s" str
+            | _                    -> raise << UnexpectedReplyException
+                                      <| sprintf "Unexpected external trigger source string: %s" str
 
         /// Convert an internal representation of an external trigger source to a machine
         /// representation.
@@ -26,7 +27,8 @@ module Triggering =
             match String.toUpper str with
             | "PVID" | "PVIDEO" -> PulseVideo
             | "PSYN" | "PSYNC"  -> PulseSync
-            | _                 -> failwithf "Unexpected trigger source string: %s" str
+            | _                 -> raise << UnexpectedReplyException
+                                   <| sprintf "Unexpected trigger source string: %s" str
 
         /// Convert an internal representation of an internal trigger source to a machine
         /// representation.
@@ -43,7 +45,8 @@ module Triggering =
             | "EXT" | "EXTERNAL"  -> ExternalType
             | "INT" | "INTERNAL"  -> InternalType
             | "TIM" | "TIMER"     -> TimerType
-            | _                   -> failwithf "Unexpected trigger source type string: %s." str
+            | _                   -> raise << UnexpectedReplyException
+                                     <| sprintf "Unexpected trigger source type string: %s." str
 
         /// Convert an internal representation of a trigger source into a machine representation.
         let triggerSourceTypeString = function

@@ -3,7 +3,6 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
-[<RequireQualifiedAccess>]
 module Markers =
     /// A markers record with all markers turned off.
     let empty = { M1 = false; M2 = false; M3 = false; M4 = false }
@@ -17,12 +16,18 @@ module Markers =
     /// Set value of the fourth marker.
     let withMarker4 value markers = { markers with M4 = value }
 
+    /// Create a full set of markers straight away.
+    let create marker1 marker2 marker3 marker4 =
+       { M1 = marker1
+         M2 = marker2
+         M3 = marker3
+         M4 = marker4 }
+
     /// Make a marker byte out of the booleans in an IQ sample.
     let internal toByte markers =
         ((Convert.ToByte markers.M4) <<< 3) ||| ((Convert.ToByte markers.M3) <<< 2)
         ||| ((Convert.ToByte markers.M2) <<< 1) ||| (Convert.ToByte markers.M1)
 
-[<RequireQualifiedAccess>]
 module Sample =
     /// Basic data form of IQ point.
     let empty = {
@@ -34,6 +39,9 @@ module Sample =
     let withI value sample = { sample with I = value }
     /// Set value of the Q sample.
     let withQ value sample = { sample with Q = value }
+
+    /// Create a new sample with the given I and Q values, and all markers turned off.
+    let create i q = empty |> withI i |> withQ q
 
     /// Set value of the first marker.
     let withMarker1 value (sample : Sample) =
@@ -59,11 +67,15 @@ module Sample =
     /// Get the markers of a sample.
     let markers sample = sample.SampleMarkers
 
+    /// The phase offset to apply to phases before being passed through the trig functions.  Pi/4 sets
+    /// I and Q to be equal amplitude and both positive when phase = 0.
+    let private phaseOffset_rad = Math.PI / 4.0
+
     /// Convert a Phase type into a float value of radians for use in the mathematical functions.
     let private phaseToRadians = function
         // We want IQ to be equal at 0 phase, so rotate phases by pi/4
-        | Phase_rad (angle) -> (angle / 1.0<rad>) + (Math.PI / 4.0)
-        | Phase_deg (angle) -> (angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>) + (Math.PI / 4.0)
+        | Phase_rad (angle) -> (angle / 1.0<rad>) + phaseOffset_rad
+        | Phase_deg (angle) -> (angle * (Math.PI * 2.0 / 360.0) * 1.0<1/deg>) + phaseOffset_rad
 
     /// The maximum amplitude in arbitrary units that the machine can take for an IQ point amplitude.
     let private maximumMachineAmplitude = Int16.MaxValue
@@ -97,7 +109,6 @@ module Sample =
     /// Get a hash of a sample.
     let internal hash = toBytes >> Hash.bytes
 
-[<RequireQualifiedAccess>]
 module Segment =
     /// An empty segment, ready to have samples added to it.
     let empty = {
@@ -148,7 +159,6 @@ module Segment =
     /// Complete a segment, creating a waveform to write to the machine.
     let toWaveform segment = Segment (hash segment, segment)
 
-[<RequireQualifiedAccess>]
 module Sequence =
     /// An empty sequence, ready to have waveforms added to it.
     let empty = SequenceType List.empty

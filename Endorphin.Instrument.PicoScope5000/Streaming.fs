@@ -550,7 +550,7 @@ module Streaming =
         let private adcCountBufferedEvent count input acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (fun samples -> samples.Samples |> Map.find input)
-            |> Event.bufferCountOverlapped count
+            |> Event.ringBuffer count
 
         /// Returns an observable which emits the latest specified number of ADC counts sampled on a given
         /// input after each sample block in an acquisition.
@@ -562,7 +562,7 @@ module Streaming =
         /// after each sample block in an acquisition.
         let voltageBuffered windowSize input acquisition =
             adcCountBufferedEvent windowSize input acquisition
-            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> Event.map (Seq.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
         /// Helper function for constructing observables which buffer a specified number of the latest samples
@@ -570,7 +570,7 @@ module Streaming =
         let private adcCountsBufferedEvent count inputs acquisition =
             acquisition.SamplesObserved.Publish
             |> Event.collectSeq (takeInputs inputs)
-            |> Event.bufferCountOverlapped count
+            |> Event.ringBuffer count
 
         /// Returns an observable which emits an array of the latest specified number of ADC counts sampled on
         /// a given array of inputs after each sample block in an acquisition.
@@ -582,7 +582,7 @@ module Streaming =
         /// given array of inputs after each sample block in an acquisition.
         let voltagesBuffered count inputs acquisition =
             adcCountsBufferedEvent count inputs acquisition
-            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
+            |> Event.map (Seq.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a set of channels on which voltage overflow occurred if voltage 
