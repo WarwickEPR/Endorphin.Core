@@ -88,6 +88,9 @@ module Model =
                        AnalogueOffset : Voltage
                        BandwidthLimit : Bandwidth }
 
+        type DigitalInputSettings =
+            internal { LogicLevel : Voltage }
+
         /// Indicates whether a channel is enabled and contains its input settings if so.
         type ChannelSettings =
             internal

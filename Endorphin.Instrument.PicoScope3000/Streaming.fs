@@ -214,7 +214,7 @@ module Streaming =
                     PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
                     <| handleStreamingValuesReady acquisition
 
-                do! Async.Sleep 100
+                do! Async.Sleep 1   // ms
                 
                 // TODO: Add some kind of variable delay here to prevent the polling from prepetually
                 // using a CPU thread, while also being able to cope with fast sample intervals
@@ -480,7 +480,7 @@ module Streaming =
 
         /// Returns an observable which emits a tuple of sample index and array of voltages for every sample
         /// observed on the specified array of inputs in an acquisition.
-        let voltagesByInex = voltagesBy id
+        let voltagesByIndex = voltagesBy id
 
         /// Returns an observable which emits a tuple of timestamp and array of voltages for every sample
         /// observed on the specified array of inputs in an acquisition.

@@ -234,7 +234,7 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps3000aRunStreaming")>]
     /// This function tells the oscilloscope to start collecting data in streaming mode. When data has been
     /// collected from the device it is downsampled if necessary and then delivered to the application. Call
-    /// GetStreamingLatestValues to retrieve the data. See the prorgramming guide for details.
+    /// GetStreamingLatestValues to retrieve the data. See the programming guide for details.
     extern StatusCode RunStreaming (int16 handle, uint32& sampleInterval,
                                     TimeUnitEnum sampleIntervalTimeUnit, uint32 maxPreTriggerSamples,
                                     uint32 maxPostTriggerSamples, int16 autoStop, uint32 downsamplingRatio,
