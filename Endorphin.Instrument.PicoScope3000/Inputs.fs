@@ -136,15 +136,16 @@ module internal Inputs =
             |> createAcquisitionBuffers memorySegment
         
         /// Allocates a pinned garbage collector handle for the given object.
-        let private allocatePinnedGCHandle obj = GCHandle.Alloc(obj, GCHandleType.Pinned)
+        let private allocatePinnedGCHandle obj = 
+            GCHandle.Alloc(obj, GCHandleType.Pinned)
 
         /// Creates an instance of IDisposable which will free the given sequence of garbage collector
         /// handles when the Dispose method is called, and then force garbage collection immediately
         /// so that the memory is released.
-        let private disposableForGCHandles (gcHandles : GCHandle seq) =
+        let private disposableForGCHandles (gcHandles : GCHandle array) =
             { new IDisposable with 
-                member __.Dispose() = 
-                    gcHandles |> Seq.iter (fun handle -> handle.Free())
+                member __.Dispose() =
+                    gcHandles |> Array.iter (fun h -> h.Free())
                     GC.Collect() }
 
         /// Creates a pinning handle for the given acquisition buffers which will prevent the garbage
@@ -153,7 +154,6 @@ module internal Inputs =
         /// will release all allocated pinning handles, allowing the memory to be freed.
         let createPinningHandle acquisitionBuffers =
             bufferMap acquisitionBuffers
-            |> Map.toSeq
-            |> Seq.map snd 
-            |> Seq.map allocatePinnedGCHandle
+            |> Map.toSeq |> Seq.map (snd >> allocatePinnedGCHandle)
+            |> Array.ofSeq
             |> disposableForGCHandles
