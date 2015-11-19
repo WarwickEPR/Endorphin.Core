@@ -1,6 +1,6 @@
 ﻿namespace Endorphin.Instrument.FastScanningController
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
-
+open Endorphin.Utilities.Position.Point
 open Endorphin.Core
 
 [<AutoOpen>]
@@ -14,11 +14,11 @@ module internal Parsing =
     let downloadString (numberOfPoints : int) = 
         sprintf "DL %d" numberOfPoints
 
-    let internal tfst (a, _, _) =
-        a
-    
-    let internal tsnd (_, a, _) = 
-        a
+    let parseVoltages (response : string) : VoltagePoint = 
+        try
+            let voltageString = response.Trim().Split [| ':' |] 
+            let voltageStringArray = voltageString.[1].Split [| ',' |]
 
-    let internal ttrd (_, _, a) = 
-        a
+            (decimal voltageStringArray.[0] * 1m<V>, decimal voltageStringArray.[1] * 1m<V>, decimal voltageStringArray.[2] * 1m<V>)
+        with exn ->
+            failwith (sprintf "Bad response from the fast scanning controller: %s; exception: %s" response exn)

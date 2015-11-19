@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Units.fs" />
+    <Compile Include="Point.fs" />
     <Compile Include="Path.fs" />
   </ItemGroup>
   <PropertyGroup>

@@ -2,6 +2,7 @@
 
 open Endorphin.Core
 open Endorphin.Utilities.Position.Path
+open Endorphin.Utilities.Position.Point
 
 module internal IO =
     /// Performs a query for the value corresponding to the given key and parses it with the given
@@ -30,5 +31,4 @@ module internal IO =
         for point in points path do
             let coordinate = path |> coordinateForPoint point
             let voltages = Instrument.ScanningController.pointToVoltage coordinate calibration
-            do! (sprintf "V%.4M,%.4M,%.4M\n" <| ((tfst voltages) (tsnd voltages) (ttrd voltages))) |> (Visa.String.write scanningController)
-
+            do! (sprintf "V%.4M,%.4M,%.4M\n" <| ((tfst voltages) (tsnd voltages) (ttrd voltages))) |> (Visa.String.write scanningController)}
