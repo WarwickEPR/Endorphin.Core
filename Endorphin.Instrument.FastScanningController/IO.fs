@@ -15,13 +15,18 @@ module internal IO =
     /// Sets the value corresponding to the given key to the instrument after converting it to a
     /// string with the provided string conversion function.
     let private setValue stringFunc (ScanningController (scanningController, _)) value = async {
-        do! (sprintf "%s\n" (stringFunc value)) |> Visa.String.query scanningController |> Async.Ignore }
+        //do! (sprintf "%s\n" (stringFunc value)) |> Visa.String.query scanningController |> Async.Ignore }
+        (sprintf "%s\n" (stringFunc value)) |> Visa.String.write scanningController }
 
     let setDwell = setValue dwellString
 
     let setTriggerDelay = setValue triggerDelayString
 
-    let writePath (path : Path) (ScanningController (scanningController, calibration)) = async {
+    let getCurrentVoltages = queryValue parseVoltages "V?"
+
+    let setCurrentVoltages = setValue voltageString
+
+   (* let writePath (path : Path) (ScanningController (scanningController, calibration)) = async {
         let! _ = (sprintf "DL %d\n" (Array.length (points path))) |> (Visa.String.query scanningController)
         let! response = Visa.String.read scanningController
         
@@ -31,4 +36,4 @@ module internal IO =
         for point in points path do
             let coordinate = path |> coordinateForPoint point
             let voltages = Instrument.ScanningController.pointToVoltage coordinate calibration
-            do! (sprintf "V%.4M,%.4M,%.4M\n" <| ((tfst voltages) (tsnd voltages) (ttrd voltages))) |> (Visa.String.write scanningController)}
+            do! (sprintf "V%.4M,%.4M,%.4M\n" <| ((tfst voltages) (tsnd voltages) (ttrd voltages))) |> (Visa.String.write scanningController)}*)

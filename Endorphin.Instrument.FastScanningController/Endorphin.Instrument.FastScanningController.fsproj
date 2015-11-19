@@ -45,10 +45,10 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Model.fs" />
-    <None Include="Script.fsx" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="ScanningController.fs" />
     <Compile Include="IO.fs" />
+    <Compile Include="ScanningController.fs" />
+    <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">

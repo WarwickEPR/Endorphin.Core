@@ -14,6 +14,9 @@ module internal Parsing =
     let downloadString (numberOfPoints : int) = 
         sprintf "DL %d" numberOfPoints
 
+    let voltageString (point : VoltagePoint) = 
+        sprintf "V %.3M,%.3M,%.3M" (tfst point / 1m<V>) (tsnd point / 1m<V>) (ttrd point / 1m<V>)
+
     let parseVoltages (response : string) : VoltagePoint = 
         try
             let voltageString = response.Trim().Split [| ':' |] 
@@ -21,4 +24,4 @@ module internal Parsing =
 
             (decimal voltageStringArray.[0] * 1m<V>, decimal voltageStringArray.[1] * 1m<V>, decimal voltageStringArray.[2] * 1m<V>)
         with exn ->
-            failwith (sprintf "Bad response from the fast scanning controller: %s; exception: %s" response exn)
+            failwith (sprintf "Bad response from the fast scanning controller: %s; exception: %A" response exn)
