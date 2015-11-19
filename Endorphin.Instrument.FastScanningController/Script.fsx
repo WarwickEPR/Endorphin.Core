@@ -31,6 +31,9 @@ async {
     printfn "Setting dwell time"
     do! Timing.setDwellTime scanningController 30<ms>
 
+    printfn "Setting trigger delay"
+    do! Timing.setTriggerDelay scanningController 3000<us>
+
     printfn "Running path"
     do Position.runPath scanningController
 
