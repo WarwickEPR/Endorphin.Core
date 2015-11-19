@@ -180,7 +180,7 @@ module internal IO =
         /// Open an instrument for communication at the given VISA address, with a specified
         /// timeout in milliseconds.
         let openInstrument visaAddress timeout = async {
-            let visaInstrument = Visa.openInstrument visaAddress timeout None
+            let visaInstrument = Visa.openTcpipInstrument visaAddress timeout None
             let rfSource = RfSource <| visaInstrument
             let! _ = Identify.identity rfSource
             let! _ = Error.queryErrorQueue rfSource // clear the error queue before doing anything
