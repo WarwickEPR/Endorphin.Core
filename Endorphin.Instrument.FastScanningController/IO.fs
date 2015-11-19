@@ -15,8 +15,7 @@ module internal IO =
     /// Sets the value corresponding to the given key to the instrument after converting it to a
     /// string with the provided string conversion function.
     let private setValue stringFunc (ScanningController (scanningController, _)) value = async {
-        //do! (sprintf "%s\n" (stringFunc value)) |> Visa.String.query scanningController |> Async.Ignore }
-        (sprintf "%s\n" (stringFunc value)) |> Visa.String.write scanningController }
+        do! (sprintf "%s\n" (stringFunc value)) |> Visa.String.query scanningController |> Async.Ignore }
 
     let setDwell = setValue dwellString
 
