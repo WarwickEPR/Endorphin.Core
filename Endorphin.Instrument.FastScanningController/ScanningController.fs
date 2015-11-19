@@ -40,3 +40,9 @@ module Instrument =
 
         let stopPath controller = 
             IO.stopPath controller
+
+    module Timing = 
+        let setDwellTime controller (dwellTime : int<ms>) = async {
+            do! IO.setDwell controller dwellTime
+        }
+            

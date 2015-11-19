@@ -5,8 +5,8 @@ open Endorphin.Core
 
 [<AutoOpen>]
 module internal Parsing = 
-    let dwellString (dwellTime : float<ms>) = 
-        sprintf "DWELL %.1f" dwellTime
+    let dwellString (dwellTime : int<ms>) = 
+        sprintf "DWELL %d" dwellTime
 
     let triggerDelayString (triggerDelay : float<ms>) = 
         sprintf "DELAY %.1f" triggerDelay

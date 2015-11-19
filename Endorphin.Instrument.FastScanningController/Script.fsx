@@ -28,6 +28,9 @@ async {
     let path = Path.createSnake (0m<um>, 0m<um>, 0m<um>) 20<um> 1m<um> Path.Plane.XY
     do! Position.writePathToController scanningController path
 
+    printfn "Setting dwell time"
+    do! Timing.setDwellTime scanningController 30<ms>
+
     printfn "Running path"
     do Position.runPath scanningController
 
