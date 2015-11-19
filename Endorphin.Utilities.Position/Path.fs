@@ -15,7 +15,7 @@ module Path =
                   Scale        : decimal<um> * decimal<um>
                   Plane        : Plane }
 
-    let createSnake origin gridSize (stepSize : decimal<um>) plane = 
+    let createSnake origin (gridSize : int<um>) stepSize plane = 
         let isEven x = (x % 2 = 0)
 
         let numberOfSteps = int (round((float gridSize) / (float (stepSize/1.0m<um>))))

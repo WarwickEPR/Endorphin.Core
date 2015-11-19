@@ -10,14 +10,26 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 //log4net.Config.BasicConfigurator.Configure()
 
 
-let calibration = {X = 8e-6m<m/V>; Y = 8e-6m<m/V>; Z = 8e-6m<m/V>}
+let calibration = {X = 8e-6m<m/V>; Y = 8e-6m<m/V>; Z = 8e-6m<m/V>};
 
 async {
     let! scanningController = ScanningController.openInstrument "COM4" 5000<ms> calibration
+
     let! initialPosition = Position.getPosition scanningController
     printfn "Initial position is: %A" initialPosition
+
     printfn "Moving to (10, 10, 10)"
-    do! Position.setPosition scanningController (2m<um>, 4m<um>, 7m<um>)
+    do! Position.setPosition scanningController (10m<um>, 10m<um>, 10m<um>)
+
     let! finalPosition = Position.getPosition scanningController
-    printfn "Final position is: %A" finalPosition }
-|> Async.RunSynchronously
+    printfn "Final position is: %A" finalPosition
+
+    printfn "Now going to write a path"
+    let path = Path.createSnake (0m<um>, 0m<um>, 0m<um>) 20<um> 1m<um> Path.Plane.XY
+    do! Position.writePathToController scanningController path
+
+    printfn "Running path"
+    do Position.runPath scanningController
+
+    printfn "Did it work?"
+} |> Async.RunSynchronously

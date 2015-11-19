@@ -4,6 +4,7 @@ open Endorphin.Core
 open System.IO.Ports
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Utilities.Position.Point
+open Endorphin.Utilities.Position.Path
 
 module Instrument = 
     [<RequireQualifiedAccess>]
@@ -21,14 +22,6 @@ module Instrument =
         let closeInstrument (ScanningController (instrument, _)) =
             Visa.closeInstrument instrument
 
-    [<AutoOpen>]
-    module internal Convert = 
-        let pointToVoltage (ScanningController (_, calibration)) (point : Point) = 
-            (tfst point * 1e-6m<m/um> / calibration.X, tsnd point * 1e-6m<m/um> / calibration.Y, ttrd point * 1e-6m<m/um> / calibration.Z)
-     
-        let voltageToPoint (ScanningController (_, calibration)) (point : VoltagePoint) = 
-            (tfst point * 1e6m<um/m> * calibration.X, tsnd point * 1e6m<um/m> * calibration.Y, ttrd point * 1e6m<um/m> * calibration.Z)
-
     module Position = 
         let getPosition controller = async {
             let! voltages = IO.getCurrentVoltages controller
@@ -37,3 +30,13 @@ module Instrument =
         let setPosition controller (point: Point) = async {
             let voltages = pointToVoltage controller point
             do! IO.setCurrentVoltages controller voltages }
+
+        let writePathToController controller (path : Path) = async {
+            do! IO.writePath controller path
+            }
+
+        let runPath controller = 
+            IO.runPath controller
+
+        let stopPath controller = 
+            IO.stopPath controller
