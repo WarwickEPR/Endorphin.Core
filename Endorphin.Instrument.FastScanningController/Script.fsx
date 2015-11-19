@@ -15,14 +15,14 @@ let calibration = {X = 8e-6m<m/V>; Y = 8e-6m<m/V>; Z = 8e-6m<m/V>};
 async {
     let! scanningController = ScanningController.openInstrument "COM4" 5000<ms> calibration
 
-    let! initialPosition = Position.getPosition scanningController
+    (*let! initialPosition = Position.getPosition scanningController
     printfn "Initial position is: %A" initialPosition
 
     printfn "Moving to (10, 10, 10)"
     do! Position.setPosition scanningController (10m<um>, 10m<um>, 10m<um>)
 
     let! finalPosition = Position.getPosition scanningController
-    printfn "Final position is: %A" finalPosition
+    printfn "Final position is: %A" finalPosition*)
 
     printfn "Now going to write a path"
     let path = Path.createSnake (0m<um>, 0m<um>, 0m<um>) 20<um> 1m<um> Path.Plane.XY

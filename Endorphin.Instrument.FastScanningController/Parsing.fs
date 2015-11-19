@@ -8,8 +8,8 @@ module internal Parsing =
     let dwellString (dwellTime : int<ms>) = 
         sprintf "DWELL %d" dwellTime
 
-    let triggerDelayString (triggerDelay : float<ms>) = 
-        sprintf "DELAY %.1f" triggerDelay
+    let triggerDelayString (triggerDelay : int<us>) = 
+        sprintf "DELAY %dus" triggerDelay
 
     let uploadString (numberOfPoints : int) = 
         sprintf "DL %d" numberOfPoints

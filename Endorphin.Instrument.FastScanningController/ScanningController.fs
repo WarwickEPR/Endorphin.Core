@@ -43,6 +43,9 @@ module Instrument =
 
     module Timing = 
         let setDwellTime controller (dwellTime : int<ms>) = async {
-            do! IO.setDwell controller dwellTime
-        }
+            do! IO.setDwell controller dwellTime }
+
+        let setTriggerDelay controller (delayTime: int<us>) = async {
+            do! IO.setTriggerDelay controller delayTime }
+        
             
