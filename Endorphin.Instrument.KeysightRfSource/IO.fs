@@ -10,13 +10,13 @@ open System.Text
 module internal IO =
     /// Query a key with a specific value, and parse the response into the internal representation.
     let queryKeyByValueString parseFunc key (RfSource rfSource) value = async {
-        let! response = sprintf "%s? %s" key value |> Visa.String.query rfSource
+        let! response = sprintf "%s? %s" key value |> Visa.String.queryAsync rfSource
         return parseFunc response }
 
     /// Query an RfSource for the value of a particular key, and parse the response into
     /// the internal representation.
     let queryKeyString parseFunc key (RfSource rfSource) = async {
-        let! response = sprintf "%s?" key |> Visa.String.query rfSource
+        let! response = sprintf "%s?" key |> Visa.String.queryAsync rfSource
         return parseFunc response }
 
     /// Query an RfSource for the value of a particular key, then try to parse the response
@@ -26,11 +26,11 @@ module internal IO =
         return tryParseFunc response }
 
     let queryKeyByValueBytes parseFunc key (RfSource rfSource) value = async {
-        let! response = sprintf "%s? %s" key value |> Visa.Bytes.query rfSource
+        let! response = sprintf "%s? %s" key value |> Visa.Bytes.queryAsync rfSource
         return parseFunc response }
 
     let queryKeyBytes parseFunc key (RfSource rfSource) value = async {
-        let! response = sprintf "%s?" key |> Visa.Bytes.query rfSource
+        let! response = sprintf "%s?" key |> Visa.Bytes.queryAsync rfSource
         return parseFunc response }
 
     [<AutoOpen>]
@@ -121,7 +121,7 @@ module internal IO =
     /// Set a quantity on the machine to a certain value by covnerting an internal
     /// representation to a machine representation, using the given valueMap.
     let setValueString valueMap key rfSource value =
-        setValue createCommandString Visa.String.write valueMap key rfSource value
+        setValue createCommandString Visa.String.writeAsync valueMap key rfSource value
 
     /// Set a quantity on the machine to a certain value by covnerting an internal
     /// representation to a machine representation, using the given valueMap.  This request
@@ -129,15 +129,15 @@ module internal IO =
     /// and manipulate these values, but there is no risk of errant data causing problems
     /// when encoded to UTF-8.
     let setValueBytes valueMap key rfSource value =
-        setValue createCommandBytes Visa.Bytes.write valueMap key rfSource value
+        setValue createCommandBytes Visa.Bytes.writeAsync valueMap key rfSource value
 
     /// Write a sequence of commands as one single command in string format.
     let setValueStringSequence commands rfSource =
-        setValueSequence createCommandString concatenateCommandStrings Visa.String.write commands rfSource
+        setValueSequence createCommandString concatenateCommandStrings Visa.String.writeAsync commands rfSource
 
     /// Write a sequence of commands as one single command in bytes format.
     let setValueBytesSequence commands rfSource =
-        setValueSequence createCommandBytes concatenateCommandBytes Visa.Bytes.write commands rfSource
+        setValueSequence createCommandBytes concatenateCommandBytes Visa.Bytes.writeAsync commands rfSource
 
     /// Write a key without a value to the machine.  Useful for "delete all" style functions.
     let writeKey key rfSource = setValueString (fun _ -> "") key rfSource None
@@ -180,7 +180,7 @@ module internal IO =
         /// Open an instrument for communication at the given VISA address, with a specified
         /// timeout in milliseconds.
         let openInstrument visaAddress timeout = async {
-            let visaInstrument = Visa.openInstrument visaAddress timeout None
+            let visaInstrument = Visa.openTcpipInstrument visaAddress timeout None
             let rfSource = RfSource <| visaInstrument
             let! _ = Identify.identity rfSource
             let! _ = Error.queryErrorQueue rfSource // clear the error queue before doing anything

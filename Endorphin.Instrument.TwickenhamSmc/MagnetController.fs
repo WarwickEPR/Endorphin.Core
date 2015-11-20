@@ -17,7 +17,7 @@ module Instrument =
         /// specified VISA address and settings.
         let openInstrument visaAddress timeout settings = async {
             // a 1s delay is required after write commands or the connection may fail
-            let instrument = Visa.openInstrument visaAddress timeout (Some 1000<ms>)
+            let instrument = Visa.openGpibInstrument visaAddress timeout (Some 1000<ms>)
             let magnetController = MagnetController(instrument, settings)
             
             try // check whether the magnet controller responds to querying the output parameters
