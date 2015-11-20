@@ -5,38 +5,61 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open log4net
 
-/// Functions for creating connections and talking to VISA instruments in raw IO mode.  Formatted IO using
+/// Functions for creating connections and talking to VISA instruments in raw IO mode. Formatted IO using
 /// the VISA formatting options is not supported.
 [<RequireQualifiedAccess>]
 module Visa =
-    /// A message which may be passed to the VISA agent, describing what needs to be done.
-    type internal Message =
+    /// A VISA command which may be performed by the agent, describing what needs to be done.
+    type internal VisaCommand =
         | ReadString  of                    reply : AsyncReplyChannel<Choice<string, exn>>
         | ReadBytes   of                    reply : AsyncReplyChannel<Choice<byte [], exn>>
         | WriteString of message : string
         | WriteBytes  of message : byte []
         | QueryString of message : string * reply : AsyncReplyChannel<Choice<string, exn>>
         | QueryBytes  of message : string * reply : AsyncReplyChannel<Choice<byte [], exn>>
-        | Close       of                    reply : AsyncReplyChannel<Choice<unit, exn>>
+
+    /// Represents the synchrnoisation of the VISA I/O operation. In contrast to asynchronous operations,
+    /// synchronous I/O can speed up communication with instruments where many short messages are sent
+    /// over the API but cause the agent thread to hang while waiting for I/O to complete.
+    type internal Synchronisation = Sync | Async
+
+    /// A message which may be passed to the VISA agent, describing what needs to be done.
+    type internal Message =
+        | Command of command : VisaCommand * synchrnoisation : Synchronisation
+        | Close   of reply : AsyncReplyChannel<Choice<unit, exn>>
 
     /// A VISA instrument, capable of reading, writing and querying strings and byte arrays.
     type Instrument = internal {
-        ReadString  : unit -> Async<Choice<string, exn>>
-        WriteString : string -> unit
-        QueryString : string -> Async<Choice<string, exn>>
-        ReadBytes   : unit -> Async<Choice<byte [], exn>>
-        WriteBytes  : byte array -> unit
-        QueryBytes  : string -> Async<Choice<byte array, exn>>
+        ReadString  : Synchronisation -> Async<Choice<string, exn>>
+        WriteString : Synchronisation -> string -> unit
+        QueryString : Synchronisation -> string -> Async<Choice<string, exn>>
+        ReadBytes   : Synchronisation -> Async<Choice<byte [], exn>>
+        WriteBytes  : Synchronisation -> byte array -> unit
+        QueryBytes  : Synchronisation -> string -> Async<Choice<byte array, exn>>
         Close       : unit -> Async<Choice<unit, exn>> }
+    
+    /// Serial port stop bit mode.
+    type StopBitMode = 
+        | One
+        | OnePointFive
+        | Two
+
+    /// Serial port parity mode.
+    type ParityMode =
+        | NoParity
+        | Odd
+        | Even
+
+    /// Serial port configuration.
+    type SerialConfiguration = {
+        BaudRate    : int
+        DataBits    : int16
+        StopBits    : StopBitMode
+        Parity      : ParityMode }
 
     /// Functions for managing the agent through which communications to the VISA instrument must pass.
     module private Agent =
-        /// Get a string representation of the unit type.
-        let private unitString () = "unit"
-
-        /// Take a value and return the same value with no side effects.
-        let private passthrough value : 'T = value
-
+    
         /// Truncate a string down to a set number of characters length (currently 75), replacing the
         /// end characters with "..." if necessary.
         let private truncate (str : string) =
@@ -47,22 +70,48 @@ module Visa =
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
 
+        let private syncronisationDescription = function
+            | Sync  -> "synchronously"
+            | Async -> "asynchronously"
+
         /// Get the description of a VISA message passed to the agent.
         let private description = function
-            | ReadString  _        -> "Read string"
-            | ReadBytes   _        -> "Read bytes"
-            | WriteString msg      -> sprintf "Write string %s" (truncate msg)
-            | WriteBytes  msg      -> sprintf "Write bytes %s"  (truncate <| String.hexOfBytes msg)
-            | QueryString (msg, _) -> sprintf "Query string %s" (truncate msg)
-            | QueryBytes  (msg, _) -> sprintf "Query bytes %s"  (truncate msg)
-            | Close _              -> "Close the agent."
+            | Command(ReadString _,         sync) -> sprintf "Read string %s" (syncronisationDescription sync)
+            | Command(ReadBytes  _,         sync) -> sprintf "Read bytes %s" (syncronisationDescription sync)
+            | Command(WriteString msg,      sync) -> sprintf "Write string %s %s" (truncate msg) (syncronisationDescription sync)
+            | Command(WriteBytes  msg,      sync) -> sprintf "Write bytes %s %s" (truncate <| String.hexOfBytes msg) (syncronisationDescription sync)
+            | Command(QueryString (msg, _), sync) -> sprintf "Query string %s %s" (truncate msg) (syncronisationDescription sync)
+            | Command(QueryBytes  (msg, _), sync) -> sprintf "Query bytes %s %s" (truncate msg) (syncronisationDescription sync)
+            | Close _                             -> "Close agent."
 
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
         let private openSession visaId (timeout : int<ms>) =
             let rm = ResourceManager.GetLocalManager ()
             let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> MessageBasedSession
-            instrument.Timeout <- int <| timeout
+            instrument.Timeout <- int timeout
             instrument
+
+        /// Open a VISA instrument session with additional configuration options for a serial connection
+        let private openSerialSession visaId (timeout : int<ms>) (configuration : SerialConfiguration) = 
+            let rm = ResourceManager.GetLocalManager ()
+            let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> SerialSession
+            instrument.Timeout <- int timeout
+            instrument.BaudRate <- configuration.BaudRate
+            instrument.DataBits <- configuration.DataBits
+
+            instrument.StopBits <-
+                match configuration.StopBits with
+                | One              -> StopBitType.One
+                | OnePointFive     -> StopBitType.OneAndOneHalf
+                | Two              -> StopBitType.Two
+
+            instrument.Parity <- 
+                match configuration.Parity with
+                | NoParity         -> Parity.None
+                | Even             -> Parity.Even
+                | Odd              -> Parity.Odd
+
+            instrument :> MessageBasedSession
 
         /// A try/catch wrapper around the standard Async.FromBeginEnd to convert exceptions encountered
         /// into Choice failures instead.  This way, exceptions can be propagated up from the agent, and
@@ -75,7 +124,7 @@ module Visa =
 
         /// The generic read operation on an instrument, with F# allocating the space.  The ender function
         /// is passed the buffer, so it can choose what it wants to do with it.
-        let private readGeneric ender (instrument : MessageBasedSession) =
+        let private readAsyncGeneric ender (instrument : MessageBasedSession) =
             beginEndWrapper (fun (callback, state) ->
                                 instrument.BeginRead (instrument.DefaultBufferSize, callback, state))
                             ender
@@ -83,49 +132,120 @@ module Visa =
         /// The generic write operation on a VISA instrument, regardless of the type of data to be written.
         /// The writer function actually handles the writing, the generic part handles putting the
         /// callback into the correct type, and dealing with the result.
-        let private writeGeneric writer (instrument : MessageBasedSession) message =
+        let private writeAsyncGeneric writer (instrument : MessageBasedSession) message =
             beginEndWrapper (fun (callback, state) -> writer (message, callback, state))
                             instrument.EndWrite
 
         /// Read a string from a VISA instrument using an Async.FromBeginEnd layout to do the reading
         /// asynchronously.
-        let private readString (instrument : MessageBasedSession) =
-            readGeneric instrument.EndReadString instrument
+        let private readStringAsync (instrument : MessageBasedSession) =
+            readAsyncGeneric instrument.EndReadString instrument
 
         /// Read an array of bytes from a VISA instrument using an Async.FromBeginEnd layout to do the
         /// reading asynchronously.
-        let private readBytes (instrument : MessageBasedSession) =
-            readGeneric instrument.EndReadByteArray instrument
+        let private readBytesAsync (instrument : MessageBasedSession) =
+            readAsyncGeneric instrument.EndReadByteArray instrument
+        
+        /// Read a sring from a VISA instrument synchronously.
+        let private readStringSync (instrument : MessageBasedSession) = async {
+            try
+                let result = instrument.ReadString ()
+                return Choice.succeed result
+            with exn -> return Choice.fail exn }
+
+        /// Read a byte array from a VISA instrument synchronously.
+        let private readBytesSync (instrument : MessageBasedSession) = async {
+            try
+                let result = instrument.ReadByteArray ()
+                return Choice.succeed result
+            with exn -> return Choice.fail exn }
+
+        /// Read a string from the VISA instrument with the given synchronisation.
+        let private readString = function
+            | Sync  -> readStringSync
+            | Async -> readStringAsync
+
+        /// Read an array of bytes from the VISA instrument with the given synchronisation.
+        let private readBytes = function
+            | Sync  -> readBytesSync
+            | Async -> readBytesAsync
 
         /// Write a string to a VISA instrument using an Async.FromBeginEnd layout to do the writing
         /// asynchronously.
-        let private writeString (instrument : MessageBasedSession) (str : string) =
-            writeGeneric (fun (str : string, callback, state) -> instrument.BeginWrite (str, callback, state)) instrument str
+        let private writeStringAsync (instrument : MessageBasedSession) (str : string) =
+            writeAsyncGeneric (fun (str : string, callback, state) -> instrument.BeginWrite (str, callback, state)) instrument str
 
         /// Write an array of bytes to a VISA instrument using an Async.FromBeginEnd layout to do the
         /// writing asynchronously.
-        let private writeBytes (instrument : MessageBasedSession) (bytes : byte []) =
-            writeGeneric (fun ((bytes : byte []), callback, state) ->
+        let private writeBytesAsync (instrument : MessageBasedSession) (bytes : byte []) =
+            writeAsyncGeneric (fun ((bytes : byte []), callback, state) ->
                              instrument.BeginWrite (bytes, 0, bytes.Length, callback, state))
                          instrument bytes
+            
+        /// Write a string to a VISA instrument synchronously.
+        let private writeStringSync (instrument : MessageBasedSession) (str : string) = async {
+            try
+                instrument.Write str
+                return Choice.succeed ()
+            with exn -> return Choice.fail exn }
+            
+        /// Write an array of bytes to a VISA instrument synchronously
+        let private writeBytesSync (instrument : MessageBasedSession) (bytes : byte []) = async {
+            try
+                instrument.Write bytes
+                return Choice.succeed ()
+            with exn -> return Choice.fail exn }
+
+        /// Write a string to the VISA instrument with the given synchronisation.
+        let private writeString = function
+            | Sync  -> writeStringSync
+            | Async -> writeStringAsync
+
+        /// Write an array of bytes to the VISA instrument with the given synchronisation.
+        let private writeBytes = function
+            | Sync  -> writeBytesSync
+            | Async -> writeBytesAsync
 
         /// The generic form of the query operation, with the reader used to interpret the returned
         /// message.  Regardless of the read type, the writing is always done as a string.
-        let queryGeneric reader (instrument : MessageBasedSession) (query : string) = async {
-            let! writeResult = writeString instrument query
+        let queryGeneric writer reader (instrument : MessageBasedSession) (query : string) = async {
+            let! writeResult = writer instrument query
             match writeResult with
                 | Success () -> return! reader instrument
                 | Failure f  -> return  Choice.fail f }
 
-        /// Query a VISA instrument for a reply in the form of a string, using a string as a query.
-        let private queryString instrument query = queryGeneric readString instrument query
-        /// Query a VISA instrument for a reply of a byte array, using a string as a query.
-        let private queryBytes  instrument query = queryGeneric readBytes  instrument query
+        /// Query the string response of a VISA instrument to a command string asynchronously.
+        let private queryStringAsync instrument query = queryGeneric writeStringAsync readStringAsync instrument query
+
+        /// Query the byte array response of a VISA instrument to a command string asynchronously.
+        let private queryBytesAsync instrument query = queryGeneric writeStringAsync readBytesAsync  instrument query
+
+        /// Query the string response of a VISA instrument to a command string synchronously.
+        let private queryStringSync instrument query = queryGeneric writeStringSync readStringSync instrument query
+
+        /// Query the byte array response of a VISA instrument to a command string synchronously.
+        let private queryBytesSync instrument query = queryGeneric writeStringSync readBytesSync  instrument query
+
+        /// Query the string response of a VISA instrument to the given command string with the
+        /// given synchronisation.
+        let private queryString = function
+            | Sync  -> queryStringSync
+            | Async -> queryStringAsync
+
+        /// Query the byte array response of a VISA instrument to the given command string with the
+        /// given synchronisation.
+        let private queryBytes = function
+            | Sync  -> queryBytesSync
+            | Async -> queryBytesAsync
 
         /// Create an agent for communication with a VISA instrument. The optional write delay is used to
         /// delay further communication with the hardware after each write command for a specified period.
-        let create visaId (timeout : int<ms>) (writeDelay : int<ms> option) =
-            let instrument = openSession visaId timeout
+        let internal create visaId (timeout : int<ms>) (writeDelay : int<ms> option) (configuration : SerialConfiguration option) =
+            let instrument = 
+                match configuration with
+                | Some config     -> openSerialSession visaId timeout config
+                | None            -> openSession visaId timeout 
+
             Agent.Start (fun (mailbox : Agent<Message>) ->
                 /// The log to write commands in the agent to.
                 let log = LogManager.GetLogger instrument.ResourceName
@@ -149,7 +269,7 @@ module Visa =
                             log.Error error
                             Choice.fail (Exception error)
                     response |> replyChannel.Reply
-                    logResponse description unitString response }
+                    logResponse description (fun () -> "()") response }
 
                 /// Asynchronously sleeps for the write delay if one is specified.
                 let writeSleep () = async {
@@ -165,36 +285,36 @@ module Visa =
                     do sprintf "Received message \"%s\"" desc |> log.Info
 
                     match message with
-                        | ReadString reply ->
-                            let! result = readString instrument |> Async.map removeTerminators
+                        | Command(ReadString reply, sync)  ->
+                            let! result = readString sync instrument |> Async.map removeTerminators
                             result |> reply.Reply
-                            logResponse desc passthrough result
+                            logResponse desc id result
                             return! loop ()
 
-                        | ReadBytes reply ->
-                            let! result = readBytes instrument
+                        | Command(ReadBytes reply, sync) ->
+                            let! result = readBytes sync instrument
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
                             return! loop ()
 
-                        | WriteString msg ->
-                            let! result = writeString instrument msg
+                        | Command(WriteString msg, sync) ->
+                            let! result = writeString sync instrument msg
                             do! writeSleep ()
                             return! loop ()
 
-                        | WriteBytes msg ->
-                            let! result = writeBytes instrument msg
+                        | Command(WriteBytes msg, sync) ->
+                            let! result = writeBytes sync instrument msg
                             do! writeSleep ()
                             return! loop ()
 
-                        | QueryString (query, reply) ->
-                            let! result = queryString instrument query |> Async.map removeTerminators
+                        | Command(QueryString (query, reply), sync) ->
+                            let! result = queryString sync instrument query |> Async.map removeTerminators
                             result |> reply.Reply
-                            logResponse desc passthrough result
+                            logResponse desc id result
                             return! loop ()
 
-                        | QueryBytes (query, reply) ->
-                            let! result = queryBytes instrument query
+                        | Command(QueryBytes (query, reply), sync) ->
+                            let! result = queryBytes sync instrument query
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
                             return! loop ()
@@ -206,19 +326,14 @@ module Visa =
                     do! writeSleep()
                     return! loop () } )
 
-    /// Open a VISA instrument with the given VISA identifier address and a timeout in milliseconds to
-    /// wait for each raw command. The optional write delay is used to delay further communication with
-    /// the hardware after each write command for a specified period.
-    let openInstrument visaId timeout writeDelay =
-        let agent = Agent.create visaId timeout writeDelay
-
-        let queryString visaCommand = agent.PostAndAsyncReply(fun replyChannel -> QueryString(visaCommand, replyChannel))
-        let readString () = agent.PostAndAsyncReply ReadString
-        let writeString visaCommand = agent.Post (WriteString visaCommand)
-        let queryBytes visaCommand = agent.PostAndAsyncReply(fun replyChannel -> QueryBytes(visaCommand, replyChannel))
-        let readBytes () = agent.PostAndAsyncReply ReadBytes
-        let writeBytes visaCommand = agent.Post (WriteBytes visaCommand)
-        let close () = agent.PostAndAsyncReply Close
+    let private openInstrument (agent: MailboxProcessor<Message>) =
+        let readString  sync         = (fun replyChannel -> Command(ReadString replyChannel, sync))            |> agent.PostAndAsyncReply 
+        let readBytes   sync         = (fun replyChannel -> Command(ReadBytes  replyChannel, sync))            |> agent.PostAndAsyncReply
+        let writeString sync command = (Command(WriteString command, sync))                                    |> agent.Post
+        let writeBytes  sync command = (Command(WriteBytes command, sync))                                     |> agent.Post
+        let queryString sync command = (fun replyChannel -> Command(QueryString(command, replyChannel), sync)) |> agent.PostAndAsyncReply 
+        let queryBytes  sync command = (fun replyChannel -> Command(QueryBytes (command, replyChannel), sync)) |> agent.PostAndAsyncReply
+        let close () = Close |> agent.PostAndAsyncReply 
 
         { ReadString  = readString
           ReadBytes   = readBytes
@@ -227,30 +342,69 @@ module Visa =
           QueryString = queryString
           QueryBytes  = queryBytes
           Close       = close }
+    
+    /// Open a RS-232 VISA instrument with the given VISA identifier address and a timeout in milliseconds
+    /// to wait for each raw command. The optional write delay is used to delay further communication with
+    /// the hardware after each write command for a specified period.
+    let openSerialInstrument visaId (timeout : int<ms>) (writeDelay : int<ms> option) (configuration : SerialConfiguration) = 
+        let agent = Agent.create visaId timeout writeDelay (Some configuration)
+        openInstrument agent
+
+    /// Open a Ethernet VISA instrument with the given VISA identifier address and a timeout in milliseconds
+    /// to wait for each raw command. The optional write delay is used to delay further communication with
+    /// the hardware after each write command for a specified period.
+    let openTcpipInstrument visaId (timeout : int<ms>) (writeDelay : int<ms> option) = 
+        let agent = Agent.create visaId timeout writeDelay None
+        openInstrument agent
+
+    /// Open a GPIB VISA instrument with the given VISA identifier address and a timeout in milliseconds
+    /// to wait for each raw command. The optional write delay is used to delay further communication with
+    /// the hardware after each write command for a specified period.
+    let openGpibInstrument visaId (timeout : int<ms>) (writeDelay : int<ms> option) = 
+        let agent = Agent.create visaId timeout writeDelay None
+        openInstrument agent
 
     /// Close the connection to a VISA instrument.
     let closeInstrument instrument = instrument.Close () |> Async.map Choice.bindOrRaise
 
+    /// Functions related to string-based I/O.
     module String =
-        /// Read a string that the VISA instrument is broadcasting.
-        let read instrument = async {
-            let! result = instrument.ReadString ()
-            return Choice.bindOrRaise result }
-        /// Write a string to a VISA instrument.
-        let write instrument = instrument.WriteString
-        /// Query a VISA instrument for a string, using the given string as a query.
-        let query instrument message = async {
-            let! result = instrument.QueryString message
-            return Choice.bindOrRaise result }
 
+        /// Read a string that the VISA instrument is broadcasting using synchronous I/O.
+        let read instrument = instrument.ReadString Sync |> Async.map Choice.bindOrRaise
+
+        /// Read a string that the VISA instrument is broadcasting using asynchronous I/O
+        let readAsync instrument = instrument.ReadString Async |> Async.map Choice.bindOrRaise
+
+        /// Write a string to a VISA instrument using synchronous I/O.
+        let write instrument = instrument.WriteString Sync
+
+        /// Write a string to a VISA instrument using asynchronous I/O.
+        let writeAsync instrument = instrument.WriteString Async
+
+        /// Query a VISA instrument for a string, using the given string as a query using synchronous I/O.
+        let query instrument message = instrument.QueryString Sync message |> Async.map Choice.bindOrRaise
+        
+        /// Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.
+        let queryAsync instrument message = instrument.QueryString Async message |> Async.map Choice.bindOrRaise
+
+    /// Functions related to byte array-based I/O.
     module Bytes =
-        /// Read a byte array from a broadcasting VISA instrument.
-        let read instrument = async {
-            let! result = instrument.ReadBytes ()
-            return Choice.bindOrRaise result }
-        /// Write a byte array to a VISA instrument.
-        let write instrument = instrument.WriteBytes
-        /// Query a VISA instrument for a byte array, using the given string as the query.
-        let query instrument message = async {
-            let! result = instrument.QueryBytes message
-            return Choice.bindOrRaise result }
+
+        /// Read a string that the VISA instrument is broadcasting using synchronous I/O.
+        let read instrument = instrument.ReadBytes Sync |> Async.map Choice.bindOrRaise
+
+        /// Read a string that the VISA instrument is broadcasting using asynchronous I/O
+        let readAsync instrument = instrument.ReadBytes Async |> Async.map Choice.bindOrRaise
+
+        /// Write a string to a VISA instrument using synchronous I/O.
+        let write instrument = instrument.WriteBytes Sync
+
+        /// Write a string to a VISA instrument using asynchronous I/O.
+        let writeAsync instrument = instrument.WriteBytes Async
+
+        /// Query a VISA instrument for a string, using the given string as a query using synchronous I/O.
+        let query instrument message = instrument.QueryBytes Sync message |> Async.map Choice.bindOrRaise
+        
+        /// Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.
+        let queryAsync instrument message = instrument.QueryBytes Async message |> Async.map Choice.bindOrRaise
