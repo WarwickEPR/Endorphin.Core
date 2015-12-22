@@ -72,6 +72,8 @@
     <Compile Include="RfSource.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
+    <None Include="Scripts\load-references-debug.fsx" />
+    <None Include="Scripts\load-project-debug.fsx" />
     <None Include="WaveformDemo.fsx" />
     <None Include="SpinEchoDecayDemo.fsx" />
     <None Include="Demo.fsx" />
