@@ -13,14 +13,16 @@ module Streaming =
     
     /// Contains information about the way a streaming acquisition was stopped, indicating whether
     /// it was stopped manually or automatically.
-    type StreamStopOptions = { AcquisitionDidAutoStop : bool }
+    type StreamStopOptions = 
+        private { StreamDidAutoStop : bool
+                  StreamFailure     : exn option }
     
     /// Status of a streaming acquisition emitted through a status event while the acquisition is
     /// in progress.
     type StreamStatus =
         | PreparingStream
         | Streaming of sampleInterval : Interval
-        | FinishedStream of options : StreamStopOptions
+        | FinishedStream of didAutoStop : bool
         | CancelledStream
 
     /// Contains the result of a streaming acquisition, indicating whether the stream finished
@@ -128,7 +130,176 @@ module Streaming =
         /// given or vice-versa.
         let sampleChannels channels downsamplingMode (parameters : StreamingParameters) = 
             { parameters with Inputs = parameters.Inputs |> Inputs.sampleChannels channels downsamplingMode }
-    
+        
+    /// Functions for concurrently processing data in the streaming buffer as soon as it becomes available.
+    module private BufferAgent =
+
+        /// Represents a message to the buffer agent, indicating that samples have become available for readout
+        /// or that they have been processed by the agent.
+        type private Message =
+            | SamplesAvailable of valuesReady : StreamingValuesReady * replyChannel: AsyncReplyChannel<exn option>
+            | SamplesProcessed of index : int
+            | AcquisitionFinished of replyChannel : AsyncReplyChannel<exn option>
+
+        /// Acquisition data buffer agent which ensures that samples in the acquisition are processed in order
+        /// and without buffer overflow.
+        type BufferAgent = private BufferAgent of agent : Agent<Message>
+        
+        /// Advances the buffer position, ensuring that it happens continuously.
+        let private advanceBufferPosition acquisition valuesReady (loop, index) =
+            if valuesReady.StartIndex <> index then 
+                Choice.fail (Exception "Acquisition buffer position advanced discontinuously.")
+            else 
+                let index' = index + uint32 valuesReady.NumberOfSamples
+                Choice.succeed (loop + index' / acquisition.Parameters.BufferLength, 
+                                index' % acquisition.Parameters.BufferLength)
+
+        /// Checks for buffer overflow by ensuring that the write position has not advanced beyond the
+        /// read position by a complete loop.
+        let private checkOverflow readPosition writePosition = 
+            let (loop : uint32, index : uint32) = readPosition
+            let (loop', index') = writePosition
+            
+            if ((loop' = loop + 1u) && (index' >= index)) || (loop' > loop + 1u)
+            then Choice.fail (Exception "Acquisition buffer overflow detected.")
+            else Choice.succeed ()
+
+        /// Creates a sample block for the given StreamingValuesReady callback parameters with blank arrays
+        /// which have to be filled by copying values from the streaming buffers.
+        let private createSampleBlock valuesReady acquisition =
+            let sampleCount = valuesReady.NumberOfSamples 
+            { Samples =
+                acquisition.DataBuffers.Buffers
+                |> Map.keys
+                |> Seq.map (fun sampling -> (sampling, Array.zeroCreate sampleCount))
+                |> Map.ofSeq
+              Length           = valuesReady.NumberOfSamples 
+              VoltageOverflows = valuesReady.VoltageOverflows }
+        
+        /// Copies values from the acquisition buffer into the given sample block for the given
+        /// StreamingValuesReady callback parameters. Copying is parallelised.
+        let private copySampleBlockValues valuesReady acquisition sampleBlock =
+            Map.toSeq acquisition.DataBuffers.Buffers
+            |> Seq.map (fun (inputSampling, buffer) -> async {
+                let sampleArray = Map.find inputSampling sampleBlock.Samples
+                let startIndex  = valuesReady.StartIndex
+                let sampleCount = valuesReady.NumberOfSamples
+                Array.Copy(buffer, int startIndex, sampleArray, 0, int sampleCount) })
+            |> Async.Parallel
+            |> Async.Ignore
+
+        /// Handles a callback with the given StreamingValuesReady parameters and posts a message back
+        /// to the buffer agent with the samples which were copied out of the buffer.
+        let private processSamples acquisition valuesReady index (bufferAgent : Agent<_>) = async {
+            let samples = createSampleBlock valuesReady acquisition
+            do! copySampleBlockValues valuesReady acquisition samples
+            bufferAgent.Post (SamplesProcessed index) // sent a message to the agent
+            return (valuesReady, samples) }
+
+        /// Initialises a BufferAgent for the acquisition.
+        let create acquisition = BufferAgent <| Agent.Start (fun mailbox ->
+            
+            // use a queue to ensure that data blocks are pushed to acquisition observable in order
+            // queue items are a tuple of (index, async promise) where the index indicates the order
+            // in which the blocks arrived
+            let processing = new Queue<_>()
+            let enqueue item    = processing.Enqueue item
+            let dequeue ()      = processing.Dequeue ()
+            let queueIsEmpty () = (processing.Count = 0)
+            let nextIndex ()    = processing.Peek () |> fst
+
+            // dequeue ready samples from the front of the queue, advancing the read position
+            let rec dequeueReadyBlocks readPosition ready = async {
+                if (not <| queueIsEmpty ()) && (ready |> Set.contains (nextIndex ())) then
+                    let (next, waitToProcess) = dequeue () // dequeue the promise
+                    let! (valuesReady, samples) = waitToProcess
+                    let readPosition' = readPosition |> Choice.bind (advanceBufferPosition acquisition valuesReady)
+                    let ready' = ready |> Set.remove next // remove the index from the ready set
+                    acquisition.SamplesObserved.Trigger samples // push the samples to acquisition observable
+                    return! dequeueReadyBlocks readPosition' ready'
+                else return (readPosition, ready) }
+
+            // process buffer agent messages while acquisition is on-going
+            let rec acquiring readPosition writePosition ready writeIndex = async {
+                let! message = mailbox.Receive()
+                match message with
+                
+                | SamplesAvailable (valuesReady, replyChannel) ->
+                    // if new samples available, try to advance the write position and check for overflow
+                    let bufferAdvanceResult = choice {
+                        let! readPosition' = readPosition
+                        let! writePosition' = writePosition |> advanceBufferPosition acquisition valuesReady
+                        do! checkOverflow readPosition' writePosition'
+                        return writePosition' }
+                        
+                    match bufferAdvanceResult with
+                    | Choice.Success writePosition' ->
+                        let! waitToProcess = // copy the samples out of the buffer in the background
+                            processSamples acquisition valuesReady writeIndex mailbox
+                            |> Async.StartChild
+                        enqueue (writeIndex, waitToProcess) // and add the promise to the queue
+                        replyChannel.Reply None
+                        return! acquiring readPosition writePosition' ready (writeIndex + 1)
+                    | Choice.Failure exn ->
+                        replyChannel.Reply (Some exn)
+                
+                | SamplesProcessed readIndex ->
+                    // if new samples have been processed, add the block index to the ready set and
+                    // dequeue any blocks which are ready at the front of the queue
+                    let! (readPosition', ready') = Set.add readIndex ready |> dequeueReadyBlocks readPosition
+                    return! acquiring readPosition' writePosition ready' writeIndex
+
+                | AcquisitionFinished replyChannel ->
+                    // go into the finishing state 
+                    return! finishing replyChannel readPosition writePosition ready }
+
+            // process buffer agent messages while in the finishing state, where only SamplesProcessed
+            // messages are expected; once all sample blocks are processed, the reply channel is notified
+            and finishing replyChannel readPosition writePosition ready = async {
+                
+                // if the read position has successfully advanced to the write position, the acquisition
+                // has finished
+                match readPosition with
+                | Choice.Success p when p = writePosition -> replyChannel.Reply None
+                | Choice.Failure exn                      -> replyChannel.Reply (Some exn)
+                | _ -> // otherwise keep processing messages
+                    let! message = mailbox.Receive()
+                    match message with
+                    | SamplesProcessed readIndex ->
+                        let! (readPosition', ready') = Set.add readIndex ready |> dequeueReadyBlocks readPosition
+                        return! finishing replyChannel readPosition' writePosition ready'
+                
+                    | SamplesAvailable (_, replyChannel')
+                    | AcquisitionFinished replyChannel' ->
+                        let error = Exception "Buffer agent received unexpected message after acquisition finished."
+                        replyChannel.Reply  (Some error)
+                        replyChannel'.Reply (Some error) }
+
+            // initialise in the acquiring state
+            acquiring (Choice.succeed (0u, 0u)) (0u, 0u) Set.empty 0)
+
+        /// Notifies the buffer agent that samples are available to be copied out of the acquisition buffer
+        /// asynchronously. Throws an exception if buffer overflow is detected or the buffer is advanced
+        /// discontinuously.
+        let handleSamplesAvailable (BufferAgent agent) valuesReady = async {
+            let! result = 
+                (fun replyChannel -> SamplesAvailable(valuesReady, replyChannel))
+                |> agent.PostAndAsyncReply
+            
+            match result with
+            | Some exn -> raise exn
+            | None     -> return () }
+
+        /// Waits for the buffer agent to finish processing samples which it has been notified about. Throws
+        /// an exception if an error occurs during processing.
+        let waitToFinishProcessing (BufferAgent agent) = async {
+            let! result = AcquisitionFinished |> agent.PostAndAsyncReply 
+            
+            match result with
+            | Some exn -> raise exn
+            | None     -> return () }
+            
+
     /// Functions related to streaming acquisition control flow.
     module Acquisition =
         
@@ -175,56 +346,38 @@ module Streaming =
             let! sampleInterval = PicoScope.Acquisition.startStreaming acquisition.PicoScope acquisition.Parameters
             acquisition.StatusChanged.Trigger (Next <| Streaming sampleInterval) }
 
-        /// Creates a sample block for the given StreamingValuesReady callback parameters with blank arrays
-        /// which have to be filled by copying values from the streaming buffers.
-        let private createSampleBlock streamingValuesReady acquisition =
-            let sampleCount = streamingValuesReady.NumberOfSamples 
-            { Samples =
-                acquisition.DataBuffers.Buffers
-                |> Map.keys
-                |> Seq.map (fun sampling -> (sampling, Array.zeroCreate<AdcCount> sampleCount))
-                |> Map.ofSeq
-              Length           = streamingValuesReady.NumberOfSamples 
-              VoltageOverflows = streamingValuesReady.VoltageOverflows }
-        
-        /// Copies values from the acquisition buffer into the given sample block for the given StreamingValuesReady
-        /// callback parameters. Copying is parallelised.
-        let private copySampleBlockValues streamingValuesReady acquisition sampleBlock =
-            Map.toSeq acquisition.DataBuffers.Buffers
-            |> Seq.map (fun (inputSampling, buffer) -> async {
-                let sampleArray = Map.find inputSampling sampleBlock.Samples
-                let startIndex  = streamingValuesReady.StartIndex
-                let sampleCount = streamingValuesReady.NumberOfSamples
-                Array.Copy(buffer, int startIndex, sampleArray, 0, int sampleCount) })
-            |> Async.Parallel
-            |> Async.Ignore
-
         /// Handles a callback with the given StreamingValues ready parameters.
-        let private handleStreamingValuesReady acquisition streamingValuesReady =
+        let private handleValuesReady acquisition bufferAgent valuesReady =
             // check if the acquisition has been stopped manually
             if not acquisition.StopCapability.IsCancellationRequested then
-                if streamingValuesReady.DidAutoStop then // or automatically
-                    acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = true }
+                if valuesReady.DidAutoStop then // or automatically
+                    { StreamDidAutoStop = true ; StreamFailure = None }
+                    |> acquisition.StopCapability.Cancel
 
                 // if there are samples to copy then create a sample block and copy the values into it before
                 // triggering the samples observed event
-                if streamingValuesReady.NumberOfSamples <> 0 then
-                    let sampleBlock = createSampleBlock streamingValuesReady acquisition
+                if valuesReady.NumberOfSamples <> 0 then
+
                     Async.StartWithContinuations(
-                        copySampleBlockValues streamingValuesReady acquisition sampleBlock,
-                        (fun () -> acquisition.SamplesObserved.Trigger sampleBlock),
-                        ignore, ignore)
+                        BufferAgent.handleSamplesAvailable bufferAgent valuesReady, ignore,
+                        (fun exn -> 
+                            { StreamDidAutoStop = false ; StreamFailure = Some exn }
+                            |> acquisition.StopCapability.Cancel ),
+                        ignore)
 
         /// Polls the device continuously until the acquisition is stopped manually or automatically.
-        let rec private pollUntilFinished acquisition = async {
+        let rec private pollUntilFinished acquisition bufferAgent = async {
             if not acquisition.StopCapability.IsCancellationRequested then
-                let! __ = 
-                    PicoScope.Acquisition.pollStreamingLatestValues acquisition.PicoScope
-                    <| handleStreamingValuesReady acquisition
+                do! PicoScope.Acquisition.pollStreamingLatestValues 
+                        acquisition.PicoScope (handleValuesReady acquisition bufferAgent)
+                    |> Async.Ignore
                 
-                // TODO: Add some kind of variable delay here to prevent the polling from prepetually
-                // using a CPU thread, while also being able to cope with fast sample intervals
-                do! pollUntilFinished acquisition }
+                do! Async.Sleep 5 // poll at 5 ms intervals
+                do! pollUntilFinished acquisition bufferAgent
+            else 
+                match acquisition.StopCapability.Options.StreamFailure with
+                | Some exn -> raise exn
+                | None     -> return () }
         
         /// Runs an acquisition with the given cancellation token. If the token is cancelled, then acquisition
         /// will be aborted. To ensure that the acquisition is stopped cleanly, no other cancellation 
@@ -280,17 +433,19 @@ module Streaming =
             // define the acquisition workflow
             let acquisitionWorkflow = async {
                 use __ = Inputs.Buffers.createPinningHandle acquisition.DataBuffers
+                let bufferAgent = BufferAgent.create acquisition
                 do! prepareDevice acquisition
                 do! startStreaming acquisition
-                do! pollUntilFinished acquisition }
+                do! pollUntilFinished acquisition bufferAgent
+                do! BufferAgent.waitToFinishProcessing bufferAgent }
             
             // start it with the continuations defined above and the given cancellation token
             Async.StartWithContinuations(
-                    acquisitionWorkflow,
-                    finishAcquisition,
-                    stopAcquisitionAfterError, 
-                    stopAcquisitionAfterCancellation,
-                    cancellationToken)
+                acquisitionWorkflow,
+                finishAcquisition,
+                stopAcquisitionAfterError, 
+                stopAcquisitionAfterCancellation,
+                cancellationToken)
 
             // and return an acquisition handle which can be used to await the result
             { Acquisition = acquisition ; WaitToFinish = resultChannel.AwaitResult () }
@@ -317,7 +472,8 @@ module Streaming =
         /// Manually stops the streaming acquisition associated with the given handle.
         let stop acquisitionHandle =
             if not acquisitionHandle.Acquisition.StopCapability.IsCancellationRequested then
-                acquisitionHandle.Acquisition.StopCapability.Cancel { AcquisitionDidAutoStop = false }
+                { StreamDidAutoStop = false ; StreamFailure = None }
+                |> acquisitionHandle.Acquisition.StopCapability.Cancel 
 
         /// Manually stops the streaming acquisition associated with the given handle and asynchronously
         /// waits for it to finish.
