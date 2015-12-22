@@ -34,8 +34,17 @@ module Model =
         | Interval_ms of interval : int<ms>
         | Interval_s  of interval : int<s>
 
+        override interval.ToString() =
+            match interval with
+            | Interval_fs i -> sprintf "%d fs" i
+            | Interval_ps i -> sprintf "%d ps" i
+            | Interval_ns i -> sprintf "%d ns" i
+            | Interval_us i -> sprintf "%d us" i
+            | Interval_ms i -> sprintf "%d ms" i
+            | Interval_s  i -> sprintf "%d s"  i
+
     /// Voltage with unit of measure.
-    type Voltage = internal Voltage_V of voltage : float32<V>
+    type Voltage = float32<V>
     
     /// Type alias for a 16-bit integer which is the format of all samples returned by the
     /// hardware.

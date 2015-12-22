@@ -315,7 +315,7 @@ module PicoScope =
                     let mutable minOffset = 0.0f
                     let volts = LanguagePrimitives.Float32WithMeasure<V>
                     NativeApi.GetAnalogueOffset(handle device, rangeEnum range, couplingEnum coupling, &maxOffset, &minOffset)
-                    |> checkStatusAndReturn (Voltage_V (volts maxOffset), Voltage_V (volts minOffset)))
+                    |> checkStatusAndReturn (volts maxOffset, volts minOffset))
 
         /// Asynchronously queries the set of avaiable channels available input channel voltage ranges
         /// for the specified input channel on a PicoScope 5000 series device.
@@ -345,7 +345,7 @@ module PicoScope =
                 (fun device ->
                     let coupling  = couplingEnum inputSettings.Coupling
                     let range     = rangeEnum inputSettings.Range
-                    let offset    = voltageFloatInVolts inputSettings.AnalogueOffset
+                    let offset    = float32 inputSettings.AnalogueOffset
                     NativeApi.SetChannel(handle device, inputChannelEnum inputChannel, 1s, coupling, range, offset) 
                     |> checkStatus)
 

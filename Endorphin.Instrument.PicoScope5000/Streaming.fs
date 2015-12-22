@@ -32,9 +32,9 @@ module Streaming =
 
     /// Contains a block of streaming samples obtained after polling the device.
     type StreamingSamples =
-        internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
-                   Length           : SampleCount
-                   VoltageOverflows : Set<InputChannel> }
+        private { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
+                  Length           : SampleCount
+                  VoltageOverflows : Set<InputChannel> }
 
     /// Defines a streaming acquisition which has been set up on a PicoScope 5000 series device. This
     /// is created once after the streaming parameters are defined and a connection to the device is
@@ -346,9 +346,9 @@ module Streaming =
             let channelSettings = Inputs.settingsForChannel inputChannel acquisition.Parameters.Inputs
             match channelSettings with
             | EnabledChannel settings ->
-                let (Voltage_V voltageRange)   = Range.voltage settings.Range
-                let (Voltage_V analogueOffset) = settings.AnalogueOffset
-                let maximumAdcCounts                = Resolution.maximumAdcCounts acquisition.Parameters.Resolution
+                let voltageRange     = Range.voltage settings.Range
+                let analogueOffset   = settings.AnalogueOffset
+                let maximumAdcCounts = Resolution.maximumAdcCounts acquisition.Parameters.Resolution
                 fun (adcCounts : int16) -> voltageRange * (float32 adcCounts) / (float32 maximumAdcCounts) - analogueOffset
             | DisabledChannel -> failwithf "Cannot calculate voltage for channel %A as it is not enabled." inputChannel
 
