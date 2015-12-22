@@ -27,7 +27,8 @@ module Range =
     /// Returns the smallest input range which will handle the specified zero-to-peak input voltage.
     let minimumForVoltage inputVoltage =
         seq { for x in System.Enum.GetValues typeof<RangeEnum> -> x :?> RangeEnum } 
-        |> Seq.map Parsing.ChannelSettings.parseRange
+        |> Seq.map (Parsing.ChannelSettings.parseRange)
+        |> Seq.filter (fun range -> voltage range > inputVoltage)
         |> Seq.minBy voltage
 
     /// Returns the smallest input range which will provide the required offset voltage, if there is one.
