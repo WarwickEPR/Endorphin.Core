@@ -64,7 +64,7 @@ module Instrument =
             /// Returns the digital current step of the magnet controller.
             let currentStep magnetController = 
                 (maximumCurrent magnetController)
-                / (1.0 * float (digitalOutputStepCount magnetController))
+                / (1.0M * decimal (digitalOutputStepCount magnetController))
 
             /// Returns the static field of the magnet controlled by the magnet controller.
             let staticField (MagnetController (_, settings)) =
@@ -124,20 +124,20 @@ module Instrument =
             /// Gives the current corresponding to the specified digital step indeex for the magnet
             /// controller.
             let stepIndexToCurrent magnetController (index : uint16) =
-                (1.0 * float index) * (Settings.currentStep magnetController)
+                (1.0M * decimal index) * (Settings.currentStep magnetController)
 
             /// Gives the output current corresponding to the given monitoring shunt voltage readout for
             /// the magnet controller.
             let shuntVoltageToCurrent magnetController shuntVoltage =
                 (shuntVoltage - Settings.shuntVoltageOffset magnetController) / (Settings.linearShuntVoltageCoefficient magnetController)
                 |> min (Settings.maximumCurrent magnetController)
-                |> max 0.0<A>
+                |> max 0.0M<A>
 
             /// Gives the current direction and current required to achieve the specified magnetic field
             /// for the magnet controller.
             let magneticFieldToCurrent magnetController magneticField =
                 let signedCurrent = (magneticField - Settings.staticField magnetController) / (Settings.linearFieldCoefficient magnetController)
-                if signedCurrent >= 0.0<A>
+                if signedCurrent >= 0.0M<A>
                 then (Forward, abs signedCurrent)
                 else (Reverse, abs signedCurrent)
 
@@ -179,11 +179,11 @@ module Instrument =
             
             /// Gives the output step index corresponding to the specified current for the magnet
             /// controller.
-            let currentToStepIndex magnetController (current : float<A>) =
+            let currentToStepIndex magnetController (current : decimal<A>) =
                 if current > Settings.maximumCurrent magnetController then
                     invalidArg "current" "Current exceeds maximum magnet controller output current." current
 
-                uint16 (round(float (current / (Settings.currentStep magnetController))))
+                uint16 (round (decimal (current / (Settings.currentStep magnetController))))
 
             /// Gives the current direction and output step index corresponding to the specified magnetic
             /// field for the magnet controller.
@@ -219,20 +219,20 @@ module Instrument =
             /// Checks whether the given output current is within the magnet controller output range and
             /// software-defined current limit.
             let outputCurrent magnetController current =
-                if current < 0.0<A> then invalidArg "current" "Magnet controller output current must be non-negative." current
+                if current < 0.0M<A> then invalidArg "current" "Magnet controller output current must be non-negative." current
                 if current > Settings.maximumCurrent magnetController then invalidArg "current" "Magnet controller output current cannot exceed maximum output current." current
                 if current > Settings.currentLimit magnetController   then invalidArg "current" "Magnet controller output current cannot exceed current limit." current
                 else current
 
             /// Checks whether the given trip voltage is within the software-defined trip voltage limit.
             let tripVoltage magnetController voltage =
-                if voltage < 0.0<V> then invalidArg "voltage" "Magnet controller trip voltage must be non-negative." voltage
+                if voltage < 0.0M<V> then invalidArg "voltage" "Magnet controller trip voltage must be non-negative." voltage
                 if voltage > Settings.tripVoltageLimit magnetController then invalidArg "voltage" "Magnet controller trip voltage cannot exceed trip voltage limit." voltage
                 else voltage
 
             /// Checks whether the given ramp rate is within the software-defined ramp rate limit.
             let rampRate magnetController rampRate =
-                if rampRate < 0.0<A/s> then invalidArg "rampRate" "Magnet controller ramp rate must be non-negative." rampRate
+                if rampRate < 0.0M<A/s> then invalidArg "rampRate" "Magnet controller ramp rate must be non-negative." rampRate
                 if rampRate > Settings.rampRateLimit magnetController then invalidArg "rampRate" "Magnet controller ramp rate cannot exceed ramp rate limit." rampRate
                 else rampRate
 
@@ -442,7 +442,7 @@ module Instrument =
             /// required before current polarity can be changed.
             let rec waitToReachZero magnetController = async {
                 let! outputParams = queryOutputParameters magnetController
-                if outputParams.OutputCurrent <> 0.0<A> then 
+                if outputParams.OutputCurrent <> 0.0M<A> then 
                     do! waitToReachZero magnetController }
 
             /// Functions related to magnet controller ramp rate.

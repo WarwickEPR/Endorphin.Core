@@ -10,7 +10,7 @@ log4net.Config.BasicConfigurator.Configure()
 
 let settings = 
     { HardwareParameters =
-        { MaximumCurrent = 20.0<A>
+        { MaximumCurrent = 20.0M<A>
           CalibratedRampRates =
             [ 0.00020; 0.00024; 0.00026; 0.00030; 0.00036; 0.00042; 0.00048; 0.00054; 
               0.00064; 0.00072; 0.00084; 0.00098; 0.00110; 0.00130; 0.00150; 0.00170;
@@ -21,21 +21,21 @@ let settings =
               0.20;    0.24;    0.26;    0.30;    0.36;    0.42;    0.48;    0.54; 
               0.64;    0.72;    0.84;    0.98;    1.10;    1.30;    1.50;    1.70; 
               2.0 ]
-            |> List.map (fun x -> x * 1.0<A/s>) }
+            |> List.map (fun x -> (decimal x) * 1.0M<A/s>) }
               
       Limits = 
-        { RampRateLimit    = 0.1<A/s>
-          TripVoltageLimit = 2.5<V>
-          CurrentLimit     = 17.5<A> }
+        { RampRateLimit    = 0.1M<A/s>
+          TripVoltageLimit = 2.5M<V>
+          CurrentLimit     = 17.5M<A> }
           
       FieldCalibration =
-        { StaticField       = 14.146<T>
-          LinearCoefficient = -0.002845<T/A> }
+        { StaticField       = 14.146M<T>
+          LinearCoefficient = -0.002845M<T/A> }
           
       ShuntCalibration = 
-        { VoltageOffset     = 0.002<V>
-          LinearCoefficient = 0.400<V/A> 
-          RmsVoltageNoise   = 0.100<V> } }
+        { VoltageOffset     = 0.002M<V>
+          LinearCoefficient = 0.400M<V/A> 
+          RmsVoltageNoise   = 0.100M<V> } }
 
 async {
     let! magnetController = MagnetController.openInstrument "GPIB0::4" 3000<ms> settings
@@ -43,8 +43,8 @@ async {
     try
         let targetParameters = 
             FieldTarget.Parameters.create Forward
-            <| MagnetController.Output.Current.toStepIndex magnetController 1.5<A>
-            <| MagnetController.Ramp.Rate.nearestIndex magnetController 0.02<A/s>
+            <| MagnetController.Output.Current.toStepIndex magnetController 1.5M<A>
+            <| MagnetController.Ramp.Rate.nearestIndex magnetController 0.02M<A/s>
     
         let target = FieldTarget.create magnetController targetParameters
 

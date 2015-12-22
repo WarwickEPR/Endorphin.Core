@@ -11,25 +11,25 @@ module Model =
     module Instrument =
         /// Parameters specifying the magnet controller hardware configuratoin.
         type HardwareParameters =
-            { MaximumCurrent      : float<A>
-              CalibratedRampRates : float<A/s> list }
+            { MaximumCurrent      : decimal<A>
+              CalibratedRampRates : decimal<A/s> list }
 
         /// Software-enforced output limits for the magnet controller.
         type Limits =
-            { RampRateLimit    : float<A/s>
-              TripVoltageLimit : float<V>
-              CurrentLimit     : float<A> }
+            { RampRateLimit    : decimal<A/s>
+              TripVoltageLimit : decimal<V>
+              CurrentLimit     : decimal<A> }
 
         /// Calibration parameters for the magnetic field.
         type FieldCalibration =
-            { StaticField       : float<T> 
-              LinearCoefficient : float<T/A> }
+            { StaticField       : decimal<T> 
+              LinearCoefficient : decimal<T/A> }
 
         /// Calibration parameters for the output monitoring shunt.
         type ShuntCalibration =
-            { VoltageOffset     : float<V>
-              LinearCoefficient : float<V/A>
-              RmsVoltageNoise   : float<V> }
+            { VoltageOffset     : decimal<V>
+              LinearCoefficient : decimal<V/A>
+              RmsVoltageNoise   : decimal<V> }
    
         /// Magnet controller settings including hardware configuration, output limits and calibration parameters.
         type Settings =
@@ -49,8 +49,8 @@ module Model =
 
     /// Magnet controller output parameters.
     type OutputParameters = 
-        { OutputCurrent : float<A>
-          OutputVoltage : float<V>
+        { OutputCurrent : decimal<A>
+          OutputVoltage : decimal<V>
           RampTarget    : RampTarget }
 
     /// Magnet controller current parameters.
@@ -61,11 +61,11 @@ module Model =
     
     /// Magnet controller operating parameters.
     type OperatingParameters = 
-        { RampRate         : float<A/s>
+        { RampRate         : decimal<A/s>
           CurrentDirection : CurrentDirection }
 
     /// Magnet controller set point parameters.
     type SetPointParameters = 
-        { LowerSetPoint : float<A>
-          UpperSetPoint : float<A>
-          TripVoltage   : float<V> }
+        { LowerSetPoint : decimal<A>
+          UpperSetPoint : decimal<A>
+          TripVoltage   : decimal<V> }

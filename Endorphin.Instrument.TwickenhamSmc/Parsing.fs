@@ -10,19 +10,19 @@ open FSharp.Text.RegexProvider
 module internal Parsing =
 
     /// Encode a voltage in volts as a string.
-    let voltageString (voltage : float<V>) = sprintf "%04.1f" voltage
+    let voltageString (voltage : decimal<V>) = sprintf "%04.1f" voltage
 
     /// Encode a current in amps as a string.
-    let currentString (current : float<A>) = 
+    let currentString (current : decimal<A>) = 
         // devices with lower output current require a string with 4 digits after the decimal point
         // to access the maximum available resolution while those with higher output currents require
         // a string with 3 digits before the decimal point to access the maximum output current
-        if current >= 100.0<A>
+        if current >= 100.0M<A>
         then sprintf "%07.3f" current
         else sprintf "%07.4f" current
 
     /// Encode a ramp rate in amps per second as a string.
-    let rampRateString (rampRate : float<A/s>) = sprintf "%08.5f" rampRate
+    let rampRateString (rampRate : decimal<A/s>) = sprintf "%08.5f" rampRate
 
     /// Encode a current direction as a string.
     let currentDirectionString = function
@@ -66,8 +66,8 @@ module internal Parsing =
     let parseOutputParameters str =
         let outputParametersMatch = OutputParametersRegex().Match(str)
         if outputParametersMatch.Success then
-            { OutputCurrent = 1.0<A> * float outputParametersMatch.OutputCurrent.Value
-              OutputVoltage = 1.0<V> * float outputParametersMatch.OutputVoltage.Value
+            { OutputCurrent = 1.0M<A> * decimal outputParametersMatch.OutputCurrent.Value
+              OutputVoltage = 1.0M<V> * decimal outputParametersMatch.OutputVoltage.Value
               RampTarget    = parseRampTarget outputParametersMatch.RampTarget.Value }
         else failwithf "Unexpected magnet controller output parameter string: %s." str
 
@@ -90,7 +90,7 @@ module internal Parsing =
     let parseOperatingParameters str =
         let operatingParametersMatch = OperatingParametersRegex().Match(str)
         if operatingParametersMatch.Success then
-            { RampRate         = 1.0<A/s> * float operatingParametersMatch.RampRate.Value
+            { RampRate         = 1.0M<A/s> * decimal operatingParametersMatch.RampRate.Value
               CurrentDirection = parseCurrentDirection operatingParametersMatch.CurrentDirection.Value }
         else failwithf "Unexpected magnet controller operating parameter string: %s." str
 
@@ -101,7 +101,7 @@ module internal Parsing =
     let parseSetPointParameters str =
         let setPointParametersMatch = SetPointParametersRegex().Match(str)
         if setPointParametersMatch.Success then
-            { LowerSetPoint = 1.0<A> * float setPointParametersMatch.LowerSetPoint.Value 
-              UpperSetPoint = 1.0<A> * float setPointParametersMatch.UpperSetPoint.Value
-              TripVoltage   = 1.0<V> * float setPointParametersMatch.TripVoltage.Value }
+            { LowerSetPoint = 1.0M<A> * decimal setPointParametersMatch.LowerSetPoint.Value 
+              UpperSetPoint = 1.0M<A> * decimal setPointParametersMatch.UpperSetPoint.Value
+              TripVoltage   = 1.0M<V> * decimal setPointParametersMatch.TripVoltage.Value }
         else failwithf "Unexpected magnet controller set point parameter string: %s." str
