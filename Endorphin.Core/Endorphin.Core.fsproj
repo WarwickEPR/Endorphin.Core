@@ -63,6 +63,7 @@
     <Compile Include="VisaAgent.fs" />
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="CRC.fs" />
+    <Compile Include="QueuedAccessAgent.fs" />
     <None Include="app.config" />
     <Content Include="packages.config" />
   </ItemGroup>
