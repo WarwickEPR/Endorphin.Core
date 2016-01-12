@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Keys.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="ScanningController.fs" />
