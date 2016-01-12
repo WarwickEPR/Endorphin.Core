@@ -1,4 +1,5 @@
 ﻿namespace Endorphin.Instrument.FastScanningController
+
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Utilities.Position.Point
 open Endorphin.Core
@@ -6,16 +7,16 @@ open Endorphin.Core
 [<AutoOpen>]
 module internal Parsing = 
     let dwellString (dwellTime : int<ms>) = 
-        sprintf "DWELL %d" dwellTime
+        sprintf "%s %d" Keys.dwellTime dwellTime
 
     let triggerDelayString (triggerDelay : float<ms>) = 
-        sprintf "DELAY %.1f" triggerDelay
+        sprintf "%s %.1f" Keys.delayTime triggerDelay
 
     let uploadString (numberOfPoints : int) = 
-        sprintf "DL %d" numberOfPoints
+        sprintf "%s %d" Keys.uploadNumber numberOfPoints
 
     let voltageString (point : VoltagePoint) = 
-        sprintf "V %.3M,%.3M,%.3M" (tfst point / 1m<V>) (tsnd point / 1m<V>) (ttrd point / 1m<V>)
+        sprintf "%s %.3M,%.3M,%.3M" Keys.voltagePoint (tfst point / 1m<V>) (tsnd point / 1m<V>) (ttrd point / 1m<V>)
 
     let parseVoltages (response : string) : VoltagePoint = 
         try
@@ -27,11 +28,11 @@ module internal Parsing =
             failwith (sprintf "Bad response from the fast scanning controller: %s; exception: %A" response exn)
 
     let parseUploadAcknowledgement (response : string) = 
-        if response.Trim() <> "DL ACK" then
+        if response.Trim() <> Keys.uploadAcknowledgement then
             failwith <| sprintf "Bad command to controller - will not acknowledge path upload. Response was: %s" response
 
     let parseUploadCompletion (response : string) = 
-        if response.Trim() <> "DL DONE" then
+        if response.Trim() <> Keys.uploadComplete then
             failwith <| sprintf "Could not complete path upload. Response was: %s" response
 
     let parseNumberOfPoints (response : string) : int = 

@@ -21,7 +21,7 @@ module internal IO =
         (sprintf "%s\n" command) |> Visa.String.write scanningController }
 
     let private writePathVoltage (ScanningController (scanningController, _)) (voltages : VoltagePoint) =
-        (sprintf "V%.4M,%.4M,%.4M\n" (tfst voltages / 1m<V>) (tsnd voltages / 1m<V>) (ttrd voltages / 1m<V>)) |> Visa.String.write scanningController
+        (sprintf "%s%.4M,%.4M,%.4M\n" Keys.voltagePoint (tfst voltages / 1m<V>) (tsnd voltages / 1m<V>) (ttrd voltages / 1m<V>)) |> Visa.String.write scanningController
 
     let private readUploadAcknowledgement parseFunc (ScanningController (scanningController, _)) = async {
         let! response = Visa.String.read scanningController
@@ -31,11 +31,11 @@ module internal IO =
 
     let setTriggerDelay = setValue triggerDelayString
 
-    let getCurrentVoltages = queryValue parseVoltages "V?"
+    let getCurrentVoltages = queryValue parseVoltages (sprintf "%s?" Keys.voltagePoint)
 
     let setCurrentVoltages = setValue voltageString
 
-    let getNumberOfPoints = queryValue parseNumberOfPoints "N?" 
+    let getNumberOfPoints = queryValue parseNumberOfPoints (sprintf "%s?" Keys.numberQuery) 
 
     let beginUpload numberOfElements = queryValue parseUploadAcknowledgement (uploadString numberOfElements)
 
@@ -61,7 +61,7 @@ module internal IO =
         do! finishUpload controller }
 
     let runPath (controller : ScanningController) = async {
-        do! writeCommand controller "RUN" }
+        do! writeCommand controller <| sprintf "%s" Keys.runPath }
 
     let stopPath (controller : ScanningController) = async {
-        do! writeCommand controller "STOP" }
+        do! writeCommand controller <| sprintf "%s" Keys.stopPath }
