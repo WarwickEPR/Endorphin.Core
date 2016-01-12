@@ -48,7 +48,7 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="ScanningController.fs" />
-    <None Include="Script.fsx" />
+    <None Include="ScanningControllerDemo.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Endorphin.Core\Endorphin.Core.fsproj">

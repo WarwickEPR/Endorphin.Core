@@ -8,8 +8,8 @@ module internal Parsing =
     let dwellString (dwellTime : int<ms>) = 
         sprintf "DWELL %d" dwellTime
 
-    let triggerDelayString (triggerDelay : int<us>) = 
-        sprintf "DELAY %dus" triggerDelay
+    let triggerDelayString (triggerDelay : float<ms>) = 
+        sprintf "DELAY %.1f" triggerDelay
 
     let uploadString (numberOfPoints : int) = 
         sprintf "DL %d" numberOfPoints
@@ -28,11 +28,14 @@ module internal Parsing =
 
     let parseUploadAcknowledgement (response : string) = 
         if response.Trim() <> "DL ACK" then
-            failwith "Bad command to controller - will not acknowledge path upload. Response was: %s" response
+            failwith <| sprintf "Bad command to controller - will not acknowledge path upload. Response was: %s" response
 
     let parseUploadCompletion (response : string) = 
         if response.Trim() <> "DL DONE" then
-            failwith "Could not complete path upload. Response was: %s" response
+            failwith <| sprintf "Could not complete path upload. Response was: %s" response
+
+    let parseNumberOfPoints (response : string) : int = 
+        int <| response.Substring 4
 
 [<AutoOpen>]
 module internal Convert = 
