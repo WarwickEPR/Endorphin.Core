@@ -10,7 +10,7 @@ open Endorphin.Instrument.TwickenhamSmc
 log4net.Config.BasicConfigurator.Configure()
 
 let settings = 
-    { HardwareParameters =
+    { TwickenhamSmc.HardwareParameters =
         { MaximumCurrent = 20.0M<A>
           CalibratedRampRates =
             [ 0.00020; 0.00024; 0.00026; 0.00030; 0.00036; 0.00042; 0.00048; 0.00054; 
@@ -24,21 +24,21 @@ let settings =
               2.0 ]
             |> List.map (fun x -> (decimal x) * 1.0M<A/s>) }
               
-      Limits = 
+      TwickenhamSmc.Limits = 
         { RampRateLimit    = 0.1M<A/s>
           TripVoltageLimit = 2.5M<V>
           CurrentLimit     = 17.5M<A> }
           
-      FieldCalibration =
+      TwickenhamSmc.FieldCalibration =
         { StaticField       = 14.146M<T>
           LinearCoefficient = -0.002845M<T/A> }
           
-      ShuntCalibration = 
+      TwickenhamSmc.ShuntCalibration = 
         { VoltageOffset     = 0.002M<V>
           LinearCoefficient = 0.400M<V/A> 
           RmsVoltageNoise   = 0.100M<V> }
           
-      LastUpdated = new DateTime(2015, 2, 1) }
+      TwickenhamSmc.LastUpdated = new DateTime(2015, 2, 1) }
 
 async {
     let! magnetController = MagnetController.openInstrument "GPIB0::4" 3000<ms> settings

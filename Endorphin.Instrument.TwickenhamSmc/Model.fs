@@ -8,8 +8,7 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 /// Twickenham superconducting magnet controller model types.
 module Model =
    
-    [<AutoOpen>]
-    module Instrument =
+    module TwickenhamSmc =
         /// Parameters specifying the magnet controller hardware configuratoin.
         type HardwareParameters =
             { MaximumCurrent      : decimal<A>
@@ -40,8 +39,8 @@ module Model =
               ShuntCalibration   : ShuntCalibration
               LastUpdated        : DateTime }
 
-        /// Twickenham superconducting magnet controller.
-        type MagnetController = internal MagnetController of magnetController : Visa.Instrument * settings : Settings
+    /// Twickenham superconducting magnet controller.
+    type MagnetController = internal MagnetController of magnetController : Visa.Instrument * settings : TwickenhamSmc.Settings
 
     /// Output current direction.
     type CurrentDirection = Forward | Reverse

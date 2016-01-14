@@ -3,6 +3,7 @@
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Core
+open TwickenhamSmc
 
 [<AutoOpen>]
 /// Core instrument API functions.
