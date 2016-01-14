@@ -16,13 +16,14 @@ module CwEprExperiment =
 
         /// Defines the parameters for a CW EPR experiment.
         type ExperimentParameters =
-            internal { CentreField         : decimal<T>
-                       SweepWidth          : decimal<T>
-                       FieldSweepDirection : FieldSweepDirection
-                       RampRate            : decimal<T/s>
-                       ConversionTime      : int<ms>
-                       QuadratureDetection : bool
-                       NumberOfScans       : int }
+            internal { CentreField              : decimal<T>
+                       SweepWidth               : decimal<T>
+                       FieldSweepDirection      : FieldSweepDirection
+                       RampRate                 : decimal<T/s>
+                       ConversionTime           : int<ms>
+                       QuadratureDetection      : bool
+                       NumberOfScans            : int
+                       MagnetControllerSettings : TwickenhamSmc.Settings }
 
         type Sample =
             { MagneticFieldShuntAdc : int16
@@ -57,6 +58,8 @@ module CwEprExperiment =
 
         let duration parameters =
             (decimal <| numberOfScans parameters) * (sweepWidth parameters / rampRate parameters)
+
+        let magnetControllerSettings parameters =  parameters.MagnetControllerSettings
 
         module Validate =
 
@@ -155,41 +158,40 @@ module CwEprExperiment =
 
     module internal InstrumentParameters =
 
-        let rec initialFieldIndex magnetController parameters = 
+        let rec initialFieldIndex parameters = 
             let (currentDirection, stepIndex) =
                 Parameters.initialField parameters
-                |> MagnetController.Output.MagneticField.toStepIndex magnetController
+                |> MagnetController.Settings.Convert.magneticFieldToStepIndex parameters.MagnetControllerSettings
 
             if stepIndex <> 0us
             then (currentDirection, stepIndex)
-            else (fst <| finalFieldIndex magnetController parameters, stepIndex)
+            else (fst <| finalFieldIndex parameters, stepIndex)
 
-        and finalFieldIndex magnetController parameters =
+        and finalFieldIndex parameters =
             let (currentDirection, stepIndex) =
                 Parameters.finalField parameters
-                |> MagnetController.Output.MagneticField.toStepIndex magnetController
+                |> MagnetController.Settings.Convert.magneticFieldToStepIndex parameters.MagnetControllerSettings
 
             if stepIndex <> 0us
             then (currentDirection, stepIndex)
-            else (fst <| initialFieldIndex magnetController parameters, stepIndex)
-                 
+            else (fst <| initialFieldIndex parameters, stepIndex)
 
-        let rampRateIndex magnetController parameters =
+        let rampRateIndex parameters =
             Parameters.rampRate parameters
-            / (MagnetController.Output.MagneticField.linearCoefficient magnetController)
-            |> MagnetController.Ramp.Rate.nearestIndex magnetController
+            / (MagnetController.Settings.linearFieldCoefficient parameters.MagnetControllerSettings)
+            |> MagnetController.Settings.RampRate.nearestIndex parameters.MagnetControllerSettings
 
         let sampleInterval = Interval.fromMicroseconds 20<us>
 
         let downsamplingRatio parameters = uint32 ((Parameters.conversionTime parameters) / 20<ms>) * 1000u
 
-        let shuntVoltageRange magnetController parameters =
-            let (initialCurrentDirection, initialStepIndex) = initialFieldIndex magnetController parameters
-            let (finalCurrentDirection,   finalStepIndex  ) = finalFieldIndex magnetController parameters
+        let shuntVoltageRange parameters =
+            let (initialCurrentDirection, initialStepIndex) = initialFieldIndex parameters
+            let (finalCurrentDirection,   finalStepIndex  ) = finalFieldIndex   parameters
             
-            let initialShuntVoltage = MagnetController.Output.ShuntVoltage.fromStepIndex magnetController initialStepIndex
-            let finalShuntVoltage   = MagnetController.Output.ShuntVoltage.fromStepIndex magnetController finalStepIndex
-            let shuntOffset         = MagnetController.Output.ShuntVoltage.offset magnetController
+            let initialShuntVoltage = MagnetController.Settings.Convert.stepIndexToShuntVoltage parameters.MagnetControllerSettings initialStepIndex
+            let finalShuntVoltage   = MagnetController.Settings.Convert.stepIndexToShuntVoltage parameters.MagnetControllerSettings finalStepIndex
+            let shuntOffset         = MagnetController.Settings.shuntVoltageOffset parameters.MagnetControllerSettings
 
             let minimumShuntVoltage =
                 if initialCurrentDirection = finalCurrentDirection
@@ -203,12 +205,12 @@ module CwEprExperiment =
 
             (minimumShuntVoltage, maximumShuntVoltage)
 
-        let magneticFieldChannelOffset magnetController parameters =
-            let (minimumVoltage, maximumVoltage) = shuntVoltageRange magnetController parameters
+        let magneticFieldChannelOffset parameters =
+            let (minimumVoltage, maximumVoltage) = shuntVoltageRange parameters
             1.0f<V> * (float32 <| Decimal.Round((minimumVoltage + maximumVoltage) / 2.0M<V>, 1))
             
-        let magneticFieldChannelRange magnetController parameters = 
-            let offset = magneticFieldChannelOffset magnetController parameters 
+        let magneticFieldChannelRange parameters = 
+            let offset = magneticFieldChannelOffset parameters 
             
             let minimumForOffset = 
                 offset 
@@ -217,7 +219,7 @@ module CwEprExperiment =
                     | Some range' -> range'
                     | None        -> failwithf "Required shunt voltage offset (%f V) exceeds maximum." offset
 
-            let (minimumVoltage, maximumVoltage) = shuntVoltageRange magnetController parameters
+            let (minimumVoltage, maximumVoltage) = shuntVoltageRange parameters
             let minimumForRange =
                 abs (offset - 1.0f<V> * (float32 (minimumVoltage / 1.0M<V>)))
                 |> max (abs (offset - 1.0f<V> * (float32 (maximumVoltage / 1.0M<V>))))
@@ -226,9 +228,9 @@ module CwEprExperiment =
             [ minimumForOffset ; minimumForRange ] |> List.maxBy Range.voltage
 
 
-        let streamingParameters magnetController parameters =
-            let magneticFieldChannelOffset' = magneticFieldChannelOffset magnetController parameters
-            let magneticFieldChannelRange'  = magneticFieldChannelRange magnetController parameters
+        let streamingParameters parameters =
+            let magneticFieldChannelOffset' = magneticFieldChannelOffset parameters
+            let magneticFieldChannelRange'  = magneticFieldChannelRange  parameters
 
             Streaming.Parameters.create Resolution_14bit sampleInterval (64u * 1024u)
             |> Streaming.Parameters.withDownsamplingRatio (downsamplingRatio parameters)
