@@ -50,7 +50,7 @@ module FieldSweep =
         /// Creates a magnetic field sweep
         let create currentDirection initialStepIndex finalStepIndex rampRateIndex =
             if initialStepIndex = finalStepIndex then
-                invalidArg "finalStepIndex" "Final step index cannot be equal to initial step index." finalStepIndex
+                invalidArg "finalStepIndex" (sprintf "Final step index cannot be equal to initial step index: %d." finalStepIndex)
 
             { InitialStepIndex = initialStepIndex
               FinalStepIndex   = finalStepIndex

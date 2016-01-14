@@ -13,6 +13,9 @@ module Instrument =
     /// magnet controller.
     module MagnetController =
 
+        /// Gets the settings for the magnet controller.
+        let settings (MagnetController (_, settings)) = settings
+
         /// Opens a connection to a Twickenham Scientific superconducting magnet controller with the
         /// specified VISA address and settings.
         let openInstrument visaAddress timeout settings = async {
@@ -49,201 +52,203 @@ module Instrument =
         let querySetPointParameters = IO.querySetPointParameters Keys.setPointParameters
 
         /// Functions related to the magnet controller settings.
-        module private Settings =
+        module Settings =
         
             /// Returns the output resolution of the magnet controller in bits.
-            let outputResolution (MagnetController _) = 16<bit>
+            let outputResolution (settings : Settings) = 16<bit>
 
             /// Returns the number of digital steps for the magnet controller output.
-            let digitalOutputStepCount (MagnetController _) = System.UInt16.MaxValue
+            let digitalOutputStepCount (settings : Settings) = System.UInt16.MaxValue
 
             /// Returns the maximum output current of the magnet controller.
-            let maximumCurrent (MagnetController (_, settings)) =
+            let maximumCurrent settings =
                 settings.HardwareParameters.MaximumCurrent
 
             /// Returns the digital current step of the magnet controller.
-            let currentStep magnetController = 
-                (maximumCurrent magnetController)
-                / (1.0M * decimal (digitalOutputStepCount magnetController))
+            let currentStep settings = 
+                (maximumCurrent settings)
+                / (1.0M * decimal (digitalOutputStepCount settings))
 
             /// Returns the static field of the magnet controlled by the magnet controller.
-            let staticField (MagnetController (_, settings)) =
+            let staticField settings =
                 settings.FieldCalibration.StaticField
 
             /// Returns the linear proportionality coefficient between current and magnetic field for
             /// the magnet controller.
-            let linearFieldCoefficient (MagnetController (_, settings)) =
+            let linearFieldCoefficient settings =
                 settings.FieldCalibration.LinearCoefficient
 
             /// Returns the digital magnetic field step of the magnet controller.
-            let fieldStep magnetController =
-                (currentStep magnetController) * (linearFieldCoefficient magnetController) 
+            let fieldStep settings =
+                (currentStep settings) * (linearFieldCoefficient settings) 
 
             /// Returns the output monitoring shunt voltage offset of the magnet controller in volts.
-            let shuntVoltageOffset (MagnetController (_, settings)) =
+            let shuntVoltageOffset settings =
                 settings.ShuntCalibration.VoltageOffset
 
             /// Returns the linear proportionality coefficient between current and output monitoring 
             /// shunt voltage for the magnet controller.
-            let linearShuntVoltageCoefficient (MagnetController (_, settings)) =
+            let linearShuntVoltageCoefficient settings =
                 settings.ShuntCalibration.LinearCoefficient
 
             /// Returns the RMS voltage noise for the output monitoring shunt of the magnet controller.
-            let shuntVoltageRmsNoise (MagnetController (_, settings)) =
+            let shuntVoltageRmsNoise settings =
                 settings.ShuntCalibration.RmsVoltageNoise
 
             /// Returns the output monitoring shunt voltage for the magnet controller at maximum output
             /// current.
-            let maximumShuntVoltage magnetController =
-                shuntVoltageOffset magnetController + (maximumCurrent magnetController) * (linearShuntVoltageCoefficient magnetController)
+            let maximumShuntVoltage settings =
+                shuntVoltageOffset settings + (maximumCurrent settings) * (linearShuntVoltageCoefficient settings)
 
             /// Returns the output monitoring shunt voltage step size between digital output steps of 
             /// the magnet controller.
-            let shuntVoltageStep magnetController =
-                (currentStep magnetController) * (linearShuntVoltageCoefficient magnetController)
+            let shuntVoltageStep settings =
+                (currentStep settings) * (linearShuntVoltageCoefficient settings)
 
             /// Returns the list of calibrated ramp rates available on the magnet controller.
-            let calibratedRampRates (MagnetController (_, settings)) =
+            let calibratedRampRates settings =
                 settings.HardwareParameters.CalibratedRampRates
 
             /// Returns the software-defined output current limit for the magnet controller.
-            let currentLimit (MagnetController (_, settings)) =
+            let currentLimit settings  =
                 settings.Limits.CurrentLimit
 
             /// Returns the software-defined ramp rate limit for the magnet controller.
-            let rampRateLimit (MagnetController (_, settings)) =
+            let rampRateLimit settings =
                 settings.Limits.RampRateLimit
 
             /// Returns the software-defined trip voltage limit for the magnet controller.
-            let tripVoltageLimit (MagnetController (_, settings)) =
+            let tripVoltageLimit settings =
                 settings.Limits.TripVoltageLimit
 
-        /// Functions related to unit conversions.
-        module private Convert =
+            /// Functions related to unit conversions.
+            module Convert =
 
-            /// Gives the current corresponding to the specified digital step indeex for the magnet
-            /// controller.
-            let stepIndexToCurrent magnetController (index : uint16) =
-                (1.0M * decimal index) * (Settings.currentStep magnetController)
+                /// Gives the current corresponding to the specified digital step indeex for the magnet
+                /// controller.
+                let stepIndexToCurrent magnetController (index : uint16) =
+                    (1.0M * decimal index) * (currentStep magnetController)
 
-            /// Gives the output current corresponding to the given monitoring shunt voltage readout for
-            /// the magnet controller.
-            let shuntVoltageToCurrent magnetController shuntVoltage =
-                (shuntVoltage - Settings.shuntVoltageOffset magnetController) / (Settings.linearShuntVoltageCoefficient magnetController)
-                |> min (Settings.maximumCurrent magnetController)
-                |> max 0.0M<A>
+                /// Gives the output current corresponding to the given monitoring shunt voltage readout for
+                /// the magnet controller.
+                let shuntVoltageToCurrent magnetController shuntVoltage =
+                    (shuntVoltage - shuntVoltageOffset magnetController) / (linearShuntVoltageCoefficient magnetController)
+                    |> min (maximumCurrent magnetController)
+                    |> max 0.0M<A>
 
-            /// Gives the current direction and current required to achieve the specified magnetic field
-            /// for the magnet controller.
-            let magneticFieldToCurrent magnetController magneticField =
-                let signedCurrent = (magneticField - Settings.staticField magnetController) / (Settings.linearFieldCoefficient magnetController)
-                if signedCurrent >= 0.0M<A>
-                then (Forward, abs signedCurrent)
-                else (Reverse, abs signedCurrent)
+                /// Gives the current direction and current required to achieve the specified magnetic field
+                /// for the magnet controller.
+                let magneticFieldToCurrent magnetController magneticField =
+                    let signedCurrent = (magneticField - staticField magnetController) / (linearFieldCoefficient magnetController)
+                    if signedCurrent >= 0.0M<A>
+                    then (Forward, abs signedCurrent)
+                    else (Reverse, abs signedCurrent)
 
-            /// Gives the magnetic field corresponding to the given current direction and current for the
-            /// magnet controller.
-            let currentToMagneticField magnetController (currentDirection, current) =
-                match currentDirection with
-                | Forward -> Settings.staticField magnetController + current * (Settings.linearFieldCoefficient magnetController)
-                | Reverse -> Settings.staticField magnetController - current * (Settings.linearFieldCoefficient magnetController)
+                /// Gives the magnetic field corresponding to the given current direction and current for the
+                /// magnet controller.
+                let currentToMagneticField magnetController (currentDirection, current) =
+                    match currentDirection with
+                    | Forward -> staticField magnetController + current * (linearFieldCoefficient magnetController)
+                    | Reverse -> staticField magnetController - current * (linearFieldCoefficient magnetController)
 
-            /// Gives the magnetic field corresponding to the given current direction and output step
-            /// index for the magnet controller.
-            let stepIndexToMagneticField magnetController (currentDirection, index) =
-                let current = stepIndexToCurrent magnetController index
-                currentToMagneticField magnetController (currentDirection, current)
+                /// Gives the magnetic field corresponding to the given current direction and output step
+                /// index for the magnet controller.
+                let stepIndexToMagneticField magnetController (currentDirection, index) =
+                    let current = stepIndexToCurrent magnetController index
+                    currentToMagneticField magnetController (currentDirection, current)
 
-            /// Gives the mangetic field corresponding to the given current direction and monitoring shunt
-            /// voltage readout for the magnet controller.
-            let shuntVoltageToMagneticField magnetController (currentDirection, shuntVoltage) =
-                let current = shuntVoltageToCurrent magnetController shuntVoltage
-                currentToMagneticField magnetController (currentDirection, current)
+                /// Gives the mangetic field corresponding to the given current direction and monitoring shunt
+                /// voltage readout for the magnet controller.
+                let shuntVoltageToMagneticField magnetController (currentDirection, shuntVoltage) =
+                    let current = shuntVoltageToCurrent magnetController shuntVoltage
+                    currentToMagneticField magnetController (currentDirection, current)
 
-            /// Gives the monitoring shunt voltage readout corresponding to the given current for the 
-            /// magnet controller.
-            let currentToShuntVoltage magnetController current =
-                Settings.shuntVoltageOffset magnetController + current * (Settings.linearShuntVoltageCoefficient magnetController)
+                /// Gives the monitoring shunt voltage readout corresponding to the given current for the 
+                /// magnet controller.
+                let currentToShuntVoltage magnetController current =
+                    shuntVoltageOffset magnetController + current * (linearShuntVoltageCoefficient magnetController)
 
-            /// Gives the monitoring shunt voltage readout corresponding to the given output step index
-            /// for the magnet controller.
-            let stepIndexToShuntVoltage magnetController index =
-                stepIndexToCurrent magnetController index
-                |> currentToShuntVoltage magnetController
+                /// Gives the monitoring shunt voltage readout corresponding to the given output step index
+                /// for the magnet controller.
+                let stepIndexToShuntVoltage magnetController index =
+                    stepIndexToCurrent magnetController index
+                    |> currentToShuntVoltage magnetController
 
-            /// Gives the current direction and monitoring shunt voltage readout corresponding to the
-            /// magnetic field for the magnet controller.
-            let magneticFieldToShuntVoltage magnetController magneticField =
-                let (currentDirection, current) = magneticFieldToCurrent magnetController magneticField
-                (currentDirection, currentToShuntVoltage magnetController current)
+                /// Gives the current direction and monitoring shunt voltage readout corresponding to the
+                /// magnetic field for the magnet controller.
+                let magneticFieldToShuntVoltage magnetController magneticField =
+                    let (currentDirection, current) = magneticFieldToCurrent magnetController magneticField
+                    (currentDirection, currentToShuntVoltage magnetController current)
             
-            /// Gives the output step index corresponding to the specified current for the magnet
-            /// controller.
-            let currentToStepIndex magnetController (current : decimal<A>) =
-                if current > Settings.maximumCurrent magnetController then
-                    invalidArg "current" "Current exceeds maximum magnet controller output current." current
+                /// Gives the output step index corresponding to the specified current for the magnet
+                /// controller.
+                let currentToStepIndex magnetController (current : decimal<A>) =
+                    if current > maximumCurrent magnetController then
+                        invalidArg "current" (sprintf "Current exceeds maximum magnet controller output current: %f." current)
 
-                uint16 (round (decimal (current / (Settings.currentStep magnetController))))
+                    uint16 (round (decimal (current / (currentStep magnetController))))
 
-            /// Gives the current direction and output step index corresponding to the specified magnetic
-            /// field for the magnet controller.
-            let magneticFieldToStepIndex magnetController magneticField =
-                let (currentDirection, current) = magneticFieldToCurrent magnetController magneticField
-                (currentDirection, currentToStepIndex magnetController current)
+                /// Gives the current direction and output step index corresponding to the specified magnetic
+                /// field for the magnet controller.
+                let magneticFieldToStepIndex magnetController magneticField =
+                    let (currentDirection, current) = magneticFieldToCurrent magnetController magneticField
+                    (currentDirection, currentToStepIndex magnetController current)
 
-            /// Gives the output step index correspondign to the specified monitoring shunt voltage
-            /// readout for the magnet controller.
-            let shuntVoltageToStepIndex magnetController shuntVoltage =
-                let current = shuntVoltageToCurrent magnetController shuntVoltage
-                currentToStepIndex magnetController current
+                /// Gives the output step index correspondign to the specified monitoring shunt voltage
+                /// readout for the magnet controller.
+                let shuntVoltageToStepIndex magnetController shuntVoltage =
+                    let current = shuntVoltageToCurrent magnetController shuntVoltage
+                    currentToStepIndex magnetController current
 
-            /// Digitses the given current to the nearest available digital output value.
-            let nearestDigitisedCurrent magnetController current =
-                currentToStepIndex magnetController current
-                |> stepIndexToCurrent magnetController
+            /// Functions to digitise values to the discrete magnet controller values which are available.
+            module Digitise =
+                /// Digitses the given current to the nearest available digital output value.
+                let outputCurrent settings current =
+                    Convert.currentToStepIndex settings current
+                    |> Convert.stepIndexToCurrent settings
 
-            /// Digitises the given magnetic field to the nearest available digital output value.
-            let nearestDigitisedMagneticField magnetController magneticField =
-                magneticFieldToStepIndex magnetController magneticField
-                |> stepIndexToMagneticField magnetController
+                /// Digitises the given magnetic field to the nearest available digital output value.
+                let magneticField settings field =
+                    Convert.magneticFieldToStepIndex settings field
+                    |> Convert.stepIndexToMagneticField settings
 
-            /// Digitises the shunt voltage to that correspond to the nearest available digital output
-            /// value.
-            let nearestDigitisedShuntVoltage magnetController shuntVoltage =
-                shuntVoltageToStepIndex magnetController shuntVoltage
-                |> stepIndexToShuntVoltage magnetController
+                /// Digitises the shunt voltage to that correspond to the nearest available digital output
+                /// value.
+                let shuntVoltage settings voltage =
+                    Convert.shuntVoltageToStepIndex settings voltage
+                    |> Convert.stepIndexToShuntVoltage settings
+                    
+            /// Functions to verify values before sending them to the magnet controller hardware.
+            module internal Verify =
 
-        /// Functions to verify values before sending them to the magnet controller hardware.
-        module private Verify =
+                /// Checks whether the given output current is within the magnet controller output range and
+                /// software-defined current limit.
+                let outputCurrent settings current =
+                    if current < 0.0M<A> then invalidArg "current" (sprintf "Magnet controller output current must be non-negative: %f." current)
+                    if current > maximumCurrent settings then invalidArg "current" (sprintf "Magnet controller output current cannot exceed maximum output current: %f." current)
+                    if current > currentLimit settings   then invalidArg "current" (sprintf "Magnet controller output current cannot exceed current limit: %f." current)
+                    else current
 
-            /// Checks whether the given output current is within the magnet controller output range and
-            /// software-defined current limit.
-            let outputCurrent magnetController current =
-                if current < 0.0M<A> then invalidArg "current" "Magnet controller output current must be non-negative." current
-                if current > Settings.maximumCurrent magnetController then invalidArg "current" "Magnet controller output current cannot exceed maximum output current." current
-                if current > Settings.currentLimit magnetController   then invalidArg "current" "Magnet controller output current cannot exceed current limit." current
-                else current
+                /// Checks whether the given trip voltage is within the software-defined trip voltage limit.
+                let tripVoltage settings voltage =
+                    if voltage < 0.0M<V>                   then invalidArg "voltage" (sprintf "Magnet controller trip voltage must be non-negative: %f." voltage)
+                    if voltage > tripVoltageLimit settings then invalidArg "voltage" (sprintf "Magnet controller trip voltage cannot exceed trip voltage limit: %f." voltage)
+                    else voltage
 
-            /// Checks whether the given trip voltage is within the software-defined trip voltage limit.
-            let tripVoltage magnetController voltage =
-                if voltage < 0.0M<V> then invalidArg "voltage" "Magnet controller trip voltage must be non-negative." voltage
-                if voltage > Settings.tripVoltageLimit magnetController then invalidArg "voltage" "Magnet controller trip voltage cannot exceed trip voltage limit." voltage
-                else voltage
-
-            /// Checks whether the given ramp rate is within the software-defined ramp rate limit.
-            let rampRate magnetController rampRate =
-                if rampRate < 0.0M<A/s> then invalidArg "rampRate" "Magnet controller ramp rate must be non-negative." rampRate
-                if rampRate > Settings.rampRateLimit magnetController then invalidArg "rampRate" "Magnet controller ramp rate cannot exceed ramp rate limit." rampRate
-                else rampRate
+                /// Checks whether the given ramp rate is within the software-defined ramp rate limit.
+                let rampRate settings rampRate =
+                    if rampRate < 0.0M<A/s>              then invalidArg "rampRate" (sprintf "Magnet controller ramp rate must be non-negative: %f." rampRate)
+                    if rampRate > rampRateLimit settings then invalidArg "rampRate" (sprintf "Magnet controller ramp rate cannot exceed ramp rate limit: %f." rampRate)
+                    else rampRate
 
         /// Functions related to setting the magnet controller output.
         module Output =
 
             /// Returns the digital output resolution of the magnet controller.
-            let resolution = Settings.outputResolution
+            let resolution = settings >> Settings.outputResolution
 
             /// Returns the number of discrete digital steps in the magnet controller output.
-            let digitisedStepCount = Settings.digitalOutputStepCount
+            let digitisedStepCount = settings >> Settings.digitalOutputStepCount
 
             /// Asynchronously sets the output current direction of the magnet controller.
             let setDirection = IO.setCurrentDirection Keys.currentDirection
@@ -252,103 +257,103 @@ module Instrument =
             module Current =
 
                 /// Retruns the maximum output current of the magnet controller hardware.
-                let maximum = Settings.maximumCurrent
+                let maximum = settings >> Settings.maximumCurrent
 
                 /// Returns the software-defined current limit for the magnet controller.
-                let limit = Settings.currentLimit
+                let limit = settings >> Settings.currentLimit
 
                 /// Returns the current difference between the digital output current steps of the magnet
                 /// controller.
-                let step = Settings.currentStep 
+                let step = settings >> Settings.currentStep 
 
                 /// Returns the nearest digitised output current value of the magnet controller.
-                let digitise = Convert.nearestDigitisedCurrent
+                let digitise = settings >> Settings.Digitise.outputCurrent
 
                 /// Returns the output current corresponding to the specified digital step index for the
                 /// magnet controller.
-                let fromStepIndex = Convert.stepIndexToCurrent
+                let fromStepIndex = settings >> Settings.Convert.stepIndexToCurrent
 
                 /// Returns the nearest digital step index corresponding to the specified current for the
                 /// magnet controller.
-                let toStepIndex = Convert.currentToStepIndex
+                let toStepIndex = settings >> Settings.Convert.currentToStepIndex
 
                 /// Returns the current direction and output current corresponding to the specified
                 /// magnetic field for the magnet controller.
-                let fromMagneticField = Convert.magneticFieldToCurrent
+                let fromMagneticField = settings >> Settings.Convert.magneticFieldToCurrent
 
                 /// Returns the magnetic field corresponding to the specified current direction and output
                 /// current for the magnet controller.
-                let toMagneticField = Convert.currentToMagneticField
+                let toMagneticField = settings >> Settings.Convert.currentToMagneticField
 
                 /// Returns the output current corresponding to the specified monitoring shunt voltage 
                 /// readout for the magnet controller.
-                let fromShuntVoltage = Convert.shuntVoltageToCurrent
+                let fromShuntVoltage = settings >> Settings.Convert.shuntVoltageToCurrent
 
                 /// Returns the monitoring shunt voltage readout corresponding to the specified output
                 /// current for the magnet controller.
-                let toShuntVoltage = Convert.currentToShuntVoltage
+                let toShuntVoltage = settings >> Settings.Convert.currentToShuntVoltage
 
                 /// Sets the lower current set-point for the magnet controller.
                 let setLowerSetPoint magnetController = 
-                    Verify.outputCurrent magnetController
+                    Settings.Verify.outputCurrent (settings magnetController)
                     >> IO.setCurrent Keys.lowerSetPoint magnetController 
 
                 /// Sets the lower current set-point for the magnet controller in terms of its digital step
                 /// index.
-                let setLowerSetPointIndex magnetController index =
-                    fromStepIndex magnetController index
-                    |> setLowerSetPoint magnetController
+                let setLowerSetPointIndex magnetController =
+                    Settings.Convert.stepIndexToCurrent (settings magnetController)
+                    >> setLowerSetPoint magnetController
 
                 /// Sets the upper current set-point for the magnet controller.
                 let setUpperSetPoint magnetController =
-                    Verify.outputCurrent magnetController
+                    Settings.Verify.outputCurrent (settings magnetController)
                     >> IO.setCurrent Keys.upperSetPoint magnetController
 
                 /// Sets the upper current set-point for the magnet controller in terms of its digital step
                 /// index.
-                let setUpperSetPointIndex magnetController index =
-                    fromStepIndex magnetController index
-                    |> setUpperSetPoint magnetController
+                let setUpperSetPointIndex magnetController =
+                    Settings.Convert.stepIndexToCurrent (settings magnetController)
+                    >> setUpperSetPoint magnetController
 
             /// Functions related to the magnetic field of the magnet attached to the the magnet controller.
             module MagneticField = 
 
                 /// Returns the magnetic field corresponding to zero output current.
-                let staticField = Settings.staticField
+                let staticField = settings >> Settings.staticField
 
                 /// Returns the calibration constant for magnetic field per unit output current for the magnet
                 /// controller.
-                let linearCoefficient = Settings.linearFieldCoefficient
+                let linearCoefficient = settings >> Settings.linearFieldCoefficient
 
                 /// Returns the magnetic field difference between digital output steps of the magnet controller.
-                let step = Settings.fieldStep
+                let step = settings >> Settings.fieldStep
 
                 /// Returns the nearest digitised magnetic field value for the magnet controller.
-                let digitise = Convert.nearestDigitisedMagneticField
+                let digitise = settings >> Settings.Digitise.magneticField
 
                 /// Returns the magnetic field corresponding to the specified current direction and output
                 /// current for the magnet controller.
-                let fromCurrent = Convert.currentToMagneticField
+                let fromCurrent = settings >> Settings.Convert.currentToMagneticField
 
                 /// Returns the current direction and output current corresponding to the specified
                 /// magnetic field for the magnet controller.
-                let toCurrent = Convert.magneticFieldToCurrent
+                let toCurrent = settings >> Settings.Convert.magneticFieldToCurrent
 
                 /// Returns the magnetic field corresponding to the specified current direction and digital
                 /// output step index for the magnet controller.
-                let fromStepIndex = Convert.stepIndexToMagneticField
+                let fromStepIndex = settings >> Settings.Convert.stepIndexToMagneticField
 
                 /// Returns the current direction and digital output step index corresponding to the specified
                 /// mangetic field for the magnet controller.
-                let toStepIndex = Convert.magneticFieldToStepIndex
+                let toStepIndex = settings >> Settings.Convert.magneticFieldToStepIndex
 
                 /// Returns the magnetic field corresponding to the specified current direction and monitoring
                 /// shunt voltage readout for the magnet controller.
-                let fromShuntVoltage = Convert.shuntVoltageToMagneticField
+                let fromShuntVoltage = settings >> Settings.Convert.shuntVoltageToMagneticField
 
                 /// Returns the current direction and monitoring shunt voltage readout corresponding to the
                 /// specified magnetic field for the magnet controller.
-                let toShuntVoltage = Convert.magneticFieldToShuntVoltage
+                let toShuntVoltage = settings >> Settings.Convert.magneticFieldToShuntVoltage
 
                 /// Returns the minimum magnetic field value which can be reached by the magnet controller,
                 /// when the generated magnetic field is opposing the static field and the current is at the
@@ -372,53 +377,53 @@ module Instrument =
             module ShuntVoltage =
 
                 /// Returns the voltage offset in the monitoring shunt readout at zero current.
-                let offset = Settings.shuntVoltageOffset
+                let offset = settings >> Settings.shuntVoltageOffset
 
                 /// Returns the calibration constant for monitoring shunt voltage per unit output current.
-                let linearCoefficient = Settings.linearShuntVoltageCoefficient
+                let linearCoefficient = settings >> Settings.linearShuntVoltageCoefficient
 
                 /// Returns the RMS voltage noise level in the monitoring shunt readout.
-                let rmsNoise = Settings.shuntVoltageRmsNoise
+                let rmsNoise = settings >> Settings.shuntVoltageRmsNoise
 
                 /// Returns the shunt voltage readout at maximum output current for the magnet controller.
-                let maximum = Settings.maximumShuntVoltage
+                let maximum = settings >> Settings.maximumShuntVoltage
 
                 /// Returns the monitoring shunt voltage difference between digital output steps of the
                 /// magnet controller.
-                let step = Settings.shuntVoltageStep
+                let step = settings >> Settings.shuntVoltageStep
 
                 /// Returns the nearest digitised monitoring shunt voltage readout.
-                let digitise = Convert.nearestDigitisedShuntVoltage
+                let digitise = settings >> Settings.Digitise.shuntVoltage
 
                 /// Returns the monitoring shunt voltage readout corresponding to the specified output
                 /// current for the magnet controller.
-                let fromCurrent = Convert.currentToShuntVoltage
+                let fromCurrent = settings >> Settings.Convert.currentToShuntVoltage
 
                 /// Returns the output current corresponding to the specified monitoring shunt voltage 
                 /// readout for the magnet controller.
-                let toCurrent = Convert.shuntVoltageToCurrent
+                let toCurrent = settings >> Settings.Convert.shuntVoltageToCurrent
 
                 /// Returns the monitoring shunt voltage readout corresponding to the specified digital
                 /// output step index for the magnet controller.
-                let fromStepIndex = Convert.stepIndexToShuntVoltage
+                let fromStepIndex = settings >> Settings.Convert.stepIndexToShuntVoltage
 
                 /// Returns the digitial output step index corresponding to the specified monitoring
                 /// shunt voltage readout for the magnet controller.
-                let toStepIndex = Convert.shuntVoltageToStepIndex
+                let toStepIndex = settings >> Settings.Convert.shuntVoltageToStepIndex
 
                 /// Returns the current direction and monitoring shunt voltage readout corresponding to the
                 /// specified magnetic field for the magnet controller.
-                let fromMagneticField = Convert.magneticFieldToShuntVoltage
+                let fromMagneticField = settings >> Settings.Convert.magneticFieldToShuntVoltage
 
                 /// Returns the magnetic field corresponding to the specified current direction and monitoring
                 /// shunt voltage readout for the magnet controller.
-                let toMagneticField = Convert.shuntVoltageToMagneticField
+                let toMagneticField = settings >> Settings.Convert.shuntVoltageToMagneticField
 
             /// Functions relate to the back-EMF trip voltage for the magnet controller.
             module TripVoltage =
 
                 /// Returns the software-defined back-EMF trip voltage limit for the magnet controller.
-                let limit = Settings.tripVoltageLimit
+                let limit = settings >> Settings.tripVoltageLimit
 
                 /// Asynchronously sets the back-EMF trip voltage for the magnet controller.
                 let set = IO.setVoltage Keys.tripVoltage
@@ -451,8 +456,9 @@ module Instrument =
                 /// Lists the available calibrated ramp rate values for the magnet controller which are within
                 /// the software-defined ramp rate limit, sorted in ascending order.
                 let availableValues magnetController =
-                    Settings.calibratedRampRates magnetController
-                    |> List.filter (fun rampRate -> rampRate <= Settings.rampRateLimit magnetController)
+                    (settings magnetController)
+                    |> Settings.calibratedRampRates 
+                    |> List.filter (fun rampRate -> rampRate <= Settings.rampRateLimit (settings magnetController))
                     |> List.sort
 
                 /// Returns the largest calibrated ramp rate value for the magnet controller which is within the

@@ -1,6 +1,7 @@
 ﻿namespace Endorphin.Instrument.TwickenhamSmc
 
 open Endorphin.Core
+open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 [<AutoOpen>]
@@ -36,7 +37,8 @@ module Model =
             { HardwareParameters : HardwareParameters
               Limits             : Limits
               FieldCalibration   : FieldCalibration
-              ShuntCalibration   : ShuntCalibration }
+              ShuntCalibration   : ShuntCalibration
+              LastUpdated        : DateTime }
 
         /// Twickenham superconducting magnet controller.
         type MagnetController = internal MagnetController of magnetController : Visa.Instrument * settings : Settings

@@ -2,6 +2,7 @@
 #r "bin/Debug/Endorphin.Instrument.TwickenhamSmc.dll"
 #r "../packages/log4net.2.0.3/lib/net40-full/log4net.dll"
 
+open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Instrument.TwickenhamSmc
@@ -35,7 +36,9 @@ let settings =
       ShuntCalibration = 
         { VoltageOffset     = 0.002M<V>
           LinearCoefficient = 0.400M<V/A> 
-          RmsVoltageNoise   = 0.100M<V> } }
+          RmsVoltageNoise   = 0.100M<V> }
+      
+      LastUpdated = new DateTime(2015, 2, 1) }
 
 async {
     let! magnetController = MagnetController.openInstrument "GPIB0::4" 3000<ms> settings
