@@ -122,6 +122,39 @@ module Instrument =
             let tripVoltageLimit settings =
                 settings.Limits.TripVoltageLimit
 
+            module RampRate = 
+                /// Lists the available calibrated ramp rate values for the magnet controller which are within
+                /// the software-defined ramp rate limit, sorted in ascending order.
+                let availableValues settings =
+                    settings 
+                    |> calibratedRampRates 
+                    |> List.filter (fun rampRate -> rampRate <= rampRateLimit settings)
+                    |> List.sort
+
+                /// Returns the largest calibrated ramp rate value for the magnet controller which is within the
+                /// software-defined ramp rate limit.
+                let maximum = availableValues >> List.max
+
+                /// Returns the index of the largest calibrated ramp rate value for the magnet controller which
+                /// is within the software-defined ramp rate limit.
+                let maximumIndex settings = (availableValues settings |> List.length) - 1
+
+                /// Returns the calibrated ramp rate value corresponding to the specified ramp rate index for the
+                /// magnet controller.
+                let fromIndex settings i = 
+                    availableValues settings
+                    |> List.item i
+
+                /// Returns the nearest available ramp rate value for the magnet controller. 
+                let nearest settings rampRate =
+                    availableValues settings
+                    |> Seq.minBy (fun rampRate' -> abs(rampRate' - rampRate))
+
+                /// Returns the index of the nearest available ramp rate value for the magnet controller.
+                let nearestIndex settings rampRate =
+                    availableValues settings
+                    |> Seq.findIndex ((=) (nearest settings rampRate))
+
             /// Functions related to unit conversions.
             module Convert =
 
@@ -456,35 +489,25 @@ module Instrument =
                 
                 /// Lists the available calibrated ramp rate values for the magnet controller which are within
                 /// the software-defined ramp rate limit, sorted in ascending order.
-                let availableValues magnetController =
-                    (settings magnetController)
-                    |> Settings.calibratedRampRates 
-                    |> List.filter (fun rampRate -> rampRate <= Settings.rampRateLimit (settings magnetController))
-                    |> List.sort
+                let availableValues = settings >> Settings.RampRate.availableValues
 
                 /// Returns the largest calibrated ramp rate value for the magnet controller which is within the
                 /// software-defined ramp rate limit.
-                let maximum = availableValues >> List.max
+                let maximum = settings >> Settings.RampRate.maximum
 
                 /// Returns the index of the largest calibrated ramp rate value for the magnet controller which
                 /// is within the software-defined ramp rate limit.
-                let maximumIndex magnetController = (availableValues magnetController |> List.length) - 1
+                let maximumIndex = settings >> Settings.RampRate.maximumIndex
 
                 /// Returns the calibrated ramp rate value corresponding to the specified ramp rate index for the
                 /// magnet controller.
-                let fromIndex magnetController i = 
-                    availableValues magnetController 
-                    |> List.item i
+                let fromIndex = settings >> Settings.RampRate.fromIndex 
 
                 /// Returns the nearest available ramp rate value for the magnet controller. 
-                let nearest magnetController rampRate =
-                    availableValues magnetController
-                    |> Seq.minBy (fun rampRate' -> abs(rampRate' - rampRate))
+                let nearest = settings >> Settings.RampRate.nearest
 
                 /// Returns the index of the nearest available ramp rate value for the magnet controller.
-                let nearestIndex magnetController rampRate =
-                    availableValues magnetController
-                    |> Seq.findIndex ((=) (nearest magnetController rampRate))
+                let nearestIndex = settings >> Settings.RampRate.nearestIndex
 
                 /// Asynchronously sets the magnet controller ramp rate.
                 let set = IO.setRampRate Keys.rampRate
