@@ -1,5 +1,6 @@
 ﻿namespace Endorphin.Core
 
+open System
 open System.Threading
 
 [<AutoOpen>]
@@ -85,3 +86,42 @@ module AsyncExtensions =
                 match resOpt with
                 | Some res -> cont res
                 | None     -> ()) }
+
+    type Async<'T> with
+        static member AwaitObservable (obs:IObservable<'T>) =
+          async {
+              let! token = Async.CancellationToken // capture the current cancellation token
+              
+              return! Async.FromContinuations(fun (cont, econt, ccont) ->
+                  Async.Start <| async { 
+                      // create a result channel to capture the result when one occurs
+                      let resultChannel = new ResultChannel<_>()
+                      let resultRegistered = ref false
+                      
+                      // define a helper function to ensure that only one result is posted to the channel
+                      let registerResult r =
+                          lock resultChannel (fun () -> 
+                              if not !resultRegistered then
+                                  resultChannel.RegisterResult r
+                                  resultRegistered := true)
+
+                      // register a callback with the cancellation token which posts a cancellation message
+                      use __ = token.Register(fun _ ->
+                          registerResult (Choice3Of3 (new OperationCanceledException("The operation was cancelled."))))
+
+                      // subscribe to the observable and post the appropriate result to the result channel
+                      // when the next notification occurs
+                      use __ = 
+                          obs.Subscribe ({ new IObserver<'T> with
+                              member __.OnNext x = registerResult (Choice1Of3 x)
+                              member __.OnError exn = registerResult (Choice2Of3 exn)
+                              member __.OnCompleted () = 
+                                  let msg = "Cancelling workflow, because the observable awaited using AwaitObservable has completed."
+                                  registerResult (Choice3Of3 (new OperationCanceledException(msg))) })
+              
+                      // wait for the first of these messages and call the appropriate continuation function
+                      let! result = resultChannel.AwaitResult()
+                      match result with
+                      | Choice1Of3 x   -> cont x
+                      | Choice2Of3 exn -> econt exn
+                      | Choice3Of3 exn -> ccont exn }) }
