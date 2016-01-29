@@ -57,9 +57,9 @@
     <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="Quantities.fs" />
     <Compile Include="Device.fs" />
     <Compile Include="ChannelSettings.fs" />
+    <Compile Include="Quantities.fs" />
     <Compile Include="TriggerSettings.fs" />
     <Compile Include="Inputs.fs" />
     <Compile Include="PicoScope.fs" />

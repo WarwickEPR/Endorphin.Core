@@ -31,8 +31,8 @@ module Resolution =
 
     /// Returns the maximum ADC count value for a given resolution.
     let maximumAdcCounts = function
-        | Resolution_8bit -> 0x7F00s
-        | _               -> 0x7FFFs
+        | Resolution_8bit -> 0x7F00s : AdcCount
+        | _               -> 0x7FFFs : AdcCount
 
 [<RequireQualifiedAccess>]
 /// Functions related to device timebase and sample interval.
@@ -56,18 +56,18 @@ module Timebase =
         | (Resolution_12bit, 4)
         | (Resolution_12bit, 3)
         | (Resolution_14bit, 4)
-        | (Resolution_14bit, 3) -> Interval.fromNanoseconds 256<ns>
+        | (Resolution_14bit, 3) -> Interval_ns 256<ns>
         | (Resolution_8bit,  4) 
         | (Resolution_8bit,  3) 
         | (Resolution_12bit, 2) 
         | (Resolution_14bit, 2) 
-        | (Resolution_15bit, 2) -> Interval.fromNanoseconds 128<ns>
+        | (Resolution_15bit, 2) -> Interval_ns 128<ns>
         | (Resolution_8bit,  3)
         | (Resolution_12bit, 1)
         | (Resolution_14bit, 1)
         | (Resolution_15bit, 1)
-        | (Resolution_16bit, 2) -> Interval.fromNanoseconds 64<ns>
-        | (Resolution_8bit,  1) -> Interval.fromNanoseconds 32<ns>
+        | (Resolution_16bit, 2) -> Interval_ns 64<ns>
+        | (Resolution_8bit,  1) -> Interval_ns 32<ns>
         | _ -> failwithf "Invalid number of channels for resolution %A: %d." resolution channelCount
 
 [<RequireQualifiedAccess>]

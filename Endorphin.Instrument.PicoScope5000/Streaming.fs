@@ -117,7 +117,7 @@ module Streaming =
         /// Returns modified streaming acquisition parameters with the specified list of input channels enabled
         /// with the given input settings. Fails if any of the channels in the set is already enabled.
         let enableChannels channels coupling range voltageOffset bandwidth (parameters : StreamingParameters) =
-            { parameters with Inputs = parameters.Inputs |> Inputs.enableChannel channels coupling range voltageOffset bandwidth }
+            { parameters with Inputs = parameters.Inputs |> Inputs.enableChannels channels coupling range voltageOffset bandwidth }
             
         /// Returns modified streaming acquisition parameters with the specified input channel sampled with
         /// the given downsampling mode. Fails if the channel is not enabled. Also fails if the acquisition
@@ -468,6 +468,12 @@ module Streaming =
         let startAsChild acquisition = async {
             let! ct = Async.CancellationToken
             return startWithCancellationToken acquisition ct }
+
+        /// Asynchronously waits for streaming to being.
+        let waitToStart acquisition =
+            status acquisition
+            |> Observable.choose (function Streaming _ -> Some () | _ -> None)
+            |> Async.AwaitObservable
 
         /// Asynchronously waits for the acquisition associated with the given handle to finish and returns
         /// the result.

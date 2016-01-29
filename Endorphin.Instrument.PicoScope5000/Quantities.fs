@@ -34,3 +34,12 @@ module Interval =
         | Interval_us  interval -> (float interval) * 1e-6<s>
         | Interval_ms  interval -> (float interval) * 1e-3<s>
         | Interval_s   interval -> (float interval) * 1.0<s>
+
+[<RequireQualifiedAccess>]
+/// Functions related to sample voltages.
+module Voltage =
+    
+    /// Converts the given ADC counts value sampled at the specified voltage range and resolution
+    /// to a voltage.
+    let fromAdcCounts resolution range analogueOffset (adcCounts : AdcCount) =
+        Range.voltage range * ((float32 adcCounts) / (float32 <| Resolution.maximumAdcCounts resolution)) - analogueOffset

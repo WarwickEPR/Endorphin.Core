@@ -81,7 +81,7 @@ module Instrument =
 
             /// Returns the digital magnetic field step of the magnet controller.
             let fieldStep settings =
-                (currentStep settings) * (linearFieldCoefficient settings) 
+                abs <| (currentStep settings) * (linearFieldCoefficient settings) 
 
             /// Returns the output monitoring shunt voltage offset of the magnet controller in volts.
             let shuntVoltageOffset settings =
@@ -109,51 +109,6 @@ module Instrument =
             /// Returns the list of calibrated ramp rates available on the magnet controller.
             let calibratedRampRates settings =
                 settings.HardwareParameters.CalibratedRampRates
-
-            /// Returns the software-defined output current limit for the magnet controller.
-            let currentLimit settings  =
-                settings.Limits.CurrentLimit
-
-            /// Returns the software-defined ramp rate limit for the magnet controller.
-            let rampRateLimit settings =
-                settings.Limits.RampRateLimit
-
-            /// Returns the software-defined trip voltage limit for the magnet controller.
-            let tripVoltageLimit settings =
-                settings.Limits.TripVoltageLimit
-
-            module RampRate = 
-                /// Lists the available calibrated ramp rate values for the magnet controller which are within
-                /// the software-defined ramp rate limit, sorted in ascending order.
-                let availableValues settings =
-                    settings 
-                    |> calibratedRampRates 
-                    |> List.filter (fun rampRate -> rampRate <= rampRateLimit settings)
-                    |> List.sort
-
-                /// Returns the largest calibrated ramp rate value for the magnet controller which is within the
-                /// software-defined ramp rate limit.
-                let maximum = availableValues >> List.max
-
-                /// Returns the index of the largest calibrated ramp rate value for the magnet controller which
-                /// is within the software-defined ramp rate limit.
-                let maximumIndex settings = (availableValues settings |> List.length) - 1
-
-                /// Returns the calibrated ramp rate value corresponding to the specified ramp rate index for the
-                /// magnet controller.
-                let fromIndex settings i = 
-                    availableValues settings
-                    |> List.item i
-
-                /// Returns the nearest available ramp rate value for the magnet controller. 
-                let nearest settings rampRate =
-                    availableValues settings
-                    |> Seq.minBy (fun rampRate' -> abs(rampRate' - rampRate))
-
-                /// Returns the index of the nearest available ramp rate value for the magnet controller.
-                let nearestIndex settings rampRate =
-                    availableValues settings
-                    |> Seq.findIndex ((=) (nearest settings rampRate))
 
             /// Functions related to unit conversions.
             module Convert =
@@ -251,6 +206,71 @@ module Instrument =
                 let shuntVoltage settings voltage =
                     Convert.shuntVoltageToStepIndex settings voltage
                     |> Convert.stepIndexToShuntVoltage settings
+
+            /// Functions related to magnet controller output and ramp rate limits.
+            module Limit =
+                /// Returns the software-defined output current limit for the magnet controller.
+                let current settings  =
+                    settings.Limits.CurrentLimit
+            
+                /// Returns the minimum magnetic field value which can be reached by the magnet controller,
+                /// when the generated magnetic field is opposing the static field and the current is at the
+                /// software-defined current limit.
+                let lowerField settings =
+                    min <| Convert.currentToMagneticField settings (Forward, current settings)
+                        <| Convert.currentToMagneticField settings (Reverse, current settings)
+                
+                /// Returns the maximum magnetic field value which can be reached by the magnet controller,
+                /// when the generated magnetic field is alligned with the static field and the current is at
+                /// the software-defined current limit.
+                let upperField settings =
+                    max <| Convert.currentToMagneticField settings (Forward, current settings)
+                        <| Convert.currentToMagneticField settings (Reverse, current settings)
+                
+                /// Returns the magnetic field range which can be reached by the magnet controller within the
+                /// software-defined current limit.
+                let fieldRange settings = (lowerField settings, upperField settings)
+
+                /// Returns the software-defined ramp rate limit for the magnet controller.
+                let rampRate settings =
+                    settings.Limits.RampRateLimit
+
+                /// Returns the software-defined trip voltage limit for the magnet controller.
+                let tripVoltage settings =
+                    settings.Limits.TripVoltageLimit
+                    
+            module RampRate = 
+                /// Lists the available calibrated ramp rate values for the magnet controller which are within
+                /// the software-defined ramp rate limit, sorted in ascending order.
+                let availableValues settings =
+                    settings 
+                    |> calibratedRampRates 
+                    |> List.filter (fun rampRate -> rampRate <= Limit.rampRate settings)
+                    |> List.sort
+
+                /// Returns the largest calibrated ramp rate value for the magnet controller which is within the
+                /// software-defined ramp rate limit.
+                let maximum = availableValues >> List.max
+
+                /// Returns the index of the largest calibrated ramp rate value for the magnet controller which
+                /// is within the software-defined ramp rate limit.
+                let maximumIndex settings = (availableValues settings |> List.length) - 1
+
+                /// Returns the calibrated ramp rate value corresponding to the specified ramp rate index for the
+                /// magnet controller.
+                let fromIndex settings i = 
+                    availableValues settings
+                    |> List.item i
+
+                /// Returns the nearest available ramp rate value for the magnet controller. 
+                let nearest settings rampRate =
+                    availableValues settings
+                    |> Seq.minBy (fun rampRate' -> abs(rampRate' - rampRate))
+
+                /// Returns the index of the nearest available ramp rate value for the magnet controller.
+                let nearestIndex settings rampRate =
+                    availableValues settings
+                    |> Seq.findIndex ((=) (nearest settings rampRate))
                     
             /// Functions to verify values before sending them to the magnet controller hardware.
             module internal Verify =
@@ -260,19 +280,19 @@ module Instrument =
                 let outputCurrent settings current =
                     if current < 0.0M<A> then invalidArg "current" (sprintf "Magnet controller output current must be non-negative: %f." current)
                     if current > maximumCurrent settings then invalidArg "current" (sprintf "Magnet controller output current cannot exceed maximum output current: %f." current)
-                    if current > currentLimit settings   then invalidArg "current" (sprintf "Magnet controller output current cannot exceed current limit: %f." current)
+                    if current > Limit.current settings   then invalidArg "current" (sprintf "Magnet controller output current cannot exceed current limit: %f." current)
                     else current
 
                 /// Checks whether the given trip voltage is within the software-defined trip voltage limit.
                 let tripVoltage settings voltage =
                     if voltage < 0.0M<V>                   then invalidArg "voltage" (sprintf "Magnet controller trip voltage must be non-negative: %f." voltage)
-                    if voltage > tripVoltageLimit settings then invalidArg "voltage" (sprintf "Magnet controller trip voltage cannot exceed trip voltage limit: %f." voltage)
+                    if voltage > Limit.tripVoltage settings then invalidArg "voltage" (sprintf "Magnet controller trip voltage cannot exceed trip voltage limit: %f." voltage)
                     else voltage
 
                 /// Checks whether the given ramp rate is within the software-defined ramp rate limit.
                 let rampRate settings rampRate =
                     if rampRate < 0.0M<A/s>              then invalidArg "rampRate" (sprintf "Magnet controller ramp rate must be non-negative: %f." rampRate)
-                    if rampRate > rampRateLimit settings then invalidArg "rampRate" (sprintf "Magnet controller ramp rate cannot exceed ramp rate limit: %f." rampRate)
+                    if rampRate > Limit.rampRate settings then invalidArg "rampRate" (sprintf "Magnet controller ramp rate cannot exceed ramp rate limit: %f." rampRate)
                     else rampRate
 
         /// Functions related to setting the magnet controller output.
@@ -294,7 +314,7 @@ module Instrument =
                 let maximum = settings >> Settings.maximumCurrent
 
                 /// Returns the software-defined current limit for the magnet controller.
-                let limit = settings >> Settings.currentLimit
+                let limit = settings >> Settings.Limit.current
 
                 /// Returns the current difference between the digital output current steps of the magnet
                 /// controller.
@@ -457,7 +477,7 @@ module Instrument =
             module TripVoltage =
 
                 /// Returns the software-defined back-EMF trip voltage limit for the magnet controller.
-                let limit = settings >> Settings.tripVoltageLimit
+                let limit = settings >> Settings.Limit.tripVoltage
 
                 /// Asynchronously sets the back-EMF trip voltage for the magnet controller.
                 let set = IO.setVoltage Keys.tripVoltage

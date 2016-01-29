@@ -34,7 +34,7 @@ module internal Inputs =
     let private enableChannelSet inputChannels coupling range voltageOffset bandwidth inputs =
         let repeatedInputs = Set.intersect inputChannels (enabledChannels inputs)
         if not (repeatedInputs |> Set.isEmpty) then
-            failwith "Cannot enable the following inputs which are already enabled: %A" repeatedInputs
+            failwithf "Cannot enable the following inputs which are already enabled: %A" repeatedInputs
 
         { inputs with
             InputSettings =
@@ -156,6 +156,5 @@ module internal Inputs =
         let createPinningHandle acquisitionBuffers =
             bufferMap acquisitionBuffers
             |> Map.toSeq
-            |> Seq.map snd 
-            |> Seq.map allocatePinnedGCHandle
+            |> Seq.map (snd >> allocatePinnedGCHandle)
             |> disposableForGCHandles

@@ -171,6 +171,9 @@ module FieldSweep =
           ReadyToSweep     = new ManualResetEvent(false)
           StatusChanged    = new NotificationEvent<_>() }
     
+    /// Returns the parameters for a field sweep.
+    let parameters sweep = sweep.Parameters
+
     /// Returns an observable which fires when the magnetic field sweep status changes.
     let status sweep =
         sweep.StatusChanged.Publish
@@ -292,3 +295,10 @@ module FieldSweep =
     /// Asynchronously waits for the magnetic field sweep workflow associated with the handle to
     /// complete with success, failure or cancellation.
     let waitToFinish sweepHandle = sweepHandle.WaitHandle
+
+    /// Asynchronously waits for the magnetic field sweep to be prepared at the initial field.
+    let waitToPrepare sweep = 
+        status sweep
+        |> Observable.filter ((=) PreparedToSweep)
+        |> Async.AwaitObservable
+        |> Async.Ignore
