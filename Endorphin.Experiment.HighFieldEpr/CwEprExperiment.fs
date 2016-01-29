@@ -266,20 +266,20 @@ module CwEprExperiment =
         /// Linear ramp function between the specified initial and final values starting at the specified time
         /// and lasting the specified duration. Before the start time, the function takes the given initial
         /// value and after the ramp duration it takes the final value.
-        let ramp duration (initial, final, start) = function
+        let ramp (initial, final, start, duration) = function
             | x when x <= start            -> initial
             | x when x >= start + duration -> final
             | x                            -> initial + (x - start) * (final - initial) / duration
 
         /// Iteratively fits a linear ramp to the given array of (x, y) points with the specified initial values
         /// for scaling factor a, mean value mu and standard deviation sigma. 
-        let fitRamp duration (initial, final, start) (data : (float * float) array) =
+        let fitRampFixedDuration duration (initial, final, start) (data : (float * float) array) =
             let rampFunc parameters (dys : float array) (_ : System.Collections.Generic.IList<float> []) (data : obj) =
                 match parameters with
                 | [| initial ; final ; start |] -> 
                     let data' = data :?> (float * float) array
                     data' |> Array.iteri (fun i (x, y) ->
-                        let y' = ramp duration (initial, final, start) x
+                        let y' = ramp (initial, final, start, duration) x
                         dys.[i] <- y - y')
 
                     0
@@ -288,8 +288,8 @@ module CwEprExperiment =
             let parameters = [| initial ; final ; start |]
             let mutable result = mp_result(3)
             MPFit.Solve(mp_func(rampFunc), Array.length data, 3, parameters, null, null, data, &result) |> ignore
-            (parameters.[0], parameters.[1], parameters.[2])
 
+            (parameters.[0], parameters.[1], parameters.[2])
             
     module private InstrumentParameters =
 
@@ -457,8 +457,8 @@ module CwEprExperiment =
         let private scanSignal parameters (scanPart, samples) =
             let shuntAdcToVoltage = float << InstrumentParameters.shuntAdcToVoltage parameters
             let settings = Parameters.magnetControllerSettings parameters
-            let iniitalVoltage = float <| decimal (MagnetController.Settings.Convert.stepIndexToShuntVoltage settings scanPart.InitialStepIndex)
-            let finalVoltage   = float <| decimal (MagnetController.Settings.Convert.stepIndexToShuntVoltage settings scanPart.FinalStepIndex)
+            let initial = float <| decimal (MagnetController.Settings.Convert.stepIndexToShuntVoltage settings scanPart.InitialStepIndex)
+            let final   = float <| decimal (MagnetController.Settings.Convert.stepIndexToShuntVoltage settings scanPart.FinalStepIndex)
             let duration = float <| decimal (Parameters.scanDuration parameters)
             let samplesPerPoint = Parameters.samplesPerPoint parameters
             let initialField = MagnetController.Settings.Convert.stepIndexToMagneticField settings (scanPart.CurrentDirection, scanPart.InitialStepIndex)
@@ -474,9 +474,13 @@ module CwEprExperiment =
                 |> Seq.mapi (fun i sample -> (float i * 0.020, shuntAdcToVoltage sample.MagneticFieldShuntAdc))
                 |> Array.ofSeq
 
-            let (_, _, rampStart) = RampFitting.fitRamp duration (iniitalVoltage, finalVoltage, 10.0) shuntVoltages
-            let skipCount = int (round (rampStart / 0.020)) - 1 |> min (List.length samples)
+            let (initial', final', start') = RampFitting.fitRampFixedDuration duration (initial, final, 10.0) shuntVoltages
+            let skipCount = int (round (start' / 0.020)) - 1 |> min (List.length samples) |> max 0
             let takeCount = (numberOfPoints * samplesPerPoint) |> min (List.length samples - skipCount) |> max 0
+
+            // printfn "\nRamp fit: initial, final, start, duration"
+            // printfn "Expected   : %010f, %010f, %010f, %010f" initial final 10.0 duration
+            // printfn "Actual     : %010f, %010f, %010f, %010f" initial' final' start' duration'
 
             List.rev samples
             |> Seq.ofList
@@ -485,8 +489,8 @@ module CwEprExperiment =
             |> Seq.chunkBySize samplesPerPoint
             |> Seq.mapi (fun i pointSamples ->
                 { MagneticField     = magneticFieldForPoint initialField rampRate samplesPerPoint i
-                    ReSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ReSignalAdc)
-                    ImSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ImSignalAdc) })
+                  ReSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ReSignalAdc)
+                  ImSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ImSignalAdc) })
 
         let completeScan data parameters =
             match data.CurrentScan with
@@ -551,15 +555,16 @@ module CwEprExperiment =
 
         let rawDataRows (data : CwEprData) = seq {
             // header row, then samples
-            yield "Scan, Current direction, Shunt ADC, Real ADC, Imaginary ADC"
+            yield "Scan, Current direction, Time (s), Shunt ADC, Real ADC, Imaginary ADC"
             
             yield! data.CompletedScans
             |> Map.toSeq
             |> Seq.collect (fun (scanPart, samples) ->
                 samples
-                |> Seq.map (fun sample -> 
+                |> Seq.mapi (fun i sample -> 
                     [ string scanPart.ScanNumber
                       (match scanPart.CurrentDirection with Forward -> "Forward" | Reverse -> "Reverse")
+                      string <| (float i * 0.020)
                       string <| sample.MagneticFieldShuntAdc
                       string <| sample.ReSignalAdc
                       string <| sample.ImSignalAdc ]
@@ -597,6 +602,7 @@ module CwEprExperiment =
         let acquisition = Streaming.Acquisition.create experiment.PicoScope streamingParameters
         let fieldSweep  = FieldSweep.create experiment.MagnetController fieldSweepParameters
         let currentDirection = fieldSweep |> FieldSweep.parameters |> FieldSweep.Parameters.currentDirection
+        let scanDuration = Parameters.scanDuration experiment.Parameters
 
         let scanPart =
             { ScanNumber       = n
@@ -617,9 +623,10 @@ module CwEprExperiment =
         do! Async.Sleep 10000
         FieldSweep.setReadyToSweep fieldSweep
         
-        let! fieldSweepResult = FieldSweep.waitToFinish sweepHandle
-        do! Async.Sleep 10000
+        let delay = 10000 + int (scanDuration * 1000.0M</s>)
+        do! Async.Sleep delay
         do! Streaming.Acquisition.stopAndFinish acquisitionHandle |> Async.Ignore 
+        let! fieldSweepResult = FieldSweep.waitToFinish sweepHandle
         
         experiment.DataUpdated.Trigger ScanPartCompleted }
 

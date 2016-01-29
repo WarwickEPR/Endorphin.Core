@@ -165,7 +165,7 @@ type CwEprViewModel() as self =
                 (fun exn    -> self.StatusMessage <- sprintf "Experiment failed: %s." exn.Message)
 
         CwEprExperiment.reSignal experiment
-        |> Observable.sample (TimeSpan.FromMilliseconds 100.0)
+        |> Observable.sample (TimeSpan.FromMilliseconds 500.0)
         |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
         |> Observable.observeOnContext ui
         |> Observable.add (fun signal ->
@@ -175,7 +175,7 @@ type CwEprViewModel() as self =
         
         if CwEprExperiment.Parameters.quadratureDetection parameters then
             CwEprExperiment.imSignal experiment
-            |> Observable.sample (TimeSpan.FromMilliseconds 100.0)
+            |> Observable.sample (TimeSpan.FromMilliseconds 500.0)
             |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
             |> Observable.observeOnContext ui
             |> Observable.add (fun signal ->
