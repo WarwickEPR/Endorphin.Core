@@ -1,4 +1,6 @@
-﻿#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+#r "../Endorphin.Core/bin/Debug/Endorphin.Core.dll"
 #r "../Endorphin.Utilities.Position/bin/Debug/Endorphin.Utilities.Position.dll"
 #r "./bin/Debug/Endorphin.Instrument.FastScanningController.dll"
 

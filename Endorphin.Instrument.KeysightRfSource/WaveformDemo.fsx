@@ -1,4 +1,6 @@
-﻿#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+#r @"..\Endorphin.Core\bin\Debug\Endorphin.Core.dll"
 #r @"bin\Debug\Endorphin.Instrument.KeysightRfSource.dll"
 
 // This stuff is very "low-level" for creation - in general I'd expect you probably won't need this,

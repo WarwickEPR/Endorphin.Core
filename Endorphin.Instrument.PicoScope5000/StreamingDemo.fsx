@@ -1,4 +1,6 @@
-﻿#r "../Endorphin.Core/bin/Release/Endorphin.Core.dll"
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+#r "../Endorphin.Core/bin/Release/Endorphin.Core.dll"
 #r "../packages/Rx-Core.2.2.5/lib/net45/System.Reactive.Core.dll"
 #r "../packages/Rx-Interfaces.2.2.5/lib/net45/System.Reactive.Interfaces.dll"
 #r "../packages/Rx-Linq.2.2.5/lib/net45/System.Reactive.Linq.dll"

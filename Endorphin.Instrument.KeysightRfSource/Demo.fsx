@@ -1,4 +1,6 @@
-﻿// Learn more about F# at http://fsharp.net. See the 'F# Tutorial' project
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+// Learn more about F# at http://fsharp.net. See the 'F# Tutorial' project
 // for more guidance on F# programming.
 
 #r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
