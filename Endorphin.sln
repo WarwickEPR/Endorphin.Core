@@ -1,4 +1,3 @@
-﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.24720.0
@@ -12,6 +11,10 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.KeysightRfSource", "Endorphin.Instrument.KeysightRfSource\Endorphin.Instrument.KeysightRfSource.fsproj", "{AF4768C9-1581-4950-A053-2ECCD0A9E3A8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F43E456E-DBEA-41B5-8230-D3B4F17AEE23}"
+	ProjectSection(SolutionItems) = preProject
+		ApplyLicense.fsx = ApplyLicense.fsx
+		LICENSE.txt = LICENSE.txt
+	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.LakeShoreTempController", "Endorphin.Instrument.LakeShoreTempController\Endorphin.Instrument.LakeShoreTempController.fsproj", "{958F39D3-7489-4B57-994B-9A4E861B0AA8}"
 EndProject
@@ -19,6 +22,10 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.PicoSc
 	ProjectSection(ProjectDependencies) = postProject
 		{B1887520-0F25-4FF4-958E-12B964DF20F9} = {B1887520-0F25-4FF4-958E-12B964DF20F9}
 	EndProjectSection
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Instrument.FastScanningController", "Endorphin.Instrument.FastScanningController\Endorphin.Instrument.FastScanningController.fsproj", "{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Utilities.Position", "Endorphin.Utilities.Position\Endorphin.Utilities.Position.fsproj", "{7B4E58C2-4351-4969-80E2-60ABFE773BAF}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Experiment.HighFieldEpr", "Endorphin.Experiment.HighFieldEpr\Endorphin.Experiment.HighFieldEpr.fsproj", "{2250C03C-40BA-4592-B424-28E7D7A2C79A}"
 EndProject
@@ -96,6 +103,30 @@ Global
 		{603FCD0A-8AD4-42B7-8954-63196031C311}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{603FCD0A-8AD4-42B7-8954-63196031C311}.Release|Win32.ActiveCfg = Release|Any CPU
 		{603FCD0A-8AD4-42B7-8954-63196031C311}.Release|Win32.Build.0 = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Debug|Win32.Build.0 = Debug|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Win32.ActiveCfg = Release|Any CPU
+		{F66F1004-D2F3-4895-9EAB-5D0E8B904B2D}.Release|Win32.Build.0 = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Debug|Win32.Build.0 = Debug|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Win32.ActiveCfg = Release|Any CPU
+		{7B4E58C2-4351-4969-80E2-60ABFE773BAF}.Release|Win32.Build.0 = Release|Any CPU
 		{2250C03C-40BA-4592-B424-28E7D7A2C79A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2250C03C-40BA-4592-B424-28E7D7A2C79A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2250C03C-40BA-4592-B424-28E7D7A2C79A}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU

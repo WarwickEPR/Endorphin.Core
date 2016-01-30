@@ -1,11 +1,13 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.Keysight
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 
 module Markers =
     /// A markers record with all markers turned off.
-    let empty = { M1 = false; M2 = false; M3 = false; M4 = false }
+    let none = { M1 = false; M2 = false; M3 = false; M4 = false }
 
     /// Set value of the first marker.
     let withMarker1 value markers = { markers with M1 = value }
@@ -15,6 +17,15 @@ module Markers =
     let withMarker3 value markers = { markers with M3 = value }
     /// Set value of the fourth marker.
     let withMarker4 value markers = { markers with M4 = value }
+
+    /// A markers record with the first marker on and the others off.
+    let marker1 = none |> withMarker1 true
+    /// A markers record with the second marker on and the others off.
+    let marker2 = none |> withMarker2 true
+    /// A markers record with the third marker on and the others off.
+    let marker3 = none |> withMarker3 true
+    /// A markers record with the fourth marker on and the others off.
+    let marker4 = none |> withMarker4 true
 
     /// Create a full set of markers straight away.
     let create marker1 marker2 marker3 marker4 =
@@ -33,7 +44,7 @@ module Sample =
     let empty = {
         Sample.I = 0s
         Sample.Q = 0s
-        Sample.SampleMarkers = Markers.empty }
+        Sample.SampleMarkers = Markers.none }
 
     /// Set value of the I sample.
     let withI value sample = { sample with I = value }

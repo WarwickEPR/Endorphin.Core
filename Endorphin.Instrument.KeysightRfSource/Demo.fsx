@@ -1,4 +1,6 @@
-﻿// Learn more about F# at http://fsharp.net. See the 'F# Tutorial' project
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+// Learn more about F# at http://fsharp.net. See the 'F# Tutorial' project
 // for more guidance on F# programming.
 
 #r @"..\packages\log4net.2.0.3\lib\net40-full\log4net.dll"
@@ -29,7 +31,7 @@ let functionSource frequency = InternalSource ( Function1,
 let test = { Depth = depthInPercentage (Percentage 50.0<pct>) }
  
 let am = AmplitudeModulation (AM1, { Depth = depthInPercentage (Percentage 50.0<pct>) }, ext1)
-let fm = FrequencyModulation (FM2, { Deviation = FrequencyInHz 2.0e3<Hz> }, fun2)
+let fm = FrequencyModulation (FM2, { Deviation = Frequency_Hz 2.0e3<Hz> }, fun2)
 
 let modulationSettings = [ am ; fm ]
 
@@ -52,7 +54,7 @@ let sweepExperiment startFrequency stopFrequency =
 
         let keysightRfSettings1 = { Sweep = (StepSweep sweepSettings)
                                     Modulation = modulationSettings }
-        let keysightRfSettings2 = { Sweep = NoSweep <| ((FrequencyInHz 1.2e9<Hz>),(PowerInDbm 0.1<dBm>))
+        let keysightRfSettings2 = { Sweep = NoSweep <| ((Frequency_Hz 1.2e9<Hz>),(Power_dBm 0.1<dBm>))
                                     Modulation = [] }
 
     //    do! RfSource.setModulationState keysight Off

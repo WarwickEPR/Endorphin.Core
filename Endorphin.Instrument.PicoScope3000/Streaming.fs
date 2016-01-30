@@ -1,4 +1,6 @@
-﻿namespace Endorphin.Instrument.PicoScope3000
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.PicoScope3000
 
 open System
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
@@ -377,8 +379,8 @@ module Streaming =
         /// Helper function for constructing observables based on the ADC count samples for a given input.
         let private adcCountEvent input acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.find input)
-            |> Event.collectSeq Seq.ofArray
+            |> Observable.map (fun samples -> samples.Samples |> Map.find input)
+            |> Observable.flatmapSeq Seq.ofArray
         
         /// Returns an observable which emits the ADC count for every sample observed on the specified input
         /// in an acquisition.
@@ -390,21 +392,21 @@ module Streaming =
         /// an acquisition.
         let voltage input acquisition =
             adcCountEvent input acquisition
-            |> Event.map (adcCountToVoltage input acquisition)
+            |> Observable.map (adcCountToVoltage input acquisition)
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
         /// function and ADC count for every sample observed on the specified input in an acquisition.
         let adcCountBy indexMapping input acquisition =
             adcCountEvent input acquisition
-            |> Event.mapi (fun i adcCount -> (indexMapping i, adcCount))
+            |> Observable.mapi (fun i adcCount -> (indexMapping i, adcCount))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
         /// function and voltage for every sample observed on the specified input in an acquisition.
         let voltageBy indexMapping input acquisition =
             adcCountEvent input acquisition
-            |> Event.mapi (fun i adcCount -> (indexMapping i, adcCountToVoltage input acquisition adcCount))
+            |> Observable.mapi (fun i adcCount -> (indexMapping i, adcCountToVoltage input acquisition adcCount))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index and ADC count for every sample observed
@@ -435,7 +437,7 @@ module Streaming =
         /// inputs.
         let private adcCountsEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.collectSeq (takeInputs inputs)
+            |> Observable.flatmapSeq (takeInputs inputs)
 
         /// Returns an observable which emits an array of ADC counts for every sample observed on the specified
         /// array of inputs in an acquisition.
@@ -447,7 +449,7 @@ module Streaming =
         /// array of inputs in an acquisition.
         let voltages inputs acquisition =
             adcCountsEvent inputs acquisition
-            |> Event.map (adcCountsToVoltages inputs acquisition)
+            |> Observable.map (adcCountsToVoltages inputs acquisition)
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
@@ -455,7 +457,7 @@ module Streaming =
         /// in an acquisition.
         let adcCountsBy indexMapping inputs acquisition =
             adcCountsEvent inputs acquisition
-            |> Event.mapi (fun i samples -> (indexMapping i, samples))
+            |> Observable.mapi (fun i samples -> (indexMapping i, samples))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index mapped with the given index mapping
@@ -463,7 +465,7 @@ module Streaming =
         /// acquisition.
         let voltagesBy indexMapping inputs acquisition =
             adcCountsEvent inputs acquisition
-            |> Event.mapi (fun i adcCounts -> (indexMapping i, adcCountsToVoltages inputs acquisition adcCounts))
+            |> Observable.mapi (fun i adcCounts -> (indexMapping i, adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a tuple of sample index and array of ADC counts for every sample
@@ -506,7 +508,7 @@ module Streaming =
         /// acquisition.
         let private adcCountByBlockEvent input acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.find input)
+            |> Observable.map (fun samples -> samples.Samples |> Map.find input)
 
         /// Returns an observable which emits an array of ADC counts for each block of samples observed on the
         /// specified input in an acquisition.
@@ -518,14 +520,14 @@ module Streaming =
         /// specified input in an acquisition.
         let voltageByBlock input acquisition =
             adcCountByBlockEvent input acquisition
-            |> Event.map (Array.map (adcCountToVoltage input acquisition))
+            |> Observable.map (Array.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
         /// Helper function for constructing observables based on the sample blocks for a given array of inputs
         /// in an acquisition.
         let private adcCountsByBlockEvent inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.map (fun samples -> samples.Samples |> Map.findArray inputs)
+            |> Observable.map (fun samples -> samples.Samples |> Map.findArray inputs)
 
         /// Returns an observable which emits an array of ADC count blocks for each sample block observed for
         /// the given array of inputs in an acquisition.
@@ -537,15 +539,15 @@ module Streaming =
         /// given array of inputs in an acquisition.
         let voltagesByBlock inputs acquisition = 
             adcCountsByBlockEvent inputs acquisition
-            |> Event.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
+            |> Observable.map (Array.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         /// Helper function for constructing observables which buffer a specified number of the latest samples
         /// on a given input in acquisition.
         let private adcCountBufferedEvent count input acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.collectSeq (fun samples -> samples.Samples |> Map.find input)
-            |> Event.ringBuffer count
+            |> Observable.flatmapSeq (fun samples -> samples.Samples |> Map.find input |> Seq.ofArray)
+            |> Observable.ringBuffer count
 
         /// Returns an observable which emits the latest specified number of ADC counts sampled on a given
         /// input after each sample block in an acquisition.
@@ -557,15 +559,15 @@ module Streaming =
         /// after each sample block in an acquisition.
         let voltageBuffered windowSize input acquisition =
             adcCountBufferedEvent windowSize input acquisition
-            |> Event.map (Seq.map (adcCountToVoltage input acquisition))
+            |> Observable.map (Seq.map (adcCountToVoltage input acquisition))
             |> takeUntilFinished acquisition
 
         /// Helper function for constructing observables which buffer a specified number of the latest samples
         /// on a given array of inputs in an acquisition.
         let private adcCountsBufferedEvent count inputs acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.collectSeq (takeInputs inputs)
-            |> Event.ringBuffer count
+            |> Observable.flatmapSeq (takeInputs inputs)
+            |> Observable.ringBuffer count
 
         /// Returns an observable which emits an array of the latest specified number of ADC counts sampled on
         /// a given array of inputs after each sample block in an acquisition.
@@ -577,13 +579,13 @@ module Streaming =
         /// given array of inputs after each sample block in an acquisition.
         let voltagesBuffered count inputs acquisition =
             adcCountsBufferedEvent count inputs acquisition
-            |> Event.map (Seq.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
+            |> Observable.map (Seq.map (fun adcCounts -> adcCountsToVoltages inputs acquisition adcCounts))
             |> takeUntilFinished acquisition
 
         /// Returns an observable which emits a set of channels on which voltage overflow occurred if voltage 
         /// overflow occurs on any input channel in an acquisition. 
         let voltageOverflow acquisition =
             acquisition.SamplesObserved.Publish
-            |> Event.filter (fun block -> not <| Set.isEmpty block.VoltageOverflows)
-            |> Event.map (fun block -> block.VoltageOverflows)
+            |> Observable.filter (fun block -> not <| Set.isEmpty block.VoltageOverflows)
+            |> Observable.map (fun block -> block.VoltageOverflows)
             |> takeUntilFinished acquisition

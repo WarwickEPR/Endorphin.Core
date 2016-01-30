@@ -1,4 +1,6 @@
-﻿namespace Endorphin.Instrument.TwickenhamSmc
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.TwickenhamSmc
 
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
@@ -57,7 +59,7 @@ module internal Parsing =
     let private parseBooleanState = function
         | "0" -> false
         | "1" -> true
-        | str -> failwith "Unexpected boolean state string: %s." str
+        | str -> failwithf "Unexpected boolean state string: %s." str
 
     /// Regular expression for parsing magnet controller output parameters.
     type private OutputParametersRegex = Regex< @"\GI(?<OutputCurrent>[\+\-]\d{3}\.\d{3})V(?<OutputVoltage>[\+\-]\d{2}.\d)R(?<RampTarget>[012])[AV]$" >

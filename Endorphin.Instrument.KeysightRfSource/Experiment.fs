@@ -1,4 +1,6 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.Keysight
 
 open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
@@ -24,6 +26,12 @@ module Phase =
         cycle
         |> Array.append (Array.ofSeq phases)
         |> PhaseCycle
+
+    /// Create a phase cycle containing the given sequence of phases.
+    let ofSeq phases = Array.ofSeq phases |> PhaseCycle
+
+    /// Creates a phase cycle containing a single phase.
+    let single phase = PhaseCycle [| phase |]
 
 module Pulse =
     /// Create an RF pulse to an experiment with an increment each repetition.
@@ -66,15 +74,11 @@ module Experiment =
     let minimumRfPulseSeparation = riseCount * 2 |> uint32
 
     /// An experiment with no pulses, ready to be added to.
-    let empty = {
-        Pulses = Seq.empty
+    let create pulses = {
+        Pulses = pulses
         Repetitions = 1
         ShotRepetitionTime = Duration_sec 0.0<s>
         ShotsPerPoint = 1us }
-
-    /// Yield the same experiment, but with the given pulse as its sequence.
-    let withPulse pulse (experiment : Experiment) =
-        { experiment with Pulses = seq { yield pulse } }
 
     /// Yield the same experiment, but with the given pulse sequence as its sequence.
     let withPulseSeq pulses (experiment : Experiment) =
@@ -143,7 +147,7 @@ module Experiment =
                 let folder state = function
                     | Marker (markers, _, _) -> booleanOrMarkers markers state
                     | _ -> state
-                let markers = Seq.fold folder Markers.empty experiment.Pulses
+                let markers = Seq.fold folder Markers.none experiment.Pulses
                 if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
                     invalidArg "Markers" "At least one marker channel must be blank throughout for internal use"
                 else
@@ -385,8 +389,8 @@ module Experiment =
             let private expandStaticPulse addRfBlank pulse =
                 let (amplitude, phase, markers, duration) =
                     match pulse with
-                    | StaticRf (phase, dur)       -> (1.0, phase,        Markers.empty |> addRfBlank, dur)
-                    | StaticDelay (dur)           -> (0.0, Phase.unused, Markers.empty,               dur)
+                    | StaticRf (phase, dur)       -> (1.0, phase,        Markers.none |> addRfBlank, dur)
+                    | StaticDelay (dur)           -> (0.0, Phase.unused, Markers.none,               dur)
                     | StaticMarker (markers, dur) -> (0.0, Phase.unused, markers,                     dur)
                 let sample =
                     Sample.empty
