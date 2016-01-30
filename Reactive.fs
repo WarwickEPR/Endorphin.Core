@@ -1,4 +1,6 @@
-﻿namespace Endorphin.Core
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Core
 
 open System
 open System.Reactive.Linq
@@ -47,16 +49,6 @@ module internal RingBuffer =
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Event =
 
-    /// Takes an input event where each observation is a sequence and returns a new event which fires
-    /// for every element in the sequence.
-    let concatSeq source =
-        let output = new Event<_>()
-        Event.add (fun xs -> for x in xs do output.Trigger x) source
-        output.Publish
-
-    /// Maps an event onto a sequence and fires for every element of that sequence.
-    let collectSeq f = Event.map f >> concatSeq
-
     /// Builds a new event whose elements are the result of applying the given mapping to each element
     /// in the source event and its zero-based integer index.
     let mapi mapping =
@@ -103,17 +95,6 @@ module ObservableHelpers =
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Observable =
-
-    /// Takes an input observable where each observation is a sequence and returns a new event which
-    /// fires for every element in the sequence.
-    let concatSeq source =
-        let output = new Event<_>()
-        Observable.add (fun xs -> for x in xs do output.Trigger x) source
-        output.Publish :> IObservable<_>
-
-    /// Maps an observable onto a sequence and fires for every element of that sequence.
-    let collectSeq f =
-        Observable.map f >> concatSeq
     
     /// Builds a new observable whose elements are the result of applying the given mapping to each
     /// element of the input observable and its zero-based integer index.
