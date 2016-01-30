@@ -15,7 +15,7 @@ let applyHeader path comment formatComment =
         use file = new StreamWriter (filename)
         file.Write content)
 
-let path = "C:/Users/Anton/Source/Repos/endorphin/"
+let path = failwith "Enter path to the solution root here before running the script."
 let comment = "Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information."
 
 [ "fs" ; "fsx" ; "cs" ] |> applyHeader path comment (sprintf "// %s\r\n\r\n")
