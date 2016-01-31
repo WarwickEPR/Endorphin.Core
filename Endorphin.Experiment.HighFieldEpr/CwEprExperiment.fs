@@ -413,14 +413,15 @@ module CwEprExperiment =
             sweepWidth / (rampRate * 0.001M<s> * (decimal (int conversionTime)))
             |> floor |> int
 
-        let private magneticFieldForPoint (initialField : decimal<T>) (rampRate : decimal<T/s>) samplesPerPoint i = // i is zero-based index
-            seq { for sample in 0 .. samplesPerPoint - 1 -> initialField + (0.020M<s> * (decimal (sample + i * samplesPerPoint))) * rampRate }
+        let private magneticFieldForPoint (initialField : decimal<T>) (rampRate : decimal<T/s>) direction samplesPerPoint i = // i is zero-based index
+            let sign = match direction with Increasing -> +1.0M | Decreasing -> -1.0M
+            seq { for sample in 0 .. samplesPerPoint - 1 -> initialField + sign * (0.020M<s> * (decimal (sample + i * samplesPerPoint))) * rampRate }
             |> Seq.average
 
-        let private emptyPoints (initialField : decimal<T>) (finalField : decimal<T>) (rampRate : decimal<T/s>) (conversionTime : int<ms>) =
+        let private emptyPoints (initialField : decimal<T>) (finalField : decimal<T>) (rampRate : decimal<T/s>) direction (conversionTime : int<ms>) =
             let samplesPerPoint = conversionTime / 20<ms>
             [| for i in 0 .. numberOfPoints (abs (finalField - initialField)) rampRate conversionTime - 1->
-                magneticFieldForPoint initialField rampRate samplesPerPoint i |] 
+                magneticFieldForPoint initialField rampRate direction samplesPerPoint i |] 
             |> Array.map (fun field -> { MagneticField = field ; ReSignalIntensity = 0.0M ; ImSignalIntensity = 0.0M })
 
         let internal empty parameters =
@@ -429,16 +430,20 @@ module CwEprExperiment =
             let (finalCurrentDirection,   finalIndex  ) = InstrumentParameters.finalFieldIndex parameters
             let rampRate = Parameters.rampRate parameters
             let conversionTime = Parameters.conversionTime parameters
+            let direction = Parameters.fieldSweepDirection parameters
             let emptySignal =
                 if initialCurrentDirection = finalCurrentDirection then
                     let initialField = MagnetController.Settings.Convert.stepIndexToMagneticField settings (initialCurrentDirection, initialIndex)
                     let finalField   = MagnetController.Settings.Convert.stepIndexToMagneticField settings (finalCurrentDirection, finalIndex)
-                    emptyPoints initialField finalField rampRate conversionTime
+                    emptyPoints initialField finalField rampRate direction conversionTime
                 else
                     let initialField = MagnetController.Settings.Convert.stepIndexToMagneticField settings (initialCurrentDirection, initialIndex)
                     let centreField  = MagnetController.Settings.staticField settings
                     let finalField   = MagnetController.Settings.Convert.stepIndexToMagneticField settings (finalCurrentDirection, finalIndex)
-                    Array.append (emptyPoints initialField centreField rampRate conversionTime) (emptyPoints centreField finalField rampRate conversionTime) 
+                    
+                    Array.append
+                    <| (emptyPoints initialField centreField rampRate direction conversionTime)
+                    <| (emptyPoints centreField  finalField  rampRate direction conversionTime) 
 
             { CompletedScans      = Map.empty
               CompletedScanSignal = emptySignal
@@ -469,6 +474,7 @@ module CwEprExperiment =
             let rampRate = Parameters.rampRate parameters
             let conversionTime = Parameters.conversionTime parameters
             let numberOfPoints = numberOfPoints sweepWidth rampRate conversionTime
+            let direction = Parameters.fieldSweepDirection parameters
 
             let shuntVoltages = 
                 List.rev samples
@@ -490,7 +496,7 @@ module CwEprExperiment =
             |> Seq.take takeCount
             |> Seq.chunkBySize samplesPerPoint
             |> Seq.mapi (fun i pointSamples ->
-                { MagneticField     = magneticFieldForPoint initialField rampRate samplesPerPoint i
+                { MagneticField     = magneticFieldForPoint initialField rampRate direction samplesPerPoint i
                   ReSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ReSignalAdc)
                   ImSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ImSignalAdc) })
 

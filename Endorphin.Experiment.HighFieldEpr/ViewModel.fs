@@ -26,8 +26,8 @@ open CwEprExperiment
 
 type CwEprExperimentState =
     | Waiting
-    | Running of experiment : CwEprExperiment * cts : CancellationTokenSource
-    | Finished  of parameters : CwEprExperimentParameters * data : CwEprData
+    | Running  of experiment : CwEprExperiment * cts : CancellationTokenSource
+    | Finished of parameters : CwEprExperimentParameters * data : CwEprData
 
 type InstrumentConnection =
     | Connected of magnetController : MagnetController * picoScope : PicoScope5000
@@ -116,17 +116,16 @@ type CwEprViewModel() as self =
     let save () =
         match self.ExperimentState with
         | Finished (parameters, data) ->
-            let dialogue = new SaveFileDialog()
-            dialogue.Filter <- "CSV documents|*.csv"
-            let result = dialogue.ShowDialog() 
+            let saveFile = new SaveFileDialog (Filter="CW EPR experiment|*.cwepr")
+            let result = saveFile.ShowDialog() 
             if result.HasValue && result.Value then
-                use paramsFile = new StreamWriter (Path.ChangeExtension(dialogue.FileName, "cwepr"))
+                use paramsFile = new StreamWriter (saveFile.FileName)
                 pickler.PickleToString parameters |> paramsFile.Write
 
-                use dataFile = new StreamWriter (dialogue.FileName)
+                use dataFile = new StreamWriter (Path.ChangeExtension(saveFile.FileName, "csv"))
                 Data.signalRows data |> Seq.iter dataFile.WriteLine
                 
-                let rawPath = Path.GetDirectoryName dialogue.FileName + "\\" + Path.GetFileNameWithoutExtension dialogue.FileName + "_raw.csv"
+                let rawPath = Path.GetDirectoryName saveFile.FileName + "\\" + Path.GetFileNameWithoutExtension saveFile.FileName + "_raw.csv"
                 use rawFile = new StreamWriter (rawPath)
                 Data.rawDataRows data |> Seq.iter rawFile.WriteLine
 
@@ -134,11 +133,10 @@ type CwEprViewModel() as self =
 
     let loadParameters () =
         if self.IsReadyToStart then
-            let dialogue = new OpenFileDialog()
-            dialogue.Filter <- "CW EPR parameters|*.cwepr"
-            let result = dialogue.ShowDialog()
+            let openFile = new OpenFileDialog (Filter="CW EPR experiment|*.cwepr")
+            let result = openFile.ShowDialog()
             if result.HasValue && result.Value then
-                use paramsFile = new StreamReader (dialogue.FileName)
+                use paramsFile = new StreamReader (openFile.FileName)
                 let parameters = paramsFile.ReadToEnd() |> pickler.UnPickleOfString
                 self.ExperimentParameters <- parameters |> Parameters.withMagnetControllerSettings magnetControllerSettings
                 
@@ -257,6 +255,8 @@ type CwEprViewModel() as self =
         self.DependencyTracker.AddPropertyDependency(<@ self.ConversionTime @>,      <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.QuadratureDetection @>, <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.NumberOfScans @>,       <@ self.ExperimentParameters @>)
+        self.DependencyTracker.AddPropertyDependency(<@ self.SampleNotes @>,         <@ self.ExperimentParameters @>)
+        self.DependencyTracker.AddPropertyDependency(<@ self.ExperimentNotes @>,     <@ self.ExperimentParameters @>)
         
         self.DependencyTracker.AddPropertyDependency(<@ self.IsPerformingExperiment @>, <@ self.ExperimentState @>)
         self.DependencyTracker.AddPropertyDependencies(<@@ self.IsReadyToStart @@>, 
