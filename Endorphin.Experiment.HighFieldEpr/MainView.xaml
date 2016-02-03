@@ -88,18 +88,18 @@
         <xctk:IntegerUpDown Margin="10,4,10,4" Grid.Row="6" Grid.Column="1" Value="{Binding ConversionTime}" IsEnabled="{Binding IsReadyToStart}" Minimum="20" Increment="20"/>
 
         <TextBlock Margin="10,4,10,4" Grid.Row="7" Grid.Column="0" Text="Quadrature detection" VerticalAlignment="Center" />
-        <CheckBox Margin="10,4,10,4" Grid.Row="7" Grid.Column="1" IsChecked="{Binding QuadratureDetection}" IsEnabled="{Binding IsReadyToStart}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        <CheckBox Margin="10,4,10,4" Grid.Row="7" Grid.Column="1" IsChecked="{Binding QuadratureDetectionEnabled}" IsEnabled="{Binding IsReadyToStart}" VerticalAlignment="Center" HorizontalAlignment="Center" />
 
         <TextBlock Margin="10,4,10,4" Grid.Row="8" Grid.Column="0" Text="Number of scans" VerticalAlignment="Center" />
         <xctk:IntegerUpDown Margin="10,4,10,4" Grid.Row="8" Grid.Column="1" Value="{Binding NumberOfScans}" IsEnabled="{Binding IsReadyToStart}"  Minimum="1" Increment="1"/>
 
         <TextBlock Margin="10,4,10,0" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Text="Sample notes" Height="16" VerticalAlignment="Top" />
         <TextBox Margin="10,4,10,4" Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Height="82"  TextWrapping="Wrap" AcceptsReturn="True"
-                 IsEnabled="{Binding IsReadyToStart}" Text="{Binding SampleNotes}" />
+                 IsEnabled="{Binding IsConnected}" Text="{Binding SampleNotes}" />
 
         <TextBlock Margin="10,4,10,0" Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Text="Experiment notes" Height="16" VerticalAlignment="Top" />
         <TextBox Margin="10,4,10,4" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2" Height="82" TextWrapping="Wrap" AcceptsReturn="True"
-                 IsEnabled="{Binding IsReadyToStart}" Text="{Binding ExperimentNotes}" />
+                 IsEnabled="{Binding IsConnected}" Text="{Binding ExperimentNotes}" />
 
         <StackPanel Orientation="Horizontal" Margin="10" Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" HorizontalAlignment="Center">
             <Button Margin="3" Command="{Binding StartExperiment}" IsEnabled="{Binding IsReadyToStart}">Start</Button>

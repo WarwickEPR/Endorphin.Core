@@ -27,7 +27,7 @@ open CwEprExperiment
 type CwEprExperimentState =
     | Waiting
     | Running  of experiment : CwEprExperiment * cts : CancellationTokenSource
-    | Finished of parameters : CwEprExperimentParameters * data : CwEprData
+    | Finished of parameters : CwEprExperimentParameters * signal : CwEprSignal
 
 type InstrumentConnection =
     | Connected of magnetController : MagnetController * picoScope : PicoScope5000
@@ -83,10 +83,11 @@ type CwEprViewModel() as self =
         model
 
     let experimentParameters = self.Factory.Backing(<@ self.ExperimentParameters @>, defaultParameters, Parameters.validate)
-    let experimentState = self.Factory.Backing(<@ self.ExperimentState @>, Waiting)
-    let plotModel = self.Factory.Backing(<@ self.PlotModel @>, defaultPlotModel)
-    let connection = self.Factory.Backing(<@ self.Connection @>, Disconnected)
-    let statusMessage = self.Factory.Backing(<@ self.StatusMessage @>, "")
+    let notes                = self.Factory.Backing(<@ self.Notes @>, { ExperimentNotes = "" ; SampleNotes = "" })
+    let experimentState      = self.Factory.Backing(<@ self.ExperimentState @>, Waiting)
+    let plotModel            = self.Factory.Backing(<@ self.PlotModel @>, defaultPlotModel)
+    let connection           = self.Factory.Backing(<@ self.Connection @>, Disconnected)
+    let statusMessage        = self.Factory.Backing(<@ self.StatusMessage @>, "")
 
     let connect ui = async {
         try
@@ -120,14 +121,14 @@ type CwEprViewModel() as self =
             let result = saveFile.ShowDialog() 
             if result.HasValue && result.Value then
                 use paramsFile = new StreamWriter (saveFile.FileName)
-                pickler.PickleToString parameters |> paramsFile.Write
+                parameters |> Parameters.withNotes self.Notes |> pickler.PickleToString |> paramsFile.Write
 
                 use dataFile = new StreamWriter (Path.ChangeExtension(saveFile.FileName, "csv"))
-                Data.signalRows data |> Seq.iter dataFile.WriteLine
+                Signal.signalRows data |> Seq.iter dataFile.WriteLine
                 
                 let rawPath = Path.GetDirectoryName saveFile.FileName + "\\" + Path.GetFileNameWithoutExtension saveFile.FileName + "_raw.csv"
                 use rawFile = new StreamWriter (rawPath)
-                Data.rawDataRows data |> Seq.iter rawFile.WriteLine
+                Signal.rawDataRows data |> Seq.iter rawFile.WriteLine
 
         | _ -> "No data to save." |> MessageBox.Show |> ignore 
 
@@ -161,11 +162,11 @@ type CwEprViewModel() as self =
             CwEprExperiment.status experiment
             |> Observable.observeOnContext ui
             |> Observable.subscribeWithError
-                (fun status -> self.StatusMessage <- sprintf "%A" status)
-                (fun exn    -> self.StatusMessage <- sprintf "Experiment failed: %s." exn.Message)
+                (fun status -> self.StatusMessage <- CwEprExperiment.statusMessage status)
+                (fun exn    -> self.StatusMessage <- sprintf "Experiment failed: %s" exn.Message)
 
         CwEprExperiment.reSignal experiment
-        |> Observable.sample (TimeSpan.FromMilliseconds 500.0)
+        |> Observable.sample (TimeSpan.FromMilliseconds 30000.0)
         |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
         |> Observable.observeOnContext ui
         |> Observable.add (fun signal ->
@@ -173,9 +174,9 @@ type CwEprViewModel() as self =
             self.RePoints.AddRange signal
             self.PlotModel.InvalidatePlot true)
         
-        if CwEprExperiment.Parameters.quadratureDetection parameters then
+        if CwEprExperiment.Parameters.detection parameters = Quadrature then
             CwEprExperiment.imSignal experiment
-            |> Observable.sample (TimeSpan.FromMilliseconds 500.0)
+            |> Observable.sample (TimeSpan.FromMilliseconds 30000.0)
             |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
             |> Observable.observeOnContext ui
             |> Observable.add (fun signal ->
@@ -205,14 +206,14 @@ type CwEprViewModel() as self =
     let connectCommand =
         self.Factory.CommandAsyncChecked(
             connect,
-            (fun () -> not self.Connected),
-            [ <@ self.Connected @>])
+            (fun () -> not self.IsConnected),
+            [ <@ self.IsConnected @>])
 
     let disconnectCommand =
         self.Factory.CommandAsyncChecked(
             disconnect,
-            (fun () -> self.Connected),
-            [ <@ self.Connected @>])
+            (fun () -> self.IsConnected),
+            [ <@ self.IsConnected @>])
 
     let saveCommand =
         self.Factory.CommandSyncChecked(
@@ -229,9 +230,6 @@ type CwEprViewModel() as self =
     let resetAxesCommand = self.Factory.CommandSync resetAxes
 
     let startExperimentCommand = self.Factory.CommandAsync performExperiment
-        //
-        //    (fun () -> self.IsValid && self.IsReadyToStart),
-        //    [ <@ self.IsValid @> ; <@ self.IsReadyToStart @> ])
 
     let stopExperimentCommand =
         self.Factory.CommandSyncParamChecked(
@@ -246,25 +244,31 @@ type CwEprViewModel() as self =
             [ <@ self.IsPerformingExperiment @> ])
 
     do 
-        self.DependencyTracker.AddPropertyDependency(<@ self.Connected @>, <@ self.Connection @>)
+        self.DependencyTracker.AddPropertyDependency(<@ self.IsConnected @>, <@ self.Connection @>)
 
+        self.DependencyTracker.AddPropertyDependency(<@ self.Notes @>,               <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.CentreField @>,         <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.SweepWidth @>,          <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.FieldSweepDirection @>, <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.RampRateIndex @>,       <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.ConversionTime @>,      <@ self.ExperimentParameters @>)
-        self.DependencyTracker.AddPropertyDependency(<@ self.QuadratureDetection @>, <@ self.ExperimentParameters @>)
         self.DependencyTracker.AddPropertyDependency(<@ self.NumberOfScans @>,       <@ self.ExperimentParameters @>)
-        self.DependencyTracker.AddPropertyDependency(<@ self.SampleNotes @>,         <@ self.ExperimentParameters @>)
-        self.DependencyTracker.AddPropertyDependency(<@ self.ExperimentNotes @>,     <@ self.ExperimentParameters @>)
+        self.DependencyTracker.AddPropertyDependency
+            (<@ self.QuadratureDetectionEnabled @>, <@ self.ExperimentParameters @>)
+
+
+        self.DependencyTracker.AddPropertyDependency(<@ self.SampleNotes @>,     <@ self.Notes @>)
+        self.DependencyTracker.AddPropertyDependency(<@ self.ExperimentNotes @>, <@ self.Notes @>)
         
         self.DependencyTracker.AddPropertyDependency(<@ self.IsPerformingExperiment @>, <@ self.ExperimentState @>)
         self.DependencyTracker.AddPropertyDependencies(<@@ self.IsReadyToStart @@>, 
-            [ <@@ self.Connected @@> ; <@@ self.IsPerformingExperiment @@> ])
+            [ <@@ self.IsConnected @@> ; <@@ self.IsPerformingExperiment @@> ])
 
     member x.ExperimentParameters 
-        with get()     = experimentParameters.Value 
-        and  set value = experimentParameters.Value <- value
+        with get()     = experimentParameters.Value
+        and  set value =
+            experimentParameters.Value <- value
+            self.Notes <- Parameters.notes value
 
     member x.ExperimentState
         with get()     = experimentState.Value
@@ -279,7 +283,7 @@ type CwEprViewModel() as self =
     member x.ImPoints : ResizeArray<DataPoint> = imSeries.Points
 
     member x.IsPerformingExperiment = x.ExperimentState |> (function Running _ -> true | _ -> false)
-    member x.IsReadyToStart = x.Connected && (not x.IsPerformingExperiment) 
+    member x.IsReadyToStart = x.IsConnected && (not x.IsPerformingExperiment) 
 
     member x.CentreField 
         with get()     = Parameters.centreField x.ExperimentParameters
@@ -316,21 +320,27 @@ type CwEprViewModel() as self =
         with get()     = Parameters.conversionTime x.ExperimentParameters
         and  set value = x.ExperimentParameters <- Parameters.withConversionTime value x.ExperimentParameters
 
-    member x.QuadratureDetection
-        with get()     = Parameters.quadratureDetection x.ExperimentParameters
-        and  set value = x.ExperimentParameters <- Parameters.withQuadratureDetection value x.ExperimentParameters
+    member x.QuadratureDetectionEnabled
+        with get()     = (Parameters.detection x.ExperimentParameters = Quadrature)
+        and  set value = 
+            let detection = if value then Quadrature else SinglePhase
+            x.ExperimentParameters <- Parameters.withDetection detection x.ExperimentParameters
 
     member x.NumberOfScans
         with get()     = Parameters.numberOfScans x.ExperimentParameters
         and  set value = x.ExperimentParameters <- Parameters.withNumberOfScans value x.ExperimentParameters
 
+    member x.Notes
+        with get()     = notes.Value
+        and  set value = notes.Value <- value
+
     member x.SampleNotes
-        with get()     = Parameters.sampleNotes x.ExperimentParameters
-        and  set value = x.ExperimentParameters <- Parameters.withSampleNotes value x.ExperimentParameters
+        with get()     = Notes.sampleNotes x.Notes
+        and  set value = x.Notes <- x.Notes |> Notes.withSampleNotes value
 
     member x.ExperimentNotes
-        with get()     = Parameters.experimentNotes x.ExperimentParameters
-        and  set value = x.ExperimentParameters <- Parameters.withExperimentNotes value x.ExperimentParameters
+        with get()     = Notes.experimentNotes x.Notes
+        and  set value = x.Notes <- x.Notes |> Notes.withExperimentNotes value
 
     member x.MagneticFieldStep = MagnetController.Settings.fieldStep magnetControllerSettings
     member x.SweepWidthStep    = 2.0M * x.MagneticFieldStep
@@ -351,7 +361,7 @@ type CwEprViewModel() as self =
         with get ()    = connection.Value
         and  set value = connection.Value <- value
 
-    member x.Connected = match x.Connection with Connected _ -> true | Disconnected -> false
+    member x.IsConnected = match x.Connection with Connected _ -> true | Disconnected -> false
 
     member x.Connect = connectCommand
     member x.Disconnect = disconnectCommand
