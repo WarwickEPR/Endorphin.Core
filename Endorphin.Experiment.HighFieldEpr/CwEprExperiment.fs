@@ -78,10 +78,10 @@ module CwEprExperiment =
 
         type CwEprSignalProcessorMessage =
             | SignalUpdate          of update : CwEprSignalUpdate
-            | SignalSnapshotRequest of replyChannel : AsyncReplyChannel<CwEprSignalPoint array>
+            | SignalSnapshotRequest of replyChannel : AsyncReplyChannel<CwEprSignalPoint array * (ScanPartInProgress option)>
             | RawDataRequest        of replyChannel : AsyncReplyChannel<RawData>
 
-        type CwEprSignalProcessor = CwEprSignalProcessor of agent : Agent<CwEprSignalProcessorMessage>
+        type CwEprSignalProcessor = CwEprSignalProcessor of agent : Agent<CwEprSignalProcessorMessage> * parameters : CwEprExperimentParameters
 
         type CwEprExperimentStatus =
             | StartingExperiment
@@ -585,17 +585,18 @@ module CwEprExperiment =
             | Some (_, _, samples') -> samples'.AddRange samples ; signal
             | None               -> failwith "Cannot accumulate data when no scan is in progress."
 
+        let accumulateScanPart parameters (accumulatedSignal : CwEprSignalPoint array) (scanPart, samples) =
+            scanSignal parameters (scanPart, samples)
+            |> Seq.iteri (fun i x ->
+                accumulatedSignal.[i] <- 
+                    { accumulatedSignal.[i] with
+                        ReSignalIntensity = accumulatedSignal.[i].ReSignalIntensity + x.ReSignalIntensity
+                        ImSignalIntensity = accumulatedSignal.[i].ImSignalIntensity + x.ImSignalIntensity })
+
         let private completeScanPart parameters signal =
             match currentScan signal with
             | Some (n, scanPart, samples) ->
-                scanSignal parameters (scanPart, samples)
-                |> Seq.iteri (fun i x ->
-                    let accumulated = signal.AccumulatedSignal.[i]
-                    signal.AccumulatedSignal.[i] <- 
-                        { accumulated with
-                            ReSignalIntensity = accumulated.ReSignalIntensity + x.ReSignalIntensity
-                            ImSignalIntensity = accumulated.ImSignalIntensity + x.ImSignalIntensity })
-                
+                accumulateScanPart parameters (accumulatedSignal signal) (scanPart, samples)
                 { signal with CompletedScans = completedScans signal |> Map.add (n, scanPart) (Array.ofSeq samples) }
             | None -> failwith "Cannot complete scan when one is not in progress."
 
@@ -605,20 +606,8 @@ module CwEprExperiment =
             | ScanPartCompleted             -> completeScanPart parameters signal
 
         let snapshot parameters signal =
-            let points = Array.copy signal.AccumulatedSignal
-            
-            match currentScan signal with
-            | None -> ()
-            | Some (_, scanPart, samples) ->
-                scanSignal parameters (scanPart, samples)
-                |> Seq.iteri (fun i x ->
-                    let accumulated = signal.AccumulatedSignal.[i]
-                    points.[i] <- 
-                        { accumulated with
-                            ReSignalIntensity = accumulated.ReSignalIntensity + x.ReSignalIntensity
-                            ImSignalIntensity = accumulated.ImSignalIntensity + x.ImSignalIntensity })
-
-            points
+            (Array.copy signal.AccumulatedSignal,
+             currentScan signal |> Option.map (fun (n, scanPart, samples) -> n, scanPart, ResizeArray<_>(samples)))            
 
         let rawDataCopy signal = 
             match currentScan signal with
@@ -666,36 +655,44 @@ module CwEprExperiment =
 
     module SignalProcessor = 
         
-        let create parameters = CwEprSignalProcessor <| Agent.Start (fun mailbox ->
-            let rec loop signal = async {
-                let! message = mailbox.Receive()
-                match message with
-                | SignalUpdate signalUpdate -> 
-                    return! loop (Signal.update parameters signal signalUpdate)
+        let create parameters =
+            let agent = Agent.Start (fun mailbox ->
+                let rec loop signal = async {
+                    let! message = mailbox.Receive()
+                    match message with
+                    | SignalUpdate signalUpdate -> 
+                        return! loop (Signal.update parameters signal signalUpdate)
                 
-                | SignalSnapshotRequest replyChannel ->
-                    Signal.snapshot parameters signal |> replyChannel.Reply
-                    return! loop signal
+                    | SignalSnapshotRequest replyChannel ->
+                        Signal.snapshot parameters signal |> replyChannel.Reply
+                        return! loop signal
                 
-                | RawDataRequest replyChannel ->
-                    Signal.rawDataCopy signal |> replyChannel.Reply
-                    return! loop signal }
+                    | RawDataRequest replyChannel ->
+                        Signal.rawDataCopy signal |> replyChannel.Reply
+                        return! loop signal }
             
-            loop (Signal.empty parameters))
+                loop (Signal.empty parameters))
 
-        let accumulateSamples (CwEprSignalProcessor agent) samples =
+            CwEprSignalProcessor(agent, parameters)
+
+        let accumulateSamples (CwEprSignalProcessor (agent, _)) samples =
             SamplesAvailable samples |> SignalUpdate |> agent.Post
 
-        let initiateScanPart (CwEprSignalProcessor agent)  (n, scanPart) =
+        let initiateScanPart (CwEprSignalProcessor (agent, _))  (n, scanPart) =
             ScanPartStarted (n, scanPart) |> SignalUpdate |> agent.Post
 
-        let completeScanPart (CwEprSignalProcessor agent) =
+        let completeScanPart (CwEprSignalProcessor (agent, _)) =
             ScanPartCompleted |> SignalUpdate |> agent.Post
 
-        let getSnapshot (CwEprSignalProcessor agent) =
-            SignalSnapshotRequest |> agent.PostAndAsyncReply
+        let getSnapshot (CwEprSignalProcessor (agent, parameters)) = async {
+            let! (accumulatedSignal, scanPart) = SignalSnapshotRequest |> agent.PostAndAsyncReply 
+            match scanPart with
+            | Some (_, scanPart, samples) -> Signal.accumulateScanPart parameters accumulatedSignal (scanPart, samples)
+            | None                        -> () 
+            
+            return accumulatedSignal }
 
-        let getRawData (CwEprSignalProcessor agent) = 
+        let getRawData (CwEprSignalProcessor (agent, _)) = 
             RawDataRequest |> agent.PostAndAsyncReply
 
 
