@@ -27,7 +27,7 @@ open CwEprExperiment
 type CwEprExperimentState =
     | Waiting
     | Running  of experiment : CwEprExperiment * cts : CancellationTokenSource
-    | Finished of parameters : CwEprExperimentParameters * signal : CwEprSignal
+    | Finished of parameters : CwEprExperimentParameters * signal : CwEprSignalPoint array * rawData : RawData
 
 type InstrumentConnection =
     | Connected of magnetController : MagnetController * picoScope : PicoScope5000
@@ -116,7 +116,7 @@ type CwEprViewModel() as self =
 
     let save () =
         match self.ExperimentState with
-        | Finished (parameters, data) ->
+        | Finished (parameters, signal, rawData) ->
             let saveFile = new SaveFileDialog (Filter="CW EPR experiment|*.cwepr")
             let result = saveFile.ShowDialog() 
             if result.HasValue && result.Value then
@@ -124,11 +124,11 @@ type CwEprViewModel() as self =
                 parameters |> Parameters.withNotes self.Notes |> pickler.PickleToString |> paramsFile.Write
 
                 use dataFile = new StreamWriter (Path.ChangeExtension(saveFile.FileName, "csv"))
-                Signal.signalRows data |> Seq.iter dataFile.WriteLine
+                Signal.signalRows signal |> Seq.iter dataFile.WriteLine
                 
                 let rawPath = Path.GetDirectoryName saveFile.FileName + "\\" + Path.GetFileNameWithoutExtension saveFile.FileName + "_raw.csv"
                 use rawFile = new StreamWriter (rawPath)
-                Signal.rawDataRows data |> Seq.iter rawFile.WriteLine
+                Signal.rawDataRows rawData |> Seq.iter rawFile.WriteLine
 
         | _ -> "No data to save." |> MessageBox.Show |> ignore 
 
@@ -140,17 +140,20 @@ type CwEprViewModel() as self =
                 use paramsFile = new StreamReader (openFile.FileName)
                 let parameters = paramsFile.ReadToEnd() |> pickler.UnPickleOfString
                 self.ExperimentParameters <- parameters |> Parameters.withMagnetControllerSettings magnetControllerSettings
-                
+                self.Notes                <- parameters |> Parameters.notes 
+
         else "Cannot load experiment parameters while an experiment is running." |> MessageBox.Show |> ignore
     
-    let resetAxes () = self.PlotModel.ResetAllAxes()
+    let resetAxes () = 
+        self.PlotModel.ResetAllAxes()
+        self.PlotModel.InvalidatePlot false
 
     let performExperiment ui = async {
         do! Async.SwitchToContext ui
         let cts = new CancellationTokenSource()
 
         let parameters = self.ExperimentParameters |> Parameters.withDate DateTime.Now
-        
+
         let (magnetController, picoScope) =
             match self.Connection with
             | Connected (magnetController, picoScope) -> (magnetController, picoScope)
@@ -165,23 +168,22 @@ type CwEprViewModel() as self =
                 (fun status -> self.StatusMessage <- CwEprExperiment.statusMessage status)
                 (fun exn    -> self.StatusMessage <- sprintf "Experiment failed: %s" exn.Message)
 
-        CwEprExperiment.reSignal experiment
-        |> Observable.sample (TimeSpan.FromMilliseconds 30000.0)
-        |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
-        |> Observable.observeOnContext ui
-        |> Observable.add (fun signal ->
-            self.RePoints.Clear()
-            self.RePoints.AddRange signal
-            self.PlotModel.InvalidatePlot true)
-        
-        if CwEprExperiment.Parameters.detection parameters = Quadrature then
-            CwEprExperiment.imSignal experiment
-            |> Observable.sample (TimeSpan.FromMilliseconds 30000.0)
-            |> Observable.map (Seq.map (fun (x, y) -> new DataPoint(float (decimal x), float y)))
+        let updatePoints (points : ResizeArray<_>) = function
+            | None -> ()
+            | Some signal ->
+                points.Clear()
+                
+                signal
+                |> Seq.map (fun (x : decimal<T>, y : decimal) -> new DataPoint(float (decimal x), float y))
+                |> points.AddRange
+
+        use __ = 
+            Observable.interval (TimeSpan.FromMilliseconds 1000.0)
+            |> Observable.flatmapAsync (fun _ -> CwEprExperiment.signalSnapshot experiment)
             |> Observable.observeOnContext ui
-            |> Observable.add (fun signal ->
-                self.ImPoints.Clear()
-                self.ImPoints.AddRange signal
+            |> Observable.subscribe (fun points ->
+                points |> Signal.reSignal parameters |> updatePoints self.RePoints
+                points |> Signal.imSignal parameters |> updatePoints self.ImPoints
                 self.PlotModel.InvalidatePlot true)
 
         self.RePoints.Clear() ; self.ImPoints.Clear()
@@ -191,17 +193,16 @@ type CwEprViewModel() as self =
 
         do! Async.SwitchToThreadPool()
 
-        let! waitForData = 
-            CwEprExperiment.data experiment 
-            |> Observable.last
-            |> Async.AwaitObservable
-            |> Async.StartChild
+        let! waitToFinish = CwEprExperiment.waitToFinish experiment |> Async.StartChild
 
         let! experimentResult = CwEprExperiment.run experiment cts.Token
-        let! data = waitForData
+        do! waitToFinish
+
+        let! rawData = CwEprExperiment.rawData experiment
+        let! signal = CwEprExperiment.signalSnapshot experiment
 
         do! Async.SwitchToContext ui
-        self.ExperimentState <- Finished (parameters, data) }
+        self.ExperimentState <- Finished (parameters |> Parameters.withNotes self.Notes, signal, rawData) }
         
     let connectCommand =
         self.Factory.CommandAsyncChecked(
@@ -266,9 +267,7 @@ type CwEprViewModel() as self =
 
     member x.ExperimentParameters 
         with get()     = experimentParameters.Value
-        and  set value =
-            experimentParameters.Value <- value
-            self.Notes <- Parameters.notes value
+        and  set value = experimentParameters.Value <- value
 
     member x.ExperimentState
         with get()     = experimentState.Value
@@ -367,3 +366,4 @@ type CwEprViewModel() as self =
     member x.Disconnect = disconnectCommand
     member x.Save = saveCommand
     member x.LoadParameters = loadParametersCommand
+    member x.ResetAxes = resetAxesCommand

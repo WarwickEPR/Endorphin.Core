@@ -63,17 +63,25 @@ module CwEprExperiment =
               StartTime      : float<s>
               Duration       : float<s> }
 
-        type ScanPartInProgress = ScanPartParameters * (CwEprSample list)
+        type ScanPartInProgress = int * ScanPartParameters * ResizeArray<CwEprSample>
+        type RawData = Map<int * ScanPartParameters, CwEprSample array>
 
         type CwEprSignal = 
-            { CompletedScans    : Map<int * ScanPartParameters, CwEprSample array>
+            { CompletedScans    : RawData
               AccumulatedSignal : CwEprSignalPoint array
               CurrentScan       : ScanPartInProgress option }
 
         type CwEprSignalUpdate =
             | SamplesAvailable  of samples : CwEprSample seq
-            | ScanPartStarted   of scanPart : ScanPartParameters
-            | ScanPartCompleted of scanNumber : int
+            | ScanPartStarted   of scanNumber : int * scanPart : ScanPartParameters
+            | ScanPartCompleted
+
+        type CwEprSignalProcessorMessage =
+            | SignalUpdate          of update : CwEprSignalUpdate
+            | SignalSnapshotRequest of replyChannel : AsyncReplyChannel<CwEprSignalPoint array>
+            | RawDataRequest        of replyChannel : AsyncReplyChannel<RawData>
+
+        type CwEprSignalProcessor = CwEprSignalProcessor of agent : Agent<CwEprSignalProcessorMessage>
 
         type CwEprExperimentStatus =
             | StartingExperiment
@@ -92,7 +100,7 @@ module CwEprExperiment =
                MagnetController        : MagnetController
                PicoScope               : PicoScope5000
                StatusChanged           : NotificationEvent<CwEprExperimentStatus>
-               SignalUpdated           : Event<CwEprSignalUpdate>
+               SignalProcessor         : CwEprSignalProcessor
                StopAfterScanCapability : CancellationCapability }
 
     module private ScanPart =
@@ -433,6 +441,7 @@ module CwEprExperiment =
             create (parameters.[0] * 1.0<V>) (parameters.[1] * 1.0<V>) (parameters.[2] * 1.0<s>) (duration guess)
                     
     module private Sampling =
+
         let sampleInterval       = Interval.fromMicroseconds 20<us>
         let samplingResolution   = Resolution_14bit
         let downsamplingMode     = Averaged
@@ -530,7 +539,7 @@ module CwEprExperiment =
                 | TwoPart (first, second) -> Seq.append (emptyPoints first) (emptyPoints second) |> Array.ofSeq
               CurrentScan = None }
 
-        let private shuntVoltageRamp parameters (scanPart, samples) =
+        let private shuntVoltageRamp parameters (scanPart, samples : ResizeArray<_>) =
             let shuntToAdcVoltage = 
                 Sampling.shuntAdcToVoltage parameters
                 >> float >> LanguagePrimitives.FloatWithMeasure<V>  
@@ -542,15 +551,13 @@ module CwEprExperiment =
             let estimatedRamp = ShuntVoltageRamp.estimateForScanPart scanPart magneticFieldToShuntVoltage
             
             samples
-            |> List.rev
-            |> Seq.ofList
             |> Seq.mapi (fun i sample -> (float i * 0.020<s>, shuntToAdcVoltage sample.MagneticFieldShuntAdc))
             |> Array.ofSeq
             |> ShuntVoltageRamp.fitWithFixedDuration estimatedRamp 
 
-        let private scanSignal parameters (scanPart, samples) =
+        let private scanSignal parameters (scanPart, samples : ResizeArray<_>) =
             let ramp = shuntVoltageRamp parameters (scanPart, samples)
-            let length = List.length samples
+            let length = samples.Count
 
             let skipCount = 
                 int (round (ShuntVoltageRamp.startTime ramp / 0.020<s>)) - 1 |> min length |> max 0
@@ -560,7 +567,6 @@ module CwEprExperiment =
                 |> min (length - skipCount) |> max 0
 
             samples
-            |> List.rev
             |> Seq.skip skipCount
             |> Seq.take takeCount
             |> Seq.chunkBySize (ScanPart.samplesPerPoint scanPart)
@@ -569,70 +575,97 @@ module CwEprExperiment =
                   ReSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ReSignalAdc)
                   ImSignalIntensity = pointSamples |> Seq.sumBy (fun sample -> decimal sample.ImSignalAdc) })
 
-        let private initialiseScan signal scanPart =
+        let private initialiseScan n signal scanPart =
             match currentScan signal with
             | Some _ -> failwith "Cannot initialise a new scan before the current one is completed."
-            | None   -> { signal with CurrentScan = Some (scanPart, List.empty) }
+            | None   -> { signal with CurrentScan = Some (n, scanPart, new ResizeArray<_>()) }
 
         let private accumulateSamples signal (samples : CwEprSample seq) =
             match currentScan signal with
-            | Some (scanPart, samples') -> { signal with CurrentScan = Some(scanPart, samples |> Seq.fold (fun xs x -> x :: xs) samples') }
-            | None                      -> failwith "Cannot accumulate data when no scan is in progress."
+            | Some (_, _, samples') -> samples'.AddRange samples ; signal
+            | None               -> failwith "Cannot accumulate data when no scan is in progress."
 
-        let private completeScan n signal parameters =
+        let private completeScan signal parameters =
             match currentScan signal with
-            | Some (scanPart, samples) ->
-                let completedScanSignal = 
-                    signal.AccumulatedSignal
-                    |> Seq.ofArray
-                    |> Seq.append (scanSignal parameters (scanPart, samples))
-                    |> Seq.groupBy (fun signal -> signal.MagneticField)
-                    |> Seq.map (fun (magneticField, signals) ->
-                        { MagneticField     = magneticField
-                          ReSignalIntensity = signals |> Seq.sumBy (fun signal -> signal.ReSignalIntensity)
-                          ImSignalIntensity = signals |> Seq.sumBy (fun signal -> signal.ImSignalIntensity) })
-                    |> Array.ofSeq
-
-                { CompletedScans    = signal.CompletedScans |> Map.add (n, scanPart) (Array.ofSeq samples)
-                  AccumulatedSignal = completedScanSignal
-                  CurrentScan       = None }
+            | Some (n, scanPart, samples) ->
+                scanSignal parameters (scanPart, samples)
+                |> Seq.iteri (fun i x ->
+                    let accumulated = signal.AccumulatedSignal.[i]
+                    signal.AccumulatedSignal.[i] <- 
+                        { accumulated with
+                            ReSignalIntensity = accumulated.ReSignalIntensity + x.ReSignalIntensity
+                            ImSignalIntensity = accumulated.ImSignalIntensity + x.ImSignalIntensity })
+                
+                { signal with CompletedScans = completedScans signal |> Map.add (n, scanPart) (Array.ofSeq samples) }
             | None -> failwith "Cannot complete scan when one is not in progress."
 
-        let update parameters signal = function
-            | SamplesAvailable samples -> accumulateSamples signal samples
-            | ScanPartStarted scanPart -> initialiseScan signal scanPart
-            | ScanPartCompleted n      -> completeScan n signal parameters
+        let private update parameters signal = function
+            | SamplesAvailable samples      -> accumulateSamples signal samples
+            | ScanPartStarted (n, scanPart) -> initialiseScan n signal scanPart
+            | ScanPartCompleted             -> completeScan signal parameters
 
-        let reSignal parameters signal =
+        let private snapshot parameters signal =
+            let snap = Array.copy signal.AccumulatedSignal
+            
             match currentScan signal with
-            | Some (scanPart, samples) ->
-                accumulatedSignal signal
-                |> Seq.ofArray
-                |> Seq.append (scanSignal parameters (scanPart, samples))
-                |> Seq.groupBy (fun signal -> signal.MagneticField)
-                |> Seq.map (fun (magneticField, signals) -> magneticField, (signals |> Seq.sumBy (fun signal -> signal.ReSignalIntensity)))
-            | None ->
-                accumulatedSignal signal
-                |> Seq.ofArray
-                |> Seq.map (fun signal -> (signal.MagneticField, signal.ReSignalIntensity))
+            | None -> ()
+            | Some (_, scanPart, samples) ->
+                scanSignal parameters (scanPart, samples)
+                |> Seq.iteri (fun i x ->
+                    let accumulated = signal.AccumulatedSignal.[i]
+                    snap.[i] <- 
+                        { accumulated with
+                            ReSignalIntensity = accumulated.ReSignalIntensity + x.ReSignalIntensity
+                            ImSignalIntensity = accumulated.ImSignalIntensity + x.ImSignalIntensity })
 
-        let imSignal parameters signal =
+            snap
+
+        let private rawDataCopy signal = 
             match currentScan signal with
-            | Some (scanPart, samples) -> 
-                accumulatedSignal signal
-                |> Seq.ofArray
-                |> Seq.append (scanSignal parameters (scanPart, samples))
-                |> Seq.groupBy (fun signal -> signal.MagneticField)
-                |> Seq.map (fun (magneticField, signals) -> magneticField, (signals |> Seq.sumBy (fun signal -> signal.ImSignalIntensity)))
-            | None ->
-                accumulatedSignal signal
-                |> Seq.ofArray
-                |> Seq.map (fun signal -> (signal.MagneticField, signal.ImSignalIntensity))
+            | None -> completedScans signal |> Map.map (fun _ scan -> Array.copy scan)
+            | Some (n, scanPart, samples) ->
+                completedScans signal 
+                |> Map.map (fun _ scan -> Array.copy scan)
+                |> Map.add (n, scanPart) (Array.init samples.Count (fun i -> samples.[i]))
 
-        let signalRows signal = seq {
+        let reSignal (parameters : CwEprExperimentParameters) (points : CwEprSignalPoint array) =
+            Some (points |> Seq.map (fun x -> x.MagneticField, x.ReSignalIntensity))
+
+        let imSignal (parameters : CwEprExperimentParameters) (points : CwEprSignalPoint array) =
+            if (Parameters.detection parameters) = Quadrature
+            then Some (points |> Seq.map (fun x -> x.MagneticField, x.ImSignalIntensity))
+            else None
+
+        let createProcessor parameters = CwEprSignalProcessor <| Agent.Start (fun mailbox ->
+            let rec loop signal = async {
+                let! message = mailbox.Receive()
+                match message with
+                | SignalUpdate signalUpdate -> 
+                    return! loop (update parameters signal signalUpdate)
+                
+                | SignalSnapshotRequest replyChannel ->
+                    snapshot parameters signal |> replyChannel.Reply
+                    return! loop signal
+                
+                | RawDataRequest replyChannel ->
+                    rawDataCopy signal |> replyChannel.Reply
+                    return! loop signal }
+            
+            loop (empty parameters))
+
+        let postUpdate (CwEprSignalProcessor agent) signalUpdate =
+            SignalUpdate signalUpdate |> agent.Post
+
+        let requestSnapshot (CwEprSignalProcessor agent) =
+            SignalSnapshotRequest |> agent.PostAndAsyncReply
+
+        let requestRawData (CwEprSignalProcessor agent) = 
+            RawDataRequest |> agent.PostAndAsyncReply
+
+        let signalRows points = seq {
             yield "Magnetic field (T), Real signal, Imaginary signal"
             
-            yield! accumulatedSignal signal
+            yield! points
             |> Seq.ofArray
             |> Seq.map (fun signal ->
                 [ string <| signal.MagneticField
@@ -640,11 +673,11 @@ module CwEprExperiment =
                   string <| signal.ImSignalIntensity ]
                 |> String.concat ", " ) }
 
-        let rawDataRows signal = seq {
+        let rawDataRows (rawData : RawData) = seq {
             // header row, then samples
             yield "Scan, Current direction, Time (s), Shunt ADC, Real ADC, Imaginary ADC"
             
-            yield! completedScans signal
+            yield! rawData
             |> Map.toSeq
             |> Seq.collect (fun ((n, scanPart), samples) ->
                 samples
@@ -662,7 +695,7 @@ module CwEprExperiment =
           MagnetController        = magnetController
           PicoScope               = picoScope
           StatusChanged           = NotificationEvent<_>()
-          SignalUpdated             = Event<_>()
+          SignalProcessor         = Signal.createProcessor parameters
           StopAfterScanCapability = new CancellationCapability() }
 
     let status experiment = 
@@ -690,7 +723,7 @@ module CwEprExperiment =
             |> SamplesAvailable
 
         Streaming.Signal.adcCountsByBlock inputs acquisition
-        |> Observable.subscribe (samples >> experiment.SignalUpdated.Trigger)
+        |> Observable.subscribe (samples >> Signal.postUpdate experiment.SignalProcessor)
 
     let private performScanPart n streamingParameters scanPart experiment = async {
         let acquisition              = Streaming.Acquisition.create experiment.PicoScope streamingParameters
@@ -700,7 +733,7 @@ module CwEprExperiment =
         let fieldSweepParameters     = ScanPart.fieldSweepParameters magnetControllerSettings scanPart
         let fieldSweep               = FieldSweep.create experiment.MagnetController fieldSweepParameters
 
-        experiment.SignalUpdated.Trigger (ScanPartStarted scanPart)
+        ScanPartStarted (n, scanPart) |> Signal.postUpdate experiment.SignalProcessor
 
         let! waitToPrepare = FieldSweep.waitToPrepare fieldSweep |> Async.StartChild
         let! sweepHandle   = FieldSweep.prepareAsChild fieldSweep
@@ -716,8 +749,7 @@ module CwEprExperiment =
         let delay = 10000 + int (scanDuration * 1000.0M</s>)
         do! Async.Sleep delay
         do! Streaming.Acquisition.stopAndFinish acquisitionHandle |> Async.Ignore 
-        
-        experiment.SignalUpdated.Trigger (ScanPartCompleted n) }
+        ScanPartCompleted |> Signal.postUpdate experiment.SignalProcessor }
 
     let private peformScan n experiment = async {
         experiment.StatusChanged.Trigger <| Next (PerformingExperimentScan n)
@@ -727,7 +759,6 @@ module CwEprExperiment =
         match scanParts with
         | OnePart scanPart -> 
             do! performScanPart n streamingParameters scanPart experiment
-        
         | TwoPart (first, second) ->
             do! performScanPart n streamingParameters first experiment
             do! MagnetController.Ramp.waitToReachZero experiment.MagnetController
@@ -765,10 +796,12 @@ module CwEprExperiment =
 
     let stopAfterScan experiment = experiment.StopAfterScanCapability.Cancel()
 
-    let data experiment =
-        experiment.SignalUpdated.Publish
-        |> Observable.scanInit (Signal.empty experiment.Parameters) (Signal.update experiment.Parameters)
-        |> Observable.takeUntilOther (Observable.last <| status experiment)
+    let rawData experiment = Signal.requestRawData experiment.SignalProcessor
 
-    let reSignal experiment = data experiment |> Observable.map (Signal.reSignal experiment.Parameters)
-    let imSignal experiment = data experiment |> Observable.map (Signal.imSignal experiment.Parameters)
+    let signalSnapshot experiemnt = Signal.requestSnapshot experiemnt.SignalProcessor
+
+    let waitToFinish experiemnt =
+        status experiemnt
+        |> Observable.last
+        |> Async.AwaitObservable
+        |> Async.Ignore
