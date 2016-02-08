@@ -24,20 +24,25 @@ open Endorphin.Instrument.TwickenhamSmc
 open Endorphin.Instrument.PicoScope5000
 open CwEprExperiment
 
+/// Current state of the CW EPR experiment UI.
 type CwEprExperimentState =
     | Waiting
     | Running  of experiment : CwEprExperiment * cts : CancellationTokenSource
     | Finished of parameters : CwEprExperimentParameters * signal : CwEprSignalPoint array * rawData : RawData
 
+/// Instrument connection state of the CW EPR experiment UI.
 type InstrumentConnection =
     | Connected of magnetController : MagnetController * picoScope : PicoScope5000
     | Disconnected
 
+/// ViewModel for the CW EPR experiment UI.
 type CwEprViewModel() as self =
     inherit ViewModelBase()
 
-    let pickler = FsPickler.CreateJsonSerializer (indent=true)
+    /// JSON serialiser for experiment parameters.
+    let serialiser = FsPickler.CreateJsonSerializer (indent=true)
 
+    /// Magnet controller settings.
     let magnetControllerSettings = 
         { TwickenhamSmc.HardwareParameters =
             { MaximumCurrent = 20.0M<A>
@@ -69,19 +74,25 @@ type CwEprViewModel() as self =
       
           TwickenhamSmc.LastUpdated = new DateTime(2016, 1, 26) }
 
+    /// Default experiment parameters.
     let defaultParameters = 
         Parameters.create (14.146M<T> + 0.005M<T>) (0.01M<T>) (0.020M<A/s> * 0.002845M<T/A>)
         <| magnetControllerSettings
     
-    let reSeries = new Series.LineSeries(Color=OxyColors.Navy,      StrokeThickness=1.5)
+    /// Real signal part data series.
+    let reSeries = new Series.LineSeries(Color=OxyColors.Navy, StrokeThickness=1.5)
+    
+    /// Imaginary signal part data series.
     let imSeries = new Series.LineSeries(Color=OxyColors.IndianRed, StrokeThickness=1.5)
     
+    /// Default experiment plot model.
     let defaultPlotModel = 
         let model = new PlotModel()
         model.Series.Add reSeries
         model.Series.Add imSeries
         model
-
+        
+    // Backing properties.
     let experimentParameters = self.Factory.Backing(<@ self.ExperimentParameters @>, defaultParameters, Parameters.validate)
     let notes                = self.Factory.Backing(<@ self.Notes @>, { ExperimentNotes = "" ; SampleNotes = "" })
     let experimentState      = self.Factory.Backing(<@ self.ExperimentState @>, Waiting)
@@ -89,6 +100,7 @@ type CwEprViewModel() as self =
     let connection           = self.Factory.Backing(<@ self.Connection @>, Disconnected)
     let statusMessage        = self.Factory.Backing(<@ self.StatusMessage @>, "")
 
+    /// Establishes a connection to the instruments.
     let connect ui = async {
         try
             let! magnetController = MagnetController.openInstrument "GPIB0::4" 3000<ms> magnetControllerSettings
@@ -101,6 +113,7 @@ type CwEprViewModel() as self =
             sprintf "Failed to connect to instruments: %s" exn.Message
             |> MessageBox.Show |> ignore  }
 
+    /// Disconnects from the instruments.
     let disconnect ui = async {
         do! Async.SwitchToContext ui
         let (magnetController, picoScope) =
@@ -114,6 +127,7 @@ type CwEprViewModel() as self =
         do! MagnetController.closeInstrument magnetController
         do! PicoScope.close picoScope }
 
+    /// Saves the recorded experiment data.
     let save () =
         match self.ExperimentState with
         | Finished (parameters, signal, rawData) ->
@@ -121,7 +135,7 @@ type CwEprViewModel() as self =
             let result = saveFile.ShowDialog() 
             if result.HasValue && result.Value then
                 use paramsFile = new StreamWriter (saveFile.FileName)
-                parameters |> Parameters.withNotes self.Notes |> pickler.PickleToString |> paramsFile.Write
+                parameters |> Parameters.withNotes self.Notes |> serialiser.PickleToString |> paramsFile.Write
 
                 use dataFile = new StreamWriter (Path.ChangeExtension(saveFile.FileName, "csv"))
                 Signal.signalRows signal |> Seq.iter dataFile.WriteLine
@@ -132,22 +146,25 @@ type CwEprViewModel() as self =
 
         | _ -> "No data to save." |> MessageBox.Show |> ignore 
 
+    /// Loads parameters from a user-specified CW EPR experiment parameters file.
     let loadParameters () =
         if self.IsReadyToStart then
             let openFile = new OpenFileDialog (Filter="CW EPR experiment|*.cwepr")
             let result = openFile.ShowDialog()
             if result.HasValue && result.Value then
                 use paramsFile = new StreamReader (openFile.FileName)
-                let parameters = paramsFile.ReadToEnd() |> pickler.UnPickleOfString
+                let parameters = paramsFile.ReadToEnd() |> serialiser.UnPickleOfString
                 self.ExperimentParameters <- parameters |> Parameters.withMagnetControllerSettings magnetControllerSettings
                 self.Notes                <- parameters |> Parameters.notes 
 
         else "Cannot load experiment parameters while an experiment is running." |> MessageBox.Show |> ignore
     
+    /// Resets the plot axes to auto-scale.
     let resetAxes () = 
         self.PlotModel.ResetAllAxes()
         self.PlotModel.InvalidatePlot false
 
+    /// Performs a CW EPR experiment with the parameters currently specified.
     let performExperiment ui = async {
         do! Async.SwitchToContext ui
         let cts = new CancellationTokenSource()
@@ -203,7 +220,9 @@ type CwEprViewModel() as self =
 
         do! Async.SwitchToContext ui
         self.ExperimentState <- Finished (parameters |> Parameters.withNotes self.Notes, signal, rawData) }
-        
+    
+    // create backing properties UI commands
+    
     let connectCommand =
         self.Factory.CommandAsyncChecked(
             connect,
@@ -244,7 +263,7 @@ type CwEprViewModel() as self =
             (fun _ -> self.IsPerformingExperiment), 
             [ <@ self.IsPerformingExperiment @> ])
 
-    do 
+    do // add property dependencies
         self.DependencyTracker.AddPropertyDependency(<@ self.IsConnected @>, <@ self.Connection @>)
 
         self.DependencyTracker.AddPropertyDependency(<@ self.Notes @>,               <@ self.ExperimentParameters @>)
