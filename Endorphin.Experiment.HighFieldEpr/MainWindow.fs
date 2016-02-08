@@ -19,11 +19,13 @@ type MainWindowController() =
 
     override x.OnLoaded window =
         let ctx = window.Root.DataContext :?> CwEprViewModel
+        
         window.Root.Closing
         |> Event.add (fun args ->
             match ctx.Connection with
             | Connected _ -> 
-                "Cannot close window while instruments are connected."
-                |> MessageBox.Show |> ignore
-                args.Cancel <- true
+                let message = "Instruments are currently connected. Are you sure you wish to exit?"
+                let caption = "Warning: instruments connected"
+                let result = MessageBox.Show(message, caption, MessageBoxButton.YesNo)
+                if result = MessageBoxResult.No then args.Cancel <- true
             | _ -> ())

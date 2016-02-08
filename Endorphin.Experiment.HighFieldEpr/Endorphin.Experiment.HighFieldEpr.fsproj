@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>2250c03c-40ba-4592-b424-28e7d7a2c79a</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <RootNamespace>Endorphin.Experiment.HighFieldEpr</RootNamespace>
     <AssemblyName>Endorphin.Experiment.HighFieldEpr</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
