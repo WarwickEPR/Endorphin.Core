@@ -72,18 +72,18 @@ module Visa =
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
 
-        let private syncronisationDescription = function
+        let private synchronisationDescription = function
             | Sync  -> "synchronously"
             | Async -> "asynchronously"
 
         /// Get the description of a VISA message passed to the agent.
         let private description = function
-            | Command(ReadString _,         sync) -> sprintf "Read string %s" (syncronisationDescription sync)
-            | Command(ReadBytes  _,         sync) -> sprintf "Read bytes %s" (syncronisationDescription sync)
-            | Command(WriteString msg,      sync) -> sprintf "Write string %s %s" (truncate msg) (syncronisationDescription sync)
-            | Command(WriteBytes  msg,      sync) -> sprintf "Write bytes %s %s" (truncate <| String.hexOfBytes msg) (syncronisationDescription sync)
-            | Command(QueryString (msg, _), sync) -> sprintf "Query string %s %s" (truncate msg) (syncronisationDescription sync)
-            | Command(QueryBytes  (msg, _), sync) -> sprintf "Query bytes %s %s" (truncate msg) (syncronisationDescription sync)
+            | Command(ReadString _,         sync) -> sprintf "Read string %s" (synchronisationDescription sync)
+            | Command(ReadBytes  _,         sync) -> sprintf "Read bytes %s" (synchronisationDescription sync)
+            | Command(WriteString msg,      sync) -> sprintf "Write string %s %s" (truncate msg) (synchronisationDescription sync)
+            | Command(WriteBytes  msg,      sync) -> sprintf "Write bytes %s %s" (truncate <| String.hexOfBytes msg) (synchronisationDescription sync)
+            | Command(QueryString (msg, _), sync) -> sprintf "Query string %s %s" (truncate msg) (synchronisationDescription sync)
+            | Command(QueryBytes  (msg, _), sync) -> sprintf "Query bytes %s %s" (truncate msg) (synchronisationDescription sync)
             | Close _                             -> "Close agent."
 
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
@@ -91,6 +91,7 @@ module Visa =
             let rm = ResourceManager.GetLocalManager ()
             let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> MessageBasedSession
             instrument.Timeout <- int timeout
+            instrument.TerminationCharacterEnabled <- true
             instrument
 
         /// Open a VISA instrument session with additional configuration options for a serial connection
