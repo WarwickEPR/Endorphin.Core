@@ -35,3 +35,11 @@ module Basic =
     let private triggerKey = "*TRG"
     /// Send a trigger on the bus.
     let trigger = IO.writeKey triggerKey
+
+    /// Key for the overall RF output state. Must be On if anything is to play
+    /// Command reference p.157.
+    let private outputStateKey = ":OUTP:STAT"
+    /// Sets the RF output on or off.
+    let setOutput = IO.setOnOffState outputStateKey
+    /// Queries whether the RF output is on or off.
+    let queryOutput = IO.queryOnOffState outputStateKey
