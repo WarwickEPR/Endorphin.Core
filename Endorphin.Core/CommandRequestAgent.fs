@@ -24,10 +24,10 @@ module CommandRequestAgent =
         /// which is used for logging. Finally, the close message notifies the agent that it
         /// should stop processing messages.
         type internal CommandRequestMessage<'State> = 
-            | Command       of description : string * commandFunc : ('State -> Choice<unit,      exn>) * replyChannel : AsyncReplyChannel<Choice<unit,      exn>>
-            | ValueRequest  of description : string * requestFunc : ('State -> Choice<ValueType, exn>) * replyChannel : AsyncReplyChannel<Choice<ValueType, exn>>
-            | ObjectRequest of description : string * requestFunc : ('State -> Choice<obj,       exn>) * replyChannel : AsyncReplyChannel<Choice<obj,       exn>>
-            | Close         of                        closeFunc   : ('State -> Choice<unit,      exn>) * replyChannel : AsyncReplyChannel<Choice<unit,      exn>>
+            | Command       of description : string * commandFunc : ('State -> Async<Choice<unit,      exn>>) * replyChannel : AsyncReplyChannel<Choice<unit,      exn>>
+            | ValueRequest  of description : string * requestFunc : ('State -> Async<Choice<ValueType, exn>>) * replyChannel : AsyncReplyChannel<Choice<ValueType, exn>>
+            | ObjectRequest of description : string * requestFunc : ('State -> Async<Choice<obj,       exn>>) * replyChannel : AsyncReplyChannel<Choice<obj,       exn>>
+            | Close         of                        closeFunc   : ('State -> Async<Choice<unit,      exn>>) * replyChannel : AsyncReplyChannel<Choice<unit,      exn>>
     
         /// A command/request agent processes messages of CommandRequestMessage type. The details
         /// of the implementation are hidden from the user of the library.
@@ -63,7 +63,7 @@ module CommandRequestAgent =
                 /// Workflow performed when shutting down the agent.
                 let closeAgent closeFunc (replyChannel : AsyncReplyChannel<Choice<unit, exn>>) = async {
                     "Closing agent." |> log.Info
-                    let response = closeFunc state
+                    let! response = closeFunc state
                     response |> replyChannel.Reply
                     logResponse "Close" response }
 
@@ -74,19 +74,19 @@ module CommandRequestAgent =
 
                     match message with 
                     | Command (_, commandFunc, replyChannel) ->
-                        let response = commandFunc state
+                        let! response = commandFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! loop state
 
                     | ValueRequest (_, requestFunc, replyChannel) ->
-                        let response = requestFunc state
+                        let! response = requestFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! loop state
 
                     | ObjectRequest (_, requestFunc, replyChannel) ->
-                        let response = requestFunc state
+                        let! response = requestFunc state
                         response |> replyChannel.Reply
                         logResponse (messageDescription message) response
                         return! loop state
@@ -99,9 +99,14 @@ module CommandRequestAgent =
 
         /// Posts a command to the message queue which will be executed by calling the provided
         /// function. The command may succeed or fail, and if failure occurs, the enclosed
-        /// exception is raised. The provided description is used for logging.    
+        /// exception is raised. The provided description is used for logging.
         let performCommand description commandFunc (CommandRequestAgent agent) = async {
-            let! response = agent.PostAndAsyncReply (fun replyChannel -> Command(description, commandFunc, replyChannel))
+            let commandBuilder x = async { return x|> commandFunc }
+            let! response = agent.PostAndAsyncReply (fun replyChannel -> Command(description, commandBuilder, replyChannel))
+            return Choice.bindOrRaise response }
+
+        let performCommandAsync description commandBuilder (CommandRequestAgent agent) = async {
+            let! response = agent.PostAndAsyncReply (fun replyChannel -> Command(description, commandBuilder, replyChannel))
             return Choice.bindOrRaise response }
 
         /// Posts a request to the message queue which will be executed by calling the provided
@@ -109,17 +114,31 @@ module CommandRequestAgent =
         /// exception is raised. . If the request is successful, it returns an object type. The
         /// provided description is used for logging.
         let performObjectRequest<'State, 'Result when 'Result :> obj> description (requestFunc : 'State -> Choice<'Result, exn>) (CommandRequestAgent agent) = async {
-            let castRequestFunc = requestFunc >> Choice.map (fun s -> s :> obj)
+            let castRequestFunc state = async { return state |> (requestFunc >> Choice.map (fun s -> s :> obj)) }
             let! response = agent.PostAndAsyncReply (fun replyChannel -> ObjectRequest(description, castRequestFunc, replyChannel))
+            return response |> Choice.map (fun obj -> obj :?> 'Result) |> Choice.bindOrRaise }
+
+        let performObjectRequestAsync<'State, 'Result when 'Result :> obj> description (requestBuilder : 'State -> Async<Choice<'Result, exn>>) (CommandRequestAgent agent) = async {
+            let castRequestBuilder state = async {
+                let! r = state |> requestBuilder
+                return r |> Choice.map (fun s -> s :> obj) }
+            let! response = agent.PostAndAsyncReply (fun replyChannel -> ObjectRequest(description, castRequestBuilder, replyChannel))
             return response |> Choice.map (fun obj -> obj :?> 'Result) |> Choice.bindOrRaise }
     
         /// Posts a request to the message queue which will be executed by calling the provided
         /// function. The request may succeed or fail, and if failure occurs, the enclosed
         /// exception is raised. If the request is successful, it returns a value type. The
-        /// provided description is used for logging.    
+        /// provided description is used for logging.
         let performValueRequest<'State, 'Result when 'Result :> ValueType> description (requestFunc : 'State -> Choice<'Result, exn>) (CommandRequestAgent agent) = async {
-            let castRequestFunc = requestFunc >> Choice.map (fun s -> s :> ValueType)
+            let castRequestFunc state = async { return state |> (requestFunc >> Choice.map (fun s -> s :> ValueType)) }
             let! response = agent.PostAndAsyncReply (fun replyChannel ->ValueRequest(description, castRequestFunc, replyChannel))
+            return response |> Choice.map (fun value -> value :?> 'Result) |> Choice.bindOrRaise }
+
+        let performValueRequestAsync<'State, 'Result when 'Result :> ValueType> description (requestBuilder : 'State -> Async<Choice<'Result, exn>>) (CommandRequestAgent agent) = async {
+            let castRequestBuilder state = async {
+                let! r = state |> requestBuilder
+                return r |> Choice.map (fun s -> s :> ValueType) }
+            let! response = agent.PostAndAsyncReply (fun replyChannel ->ValueRequest(description, castRequestBuilder, replyChannel))
             return response |> Choice.map (fun value -> value :?> 'Result) |> Choice.bindOrRaise }
 
         /// Shuts down the message-processing agent after calling the supplied closing function. The
@@ -127,5 +146,11 @@ module CommandRequestAgent =
         /// Furthermore, an exception will be raised if there are any remaining messages in the queue
         /// at this point.
         let close closeFunc (CommandRequestAgent agent) = async {
-            let! response = agent.PostAndAsyncReply (fun replyChannel -> Close(closeFunc, replyChannel))
+            let closeBuilder x = async { return x|> closeFunc }
+            let! response = agent.PostAndAsyncReply (fun replyChannel -> Close(closeBuilder, replyChannel))
             return Choice.bindOrRaise response }
+
+        let closeAsync closeBuilder (CommandRequestAgent agent) = async {
+            let! response = agent.PostAndAsyncReply (fun replyChannel -> Close(closeBuilder, replyChannel))
+            return Choice.bindOrRaise response }
+

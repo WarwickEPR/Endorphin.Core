@@ -66,7 +66,7 @@ module Event =
     /// most recent elements up to its specified size.
     let ringBuffer size =
         Event.scan (fun buffer x -> RingBuffer.push x buffer) (RingBuffer.create size)
-        >> Event.map (fun buffer -> RingBuffer.enumerate buffer)
+        >> Event.map RingBuffer.enumerate
 
     /// Build a new event, applying the given mapping to each element in the source event, then
     /// collecting the values into a buffer of the specified size. At each occurrence, the output
@@ -74,7 +74,7 @@ module Event =
     /// specified size.
     let ringBufferMap size mapping =
         Event.scan (fun buffer x -> RingBuffer.push (mapping x) buffer) (RingBuffer.create size)
-        >> Event.map (fun buffer -> RingBuffer.enumerate buffer)
+        >> Event.map RingBuffer.enumerate
 
     /// Build a new event, applying the given mapping to each element in the source event and its zero-
     /// based integer index, then collecting the values into a buffer of the specified size. At each
@@ -113,7 +113,7 @@ module Observable =
     /// contains the most recent elements up to its specified size.
     let ringBuffer size =
         Observable.scan (fun buffer x -> RingBuffer.push x buffer) (RingBuffer.create size)
-        >> Observable.map (fun buffer -> RingBuffer.enumerate buffer)
+        >> Observable.map RingBuffer.enumerate
 
     /// Build a new observable, applying the given mapping to each element in the source observable,
     /// then collecting the values into a buffer of the specified size. At each occurrence, the output
@@ -121,7 +121,7 @@ module Observable =
     /// specified size.
     let ringBufferMap size mapping =
         Observable.scan (fun buffer x -> RingBuffer.push (mapping x) buffer) (RingBuffer.create size)
-        >> Observable.map (fun buffer -> RingBuffer.enumerate buffer)
+        >> Observable.map RingBuffer.enumerate
 
     /// Build a new observable, applying the given mapping to each element in the source observable and
     /// its zero-based integer index, then collecting the values into a buffer of the specified size. At
