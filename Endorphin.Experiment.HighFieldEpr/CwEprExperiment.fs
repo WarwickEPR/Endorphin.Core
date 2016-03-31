@@ -626,11 +626,13 @@ module CwEprExperiment =
             let magneticFieldChannelRange'  = magneticFieldChannelRange  parameters
             let signalChannels' = signalChannels parameters
 
-            Streaming.Parameters.create samplingResolution sampleInterval (64u * 1024u)
-            |> Streaming.Parameters.enableChannel magneticFieldChannel DC magneticFieldChannelRange' magneticFieldChannelOffset' Bandwidth_20MHz
-            |> Streaming.Parameters.enableChannels signalChannels' DC signalChannelRange signalChannelOffset Bandwidth_20MHz
-            |> Streaming.Parameters.sampleChannels (magneticFieldChannel :: signalChannels') downsamplingMode
-            |> Streaming.Parameters.withDownsamplingRatio downsamplingRatio
+            Parameters.Acquisition.create sampleInterval samplingResolution (64 * 1024)
+            |> Parameters.Acquisition.enableChannel magneticFieldChannel DC magneticFieldChannelRange' magneticFieldChannelOffset' Bandwidth_20MHz
+            |> Parameters.Acquisition.enableChannels signalChannels' DC signalChannelRange signalChannelOffset Bandwidth_20MHz
+            |> Parameters.Acquisition.sampleChannels (magneticFieldChannel :: signalChannels') downsamplingMode
+            |> Parameters.Acquisition.withDownsamplingRatio downsamplingRatio
+            |> Parameters.Streaming.create
+            |> Parameters.Streaming.streamingCapture
 
         /// Returns an observable sequence of CW EPR sample blocks from the streaming acquisition.
         let samplesForAcquisition parameters acquisition =
@@ -638,7 +640,7 @@ module CwEprExperiment =
             let detection = Parameters.detection parameters
             let inputs = channels |> List.map (fun channel -> (channel, sampleBuffer)) |> Array.ofList
 
-            Streaming.Signal.adcCountsByBlock inputs acquisition
+            Signal.adcCountsByBlock inputs acquisition
             |> Observable.map (fun block -> 
                 let blockLength = block.[0] |> Array.length
                 seq { for i in 0 .. blockLength - 1 ->
@@ -912,8 +914,8 @@ module CwEprExperiment =
         >> Observable.subscribe (SignalProcessor.accumulateSamples (signalProcessor experiment))
 
     /// Performs the n-th scan part of the experiment.
-    let private performScanPart n streamingParameters scanPart experiment = async {
-        let acquisition              = Streaming.Acquisition.create (picoScope experiment) streamingParameters
+    let private performScanPart n parameters scanPart experiment = async {
+        let acquisition              = Acquisition.prepare (picoScope experiment) parameters
         let magnetControllerSettings = MagnetController.settings (magnetController experiment)
         let scanDuration             = ScanPart.rampDuration scanPart
         let fieldSweepParameters     = ScanPart.fieldSweepParameters magnetControllerSettings scanPart
@@ -926,15 +928,15 @@ module CwEprExperiment =
         do! waitToPrepare
         
         use __ = acquisition |> processSamples experiment
-        let! waitForStreaming = Streaming.Acquisition.waitToStart acquisition |> Async.StartChild
-        let! acquisitionHandle = Streaming.Acquisition.startAsChild acquisition
+        let! waitForStreaming = Acquisition.waitToStart acquisition |> Async.StartChild
+        let! acquisitionHandle = Acquisition.startAsChild acquisition
         do! waitForStreaming
         do! Async.Sleep 10000
         FieldSweep.setReadyToSweep fieldSweep
         
         let delay = 10000 + int (scanDuration * 1000.0M</s>)
         do! Async.Sleep delay
-        do! Streaming.Acquisition.stopAndFinish acquisitionHandle |> Async.Ignore 
+        do! Acquisition.stopAndFinish acquisitionHandle |> Async.Ignore 
         SignalProcessor.completeScanPart (signalProcessor experiment) }
 
     /// Performs the n-th scan of the experiment.
