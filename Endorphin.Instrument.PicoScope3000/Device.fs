@@ -22,8 +22,10 @@ module PowerSource =
     /// fewer channels may be available depending on the device resolution, model and other 
     /// acquisition settings.
     let internal availableChannels = function
-        | MainsPower -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
-        | UsbPower   -> [ ChannelA ; ChannelB ] |> Set.ofList
+        | MainsPower -> ([ ChannelA; ChannelB; ChannelC; ChannelD] |> List.map Analogue)
+                        @ ([ Port0 ; Port1 ] |> List.map Digital)
+                        |> Set.ofList
+        | UsbPower   -> List.map Analogue [ ChannelA ; ChannelB ] |> Set.ofList
 
 [<RequireQualifiedAccess>]
 /// Functions related to the device.
@@ -32,17 +34,20 @@ module Device =
     /// channels may be available depending on the device resolution, power source and other
     /// acquisition settings.
     let internal availableChannelsForModel (modelNumber : string) =
-        match int <| modelNumber.[1].ToString() with
-        | 2 -> [ ChannelA ; ChannelB ] |> Set.ofList 
-        | 4 -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
-        | _ -> unexpectedReply <| sprintf "Unexpected model number: %s." modelNumber
 
-    /// Returns a set of the available digital ports for the specified model number.  Only MSO
-    /// models have any digital ports at all.
-    let internal availablePortsForModel (modelNumber : string) =
-        match modelNumber.[-3 .. -1] with
-        | "MSO" -> [ DigitalPort0 ; DigitalPort1 ] |> Set.ofList
-        | _     -> Set.empty
+        let analogueChannels =
+            match int <| modelNumber.[1].ToString() with
+            | 2 -> [ ChannelA ; ChannelB ] |> List.map Analogue |> Set.ofList
+            | 4 -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> List.map Analogue |> Set.ofList
+            | _ -> unexpectedReply <| sprintf "Unexpected model number: %s." modelNumber
+
+        let digitalChannels =
+            if modelNumber.EndsWith("MSO") then
+                [ Port0 ; Port1 ] |> List.map Digital |>  Set.ofList
+            else
+                Set.empty
+
+        Set.union analogueChannels digitalChannels
 
 /// Functions related to the logic level of digital ports - what voltage must be reached for the port to
 /// switch from 0 to 1.
@@ -57,11 +62,23 @@ module internal LogicLevel =
 
     /// Raise an exception if the specified logic level is not in the allowed range for the instrument.
     let check level =
-        if not <| Voltage.between (Voltage.fromVolts minimum) (Voltage.fromVolts maximum) level then
+        if level > maximum || level < minimum  then
             invalidArg "Logic level" <| sprintf "Logic level must be between %f V and %f V" minimum maximum
 
     /// Get the logic level as an int16 from a voltage.
     let fromVoltage voltage =
         check voltage
-        let volts = Voltage.asVolts voltage
-        int16 <| (float volts / float maximum) * (float NativeApi.Quantities.maximumLogicLevel)
+        int16 <| (float voltage / float maximum) * (float NativeApi.Quantities.maximumLogicLevelAdc)
+
+
+module Timebase =
+
+    // using programming guide, section 3.6 for USB 3.0 models of PicoScope 3000
+    // May not have all modes available, unless some channels are disabled
+    let timebase sampleInterval =
+        let ns = Interval.asIntegerNanoseconds sampleInterval
+
+        if ns < 2L      then 0u   // 1 ns
+        else if ns < 4L then 1u   // 2 ns
+        else if ns < 8L then 2u   // 4 ns
+        else (uint32 ns) * 125u / 1000u + 1u

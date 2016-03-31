@@ -13,17 +13,19 @@ open StatusCodes
 module internal NativeApi =
     module Quantities =
         /// Maximum number of ADC counts on one channel.  Number found in the PicoScope 3000A C# console
-        /// source file of the SDK.
+        /// source file of the SDK. (Also in documentation)
         [<Literal>]
         let maximumAdcCounts = 32512
+        [<Literal>]
+        let minimumAdcCounts = -32512
 
         /// Minimum value that the logic level of a digital port may take.
         [<Literal>]
-        let minimumLogicLevel = -32767
+        let minimumLogicLevelAdc = -32767
 
         /// Maximum value that the logic level of a digital port may take.
         [<Literal>]
-        let maximumLogicLevel = 32767
+        let maximumLogicLevelAdc = 32767
 
     [<Literal>]
     let dllName = "ps3000a.dll" // import dll name
@@ -148,9 +150,10 @@ module internal NativeApi =
 
     [<DllImport(dllName, EntryPoint = "ps3000aGetValuesBulk")>]
     /// This function retrieves waveforms captured using rapid block mode. The waveforms must have been collected sequentially and in the same run.
-    extern StatusCode GetValuesBulk (int16 handle, uint32& numberOfSamples, uint32 fromSegmentIndex,
-                                     uint32 toSegmentIndex, uint32 downsamplingRatio,
-                                     DownsamplingModeEnum downsampling, int16& overflow)
+    extern StatusCode GetValuesBulk (int16 handle, uint32& numberOfSamples,
+                                     uint32 fromSegmentIndex, uint32 toSegmentIndex,
+                                     uint32 downsamplingRatio, DownsamplingModeEnum downsampling,
+                                     int16[] overflow)
 
     [<DllImport(dllName, EntryPoint = "ps3000aGetValuesOverlapped")>]
     /// This function allows you to make a deferred data-collection request, which will later be executed, and the arguments validated, when you
@@ -258,7 +261,7 @@ module internal NativeApi =
     /// you need to call SetDataBuffers instead. You must allocate memory for the buffer before calling this function. The buffer needs to be pinned
     /// while it is in use by the PicoScope driver to prevent the garbage collector from moving it to defragment managed memory. This is achieved using
     /// a System.Runtime.InteropServices.GCHandle.
-    extern StatusCode SetDataBuffer (int16 handle, ChannelEnum channel, int16[] buffer, int bufferLength,
+    extern StatusCode SetDataBuffer (int16 handle, BufferEnum channel, int16[] buffer, int bufferLength,
                                      uint32 segmentIndex, DownsamplingModeEnum downsampling)
 
     [<DllImport(dllName, EntryPoint = "ps3000aSetDataBuffers")>]
@@ -266,7 +269,7 @@ module internal NativeApi =
     /// this function. If you are not using aggregate mode, then you should use SetDataBuffer instead. The buffer needs to be pinned while it is in use
     /// by the PicoScope driver to prevent the garbage collector from moving it to defragment managed memory. This is achieved using a 
     /// System.Runtime.InteropServices.GCHandle.
-    extern StatusCode SetDataBuffers (int16 handle, ChannelEnum channel, int16[] bufferMax,
+    extern StatusCode SetDataBuffers (int16 handle, BufferEnum channel, int16[] bufferMax,
                                       int16[] bufferMin, int bufferLength, uint32 segmentIndex,
                                       DownsamplingModeEnum downsampling)
 
@@ -363,7 +366,7 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps3000aSetSimpleTrigger")>]
     /// This function simplifies arming the trigger. It supports only the LEVEL trigger types and does not allow more than one channel to have a trigger
     /// applied to it. Any previous pulse width qualifier is cancelled.
-    extern StatusCode SetSimpleTrigger (int16 handle, int16 enabled, ChannelEnum channel, int16 threshold,
+    extern StatusCode SetSimpleTrigger (int16 handle, int16 enabled, TriggerChannelEnum channel, int16 threshold,
                                         ThresholdDirectionEnum direction, uint32 delay, int16 autoTrigger_ms)
 
     [<DllImport(dllName, EntryPoint = "ps3000aSetTriggerChannelConditions")>]
@@ -372,6 +375,13 @@ module internal NativeApi =
     /// function of the scope's inputs. If complex triggering is not required, use SetSimpleTrigger instead.
     extern StatusCode SetTriggerChannelConditions (int16 handle, TriggerConditions[] conditions,
                                                    int16 conditionsLength);
+
+    [<DllImport(dllName, EntryPoint = "ps3000aSetTriggerChannelConditionsV2")>]
+    /// This function sets up trigger conditions on the scope's inputs. The trigger is defined by one or more TriggerConditionsV2 structures that are then ORed
+    /// together. Each structure is itself the AND of the states of one or more of the inputs. This AND-OR logic allows you to create any possible Boolean
+    /// function of the scope's inputs. If complex triggering is not required, use SetSimpleTrigger instead.
+    extern StatusCode SetTriggerChannelConditionsV2 (int16 handle, TriggerConditionsV2[] conditions,
+                                                     int16 conditionsLength);
 
     [<DllImport(dllName, EntryPoint = "ps3000aSetTriggerChannelDirections")>]
     /// This function sets the direction of the trigger for each channel.

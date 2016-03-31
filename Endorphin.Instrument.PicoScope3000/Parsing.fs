@@ -5,6 +5,8 @@ namespace Endorphin.Instrument.PicoScope3000
 open Endorphin.Core
 open NativeModel
 open StatusCodes
+open System
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 /// Contains functions related to parsing between native model and high level model domain
 /// types.
@@ -43,6 +45,7 @@ module internal Parsing =
         let (|PowerSourceStatus|_|) = function
             | StatusCode.PowerSupplyConnected    -> Some MainsPower
             | StatusCode.PowerSupplyNotConnected -> Some UsbPower
+            | StatusCode.Ok                      -> Some UsbPower // 3206MSO only takes USB power and returns Ok
             | _                                  -> None
 
         /// Returns the status code corresponding to a provided power source, which can be used
@@ -67,12 +70,12 @@ module internal Parsing =
     /// an interval with unit of measure.
     let parseIntervalWithInterval (interval, unit) =
         match unit with
-        | TimeUnitEnum.Femtoseconds -> Interval_fs (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Picoseconds  -> Interval_ps (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Nanoseconds  -> Interval_ns (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Microseconds -> Interval_us (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Milliseconds -> Interval_ms (LanguagePrimitives.Int32WithMeasure interval)
-        | TimeUnitEnum.Seconds      -> Interval_s  (LanguagePrimitives.Int32WithMeasure interval)
+        | TimeUnitEnum.Femtoseconds -> Interval_fs (LanguagePrimitives.Int32WithMeasure <| interval)
+        | TimeUnitEnum.Picoseconds  -> Interval_ps (LanguagePrimitives.Int32WithMeasure <| interval)
+        | TimeUnitEnum.Nanoseconds  -> Interval_ns (LanguagePrimitives.Int32WithMeasure <| interval)
+        | TimeUnitEnum.Microseconds -> Interval_us (LanguagePrimitives.Int32WithMeasure <| interval)
+        | TimeUnitEnum.Milliseconds -> Interval_ms (LanguagePrimitives.Int32WithMeasure <| interval)
+        | TimeUnitEnum.Seconds      -> Interval_s  (LanguagePrimitives.Int32WithMeasure <| interval)
         | enum                      -> unexpectedReply <| sprintf "Unexpected time unit enum value: %A" enum
 
     /// Converts the provided interval with unit of measure to an integer interval with an
@@ -84,10 +87,6 @@ module internal Parsing =
         | Interval_us interval -> (int interval, TimeUnitEnum.Microseconds)
         | Interval_ms interval -> (int interval, TimeUnitEnum.Milliseconds)
         | Interval_s  interval -> (int interval, TimeUnitEnum.Seconds)
-
-    /// Converts the provided voltage with unit of measure to a 32-bit precision floating point
-    /// voltage in volts.
-    let voltageFloat_V (Voltage_V v) = float32 v
 
     /// Converts an AutoTriggerDelay option to a corresponding 16-bit integer indicating either that
     /// there is no auto-trigger or the auto-trigger delay value in milliseconds.
@@ -101,14 +100,26 @@ module internal Parsing =
         /// Parse an enumeration as a digital port.  This does not currently parse all possible values of
         /// the enumeration, because the PicoScope 3406D MSO (which is what we have) doesn't support them.
         let parseDigitalPort = function
-            | DigitalPortEnum._0 -> DigitalPort0
-            | DigitalPortEnum._1 -> DigitalPort1
-            | enum               -> unexpectedReply <| sprintf "Unexpected digital port value: %A." enum
+            | DigitalPortEnum.Port0 -> Port0
+            | DigitalPortEnum.Port1 -> Port1
+            | enum -> unexpectedReply <| sprintf "Unexpected digital port value: %A." enum
 
         /// Convert the provided digital port into an enumeration.
         let digitalPortEnum = function
-            | DigitalPort0 -> DigitalPortEnum._0
-            | DigitalPort1 -> DigitalPortEnum._1
+            | Port0 -> DigitalPortEnum.Port0
+            | Port1 -> DigitalPortEnum.Port1
+
+        let bufferEnum = function
+        | Analogue channel ->
+            match channel with
+            | ChannelA -> BufferEnum.A
+            | ChannelB -> BufferEnum.B
+            | ChannelC -> BufferEnum.C
+            | ChannelD -> BufferEnum.D
+        | Digital port ->
+            match port with
+            | Port0 -> BufferEnum.Port0
+            | Port1 -> BufferEnum.Port1
 
         /// Parses an enumeration as an input channel. Note that this does not parse all possible
         /// values of ChannelEnum as not all of these indicate an input channel.
@@ -181,43 +192,74 @@ module internal Parsing =
 
     [<AutoOpen>]
     /// Parsing functions related to triggering.
-    module Triggering =
-        /// Converts the provided level threshold direction into an enumeration.
-        let internal levelThresholdEnum = function
-            | Above Upper     -> ThresholdDirectionEnum.AboveUpper
-            | Above Lower     -> ThresholdDirectionEnum.AboveLower
-            | Below Upper     -> ThresholdDirectionEnum.BelowUpper
-            | Below Lower     -> ThresholdDirectionEnum.BelowLower
-            | Rising Upper    -> ThresholdDirectionEnum.RisingUpper
-            | Rising Lower    -> ThresholdDirectionEnum.RisingLower
-            | Falling Upper   -> ThresholdDirectionEnum.FallingUpper
-            | Falling Lower   -> ThresholdDirectionEnum.FallingLower
-            | RisingOrFalling -> ThresholdDirectionEnum.RisingOrFalling
-
-        /// Converts the provided window threshold direction into an enumeration.
-        let internal windowThresholdEnum = function
-            | Inside      -> ThresholdDirectionEnum.Inside
-            | Outside     -> ThresholdDirectionEnum.Outside
-            | Enter       -> ThresholdDirectionEnum.Enter
-            | Exit        -> ThresholdDirectionEnum.Exit
-            | EnterOrExit -> ThresholdDirectionEnum.EnterOrExit
+    module Triggering' =
+        open Model.Triggering
 
         /// Parses the provided enumeration into a trigger channel (which can be an input
         /// channel, or the external or auxiliary channel).
         let parseTriggerChannel = function
-            | ChannelEnum.A   -> InputChannelTrigger ChannelA
-            | ChannelEnum.B   -> InputChannelTrigger ChannelB
-            | ChannelEnum.C   -> InputChannelTrigger ChannelC
-            | ChannelEnum.D   -> InputChannelTrigger ChannelD
-            | ChannelEnum.Ext -> ExternalTrigger
-            | ChannelEnum.Aux -> AuxiliaryTrigger
+            | TriggerChannelEnum.A   -> AnalogueTrigger ChannelA
+            | TriggerChannelEnum.B   -> AnalogueTrigger ChannelB
+            | TriggerChannelEnum.C   -> AnalogueTrigger ChannelC
+            | TriggerChannelEnum.D   -> AnalogueTrigger ChannelD
+            | TriggerChannelEnum.Ext -> ExternalTrigger
+            | TriggerChannelEnum.Aux -> AuxiliaryTrigger
             | enum            -> unexpectedReply <| sprintf "Unexpected trigger channel enum value: %A." enum
 
-        /// Converts the provided trigger channel into a enumeration.
         let triggerChannelEnum = function
-            | InputChannelTrigger channel -> inputChannelEnum channel
-            | ExternalTrigger             -> ChannelEnum.Ext
-            | AuxiliaryTrigger            -> ChannelEnum.Aux
+        | AnalogueTrigger channel ->
+            match channel with
+            | ChannelA -> TriggerChannelEnum.A
+            | ChannelB -> TriggerChannelEnum.B
+            | ChannelC -> TriggerChannelEnum.C
+            | ChannelD -> TriggerChannelEnum.D
+        | ExternalTrigger  -> TriggerChannelEnum.Ext
+        | AuxiliaryTrigger -> TriggerChannelEnum.Aux
+
+        module Simple =
+            open Simple
+            let internal conditionEnum = function
+                | Above -> ThresholdDirectionEnum.AboveUpper
+                | Below -> ThresholdDirectionEnum.BelowUpper
+                | Rising -> ThresholdDirectionEnum.RisingUpper
+                | Falling -> ThresholdDirectionEnum.FallingUpper
+                | RisingOrFalling -> ThresholdDirectionEnum.RisingOrFalling
+
+        module Complex =
+            open Complex
+            /// Converts the provided level threshold direction into an enumeration.
+            let internal conditionEnum = function
+                | Above _   -> ThresholdDirectionEnum.AboveUpper
+                | Below _   -> ThresholdDirectionEnum.BelowUpper
+                | Rising _  -> ThresholdDirectionEnum.RisingUpper
+                | Falling _ -> ThresholdDirectionEnum.FallingUpper
+                | RisingOrFalling _ -> ThresholdDirectionEnum.RisingOrFalling
+                | Inside _ -> ThresholdDirectionEnum.Inside
+                | Outside _ -> ThresholdDirectionEnum.Outside
+                | Enter _ -> ThresholdDirectionEnum.Enter
+                | Exit  _ -> ThresholdDirectionEnum.Exit
+                | EnterOrExit _ -> ThresholdDirectionEnum.EnterOrExit
+                | PositiveRunt _ -> ThresholdDirectionEnum.PositiveRunt
+                | NegativeRunt _ -> ThresholdDirectionEnum.NegativeRunt
+
+            let internal digitalThresholdEnum = function
+                | High -> DigitalDirectionEnum.High
+                | Low -> DigitalDirectionEnum.Low
+                | RisingEdge -> DigitalDirectionEnum.Rising
+                | FallingEdge -> DigitalDirectionEnum.Falling
+                | RisingOrFallingEdge -> DigitalDirectionEnum.RisingOrFalling
+
+            let internal triggerStateEnum = function
+                | true  -> TriggerStateEnum.True
+                | false -> TriggerStateEnum.False
+
+            let triggerChannelFromSource = function
+                | Channel c -> c
+                | source -> failwithf "Source is not an analogue channel: %A" source
+
+            let conditionsV2ToString (c : TriggerConditionsV2) =
+                sprintf "A: %A B: %A C: %A D: %A Ext: %A Aux: %A PWQ: %A Digital: %A"
+                    c.ChannelA c.ChannelB c.ChannelC c.ChannelD c.External c.Auxiliary c.PulseWidthQualifier c.Digital
 
     [<AutoOpen>]
     module Acquisition =

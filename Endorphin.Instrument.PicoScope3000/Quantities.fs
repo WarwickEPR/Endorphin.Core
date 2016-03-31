@@ -12,10 +12,10 @@ module Interval =
     let fromFemtoseconds = Interval_fs 
 
     /// Creates an integer time interval in picoseconds.
-    let fromPicoseconds  = Interval_ps  
+    let fromPicoseconds  = Interval_ps
 
     /// Creates an integer time interval in nanoseconds.
-    let fromNanoseconds  = Interval_ns  
+    let fromNanoseconds  = Interval_ns
 
     /// Creates an integer time interval in microseconds.
     let fromMicroseconds = Interval_us
@@ -24,7 +24,7 @@ module Interval =
     let fromMilliseconds = Interval_ms 
 
     /// Creates an integer time interval in seconds.
-    let fromSeconds      = Interval_s      
+    let fromSeconds      = Interval_s
     
     /// Converts the given time interval to a floating point value in seconds.
     let asSeconds = function
@@ -35,19 +35,10 @@ module Interval =
         | Interval_ms interval -> (float interval) * 1e-3<s>
         | Interval_s  interval -> (float interval) * 1.0<s>
 
-[<RequireQualifiedAccess>]
-/// Functions for creating and manipulating voltages.
-module Voltage =
-    /// Creates a floating point voltage in volts.
-    let fromVolts = Voltage_V
+    /// Convert an interval to a long int number of nanoseconds without measure
+    let asIntegerNanoseconds (interval:Interval) =
+        interval.InFemtoseconds / int64 1e6 * 1L</fs>
 
-    /// Creates a voltage corresponding to zero volts.
-    let zero = Voltage_V 0.0f<V>
-
-    /// Convert a voltage into a floating point value in volts.
-    let asVolts = function
-        | Voltage_V voltage -> (single voltage) * 1.0f<V>
-
-    /// Return a Boolean representing whether the value to check is in the sepcified range or not.
-    let between lowerBound upperBound toCheck =
-        ((asVolts lowerBound) <= (asVolts toCheck)) && ((asVolts toCheck) <= (asVolts upperBound))
+    /// Convert an interval to a long int number of femtoseconds without measure
+    let asIntegerFemtoseconds (interval:Interval) =
+        interval.InFemtoseconds * 1L</fs>

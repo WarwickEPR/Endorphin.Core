@@ -28,8 +28,32 @@ module internal NativeModel =
     [<AutoOpen>]
     /// Native model types related to channel settings.
     module ChannelSettings =
-        /// Device channel (includes input, trigger, and output channels).
+
+        /// Device channel, as used with SetChannel
         type ChannelEnum =
+            | A = 0
+            | B = 1
+            | C = 2
+            | D = 3
+
+        type DigitalPortEnum =
+            /// Channels 0--7
+            | Port0  = 0x80
+            /// Channels 8--15
+            | Port1  = 0x81
+
+        type BufferEnum =
+            | A = 0
+            | B = 1
+            | C = 2
+            | D = 3
+            /// Channels 0--7
+            | Port0  = 0x80
+            /// Channels 8--15
+            | Port1  = 0x81
+
+        /// Analogue trigger channel (includes inputs, trigger, and output channels).
+        type TriggerChannelEnum =
             | A    = 0
             | B    = 1
             | C    = 2
@@ -37,27 +61,6 @@ module internal NativeModel =
             | Ext  = 4
             | Aux  = 5
             | None = 6
-
-        type ChannelBufferIndexEnum =
-            | AMax = 0
-            | AMin = 1
-            | BMax = 2
-            | BMin = 3
-            | CMax = 4
-            | CMin = 5
-            | DMax = 6
-            | DMin = 7
-
-        /// The digital port to use.  Port `n` corresponds to channels `8 * n` to `8 * n + 7`.
-        type DigitalPortEnum =
-            /// Channels 0--7
-            | _0  = 0x80
-            /// Channels 8--15
-            | _1  = 0x81
-            /// Channels 16--23
-            | _2  = 0x82
-            /// Channels 24--31
-            | _3  = 0x83
 
         /// A selector for the digital channel of the device.
         type DigitalChannelEnum =
@@ -157,7 +160,6 @@ module internal NativeModel =
             // none
             | None            = 2
 
-
         // The types below are included for completeness but not currently in use and only required
         // for more advanced types of triggering.
 
@@ -198,14 +200,14 @@ module internal NativeModel =
                 val HysteresisUpper : uint16
                 val ThresholdLower  : int16
                 val HysteresisLower : uint16
-                val Channel         : ChannelEnum
+                val Channel         : TriggerChannelEnum
                 val ThresholdMode   : ThresholdModeEnum
 
                 new(thresholdUpper  : int16,
                     hysteresisUpper : uint16,
                     thresholdLower  : int16,
                     hysteresisLower : uint16,
-                    channel         : ChannelEnum,
+                    channel         : TriggerChannelEnum,
                     thresholdMode   : ThresholdModeEnum) =
                     { ThresholdUpper  = thresholdUpper
                       HysteresisUpper = hysteresisUpper
@@ -213,6 +215,36 @@ module internal NativeModel =
                       HysteresisLower = hysteresisLower
                       Channel         = channel
                       ThresholdMode   = thresholdMode }
+            end
+
+        [<StructLayout(LayoutKind.Sequential, Pack = 1)>]
+        type internal TriggerConditionsV2 =
+            struct
+                val ChannelA            : TriggerStateEnum
+                val ChannelB            : TriggerStateEnum
+                val ChannelC            : TriggerStateEnum
+                val ChannelD            : TriggerStateEnum
+                val External            : TriggerStateEnum
+                val Auxiliary           : TriggerStateEnum
+                val PulseWidthQualifier : TriggerStateEnum
+                val Digital             : TriggerStateEnum
+
+                new ( channelA            : TriggerStateEnum,
+                      channelB            : TriggerStateEnum,
+                      channelC            : TriggerStateEnum,
+                      channelD            : TriggerStateEnum,
+                      external            : TriggerStateEnum,
+                      auxiliary           : TriggerStateEnum,
+                      pulseWidthQualifier : TriggerStateEnum,
+                      digital             : TriggerStateEnum ) =
+                      { ChannelA = channelA
+                        ChannelB = channelB
+                        ChannelC = channelC
+                        ChannelD = channelD
+                        External = external
+                        Auxiliary = auxiliary
+                        PulseWidthQualifier = pulseWidthQualifier
+                        Digital = digital }
             end
 
         [<StructLayout(LayoutKind.Sequential, Pack = 1)>]
