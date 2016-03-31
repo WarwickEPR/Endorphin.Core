@@ -5,6 +5,7 @@ namespace Endorphin.Instrument.PicoScope5000
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 open Endorphin.Core.CommandRequestAgent
+open Endorphin.Core
 
 [<AutoOpen>]
 /// PicoScope 5000 series high level model types.
@@ -25,8 +26,9 @@ module Model =
 
     /// Indicates whether the driver thread was busy during an API call.
     type internal Availability = Available | Busy
-    
+
     /// Time interval with unit of measure.
+    [<CustomEquality; CustomComparison>]
     type Interval =
         internal
         | Interval_fs of interval : int<fs>
@@ -35,7 +37,23 @@ module Model =
         | Interval_us of inverval : int<us>
         | Interval_ms of interval : int<ms>
         | Interval_s  of interval : int<s>
-
+        member internal this.InFemtoseconds =
+            let toFs m x = (int64 x) * (int64 m) * 1L<fs>
+            match this with
+            | Interval_fs interval -> interval * 1</fs> |> toFs 1e0<fs>
+            | Interval_ps interval -> interval * 1</ps> |> toFs 1e3<fs>
+            | Interval_ns interval -> interval * 1</ns> |> toFs 1e6<fs>
+            | Interval_us interval -> interval * 1</us> |> toFs 1e9<fs>
+            | Interval_ms interval -> interval * 1</ms> |> toFs 1e12<fs>
+            | Interval_s  interval -> interval * 1</s>  |> toFs 1e15<fs>
+        override x.GetHashCode() = hash x.InFemtoseconds
+        override x.Equals(other) =
+            match other with | :? Interval as y -> x.InFemtoseconds = y.InFemtoseconds | _ -> false
+        interface System.IComparable<Interval> with
+            member x.CompareTo y = compare x.InFemtoseconds y.InFemtoseconds
+        interface System.IComparable with
+            member x.CompareTo other =
+                match other with | :? Interval as y -> compare x.InFemtoseconds y.InFemtoseconds | _ -> -1
         override interval.ToString() =
             match interval with
             | Interval_fs i -> sprintf "%d fs" i
@@ -192,6 +210,9 @@ module Model =
         /// stored on the oscilloscope before transferring them to the computer.
         type MemorySegment = uint32
 
+        /// Index of capture in rapid block acquisition
+        type Capture = uint32
+
         /// Timebase index, indicating the sample interval for acquisition. The relatinship
         /// between timebase index and sample interval depends on the current device
         /// resolution.
@@ -240,10 +261,75 @@ module Model =
             | DecimatedBuffer
             | AggregateBuffer of minMax : MinMax
 
+        /// Specify how much memory to allocate for block mode acquisitions
+        /// Streaming mode allocates minimal memory specified by BufferLength
+        /// SingleCapture will transfer one whole capture at a time
+        /// MultipleCapture will transfer up to n captures at a time
+        /// AllCaptures will get all the data in one bulk transfer, which could require several hundred megabytes
+        /// depending on the number of samples and captures requested
+        type BufferAllocation =
+            | Streaming
+            | SingleCapture
+            | MultipleCapture of n : Capture
+            | AllCaptures
+
+        /// Contains parameters for a general acquisition.
+        type AcquisitionParameters =
+            { Inputs            : AcquisitionInputs
+              SampleInterval    : Interval  // requested, check timebase actually applied
+              Resolution        : Resolution
+              Trigger           : TriggerSettings
+              DownsamplingRatio : DownsamplingRatio option
+              BufferLength      : SampleCount}
+
+        /// Model types related to streaming acquisition.
+        [<AutoOpen>]
+        module Streaming =
+            /// Stream stop settings: either manual or automatic.
+            type StreamStop =
+                internal
+                | ManualStop
+                | AutoStop of maxPreTriggerSamples : SampleIndex * maxPostTriggerSamples : SampleIndex
+
+            /// Contains all parameters for a streaming acquisition
+            type StreamingParameters =
+                internal { Acquisition : AcquisitionParameters
+                           StreamStop  : StreamStop }
+        
+        [<AutoOpen>]
+        module Block =
+            // Start with regular block mode, extend for rapid block
+            // Leave out oversampling for now, not supported on 3000
+            type BlockParameters =
+                internal { Acquisition        : AcquisitionParameters
+                           PreTriggerSamples  : SampleCount
+                           PostTriggerSamples : SampleCount
+                           Buffering          : BufferAllocation }
+
+            type NumberOfCaptures = uint32
+
+        type Parameters =
+            | StreamingParameters of StreamingParameters
+            | BlockParameters of BlockParameters
+            | RapidBlockParameters of NumberOfCaptures * BlockParameters
+
+
+
+
+
+
+
+
+
+
+
+
+    [<AutoOpen>]
+    module Runtime =
+
         [<AutoOpen>]
         /// Model types relating to acquisition buffers.
         module internal Buffers =
-
             /// Single data buffer or buffer pair. The latter is used in aggregate downsampling mode
             /// which writes to two data buffers, containing the maximum and minimum samples within
             /// each downsampling window.
@@ -252,43 +338,102 @@ module Model =
                 | BufferPair   of bufferMax : AdcCount array * bufferMin : AdcCount array
 
             /// Contains all buffers used during an acquisition.
-            type AcquisitionBuffers =
-                { Buffers       : Map<InputChannel * BufferDownsampling, AdcCount array>
-                  MemorySegment : MemorySegment }
-                 
+            type AcquisitionBuffers = Map<InputChannel * BufferDownsampling, AdcCount array> array
+
             /// Indicates whether a trigger fired during a block of samples transferred from the device
             /// to the computer, and if so, its trigger position.
             type TriggerPosition =
                 internal
                 | NotTriggered
                 | Triggered of triggerSample : SampleIndex
-    
-        [<AutoOpen>]
-        /// Model types related to streaming acquisition.
-        module Streaming =
-            
-            /// Stream stop settings: either manual or automatic.
-            type StreamStop =
-                internal
-                | ManualStop
-                | AutoStop of maxPreTriggerSamples : SampleIndex * maxPostTriggerSamples : SampleIndex
 
-            /// Contains all parameters for a streaming acquisition.
-            type StreamingParameters = 
-                internal { Resolution        : Resolution
-                           SampleInterval    : Interval
-                           BufferLength      : SampleIndex
-                           MemorySegment     : MemorySegment
-                           TriggerSettings   : TriggerSettings
-                           StreamStop        : StreamStop
-                           DownsamplingRatio : DownsamplingRatio option
-                           Inputs            : AcquisitionInputs }
-            
+        /// Contains a block of samples obtained from the device by streaming or block acquisition
+        type AcquiredSamples =
+            internal { Samples          : Map<InputChannel * BufferDownsampling, AdcCount array>
+                       Capture          : MemorySegment
+                       Length           : SampleCount
+                       VoltageOverflows : Set<InputChannel> }
+
+        /// Contains information about the way an acquisition was stopped, indicating whether
+        /// it was stopped manually or automatically.
+        type StopStatus = 
+            internal { StoppedAutomatically : bool
+                       Failed               : exn option }
+    
+        /// Status of an acquisition emitted through a status event while the acquisition is in progress.
+        type AcquisitionStatus =
+            | PreparingAcquisition
+            | Acquiring of sampleInterval : Interval
+            | FinishedCapture of index : Capture
+            | FinishedAcquisition of stoppedAutomatically : bool
+            | CancelledAcquisition
+
+        type AcquisitionCommon =
+            internal { Parameters      : AcquisitionParameters
+                       PicoScope       : PicoScope5000
+                       DataBuffers     : AcquisitionBuffers
+                       SamplesObserved : Event<AcquiredSamples>
+                       StopCapability  : CancellationCapability<StopStatus>
+                       StatusChanged   : NotificationEvent<AcquisitionStatus> }
+
+        type ValuesReady =
+            { Capture          : Capture
+              StartIndex       : SampleIndex
+              NumberOfSamples  : SampleCount
+              VoltageOverflows : Set<InputChannel> }
+        
+        type Expecting = MoreData | NoMoreData
+
+        /// Model types related to streaming acquisition.
+        [<AutoOpen>]
+        module Streaming =
+
             /// Contains information from a driver callback which indicates the location of the latest
             /// streaming acquisition samples in the data buffer.
-            type internal StreamingValuesReady = 
-                { NumberOfSamples  : SampleCount
-                  StartIndex       : SampleIndex
-                  VoltageOverflows : Set<InputChannel>
-                  TriggerPosition  : TriggerPosition
-                  DidAutoStop      : bool }
+            type StreamingValuesReady =
+                internal { ValuesReady      : ValuesReady
+                           TriggerPosition  : TriggerPosition
+                           DidAutoStop      : bool }
+
+            /// Defines a streaming acquisition which has been set up on a PicoScope 3000 series device. This
+            /// is created once after the streaming parameters are defined and a connection to the device is
+            /// established.
+            type StreamingAcquisition =
+                internal { Common     : AcquisitionCommon
+                           Parameters : StreamingParameters }
+
+        [<AutoOpen>]
+        module Block =
+
+            type BlockAcquisition =
+                internal { Common     : AcquisitionCommon
+                           Parameters : BlockParameters }
+               
+            type RapidBlockAcquisition =
+                internal { Acquisition : BlockAcquisition
+                           Count       : NumberOfCaptures }
+            
+
+        // Describes an acquisition that is ready to run, which can be used in computational expressions describing
+        // processing of acquisition events from this acquisition
+        type Acquisition =
+        | StreamingAcquisition of Streaming.StreamingAcquisition
+        | BlockAcquisition of Block.BlockAcquisition
+        | RapidBlockAcquisition of Block.RapidBlockAcquisition
+
+        /// Contains the result of an acquisition, indicating whether it finished successfully, failed
+        /// or was cancelled.
+        type AcquisitionResult =
+            | AcquisitionCompleted
+            | AcquisitionError of exn
+            | AcquisitionCancelled
+
+        /// Represents a handle to a streaming acquisition which has been started on a PicoScope 3000 series
+        /// device. This can be used to stop the acquisition manually and/or wait for it to finish.
+        type AcquisitionHandle =
+            internal { Acquisition  : Acquisition 
+                       WaitToFinish : Async<AcquisitionResult> }
+           
+        // Finding the correct timebase - fastest few are special cases which may have restrictions.
+        // The rest of the uint is linear multiple of some small base unit, which differs between models
+        // Use one of the GetTimebase calls to check the timebase selected is closest to the one requested

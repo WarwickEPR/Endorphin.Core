@@ -72,6 +72,16 @@ module Timebase =
         | (Resolution_8bit,  1) -> Interval_ns 32<ns>
         | _ -> failwithf "Invalid number of channels for resolution %A: %d." resolution channelCount
 
+    // using programming guide, section 3.6 for USB 3.0 models of PicoScope 3000
+    // May not have all modes available, unless some channels are disabled
+    let timebase sampleInterval =
+        let ns = Interval.asIntegerNanoseconds sampleInterval
+
+        if ns < 2L      then 0u   // 1 ns
+        else if ns < 4L then 1u   // 2 ns
+        else if ns < 8L then 2u   // 4 ns
+        else (uint32 ns) * 125u / 1000u + 1u
+
 [<RequireQualifiedAccess>]
 /// Functions related to memory segments.
 module MemorySegment =
@@ -106,3 +116,12 @@ module Device =
         | 2 -> [ ChannelA ; ChannelB ] |> Set.ofList 
         | 4 -> [ ChannelA ; ChannelB ; ChannelC ; ChannelD ] |> Set.ofList
         | _ -> failwithf "Unexpected model number: %s." modelNumber
+
+[<RequireQualifiedAccess>]
+/// Functions related to sample voltages.
+module Voltage =
+    
+    /// Converts the given ADC counts value sampled at the specified voltage range and resolution
+    /// to a voltage.
+    let fromAdcCounts resolution range analogueOffset (adcCounts : AdcCount) =
+        Range.voltage range * ((float32 adcCounts) / (float32 <| Resolution.maximumAdcCounts resolution)) - analogueOffset

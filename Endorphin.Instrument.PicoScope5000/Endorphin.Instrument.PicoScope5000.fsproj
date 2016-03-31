@@ -57,16 +57,29 @@
     <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="Device.fs" />
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="Quantities.fs" />
+    <Compile Include="Device.fs" />
     <Compile Include="TriggerSettings.fs" />
     <Compile Include="Inputs.fs" />
+    <Compile Include="Async.fs" />
     <Compile Include="PicoScope.fs" />
-    <Compile Include="Streaming.fs" />
+    <Compile Include="Parameters.fs" />
+    <Compile Include="AcquisitionCommon.fs" />
+    <Compile Include="BufferAgent.fs" />
+    <Compile Include="Acquisition.fs" />
+    <Compile Include="Signal.fs" />
     <None Include="StreamingDemo.fsx" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
+    <None Include="Common.fsx" />
+    <None Include="SimpleBlock.fsx" />
+    <None Include="SimpleBlockChart.fsx" />
+    <None Include="SimpleStreaming.fsx" />
+    <None Include="SimpleStreamingChart.fsx" />
+    <None Include="SimpleRapidBlock.fsx" />
+    <None Include="SimpleRapidBlockChart.fsx" />
+    <None Include="DownsampledRapidBlock.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Control.Reactive">

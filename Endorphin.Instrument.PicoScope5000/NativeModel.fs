@@ -3,6 +3,7 @@
 namespace Endorphin.Instrument.PicoScope5000
 
 open System.Runtime.InteropServices
+open StatusCodes
 
 // This module uses the StructLayout attribute to define a struct used for interoperation with
 // a native C library. The sequential StructLayout may result in non-verifiable IL code when
@@ -231,7 +232,7 @@ module internal NativeModel =
             /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a block acquisition.
             /// Format: handle, status, state -> unit 
             type internal PicoScopeBlockReady = 
-                delegate of int16 * int16 * nativeint -> unit
+                delegate of int16 * StatusCode * nativeint -> unit
 
             /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a streaming acquisition.
             /// Format; handle, numberOfSamples, startIndex, overflows, triggeredAt, triggered, autoStop, state -> unit

@@ -47,6 +47,12 @@ module PicoScope =
         /// Logs a string describing an operation which is about to be performed.
         let logOp = log.Info
 
+        /// Log a warning
+        let logWarning = log.Warn
+
+        /// Log a debug message
+        let logDebug = log.Debug
+
         /// Logs a query result which can either indicate success or failure, and in each case
         /// applies the given function to create a log message for the result.
         let logQueryResult successMessageFunc failureMessageFunc input =
@@ -269,20 +275,71 @@ module PicoScope =
                     let mutable interval = 0
                     let mutable maxSamples : SampleCount = 0
                     let nanosec = LanguagePrimitives.Int32WithMeasure<ns>
-                    NativeApi.GetTimebase(handle device, timebase, 0, &interval, &maxSamples, index)
-                    |> checkStatusAndReturn (Interval_ns (nanosec interval), maxSamples))
+                    
+                    let status = NativeApi.GetTimebase (handle device, timebase, 0, &interval, &maxSamples, index)
+                    match status with
+                    | StatusCode.TooManySamples -> Choice.succeed None
+                    | _                         -> status |> checkStatusAndReturn (Some (Interval_ns (nanosec <| interval), maxSamples))) 
 
         /// Asynchronously queries the parameters for the specified timebase on a PicoScope 5000 series
         /// device with the current vertical resolution.
         let queryTimebaseParameters picoScope timebase segment =
             async {
                 let! resolution = queryResolution picoScope
-                let! (interval, maxSamples) = queryIntervalAndMaxSamples picoScope timebase segment
-                return
-                    { Timebase       = timebase
-                      Resolution     = resolution 
-                      MaximumSamples = maxSamples
-                      SampleInterval = interval } }
+                let! deviceTimebase = queryIntervalAndMaxSamples picoScope timebase segment
+                match deviceTimebase with
+                | Some (interval, maxSamples) ->
+                    return Some { Timebase       = timebase
+                                  Resolution     = resolution
+                                  MaximumSamples = maxSamples
+                                  SampleInterval = interval }
+                | None -> return None }
+
+        /// Find the best matching available timebase for the requested sample interval
+        let internal findTimebaseForSampleInterval picoScope segment (interval : Interval) =
+
+            // guess timebase based on documented capabilities
+            // some resolutions might not be available, depending on enabled channels so check with the instrument
+            let calculatedTimebase = Timebase.timebase interval
+
+            let rec findLongerInterval proposed = async {
+                let! response = queryTimebaseParameters picoScope proposed segment
+                match response with
+                | None -> return! findLongerInterval (proposed+1u)
+                | Some param  when (param.SampleInterval < interval) ->
+                     return! findLongerInterval (proposed+1u) // exceeds current max samples
+                | Some param ->
+                     return (proposed,param) }
+
+            let rec findShorterInterval proposed (fastestKnown:TimebaseParameters) = async {
+                let! response = queryTimebaseParameters picoScope proposed segment
+                match response with
+                | None ->
+                    return Choice.fail
+                           << Exception
+                           << sprintf "No matching timebase available. Fastest current available in the current configuration is %O"
+                           <| fastestKnown.SampleInterval
+                | Some param when (param.SampleInterval <= interval) ->
+                    return Choice.succeed param
+                | Some param when (proposed > 0u) ->
+                    return! findShorterInterval (proposed-1u) param
+                | Some param ->  // timebase = 0, no faster timebase available
+                    return Choice.fail
+                           << Exception
+                           << sprintf "No matching timebase available. Fastest available on this device is %O"
+                           <| fastestKnown.SampleInterval }
+
+            async {
+                let! response = queryTimebaseParameters picoScope calculatedTimebase segment
+                match response with
+                | Some parameters when (parameters.SampleInterval = interval)
+                    ->  logDebug <| sprintf "Found requested timebase %d %A" parameters.Timebase interval
+                        return parameters
+                | _ -> logDebug <| "Seeking closest available timebase"
+                       let! (upper,known) = findLongerInterval calculatedTimebase
+                       let! shorter = findShorterInterval upper known
+                       return Choice.bindOrRaise shorter }
+
 
         /// Asynchronously segments the memory of a PicoScope 5000 series device into the specified
         /// number of segments.
@@ -455,7 +512,14 @@ module PicoScope =
             picoScope |> CommandRequestAgent.performCommand "Stop acquisition"
                 (fun device -> NativeApi.Stop (handle device) |> checkStatus)
 
-        /// Asynchronously queries the number of captures stored in the PicoScope 5000 series device memory
+        /// Set number of captures. Must be no more than the number of memory segments
+        let setNumberOfCaptures (PicoScope5000 picoScope) count =
+            picoScope |> CommandRequestAgent.performCommand "Set number of captures"
+                (fun device ->
+                    NativeApi.SetNumberOfCaptures (handle device, count)
+                    |> checkStatus )
+
+        /// Asynchronously queries the number of captures stored in the PicoScope 3000 series device memory
         /// after a rapid block acquisition has been stopped.
         let queryNumberOfCaptures (PicoScope5000 picoScope) =
             picoScope |> CommandRequestAgent.performObjectRequest "Query number of captures"
@@ -464,7 +528,7 @@ module PicoScope =
                     NativeApi.GetNumberOfCaptures(handle device, &index)
                     |> checkStatusAndReturn index)
 
-        /// Asynchronously queries the number of process captures in the PicoScope 5000 series device memory
+        /// Asynchronously queries the number of process captures in the PicoScope 3000 series device memory
         /// after a rapid block acquisition has been stopped.
         let queryNumberOfProcessedCaptures (PicoScope5000 picoScope) =
             picoScope |> CommandRequestAgent.performObjectRequest "Query number of processed captures"
@@ -490,9 +554,10 @@ module PicoScope =
             let picoScopeCallback = // define the callback as required by the PicoScope API
                 PicoScopeStreamingReady(fun _ numberOfSamples startIndex overflowBits triggeredAt triggered didAutoStop _ ->
                     // wrap the values in a StreamingValuesReady record and send them to the user callback
-                    { NumberOfSamples = numberOfSamples
-                      StartIndex = startIndex
-                      VoltageOverflows = voltageOverflowChannels overflowBits
+                    { ValuesReady = { Capture = 0u
+                                      StartIndex = startIndex
+                                      NumberOfSamples = numberOfSamples
+                                      VoltageOverflows = voltageOverflowChannels overflowBits }
                       TriggerPosition = parseTriggerPosition (triggered <> 0s) (triggeredAt)
                       DidAutoStop = didAutoStop <> 0s } |> callback)
             
@@ -517,25 +582,136 @@ module PicoScope =
         /// streaming parameters. Note that input channel settings, trigger settings and acquisition buffers
         /// must be set up before this point. The device must then be polled for the latest streaming values
         /// during the acquisition.
-        let startStreaming (PicoScope5000 picoScope) streamingParameters =
-            let description = sprintf "Start streaming acquisition: %A" streamingParameters
+        let startStreaming (PicoScope5000 picoScope) (streamingParameters:StreamingParameters) =
+            let description = sprintf "Start streaming acquisition: %+A" streamingParameters
             picoScope |> CommandRequestAgent.performObjectRequest description
                 (fun device ->
-                    let (requestedInterval, timeUnit)                     = intervalAndTimeUnitEnum streamingParameters.SampleInterval
+                    let (requestedInterval, timeUnit)                     = intervalAndTimeUnitEnum streamingParameters.Acquisition.SampleInterval
                     let (autoStop, preTriggerSamples, postTriggerSamples) = streamStopParameters streamingParameters.StreamStop
-                    let (bufferLength)                                    = streamingParameters.BufferLength
+                    let (bufferLength)                                    = streamingParameters.Acquisition.BufferLength
                 
                     let downsamplingMode =
-                        streamingParameters.Inputs.InputSampling
+                        streamingParameters.Acquisition.Inputs.InputSampling
                         |> Set.map (fun sampling -> sampling.DownsamplingMode)
                         |> downsamplingModeEnumForSet
 
                     let downsamplingRatio = 
-                        match streamingParameters.DownsamplingRatio with
+                        match streamingParameters.Acquisition.DownsamplingRatio with
                         | Some downsamplingRatio -> downsamplingRatio
                         | None                   -> 1u
 
                     let mutable hardwareInterval = uint32 requestedInterval
                     NativeApi.RunStreaming(handle device, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples,
-                                            autoStop, downsamplingRatio, downsamplingMode, bufferLength)
+                                            autoStop, downsamplingRatio, downsamplingMode, uint32 bufferLength)
                     |> checkStatusAndReturn (parseIntervalWithInterval (int hardwareInterval, timeUnit)))
+
+
+        let private runBlock' (acquisition : BlockAcquisition) timebase device =
+            let mutable timeIndisposed : int = 0
+            let parameters = acquisition.Parameters
+            let guard = new Async.ContinuationGuard ()
+
+            async {
+                let! ct = Async.CancellationToken // get the token for this context
+
+                // On success, continue with a Choice.Success via cont
+                // On failure, return with a Choice.Failure via cont
+                // On cancellation in this scope, continue via ccont
+                // The exception continuation is not used
+                // Exactly one continuation function must be called
+                let continuations (cont,econt,ccont) =
+
+                    // On cancellation in this scope, just pass control to the cancellation continuation
+                    let cancellationCompensation() =
+                        if guard.Cancel then
+                            OperationCanceledException() |> ccont
+                    use reg = ct.Register <| Action cancellationCompensation
+
+                    // Handling the callback. On success or error continue via cont
+                    let blockReadyStatus _ status _ =
+                        if guard.Finish then
+                            checkStatus status |> cont
+
+                    // Set up the callback. On failure continue via cont
+                    try
+                        NativeApi.RunBlock( handle device,
+                                            parameters.PreTriggerSamples,
+                                            parameters.PostTriggerSamples,
+                                            timebase,
+                                            &timeIndisposed,
+                                            MemorySegment.zero, // Always use the first memory segment for single acquisitions
+                                            PicoScopeBlockReady(blockReadyStatus),
+                                            nativeint 0) |> checkStatus |> Choice.bindOrRaise
+                    with
+                    | exn -> if guard.Finish then Choice.fail exn |> cont
+
+                return! Async.FromContinuations continuations }
+
+        let runBlock (PicoScope5000 picoScope) (acquisition : BlockAcquisition) timebase =
+            let description = sprintf "Start block acquisition: %+A" acquisition
+            async {
+                let parameters = acquisition.Common.Parameters
+                return! picoScope |> CommandRequestAgent.performCommandAsync description (runBlock' acquisition timebase)  }
+        
+        let private downsamplingMode (acq:AcquisitionCommon) =
+            acq.Parameters.Inputs.InputSampling
+            |> Set.map (fun sampling -> sampling.DownsamplingMode)
+            |> downsamplingModeEnumForSet
+
+        let private downsamplingRatio (acq:AcquisitionCommon) = 
+            match acq.Parameters.DownsamplingRatio with
+            | Some downsamplingRatio -> downsamplingRatio
+            | None                   -> 1u
+
+
+
+
+        let getValues' (acquisition : BlockAcquisition) segment startIndex numberOfSamples device =
+            let mutable noOfSamples : uint32 = numberOfSamples
+            let mutable overflow : int16 = 0s
+
+            NativeApi.GetValues( handle device,
+                                 startIndex,
+                                 &noOfSamples,
+                                 downsamplingRatio acquisition.Common,
+                                 downsamplingMode acquisition.Common,
+                                 segment,
+                                 &overflow )
+                |> checkStatusAndReturn { Capture = segment
+                                          StartIndex = 0u
+                                          NumberOfSamples = int noOfSamples
+                                          VoltageOverflows = voltageOverflowChannels overflow }
+            
+        let getValues (PicoScope5000 picoScope) (acquisition : BlockAcquisition) segment startIndex numberOfSamples =
+            let description = sprintf "Get values from %d to %d in segment %d from block acquisition: %+A" startIndex numberOfSamples segment acquisition
+
+            picoScope |> CommandRequestAgent.performObjectRequest description (getValues' acquisition segment startIndex numberOfSamples)
+
+
+        let getValuesBulk' (acquisition : BlockAcquisition) fromSegment toSegment numberOfSamples device =
+            let mutable noOfSamples : uint32 = numberOfSamples
+            let numberOfSegments = int toSegment - int fromSegment + 1
+            let overflow = Array.create numberOfSegments 0s
+
+            let statusCode = NativeApi.GetValuesBulk( handle device,
+                                                      &noOfSamples,
+                                                      fromSegment,
+                                                      toSegment,
+                                                      downsamplingRatio acquisition.Common,
+                                                      downsamplingMode acquisition.Common,
+                                                      overflow )
+            let response = seq {
+                    for capture in fromSegment .. toSegment do
+                        let index = int capture - int fromSegment
+                        let voltageOverflow = voltageOverflowChannels overflow.[index]
+                        yield { Capture = capture
+                                StartIndex = 0u
+                                NumberOfSamples = int noOfSamples
+                                VoltageOverflows = voltageOverflow } }
+
+            checkStatusAndReturn response statusCode
+            
+        let getValuesBulk (PicoScope5000 picoScope) (acquisition : BlockAcquisition) fromSegment toSegment numberOfSamples =
+            let description = sprintf "Get values in bulk from segments %d to %d in from block acquisition: %+A" fromSegment toSegment acquisition
+
+            picoScope |> CommandRequestAgent.performObjectRequest description (getValuesBulk' acquisition fromSegment toSegment numberOfSamples)

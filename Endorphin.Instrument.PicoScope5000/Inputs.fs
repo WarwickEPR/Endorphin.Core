@@ -94,30 +94,24 @@ module internal Inputs =
         inputs.InputSampling
         |> Set.map (fun sampling -> sampling.DownsamplingMode)
         |> downsamplingModeEnumForSet
-    
+
     /// Functions related to creating and managing acquisition buffers.
     module Buffers =
-        
-        /// Returns the map from input channel and buffer downsampling to acquisition buffer for the given set
-        /// of acquisition buffers.
-        let bufferMap     acquisitionBuffers = acquisitionBuffers.Buffers
-
-        /// Gives the memory segment from which data is being transferred into the acquisition buffers.
-        let memorySegment acquisitionBuffers = acquisitionBuffers.MemorySegment
-
-        /// Creates a set of acquisition buffers with the specified memory segment.
-        let private createAcquisitionBuffers memorySegment buffers = { Buffers = buffers ; MemorySegment = memorySegment }
 
         /// Finds the buffer corresponding to the given input sampling (input channel and downsampling mode)
         /// in the given set of acquisition buffers.
-        let findByInputSampling inputSampling buffers =
+        let private findByInputSampling inputSampling buffers =
             match inputSampling.DownsamplingMode with
-            | NoDownsampling -> SingleBuffer (Map.find (inputSampling.InputChannel, NoDownsamplingBuffer)    buffers.Buffers)
-            | Averaged       -> SingleBuffer (Map.find (inputSampling.InputChannel, AveragedBuffer)          buffers.Buffers)
-            | Decimated      -> SingleBuffer (Map.find (inputSampling.InputChannel, DecimatedBuffer)         buffers.Buffers)
-            | Aggregate      -> BufferPair   (Map.find (inputSampling.InputChannel, AggregateBuffer Maximum) buffers.Buffers,
-                                              Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) buffers.Buffers) 
-        
+            | NoDownsampling -> SingleBuffer (Map.find (inputSampling.InputChannel, NoDownsamplingBuffer) buffers)
+            | Averaged       -> SingleBuffer (Map.find (inputSampling.InputChannel, AveragedBuffer) buffers)
+            | Decimated      -> SingleBuffer (Map.find (inputSampling.InputChannel, DecimatedBuffer) buffers)
+            | Aggregate      -> BufferPair   (Map.find (inputSampling.InputChannel, AggregateBuffer Maximum) buffers,
+                                              Map.find (inputSampling.InputChannel, AggregateBuffer Minimum) buffers) 
+
+        let findBuffers index inputSampling (buffers:AcquisitionBuffers) =
+            findByInputSampling inputSampling buffers.[index]
+
+
         /// Allocates acquisition buffers for the given input sampling (input channel and downsampling mode)
         /// and buffer length.
         let private allocateBuffers bufferLength inputSampling =
@@ -126,37 +120,57 @@ module internal Inputs =
             | Averaged       -> [ AveragedBuffer ]
             | Decimated      -> [ DecimatedBuffer ]
             | Aggregate      -> [ AggregateBuffer Maximum ; AggregateBuffer Minimum ]
-            |> List.map (fun buffer -> (inputSampling.InputChannel, buffer), Array.zeroCreate<AdcCount> bufferLength)
+            |> List.map (fun buffer ->
+                ((inputSampling.InputChannel, buffer), Array.zeroCreate<AdcCount> bufferLength))
     
-        /// Allocates acquisition buffers for the given set of acquisition inputs and memory segment with
-        /// the given buffer length.
-        let allocateAcquisitionBuffers memorySegment (bufferLength : SampleIndex) inputs =
-            GC.Collect() // force garbage collection before allocating
 
+        /// Allocates acquisition buffers for the given set of acquisition inputs with
+        /// the given buffer length.
+        let private allocateAcquisitionBuffersForInputs (bufferLength : SampleCount) inputs =
             inputs.InputSampling
-            |> Set.toSeq 
-            |> Seq.collect (allocateBuffers <| int bufferLength)
+            |> Set.toSeq
+            |> Seq.collect (allocateBuffers <| bufferLength)
             |> Map.ofSeq
-            |> createAcquisitionBuffers memorySegment
-        
+       
+        /// Allocate a number of acquisition buffers for the set of acquisition inputs
+        let allocateAcquisitionBuffers noOfBuffers (bufferLength : SampleCount) inputs =
+            GC.Collect() // force garbage collection before allocating
+            [0u .. noOfBuffers-1u]
+            |> List.map (fun _ -> allocateAcquisitionBuffersForInputs bufferLength inputs)
+            |> Array.ofList
+
         /// Allocates a pinned garbage collector handle for the given object.
-        let private allocatePinnedGCHandle obj = GCHandle.Alloc(obj, GCHandleType.Pinned)
+        let private allocatePinnedGCHandle obj = 
+            GCHandle.Alloc(obj, GCHandleType.Pinned)
 
         /// Creates an instance of IDisposable which will free the given sequence of garbage collector
         /// handles when the Dispose method is called, and then force garbage collection immediately
         /// so that the memory is released.
-        let private disposableForGCHandles (gcHandles : GCHandle seq) =
+        let private disposableForGCHandles (gcHandles : GCHandle array) =
             { new IDisposable with 
-                member __.Dispose() = 
-                    gcHandles |> Seq.iter (fun handle -> handle.Free())
+                member __.Dispose() =
+                    gcHandles |> Array.iter (fun h -> h.Free())
                     GC.Collect() }
+        
+        /// Enumerates the buffers allocated for all inputs and downsamplings
+        let private enumerateBuffers (acquisitionBuffers:AcquisitionBuffers) =
+            acquisitionBuffers
+            |> Array.toSeq
+            |> Seq.collect Map.toSeq
+            |> Seq.map snd
+
+        /// Create a pinning handle for a sequence of buffers
+        let private createPinningHandleForBuffers buffers =
+            buffers
+            |> Seq.map allocatePinnedGCHandle
+            |> Array.ofSeq
+            |> disposableForGCHandles
+
 
         /// Creates a pinning handle for the given acquisition buffers which will prevent the garbage
         /// collector from moving them in order to defragment managed memory. This is required for native
         /// code interoperability as the native code is unaware of managed memory. The returned IDisposable
         /// will release all allocated pinning handles, allowing the memory to be freed.
         let createPinningHandle acquisitionBuffers =
-            bufferMap acquisitionBuffers
-            |> Map.toSeq
-            |> Seq.map (snd >> allocatePinnedGCHandle)
-            |> disposableForGCHandles
+            enumerateBuffers acquisitionBuffers
+            |> createPinningHandleForBuffers
