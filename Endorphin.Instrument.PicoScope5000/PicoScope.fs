@@ -539,3 +539,28 @@ module PicoScope =
                     NativeApi.RunStreaming(handle device, &hardwareInterval, timeUnit, preTriggerSamples, postTriggerSamples,
                                             autoStop, downsamplingRatio, downsamplingMode, bufferLength)
                     |> checkStatusAndReturn (parseIntervalWithInterval (int hardwareInterval, timeUnit)))
+
+    /// Functions related to the built-in signal generator.
+    module SignalGenerator =
+        open Model.SignalGenerator
+
+        /// Sets a built-in waveform with the specified settings to the function generator.
+        let setBuiltInWaveform (PicoScope5000 picoScope) waveform =
+            let settings = builtInWaveformSettings waveform
+            let description = sprintf "Set built-in waveform to function generator: %A." settings
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device ->
+                    NativeApi.SetSignalGeneratorBuiltIn(handle device, settings.OutputVoltageSettings.OffsetVoltage,
+                        settings.OutputVoltageSettings.PeakToPeakVoltage, settings.Function.WaveformType, settings.FrequencySettings.StartFrequency,
+                        settings.FrequencySettings.StopFrequency, settings.FrequencySettings.FrequencyIncrement, settings.FrequencySettings.DwellTime,
+                        settings.FrequencySettings.SweepDirection, settings.Function.ExtraFunctions, settings.PlaybackSettings.Shots,
+                        settings.PlaybackSettings.Sweeps, settings.TriggerSettings.TriggerType, settings.TriggerSettings.TriggerSource,
+                        settings.TriggerSettings.ExternalThreshold)
+                    |> checkStatus)
+        
+        /// Disables the function generator.
+        let disable picoScope =
+            { Waveform        = DCVoltage 0.0f<V>
+              PlaybackMode    = ContinuousPlayback
+              TriggerSettings = AutoTrigger }
+            |> setBuiltInWaveform picoScope

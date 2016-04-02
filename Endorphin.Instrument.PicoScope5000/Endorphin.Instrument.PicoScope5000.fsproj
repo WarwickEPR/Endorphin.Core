@@ -61,6 +61,7 @@
     <Compile Include="ChannelSettings.fs" />
     <Compile Include="Quantities.fs" />
     <Compile Include="TriggerSettings.fs" />
+    <Compile Include="SignalGenerator.fs" />
     <Compile Include="Inputs.fs" />
     <Compile Include="PicoScope.fs" />
     <Compile Include="Streaming.fs" />

@@ -2,6 +2,7 @@
 
 namespace Endorphin.Instrument.PicoScope5000
 
+open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open Endorphin.Core
 open NativeModel
 open StatusCodes
@@ -244,8 +245,7 @@ module internal Parsing =
             | enum                           -> failwithf "Unexpected downsampling mode enum value: %A." enum
 
         /// Converts the provided enumeration to a downsampling mode.
-        let downsamplingModeEnum =
-            function
+        let downsamplingModeEnum = function
             | NoDownsampling -> DownsamplingModeEnum.None
             | Averaged       -> DownsamplingModeEnum.Averaged
             | Decimated      -> DownsamplingModeEnum.Decimated
@@ -268,4 +268,114 @@ module internal Parsing =
         let parseTriggerPosition triggered position =
             if triggered then Triggered position
             else NotTriggered
- 
+    
+    [<AutoOpen>]
+    /// Parsing functions for signal generator settings.
+    module SignalGenerator =
+        open Model.SignalGenerator    
+
+        /// Creates signal generator output voltage settings from peak-to-peak voltage and offset.
+        let private outputVoltageSettings (peakToPeak : Voltage) (offset : Voltage) =
+            { PeakToPeakVoltage = uint32 (int (peakToPeak * 1e6f<uV/V>))
+              OffsetVoltage     = int (offset * 1e6f<uV/V>) } 
+        
+        /// Conversts the given sweep direction into an enumeration.
+        let private sweepDirection = function
+            | Up     -> SignalGeneratorSweepTypeEnum.Up
+            | Down   -> SignalGeneratorSweepTypeEnum.Down
+            | UpDown -> SignalGeneratorSweepTypeEnum.UpDown
+            | DownUp -> SignalGeneratorSweepTypeEnum.DownUp
+
+        /// Converts a waveform frequency (or sweep) into signal generator frequency settings.
+        let private frequencySettings freq : SignalGeneratorFrequency =
+            match freq with
+            | FixedFrequency frequency ->
+                { StartFrequency     = float32 frequency
+                  StopFrequency      = float32 frequency
+                  FrequencyIncrement = 0.0f
+                  DwellTime          = 0.0f
+                  SweepDirection     = SignalGeneratorSweepTypeEnum.Up }
+            | FrequencySweep parameters ->
+                { StartFrequency     = float32 parameters.StartFrequency
+                  StopFrequency      = float32 parameters.StopFrequency
+                  FrequencyIncrement = float32 parameters.FrequencyIncrement
+                  DwellTime          = float32 parameters.DwellTime
+                  SweepDirection     = sweepDirection parameters.SweepDirection }
+        
+        /// Converts a playback mode into signal generator playback settings.
+        let private playbackMode = function 
+            | ContinuousPlayback -> { Shots = System.UInt32.MaxValue ; Sweeps = System.UInt32.MaxValue }
+            | NumberOfCycles n   -> { Shots = n  ; Sweeps = 0u }
+            | NumberOfSweeps n   -> { Shots = 0u ; Sweeps = n  }
+        
+        /// Converts a given trigger type into an enumeration.
+        let private triggerType = function
+            | Rising   -> SignalGeneratorTriggerTypeEnum.Rising
+            | Falling  -> SignalGeneratorTriggerTypeEnum.Falling
+            | GateHigh -> SignalGeneratorTriggerTypeEnum.GateHigh
+            | GateLow  -> SignalGeneratorTriggerTypeEnum.GateLow
+        
+        /// Converts an External channel input voltage to ADC counts.
+        let private externalVoltageToAdcCounts (voltage : Voltage) =
+            int16 <| (voltage / 5.0f<V>) * (float32 <| System.Int32.MaxValue)
+
+        /// Converts a signal generator trigger into signal generator trigger settings.
+        let private signalGeneratorTrigger = function
+            | AutoTrigger -> 
+                { TriggerSource     = SignalGeneratorTriggerSourceEnum.None
+                  TriggerType       = SignalGeneratorTriggerTypeEnum.Rising
+                  ExternalThreshold = 0s }
+            | SignalGeneratorTrigger (ScopeTrigger, type') ->
+                { TriggerSource     = SignalGeneratorTriggerSourceEnum.Scope
+                  TriggerType       = triggerType type'
+                  ExternalThreshold = 0s }
+            | SignalGeneratorTrigger ((ExternalTrigger threshold), type') ->
+                { TriggerSource     = SignalGeneratorTriggerSourceEnum.External
+                  TriggerType       = triggerType type'
+                  ExternalThreshold = externalVoltageToAdcCounts threshold }
+            | SignalGeneratorTrigger (SoftwareTrigger, type') ->
+                { TriggerSource     = SignalGeneratorTriggerSourceEnum.Software
+                  TriggerType       = triggerType type'
+                  ExternalThreshold = 0s }
+        
+        /// Returns the signal generator built-in function settings for a given function.
+        let private builtInFunction = function
+            | Sine _       -> { WaveformType = SignalGeneratorWaveTypeEnum.Sine ;       ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | Square _     -> { WaveformType = SignalGeneratorWaveTypeEnum.Square ;     ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | Triangle _   -> { WaveformType = SignalGeneratorWaveTypeEnum.Triangle ;   ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | DCVoltage _  -> { WaveformType = SignalGeneratorWaveTypeEnum.DcVoltage ;  ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | RampUp _     -> { WaveformType = SignalGeneratorWaveTypeEnum.RampUp ;     ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | RampDown _   -> { WaveformType = SignalGeneratorWaveTypeEnum.RampDown ;   ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | Sinc _       -> { WaveformType = SignalGeneratorWaveTypeEnum.Sinc ;       ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | Gaussian _   -> { WaveformType = SignalGeneratorWaveTypeEnum.Gaussian ;   ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | HalfSine _   -> { WaveformType = SignalGeneratorWaveTypeEnum.HalfSine ;   ExtraFunctions = SignalGeneratorExtrasEnum.None }
+            | WhiteNoise _ -> { WaveformType = SignalGeneratorWaveTypeEnum.Sine ;       ExtraFunctions = SignalGeneratorExtrasEnum.WhiteNoise }
+            | PseudoRandomBitStream _ -> 
+                { WaveformType   = SignalGeneratorWaveTypeEnum.Sine
+                  ExtraFunctions = SignalGeneratorExtrasEnum.PseudoRandomBitStream }
+
+        /// Returns the peak-to-peak voltage, offset and frequency settings for a given function.
+        let private outputVoltageAndFrequency = function
+            | Sine       (peakToPeak, offset, frequency)
+            | Square     (peakToPeak, offset, frequency)
+            | Triangle   (peakToPeak, offset, frequency)
+            | RampUp     (peakToPeak, offset, frequency)
+            | RampDown   (peakToPeak, offset, frequency)
+            | Sinc       (peakToPeak, offset, frequency)
+            | Gaussian   (peakToPeak, offset, frequency)
+            | HalfSine   (peakToPeak, offset, frequency)          -> (peakToPeak, offset, frequency)
+            | WhiteNoise (peakToPeak, offset)                     -> (peakToPeak, offset, FixedFrequency 0.0f<Hz>)
+            | DCVoltage offset                                    -> (0.0f<V>, offset, FixedFrequency 0.0f<Hz>) 
+            | PseudoRandomBitStream (peakToPeak, offset, bitRate) -> (0.0f<V>, 0.0f<V>, FixedFrequency bitRate)
+
+        /// Returns the signal generator built-in waveform settings for a given waveform.
+        let builtInWaveformSettings waveform =
+            let playbackSettings                = playbackMode waveform.PlaybackMode
+            let triggerSettings                 = signalGeneratorTrigger waveform.TriggerSettings
+            let function'                       = builtInFunction waveform.Waveform
+            let (peakToPeak, offset, frequency) = outputVoltageAndFrequency waveform.Waveform
+            { OutputVoltageSettings = outputVoltageSettings peakToPeak offset
+              FrequencySettings     = frequencySettings frequency
+              Function              = function'
+              PlaybackSettings      = playbackSettings
+              TriggerSettings       = triggerSettings }

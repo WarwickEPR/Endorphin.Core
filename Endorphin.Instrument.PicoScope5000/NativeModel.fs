@@ -245,7 +245,10 @@ module internal NativeModel =
                 delegate of int16 * int * int16 * uint32 * int16 * nativeint -> unit
 
     [<AutoOpen>]
+    /// Native model types relating to signal generator settings.
     module SignalGenerator = 
+
+        /// Signal generator built-in waveform type.
         type SignalGeneratorWaveTypeEnum =
             | Sine      = 0
             | Square    = 1
@@ -256,32 +259,67 @@ module internal NativeModel =
             | Gaussian  = 6
             | HalfSine  = 7
             | DcVoltage = 8
-    
+        
+        /// Signal generator sweep type.
         type SignalGeneratorSweepTypeEnum = 
             | Up     = 0
             | Down   = 1
             | UpDown = 2
             | DownUp = 3
     
+        /// Signal generator extra functions.
         type SignalGeneratorExtrasEnum =
             | None                  = 0
             | WhiteNoise            = 1
             | PseudoRandomBitStream = 2
-    
+        
+        /// Signal generator trigger type.
         type SignalGeneratorTriggerTypeEnum =
             | Rising   = 0
             | Falling  = 1
             | GateHigh = 2
             | GateLow  = 3
-    
+        
+        /// Signal generator trigger source.
         type SignalGeneratorTriggerSourceEnum =
             | None      = 0
             | Scope     = 1
             | Auxiliary = 2
             | External  = 3
             | Software  = 4
-    
+        
         type SignalGeneratorIndexModeEnum =
             | Single = 0
             | Dual   = 1
             | Quad   = 2
+
+        /// Signal generator output voltage settings.
+        type SignalGeneratorOutputVoltage = { OffsetVoltage : int32 ; PeakToPeakVoltage : uint32 }
+        
+        /// Signal generator frequency and sweep settings.
+        type SignalGeneratorFrequency =
+            { StartFrequency     : float32
+              StopFrequency      : float32
+              FrequencyIncrement : float32
+              DwellTime          : float32
+              SweepDirection     : SignalGeneratorSweepTypeEnum }
+        
+        /// Signal generator playback settings, specifying repetitions.
+        type SignalGeneratorPlayback = { Shots : uint32 ; Sweeps : uint32 }
+
+        /// Signal generator built-in function.
+        type SignalGeneratorFunction = { WaveformType : SignalGeneratorWaveTypeEnum ; ExtraFunctions : SignalGeneratorExtrasEnum }
+
+        /// Signal generator trigger settings.
+        type SignalGeneratorTrigger =
+            { TriggerType       : SignalGeneratorTriggerTypeEnum
+              TriggerSource     : SignalGeneratorTriggerSourceEnum
+              ExternalThreshold : int16 }
+
+        /// Signal generator parameters for a built-in waveform playback.
+        type SignalGeneratorBuiltInWaveformSettings =
+            { OutputVoltageSettings : SignalGeneratorOutputVoltage
+              FrequencySettings     : SignalGeneratorFrequency
+              Function              : SignalGeneratorFunction
+              PlaybackSettings      : SignalGeneratorPlayback
+              TriggerSettings       : SignalGeneratorTrigger } 
