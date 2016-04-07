@@ -73,6 +73,18 @@ module SignalGenerator =
         /// Sets the signal generator to be triggered by the External input.
         let external triggerType threshold = SignalGeneratorTrigger(ExternalTrigger threshold, triggerType)
 
+        /// Specifies that the signal generator should trigger on a rising edge.
+        let rising = Rising
+
+        /// Specifies that the signal generator should trigger on a falling edge.
+        let falling = Falling
+
+        /// Specifies that the signal generator should run while the gate signal is high.
+        let gateHigh = GateHigh
+
+        /// Specifies that the signal generator should run while the gate signal is low.
+        let gateLow = GateLow
+
     /// Functions for specifying the number of waveform repetitions.
     module Playback =
         

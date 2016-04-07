@@ -336,7 +336,7 @@ module Model =
             | NumberOfSweeps of sweeps : uint32
 
         /// Signal generator trigger.
-        type SignalGeneratorTriggerType = Rising | Falling | GateHigh | GateLow
+        type SignalGeneratorTriggerType = internal Rising | Falling | GateHigh | GateLow
 
         /// Signal generator trigger source.
         type SignalGeneratorTriggerSource = 

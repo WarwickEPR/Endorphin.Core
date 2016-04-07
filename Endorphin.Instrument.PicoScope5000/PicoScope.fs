@@ -564,3 +564,21 @@ module PicoScope =
               PlaybackMode    = ContinuousPlayback
               TriggerSettings = AutoTrigger }
             |> setBuiltInWaveform picoScope
+
+        /// Invokes the function generator software trigger.
+        let invokeSoftwareTrigger (PicoScope5000 picoScope) =
+            let description = sprintf "Invoking software trigger."
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device -> NativeApi.SignalGeneratorSoftwareControl(handle device, 1s) |> checkStatus)
+
+        /// Sets the function generator software trigger gate state.
+        let private setSoftwareGate (PicoScope5000 picoScope) gateHigh =
+            let description = sprintf "Setting software gate %s." (if gateHigh then "high" else "low")
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device -> NativeApi.SignalGeneratorSoftwareControl(handle device, if gateHigh then 1s else 0s) |> checkStatus)
+
+        /// Sets the function generator software trigger gate state to high.
+        let setSoftwareGateHigh picoScope = setSoftwareGate picoScope true
+
+        /// Sets the function generator software trigger gate state to low.
+        let setSoftwareGateLow picoScope = setSoftwareGate picoScope false

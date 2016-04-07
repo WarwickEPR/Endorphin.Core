@@ -66,6 +66,7 @@
     <Compile Include="PicoScope.fs" />
     <Compile Include="Streaming.fs" />
     <None Include="StreamingDemo.fsx" />
+    <None Include="NVSpectrometer.fsx" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
   </ItemGroup>
