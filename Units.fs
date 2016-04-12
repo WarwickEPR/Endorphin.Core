@@ -94,7 +94,7 @@ module Units =
             let toNanoseconds  (t : float<ps>) = t * nanosecondsPerPicosecond
             let toFemtoseconds (t : float<ps>) = t * femtosecondsPerPicosecond
             
-        module Femtosecodns =
+        module Femtoseconds =
             let toSeconds      (t : float<fs>) = t * secondsPerFemtosecond
             let toMilliseconds (t : float<fs>) = t * millisecondsPerFemtosecond
             let toMicroseconds (t : float<fs>) = t * microsecondsPerFemtosecond
@@ -121,6 +121,15 @@ module Units =
 
     /// Hz (cycles per second)
     [<Measure>] type Hz = 1/s
+
+    /// kHz (cycles per millisecond)
+    [<Measure>] type kHz = 1/ms
+
+    /// MHz (cycles per microsecond)
+    [<Measure>] type MHz = 1/us
+
+    /// GHz (cycles per nanosecond)
+    [<Measure>] type GHz = 1/ns
 
     /// Percent
     [<Measure>] type pct
