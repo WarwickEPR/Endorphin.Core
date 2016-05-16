@@ -2,7 +2,8 @@
 
 namespace Endorphin.Core
 
-open NationalInstruments.VisaNS
+open NationalInstruments.Visa
+open Ivi.Visa
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
 open log4net
@@ -27,7 +28,7 @@ module Visa =
 
     /// A message which may be passed to the VISA agent, describing what needs to be done.
     type internal Message =
-        | Command of command : VisaCommand * synchrnoisation : Synchronisation
+        | Command of command : VisaCommand * synchronisation : Synchronisation
         | Close   of reply : AsyncReplyChannel<Choice<unit, exn>>
 
     /// A VISA instrument, capable of reading, writing and querying strings and byte arrays.
@@ -88,33 +89,45 @@ module Visa =
 
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
         let private openSession visaId (timeout : int<ms>) =
-            let rm = ResourceManager.GetLocalManager ()
-            let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> MessageBasedSession
-            instrument.Timeout <- int timeout
+            let rm = new ResourceManager()
+            let instrument = rm.Open (visaId, AccessModes.None, int <| timeout) :?> MessageBasedSession
+            instrument.TimeoutMilliseconds <- int timeout
             instrument.TerminationCharacterEnabled <- true
             instrument
 
         /// Open a VISA instrument session with additional configuration options for a serial connection
         let private openSerialSession visaId (timeout : int<ms>) (configuration : SerialConfiguration) = 
-            let rm = ResourceManager.GetLocalManager ()
-            let instrument = rm.Open (visaId, AccessModes.NoLock, int <| timeout) :?> SerialSession
-            instrument.Timeout <- int timeout
+            let rm = new ResourceManager()
+            let instrument = rm.Open (visaId, AccessModes.None, int <| timeout) :?> SerialSession
+            instrument.TimeoutMilliseconds <- int timeout
             instrument.BaudRate <- configuration.BaudRate
             instrument.DataBits <- configuration.DataBits
 
             instrument.StopBits <-
                 match configuration.StopBits with
-                | One              -> StopBitType.One
-                | OnePointFive     -> StopBitType.OneAndOneHalf
-                | Two              -> StopBitType.Two
+                | One              -> SerialStopBitsMode.One
+                | OnePointFive     -> SerialStopBitsMode.OneAndOneHalf
+                | Two              -> SerialStopBitsMode.Two
 
             instrument.Parity <- 
                 match configuration.Parity with
-                | NoParity         -> Parity.None
-                | Even             -> Parity.Even
-                | Odd              -> Parity.Odd
+                | NoParity         -> SerialParity.None
+                | Even             -> SerialParity.Even
+                | Odd              -> SerialParity.Odd
 
             instrument :> MessageBasedSession
+
+        let fromVisaAsyncResult (result:IVisaAsyncResult) =
+            result :> IAsyncResult
+
+        let toVisaAsyncResult (result:IAsyncResult) =
+            result :?> IVisaAsyncResult
+
+        let fromVisaAsyncCallback (callback:VisaAsyncCallback,state) =
+            (new AsyncCallback(toVisaAsyncResult >> callback.Invoke),state)
+
+        let toVisaAsyncCallback (callback:AsyncCallback,state) =
+            (new VisaAsyncCallback(fromVisaAsyncResult >> callback.Invoke),state)
 
         /// A try/catch wrapper around the standard Async.FromBeginEnd to convert exceptions encountered
         /// into Choice failures instead.  This way, exceptions can be propagated up from the agent, and
@@ -125,41 +138,49 @@ module Visa =
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
+        /// Adapted beginEndWrapper to bind VisaAsyncCallbacks to a continuation using FromBeginEnd
+        let private visaBeginEndWrapper starter ender =
+            let starter' = toVisaAsyncCallback >> starter >> fromVisaAsyncResult
+            let ender'   = toVisaAsyncResult >> ender
+            beginEndWrapper starter' ender'
+        
         /// The generic read operation on an instrument, with F# allocating the space.  The ender function
         /// is passed the buffer, so it can choose what it wants to do with it.
         let private readAsyncGeneric ender (instrument : MessageBasedSession) =
-            beginEndWrapper (fun (callback, state) ->
-                                instrument.BeginRead (instrument.DefaultBufferSize, callback, state))
-                            ender
+            let starter (callback:VisaAsyncCallback, state) = instrument.RawIO.BeginRead (4096,callback,state)
+            visaBeginEndWrapper starter ender
 
         /// The generic write operation on a VISA instrument, regardless of the type of data to be written.
         /// The writer function actually handles the writing, the generic part handles putting the
         /// callback into the correct type, and dealing with the result.
         let private writeAsyncGeneric writer (instrument : MessageBasedSession) message =
-            beginEndWrapper (fun (callback, state) -> writer (message, callback, state))
-                            instrument.EndWrite
+            visaBeginEndWrapper (fun (callback:VisaAsyncCallback, state) -> writer (message, callback, state))
+                                (instrument.RawIO.EndWrite >> ignore)
 
         /// Read a string from a VISA instrument using an Async.FromBeginEnd layout to do the reading
         /// asynchronously.
         let private readStringAsync (instrument : MessageBasedSession) =
-            readAsyncGeneric instrument.EndReadString instrument
+            readAsyncGeneric instrument.RawIO.EndReadString instrument
 
         /// Read an array of bytes from a VISA instrument using an Async.FromBeginEnd layout to do the
         /// reading asynchronously.
         let private readBytesAsync (instrument : MessageBasedSession) =
-            readAsyncGeneric instrument.EndReadByteArray instrument
+            let readBytes result =
+                let read = int <| instrument.RawIO.EndRead result
+                Array.sub result.Buffer 0 read
+            readAsyncGeneric readBytes instrument
         
         /// Read a sring from a VISA instrument synchronously.
         let private readStringSync (instrument : MessageBasedSession) = async {
             try
-                let result = instrument.ReadString ()
+                let result = instrument.RawIO.ReadString ()
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
         /// Read a byte array from a VISA instrument synchronously.
         let private readBytesSync (instrument : MessageBasedSession) = async {
             try
-                let result = instrument.ReadByteArray ()
+                let result = instrument.RawIO.Read ()
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
@@ -176,26 +197,26 @@ module Visa =
         /// Write a string to a VISA instrument using an Async.FromBeginEnd layout to do the writing
         /// asynchronously.
         let private writeStringAsync (instrument : MessageBasedSession) (str : string) =
-            writeAsyncGeneric (fun (str : string, callback, state) -> instrument.BeginWrite (str, callback, state)) instrument str
+            writeAsyncGeneric (fun (str : string, callback, state) -> instrument.RawIO.BeginWrite (str, callback, state)) instrument str
 
         /// Write an array of bytes to a VISA instrument using an Async.FromBeginEnd layout to do the
         /// writing asynchronously.
         let private writeBytesAsync (instrument : MessageBasedSession) (bytes : byte []) =
             writeAsyncGeneric (fun ((bytes : byte []), callback, state) ->
-                             instrument.BeginWrite (bytes, 0, bytes.Length, callback, state))
+                             instrument.RawIO.BeginWrite (bytes, 0L, int64 <| bytes.Length, callback, state))
                          instrument bytes
             
         /// Write a string to a VISA instrument synchronously.
         let private writeStringSync (instrument : MessageBasedSession) (str : string) = async {
             try
-                instrument.Write str
+                instrument.RawIO.Write str
                 return Choice.succeed ()
             with exn -> return Choice.fail exn }
             
         /// Write an array of bytes to a VISA instrument synchronously
         let private writeBytesSync (instrument : MessageBasedSession) (bytes : byte []) = async {
             try
-                instrument.Write bytes
+                instrument.RawIO.Write bytes
                 return Choice.succeed ()
             with exn -> return Choice.fail exn }
 
