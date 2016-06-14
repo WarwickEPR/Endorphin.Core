@@ -715,3 +715,47 @@ module PicoScope =
             let description = sprintf "Get values in bulk from segments %d to %d in from block acquisition: %+A" fromSegment toSegment acquisition
 
             picoScope |> CommandRequestAgent.performObjectRequest description (getValuesBulk' acquisition fromSegment toSegment numberOfSamples)
+
+
+    /// Functions related to the built-in signal generator.
+    module SignalGenerator =
+        open Model.SignalGenerator
+
+        /// Sets a built-in waveform with the specified settings to the function generator.
+        let setBuiltInWaveform (PicoScope5000 picoScope) waveform =
+            let settings = builtInWaveformSettings waveform
+            let description = sprintf "Set built-in waveform to function generator: %A." settings
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device ->
+                    NativeApi.SetSignalGeneratorBuiltIn(handle device, settings.OutputVoltageSettings.OffsetVoltage,
+                        settings.OutputVoltageSettings.PeakToPeakVoltage, settings.Function.WaveformType, settings.FrequencySettings.StartFrequency,
+                        settings.FrequencySettings.StopFrequency, settings.FrequencySettings.FrequencyIncrement, settings.FrequencySettings.DwellTime,
+                        settings.FrequencySettings.SweepDirection, settings.Function.ExtraFunctions, settings.PlaybackSettings.Shots,
+                        settings.PlaybackSettings.Sweeps, settings.TriggerSettings.TriggerType, settings.TriggerSettings.TriggerSource,
+                        settings.TriggerSettings.ExternalThreshold)
+                    |> checkStatus)
+        
+        /// Disables the function generator.
+        let disable picoScope =
+            { Waveform        = DCVoltage 0.0f<V>
+              PlaybackMode    = ContinuousPlayback
+              TriggerSettings = AutoTrigger }
+            |> setBuiltInWaveform picoScope
+
+        /// Invokes the function generator software trigger.
+        let invokeSoftwareTrigger (PicoScope5000 picoScope) =
+            let description = sprintf "Invoking software trigger."
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device -> NativeApi.SignalGeneratorSoftwareControl(handle device, 1s) |> checkStatus)
+
+        /// Sets the function generator software trigger gate state.
+        let private setSoftwareGate (PicoScope5000 picoScope) gateHigh =
+            let description = sprintf "Setting software gate %s." (if gateHigh then "high" else "low")
+            picoScope |> CommandRequestAgent.performCommand description
+                (fun device -> NativeApi.SignalGeneratorSoftwareControl(handle device, if gateHigh then 1s else 0s) |> checkStatus)
+
+        /// Sets the function generator software trigger gate state to high.
+        let setSoftwareGateHigh picoScope = setSoftwareGate picoScope true
+
+        /// Sets the function generator software trigger gate state to low.
+        let setSoftwareGateLow picoScope = setSoftwareGate picoScope false

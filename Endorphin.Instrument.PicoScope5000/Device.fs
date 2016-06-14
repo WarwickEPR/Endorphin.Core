@@ -120,7 +120,6 @@ module Device =
 [<RequireQualifiedAccess>]
 /// Functions related to sample voltages.
 module Voltage =
-    
     /// Converts the given ADC counts value sampled at the specified voltage range and resolution
     /// to a voltage.
     let fromAdcCounts resolution range analogueOffset (adcCounts : AdcCount) =

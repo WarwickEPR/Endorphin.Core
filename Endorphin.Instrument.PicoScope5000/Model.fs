@@ -437,3 +437,66 @@ module Model =
         // Finding the correct timebase - fastest few are special cases which may have restrictions.
         // The rest of the uint is linear multiple of some small base unit, which differs between models
         // Use one of the GetTimebase calls to check the timebase selected is closest to the one requested
+        
+    /// Model types related to the integrated signal generator
+    module SignalGenerator =
+            
+        /// Signal generator sweep direction.
+        type SweepDirection = Up | Down | UpDown | DownUp
+
+        /// Signal generator frequency sweep parameters.
+        type FrequencySweepParameters =
+            internal { StartFrequency     : float32<Hz>
+                       StopFrequency      : float32<Hz>
+                       FrequencyIncrement : float32<Hz>
+                       DwellTime          : float32<s>
+                       SweepDirection     : SweepDirection }
+            
+        /// Signal generator output frequency (either fixed or swept).
+        type Frequency =
+            internal 
+            | FixedFrequency of frequency : float32<Hz>
+            | FrequencySweep of parameters : FrequencySweepParameters
+
+        /// Built-in signal generator waveform options.
+        type BuiltInWaveform = 
+            internal
+            | Sine                  of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | Square                of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | Triangle              of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | DCVoltage             of                        offset : Voltage
+            | RampUp                of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | RampDown              of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | Sinc                  of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | Gaussian              of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | HalfSine              of peakToPeak : Voltage * offset : Voltage * frequency : Frequency
+            | WhiteNoise            of peakToPeak : Voltage * offset : Voltage
+            | PseudoRandomBitStream of peakToPeak : Voltage * offset : Voltage * bitRate : float32<Hz>
+
+        /// Signal generator playback mode.
+        type PlaybackMode =
+            internal
+            | ContinuousPlayback
+            | NumberOfCycles of cycles : uint32
+            | NumberOfSweeps of sweeps : uint32
+
+        /// Signal generator trigger.
+        type SignalGeneratorTriggerType = internal Rising | Falling | GateHigh | GateLow
+
+        /// Signal generator trigger source.
+        type SignalGeneratorTriggerSource = 
+            internal 
+            | ScopeTrigger
+            | ExternalTrigger of threshold : Voltage
+            | SoftwareTrigger
+
+        /// Signal generator trigger settings.
+        type SignalGeneratorTriggerSettings =
+            | AutoTrigger
+            | SignalGeneratorTrigger of triggerSource : SignalGeneratorTriggerSource * triggerType : SignalGeneratorTriggerType
+
+        /// Signal generator built-in waveform parameters.
+        type BuiltInWaveformSettings =
+            internal { Waveform        : BuiltInWaveform
+                       PlaybackMode    : PlaybackMode
+                       TriggerSettings : SignalGeneratorTriggerSettings }

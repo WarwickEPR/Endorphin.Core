@@ -61,6 +61,7 @@
     <Compile Include="Quantities.fs" />
     <Compile Include="Device.fs" />
     <Compile Include="TriggerSettings.fs" />
+    <Compile Include="SignalGenerator.fs" />
     <Compile Include="Inputs.fs" />
     <Compile Include="Async.fs" />
     <Compile Include="PicoScope.fs" />
@@ -70,6 +71,7 @@
     <Compile Include="Acquisition.fs" />
     <Compile Include="Signal.fs" />
     <None Include="StreamingDemo.fsx" />
+    <None Include="NVSpectrometer.fsx" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
     <None Include="Common.fsx" />
