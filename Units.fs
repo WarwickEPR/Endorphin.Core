@@ -1,4 +1,6 @@
-﻿namespace Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 [<AutoOpen>]
 module Units =
@@ -100,8 +102,11 @@ module Units =
             let toPicoseconds  (t : float<fs>) = t * picosecondsPerFemtosecond
 
     /// Binary bits.
-    [<Measure>] type bits
+    [<Measure>] type bit
     
+    /// Number of digital steps.
+    [<Measure>] type step
+
     /// Decimal places.
     [<Measure>] type dp
 
