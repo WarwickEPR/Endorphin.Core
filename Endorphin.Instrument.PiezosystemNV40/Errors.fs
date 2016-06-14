@@ -4,7 +4,6 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 open Endorphin.Core
 open log4net 
-open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
  
@@ -39,7 +38,6 @@ module Errors =
 
     [<AutoOpen>]
     module internal CheckErrros = 
-       
         /// Returns Ok or Error with the error string. 
         let stringtoStatus = function
             | "OK. No Error." -> Ok
@@ -52,18 +50,18 @@ module Errors =
 
         /// Checks return value of the NativeApi function and converts to a success or gives an error message.
         let checkStatus = function
-            | Ok            -> succeed ()
-            | Error message -> fail message
+            | Ok            -> ()
+            | Error message -> failwithf "Error from machine: '%s'" message
 
         /// Handles errors, if no errors returns function values else fails. 
-        let check piezojena (workflow:Async<'T>) = asyncChoice {
+        let check piezojena (workflow:Async<'T>) = async {
             let stage = id piezojena 
-            let! workflowResult = workflow |> AsyncChoice.liftAsync
+            let! workflowResult = workflow
             let mutable error : string = Unchecked.defaultof<_>
             stage.GetCommandError (&error)
             logDevice piezojena (error) 
             let statusError = stringtoStatus error
-            do! if statusError = Ok then
+            do if statusError = Ok then
                     Ok |> checkStatus
                 else 
                     Error error |> checkStatus
@@ -73,16 +71,15 @@ module Errors =
         let checkMulti piezojena (workflowArray : Async<'T>[]) =   
             let stage = id piezojena 
             // Runs workflow and returns a status.
-            let statusCheck (workflow:Async<'T>) = asyncChoice {
-                let! result = workflow |> AsyncChoice.liftAsync 
+            let statusCheck (workflow:Async<'T>) = async {
+                let! result = workflow
                 let mutable error : string = Unchecked.defaultof<_> 
                 stage.GetCommandError (&error)
                 logDevice piezojena (error) 
-                return stringtoStatus error
-                }
+                return stringtoStatus error }
               
             // Workflow takes an async workflow array and returns an asyncChoice. 
-            let rec results index (workflowArray : Async<'T> []) = asyncChoice{
+            let rec results index (workflowArray : Async<'T> []) = async {
                   let length = Array.length workflowArray - 1 
                   if index < length || index =  length then 
                       let workflow = Array.get workflowArray index
@@ -90,7 +87,7 @@ module Errors =
                       if status = Ok then
                         return! results (index + 1) workflowArray    
                       else 
-                        return! (fail "Failed to execute all workflows.")
+                        failwith "Failed to execute all workflows."
                   else 
                     return () 
             }

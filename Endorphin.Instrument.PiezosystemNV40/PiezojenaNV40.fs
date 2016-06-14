@@ -4,7 +4,6 @@ open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System.Text
 open Endorphin.Core
 open log4net 
-open ExtCore.Control
 open System.Runtime.InteropServices
 open Endorphin.Instrument.PiezosystemNV40
 open FSharp.Control.Reactive
@@ -262,7 +261,7 @@ module PiezojenaNV40 =
     module Initialise = 
         
         /// Sets all channels to closed loop with remote control and the stage posistion to the origin.
-        let initialise portName  = asyncChoice{
+        let initialise portName  = async {
             let piezojena = SerialConnection.Standard portName 
             let stage = id piezojena 
             do! SetModes.setAllRemoteControl piezojena On             
@@ -271,7 +270,7 @@ module PiezojenaNV40 =
             }
 
         /// Sets all channels to open loop and switches off remote mode. 
-        let clearModeSetting piezojena = asyncChoice{
+        let clearModeSetting piezojena = async {
             let stage = id piezojena
             do! SetModes.setAllRemoteControl piezojena Off
             do! SetModes.setLoopModeAllChannels piezojena OpenLoop
@@ -323,23 +322,23 @@ module PiezojenaNV40 =
             setAllOutputsWorkflow |> check piezojena  
         
         /// Checks if position had been reached. 
-        let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = asyncChoice{      
+        let rec private waitToReachPosition piezojena count ((x:float, y:float, z:float)) (tolerancefloat:float) = async{      
             let target = IntensityMap.Tuples.typetoFloat32 (x, y, z)
             let tolerance = float32 (tolerancefloat)
             if count > 10 then 
-                return! (fail "Failed to reach position")
+                failwith "Failed to reach position"
             else     
                 let! coordinate = queryPosition piezojena 
                 let positionReached = IntensityMap.Tuples.compare target coordinate tolerance
                 if positionReached then
-                    return coordinate 
+                    return () 
                 else 
-                    do! Async.Sleep 5 |> AsyncChoice.liftAsync 
+                    do! Async.Sleep 5
                     return! waitToReachPosition piezojena (count + 1) (x, y, z) tolerancefloat 
         }
 
         /// Sets all channel outputs using a 3 element tuple and then checks if in correct posistion. 
-        let setPosition piezojena (target:float*float*float) tolerance = asyncChoice{
+        let setPosition piezojena (target:float*float*float) tolerance = async{
             let newtolerance = float32 tolerance 
             // Async workflow for setting all outputs. 
             do! setAllOutputs piezojena target newtolerance
@@ -348,7 +347,7 @@ module PiezojenaNV40 =
             }     
 
         /// Sets all channel outputs using a 2 element tuple and a starting position.  
-        let setGridPosition piezojena (first:Channel) (second:Channel) (target:float*float) start tolerance = asyncChoice{
+        let setGridPosition piezojena (first:Channel) (second:Channel) (target:float*float) start tolerance = async{
             let newtolerance = float32 tolerance 
             let fullCoordinate = IntensityMap.Coordinates.arrangeCoordinate first second target start 
             // Async workflow for setting all outputs. 
@@ -358,7 +357,7 @@ module PiezojenaNV40 =
             }     
     
         /// Gnerates a grid of points for intensity mapping using current position. 
-        let generateGrid piezojena  (firstAxis:Axis) (secondAxis:Axis) (interval:float) = asyncChoice{
+        let generateGrid piezojena  (firstAxis:Axis) (secondAxis:Axis) (interval:float) = async{
             let! start = queryPosition piezojena
             let arrayofPoints = IntensityMap.GridPoints.generate firstAxis secondAxis interval start
             return arrayofPoints 
