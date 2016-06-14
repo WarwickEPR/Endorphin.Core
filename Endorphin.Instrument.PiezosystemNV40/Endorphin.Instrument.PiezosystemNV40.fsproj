@@ -82,13 +82,13 @@
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="Piezojena.Ftd2xx">
-      <HintPath>Piezojena.Ftd2xx.dll</HintPath>
+      <HintPath>..\lib\piezojena\Piezojena.Ftd2xx.dll</HintPath>
     </Reference>
     <Reference Include="Piezojena.Protocols">
-      <HintPath>Piezojena.Protocols.dll</HintPath>
+      <HintPath>..\lib\piezojena\Piezojena.Protocols.dll</HintPath>
     </Reference>
     <Reference Include="Piezojena.Protocols.Nv40Multi">
-      <HintPath>Piezojena.Protocols.Nv40Multi.dll</HintPath>
+      <HintPath>..\lib\piezojena\Piezojena.Protocols.Nv40Multi.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
