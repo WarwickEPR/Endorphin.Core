@@ -1,12 +1,20 @@
-﻿namespace Endorphin.Instrument.PicoScope5000
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.PicoScope5000
 
 open System.Runtime.InteropServices
+open StatusCodes
 
-// this sequential StructLayout may result in non-verifiable IL code 
-// when FieldOffset attributes are also used but not in this case
+// This module uses the StructLayout attribute to define a struct used for interoperation with
+// a native C library. The sequential StructLayout may result in non-verifiable IL code when
+// FieldOffset attributes are also used (but not in this case), so suppress the warning.
 #nowarn "9"
 
+/// Contains model types required for making calls to the PicoScope 5000 series native C API.
 module internal NativeModel =
+    
+    /// Information types which can be requested from the PicoScope 5000 series C API about
+    /// the device.
     type DeviceInfoEnum = 
         | DriverVersion           = 0
         | UsbVersion              = 1
@@ -21,7 +29,10 @@ module internal NativeModel =
         | FirmwareVersion2        = 10
 
     [<AutoOpen>]
+    /// Native model types related to channel settings.
     module ChannelSettings =
+
+        /// Device channel (includes input, trigger, and output channels).
         type ChannelEnum =
             | A    = 0
             | B    = 1
@@ -31,6 +42,7 @@ module internal NativeModel =
             | Aux  = 5
             | None = 6
 
+        /// Input channel voltage range.
         type RangeEnum =
             | _10mV  = 0
             | _20mV  = 1
@@ -45,20 +57,26 @@ module internal NativeModel =
             | _20V   = 10
             | _50V   = 11
 
+        /// Input channel coupling.
         type CouplingEnum = 
             | AC = 0
             | DC = 1
 
+        /// Input channel bandwidth.
         type BandwidthLimitEnum =
             | Full   = 0
             | _20MHz = 1
 
-        /// Enumeration representing possible types channel information which can be requested from a PicoScope 5000 series device.
+        /// Information types which can be requested from the PicoScope 5000 series driver
+        /// about an input channel.
         type ChannelInfoEnum =
             | VoltageOffsetRanges = 0
 
     [<AutoOpen>]
+    /// Native model types related to triggering.
     module Triggering =
+        
+        /// Trigger channel threshold direction.
         type ThresholdDirectionEnum = 
             // values for level threshold mode
             | Above           = 0
@@ -74,6 +92,10 @@ module internal NativeModel =
             | EnterOrExit     = 4
             // none
             | None            = 2
+
+
+        // The types below are included for completeness but not currently in use and only required
+        // for more advanced types of triggering.
 
         type PulseWidthTypeEnum =
             | None = 0
@@ -164,7 +186,13 @@ module internal NativeModel =
             end
 
     [<AutoOpen>]
+    /// Native model types relating to signal sampling.
     module Acquisition =
+
+        /// Vertical resolution, set for all input channels on the device. The PicoScope 5000
+        /// series uses a variable resolution architecture which allows it to change the
+        /// resolution between 8 and 16 bit in exchange for having fewer channels and/or a
+        /// lower maximum sampling rate. 
         type ResolutionEnum =
             | _8bit  = 0
             | _12bit = 1
@@ -172,6 +200,7 @@ module internal NativeModel =
             | _15bit = 3
             | _16bit = 4
 
+        /// Time unit for sample intervals.
         type TimeUnitEnum =
             | Femtoseconds = 0
             | Picoseconds  = 1
@@ -180,12 +209,17 @@ module internal NativeModel =
             | Milliseconds = 4
             | Seconds      = 5
 
-
+        /// Equivalent time sampling mode setting. In ETS mode, the PicoScope samples a repetitive
+        /// signal by interleaving multiple captures to achieve smaller sample intervals.
         type EtsModeEnum =
             | Off  = 0
             | Fast = 1
             | Slow = 2
-    
+        
+        /// Input channel downsampling mode. Note that multiple downsampling modes can be set for
+        /// each channel and they can be set independently of other input channels. This is achieved
+        /// by combining the enumeration values using a bitwise OR operation. However, note that
+        /// the downsampling mode "None" cannot be combined with other modes.
         type DownsamplingModeEnum =
             | None      = 0
             | Averaged  = 1
@@ -198,7 +232,7 @@ module internal NativeModel =
             /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a block acquisition.
             /// Format: handle, status, state -> unit 
             type internal PicoScopeBlockReady = 
-                delegate of int16 * int16 * nativeint -> unit
+                delegate of int16 * StatusCode * nativeint -> unit
 
             /// Callback delegate type used by the PicoScope driver to indicate that it has written new data to the buffer during a streaming acquisition.
             /// Format; handle, numberOfSamples, startIndex, overflows, triggeredAt, triggered, autoStop, state -> unit
@@ -212,7 +246,10 @@ module internal NativeModel =
                 delegate of int16 * int * int16 * uint32 * int16 * nativeint -> unit
 
     [<AutoOpen>]
+    /// Native model types relating to signal generator settings.
     module SignalGenerator = 
+
+        /// Signal generator built-in waveform type.
         type SignalGeneratorWaveTypeEnum =
             | Sine      = 0
             | Square    = 1
@@ -223,32 +260,67 @@ module internal NativeModel =
             | Gaussian  = 6
             | HalfSine  = 7
             | DcVoltage = 8
-    
+        
+        /// Signal generator sweep type.
         type SignalGeneratorSweepTypeEnum = 
             | Up     = 0
             | Down   = 1
             | UpDown = 2
             | DownUp = 3
     
+        /// Signal generator extra functions.
         type SignalGeneratorExtrasEnum =
             | None                  = 0
             | WhiteNoise            = 1
             | PseudoRandomBitStream = 2
-    
+        
+        /// Signal generator trigger type.
         type SignalGeneratorTriggerTypeEnum =
             | Rising   = 0
             | Falling  = 1
             | GateHigh = 2
             | GateLow  = 3
-    
+        
+        /// Signal generator trigger source.
         type SignalGeneratorTriggerSourceEnum =
             | None      = 0
             | Scope     = 1
             | Auxiliary = 2
             | External  = 3
             | Software  = 4
-    
+        
         type SignalGeneratorIndexModeEnum =
             | Single = 0
             | Dual   = 1
             | Quad   = 2
+
+        /// Signal generator output voltage settings.
+        type SignalGeneratorOutputVoltage = { OffsetVoltage : int32 ; PeakToPeakVoltage : uint32 }
+        
+        /// Signal generator frequency and sweep settings.
+        type SignalGeneratorFrequency =
+            { StartFrequency     : float32
+              StopFrequency      : float32
+              FrequencyIncrement : float32
+              DwellTime          : float32
+              SweepDirection     : SignalGeneratorSweepTypeEnum }
+        
+        /// Signal generator playback settings, specifying repetitions.
+        type SignalGeneratorPlayback = { Shots : uint32 ; Sweeps : uint32 }
+
+        /// Signal generator built-in function.
+        type SignalGeneratorFunction = { WaveformType : SignalGeneratorWaveTypeEnum ; ExtraFunctions : SignalGeneratorExtrasEnum }
+
+        /// Signal generator trigger settings.
+        type SignalGeneratorTrigger =
+            { TriggerType       : SignalGeneratorTriggerTypeEnum
+              TriggerSource     : SignalGeneratorTriggerSourceEnum
+              ExternalThreshold : int16 }
+
+        /// Signal generator parameters for a built-in waveform playback.
+        type SignalGeneratorBuiltInWaveformSettings =
+            { OutputVoltageSettings : SignalGeneratorOutputVoltage
+              FrequencySettings     : SignalGeneratorFrequency
+              Function              : SignalGeneratorFunction
+              PlaybackSettings      : SignalGeneratorPlayback
+              TriggerSettings       : SignalGeneratorTrigger } 

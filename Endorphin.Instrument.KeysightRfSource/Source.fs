@@ -1,7 +1,8 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
-open ExtCore.Control
-open Endorphin.Core.String
+namespace Endorphin.Instrument.Keysight
+
+open Endorphin.Core
 
 module Source =
     module internal Translate =
@@ -17,7 +18,7 @@ module Source =
             | "EXT1" -> ExternalPort EXT1
             | "EXT2" -> ExternalPort EXT2
             | "FUNCTION1" -> InternalGenerator Function1
-            | str -> failwithf "Unexpected source: %s" str
+            | str -> raise << UnexpectedReplyException <| sprintf "Unexpected source: %s" str
 
     module Control =
         open Translate
@@ -44,24 +45,26 @@ module Source =
             let private rampKey =  ":SHAPE:RAMP"
             /// Query the shape of the machine, given the correct source and subsystem.
             let internal queryShape prefix fg rfSource str =
-                let getRamp = asyncChoice { let rkey = functionKey rampKey prefix fg
-                                            let! polarity = IO.queryPolarity rkey rfSource
-                                            return Ramp polarity }
+                let getRamp = async {
+                    let rkey = functionKey rampKey prefix fg
+                    let! polarity = IO.queryPolarity rkey rfSource
+                    return Ramp polarity }
                 let key = functionKey shapeKey prefix fg
-                asyncChoice {
+                async {
                     let! shape = IO.queryKeyString String.toUpper key rfSource
                     match shape with
                     | "SINE"             -> return Sine
                     | "TRI" | "TRIANGLE" -> return Triangle
                     | "SQU" | "SQUARE"   -> return Square
                     | "RAMP"             -> return! getRamp
-                    | _                  -> return failwithf "Unexpected function shape type string: %s" str }
+                    | _                  -> return raise << UnexpectedReplyException
+                                                   <| sprintf "Unexpected function shape type string: %s" str }
 
             /// Set the shape of the function generator.
             let internal setShape prefix fg rfSource (shape : FunctionShape) = 
                 let key = functionKey shapeKey prefix fg
                 let rkey = functionKey rampKey prefix fg 
-                asyncChoice {
+                async {
                     do! IO.setValueString functionShapeString key rfSource shape
                     match shape with
                     | Ramp polarity -> do! IO.setPolarity rkey rfSource polarity
@@ -96,7 +99,7 @@ module Source =
         open Control
 
         /// Apply the given source configurations to the machine.
-        let internal setup prefix source rfSource = asyncChoice {
+        let internal setup prefix source rfSource = async {
             let sourceProvider = sourceProvider source
             match source with
             | ExternalSource (_, settings) ->

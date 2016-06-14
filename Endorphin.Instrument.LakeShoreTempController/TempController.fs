@@ -1,22 +1,26 @@
-﻿namespace Endorphin.Instrument.LakeShoreTempController
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
-open Endorphin.Core.NationalInstruments
-open ExtCore.Control
+namespace Endorphin.Instrument.LakeShoreTempController
 
-/// Fnctions posting commands and performs queries to a LakeShore model 325 temperature
+open Endorphin.Core
+
+/// Functions posting commands and performs queries to a LakeShore model 325 temperature
 /// controller. 
 module TempController =
-    
     /// Query the device identity information.
     let queryIdentity = IO.queryIdentity Keys.identity
 
     /// Open the temperature controller at the specified VISA address with the specified 
     /// timeout for commands.
-    let openInstrument visaAddress timeout = asyncChoice {
-        let visaInstrument = Visa.openInstrument visaAddress timeout
+    let openInstrument visaAddress timeout = async {
+        let visaInstrument = Visa.openGpibInstrument visaAddress timeout None
         let tempController = TempController <| visaInstrument
         let! _ = queryIdentity tempController
         return tempController }
+
+    /// Asynchronously close the connection to the given temperature controller.
+    let closeInstrument (TempController tempController) =
+        Visa.closeInstrument tempController
     
     /// Querry the current temperature readout for the specified control loop on the
     /// temperature controller.

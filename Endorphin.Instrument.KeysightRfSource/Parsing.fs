@@ -1,31 +1,34 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
+namespace Endorphin.Instrument.Keysight
+
+open Endorphin.Core
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 /// Functions to translate between internal and machine representations.
 [<AutoOpen>]
 module internal Parsing =
     /// Convert a string containing a number into a power in dBm.
-    let parseAmplitudeInDbm (str : string) = PowerInDbm (float str * 1.0<dBm>)
+    let parseAmplitudeInDbm (str : string) = Power_dBm (float str * 1.0<dBm>)
     /// Convert an amplitude in dBm into a string representation.
-    let amplitudeString (PowerInDbm amplitude) = sprintf "%e dBm" (float amplitude)
+    let amplitudeString (Power_dBm amplitude) = sprintf "%e dBm" (float amplitude)
 
     /// Convert a string containing a number into a frequence in Hz.
-    let parseFrequencyInHz (str : string) = FrequencyInHz (float str * 1.0<Hz>)
+    let parseFrequencyInHz (str : string) = Frequency_Hz (float str * 1.0<Hz>)
     /// Convert a frequency in Hz into a string representation.
-    let frequencyString (FrequencyInHz frequency) = sprintf "%e Hz" (float frequency)        
+    let frequencyString (Frequency_Hz frequency) = sprintf "%e Hz" (float frequency)
 
     /// Convert a string containing a number into a phase in radians.
-    let parsePhaseInRad (str : string) = PhaseInRad (float str * 1.0<rad>)
+    let parsePhaseInRad (str : string) = Phase_rad (float str * 1.0<rad>)
     /// Convert a phase into a string representation of that number and unit.
     let phaseString = function
-        | PhaseInRad phase -> sprintf "%e RAD" (float phase)
-        | PhaseInDeg phase -> sprintf "%e DEG" (float phase)
+        | Phase_rad phase -> sprintf "%e RAD" (float phase)
+        | Phase_deg phase -> sprintf "%e DEG" (float phase)
 
     /// Convert a string containing a number into a duration in seconds.
-    let parseDurationInSec (str : string) = DurationInSec (float str * 1.0<s>)
+    let parseDurationInSec (str : string) = Duration_sec (float str * 1.0<s>)
     /// Convert a duration in seconds into a string representation.
-    let durationString (DurationInSec duration) = sprintf "%e s" (float duration)
+    let durationString (Duration_sec duration) = sprintf "%e s" (float duration)
 
     /// Convert a string containing a number into a percentage.
     let parsePercentage (str : string) = Percentage (float str * 1.0<pct>)
@@ -42,7 +45,7 @@ module internal Parsing =
         | "50"      -> Impedance_50Ohm
         | "600"     -> Impedance_600Ohm
         | "1000000" -> Impedance_1MOhm
-        | str       -> failwithf "Unexpected impedance string: %s." str
+        | str       -> raise << UnexpectedReplyException <| sprintf "Unexpected impedance string: %s." str
 
     /// Convert an internal representation of an impedance into a machine representation.
     let impedanceString = function
@@ -55,7 +58,7 @@ module internal Parsing =
         match String.toUpper str with
         | "UP"   -> Up
         | "DOWN" -> Down
-        | _      -> failwithf "Unexpected direction string: %s." str
+        | _      -> raise << UnexpectedReplyException <| sprintf "Unexpected direction string: %s." str
 
     /// Convert an internal representation of a direction into a machine representation.
     let directionString = function
@@ -67,7 +70,7 @@ module internal Parsing =
         match String.toUpper str with
         | "AC" -> AC
         | "DC" -> DC
-        | _    -> failwithf "Unexpected coupling string: %s." str
+        | _    -> raise << UnexpectedReplyException <| sprintf "Unexpected coupling string: %s." str
 
     /// Convert an internal representation of a coupling into a machine representation.
     let couplingString = function
@@ -79,7 +82,7 @@ module internal Parsing =
         match String.toUpper str with
         | "0" | "OFF" -> Off
         | "1" | "ON"  -> On
-        | str         -> failwithf "Unexpected on-off string: %s." str
+        | str         -> raise << UnexpectedReplyException <| sprintf "Unexpected on-off string: %s." str
 
     /// Convert an internal representation of an on/off state into a machine representation.
     let onOffStateString = function
@@ -92,7 +95,7 @@ module internal Parsing =
         match String.toUpper str with
         | "AUTO"           -> Auto
         | "MAN" | "MANUAL" -> Manual
-        | _                -> failwithf "Unexpected auto-manual string: %s." str
+        | _                -> raise << UnexpectedReplyException <| sprintf "Unexpected auto-manual string: %s." str
 
     /// Convert an internal representation of an automatic/manual state into a
     /// machine representation.
@@ -105,7 +108,7 @@ module internal Parsing =
         match String.toUpper str with
         | "POS" | "POSITIVE" -> Positive
         | "NEG" | "NEGATIVE" -> Negative
-        | _                  -> failwithf "Unexpected trigger polarity string: %s." str
+        | _                  -> raise << UnexpectedReplyException <| sprintf "Unexpected trigger polarity string: %s." str
 
     /// Convert an internal representation of a polarity into a machine representation.
     let polarityString = function
@@ -132,7 +135,7 @@ module internal Parsing =
         match String.toUpper str with
         | "LOW" -> Low
         | "HIGH" -> High
-        | _ -> failwithf "Unexpected low/high state string: %s" str
+        | _ -> raise << UnexpectedReplyException <| sprintf "Unexpected low/high state string: %s" str
 
     /// Make an ASCII string out of an object's ToString() method.
     let asciiString obj =
@@ -160,27 +163,29 @@ module internal Parsing =
     /// Total filename string for a sequence file.
     let sequenceFileString name = fileNameString sequenceFolder name
 
-    /// Get the string representation of a SegmentId.
-    let extractSegmentId (SegmentId id) = id
-    /// Get the string representation of a SequenceId.
-    let extractSequenceId (SequenceId id) = id
+    /// Get the string representation of a waveform ID.
+    let waveformIdString = function
+        | SegmentId  s -> s
+        | SequenceId s -> s
 
     /// Get the string representations of the relevant folders and the ids of a StoredWaveform.
-    let extractStoredWaveformFolderAndId = function
-        | StoredSegment  s -> (waveformFolder, extractSegmentId s)
-        | StoredSequence s -> (sequenceFolder, extractSequenceId s)
+    let extractStoredWaveformFolderAndId (StoredWaveform id) =
+        match id with
+        | SegmentId  s -> (waveformFolder, s)
+        | SequenceId s -> (sequenceFolder, s)
 
     /// Get the string representation of a StoredWaveform.
-    let extractStoredWaveformId = function
-        | StoredSegment  s -> extractSegmentId s
-        | StoredSequence s -> extractSequenceId s
+    let extractStoredWaveformId (StoredWaveform id) = waveformIdString id
+
+    /// Get the full file name of a waveform ID.
+    let waveformIdFilename = function
+        | SegmentId  s -> waveformFileString s
+        | SequenceId s -> sequenceFileString s
 
     /// Get the full file name of a waveform file from the short name stored in the
     /// StoredWaveform.  For example, if it is a segment, and the name is "test", then this
     /// function returns "\"WFM1:test\""B.
-    let storedWaveformFilename = function
-        | StoredSegment  s -> waveformFileString <| extractSegmentId s
-        | StoredSequence s -> sequenceFileString <| extractSequenceId s
+    let storedWaveformFilename (StoredWaveform id) = waveformIdFilename id
 
     /// Get the integer representation of a SampleCount.
     let extractSampleCount (SampleCount x) = x

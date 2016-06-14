@@ -1,30 +1,26 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.Keysight
+
+open Endorphin.Core
 
 [<AutoOpen>]
 module Basic =
-    /// Key for the overall RF output state. Must be On if anything is to play.
-    /// Command reference p.157.
-    let private outputStateKey = ":OUTPUT:STATE"
-    /// Set the overall output state of the machine.
-    let setOutputState = IO.setOnOffState outputStateKey
-    /// Query the overall output state of the machine.
-    let queryOutputState = IO.queryOnOffState outputStateKey
-
-    /// Key for the continuous wave freqeuncy of the device.
+    /// Key for the carrier wave freqeuncy of the device.
     /// Command reference p.44.
-    let private cwFrequencyKey = ":FREQUENCY"
-    /// Set the continuous wave frequency of the device.
-    let setCwFrequency = IO.setFrequency cwFrequencyKey
-    /// Query the continuous wave frequency of the device.
-    let queryCwFrequency = IO.queryFrequency cwFrequencyKey
+    let private carrierFrequencyKey = ":FREQUENCY"
+    /// Set the carrier wave frequency of the device.
+    let setCarrierFrequency = IO.setFrequency carrierFrequencyKey
+    /// Query the carrier wave frequency of the device.
+    let queryCarrierFrequency = IO.queryFrequency carrierFrequencyKey
 
     /// Key for the RF amplitude of the machine.
     /// Command reference p.83.
-    let private cwAmplitudeKey = ":POWER"
-    /// Set the RF amplitude of the machine.
-    let setCwAmplitude = IO.setAmplitude cwAmplitudeKey
-    /// Query the RF amplitude of the machine.
-    let queryCwAmplitude = IO.queryAmplitude cwAmplitudeKey
+    let private carrierAmplitudeKey = ":POWER"
+    /// Set the RF amplitude of the carrier wave.
+    let setCarrierAmplitude = IO.setAmplitude carrierAmplitudeKey
+    /// Query the RF amplitude of the carrier wave.
+    let queryCarrierAmplitude = IO.queryAmplitude carrierAmplitudeKey
 
     /// Key for the phase of the modulating signal.
     /// Command reference p.49.
@@ -33,3 +29,17 @@ module Basic =
     let setPhase = IO.setPhase phaseKey
     /// Query the phase of the modulation signal of the machine.
     let queryPhase = IO.queryPhase phaseKey
+
+    /// Key to send a trigger on the bus.
+    /// Command reference p.124.
+    let private triggerKey = "*TRG"
+    /// Send a trigger on the bus.
+    let trigger = IO.writeKey triggerKey
+
+    /// Key for the overall RF output state. Must be On if anything is to play
+    /// Command reference p.157.
+    let private outputStateKey = ":OUTP:STAT"
+    /// Sets the RF output on or off.
+    let setOutput = IO.setOnOffState outputStateKey
+    /// Queries whether the RF output is on or off.
+    let queryOutput = IO.queryOnOffState outputStateKey

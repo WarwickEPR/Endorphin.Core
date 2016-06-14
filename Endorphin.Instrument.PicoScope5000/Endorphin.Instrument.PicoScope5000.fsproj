@@ -57,22 +57,33 @@
     <Compile Include="NativeApi.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="ChannelSettings.fs" />
     <Compile Include="Quantities.fs" />
     <Compile Include="Device.fs" />
-    <Compile Include="ChannelSettings.fs" />
     <Compile Include="TriggerSettings.fs" />
+    <Compile Include="SignalGenerator.fs" />
     <Compile Include="Inputs.fs" />
+    <Compile Include="Async.fs" />
     <Compile Include="PicoScope.fs" />
-    <Compile Include="Streaming.fs" />
-    <None Include="Demo.fsx" />
+    <Compile Include="Parameters.fs" />
+    <Compile Include="AcquisitionCommon.fs" />
+    <Compile Include="BufferAgent.fs" />
+    <Compile Include="Acquisition.fs" />
+    <Compile Include="Signal.fs" />
+    <None Include="StreamingDemo.fsx" />
+    <None Include="NVSpectrometer.fsx" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
+    <None Include="Common.fsx" />
+    <None Include="SimpleBlock.fsx" />
+    <None Include="SimpleBlockChart.fsx" />
+    <None Include="SimpleStreaming.fsx" />
+    <None Include="SimpleStreamingChart.fsx" />
+    <None Include="SimpleRapidBlock.fsx" />
+    <None Include="SimpleRapidBlockChart.fsx" />
+    <None Include="DownsampledRapidBlock.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="ExtCore">
-      <HintPath>..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="FSharp.Control.Reactive">
       <HintPath>..\packages\FSharp.Control.Reactive.3.2.0\lib\net40\FSharp.Control.Reactive.dll</HintPath>
       <Private>True</Private>

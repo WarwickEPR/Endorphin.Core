@@ -1,6 +1,8 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
-open ExtCore.Control
+namespace Endorphin.Instrument.Keysight
+
+open Endorphin.Core
 open Source
 
 module Modulation =
@@ -32,7 +34,7 @@ module Modulation =
             match String.toUpper str with
             | "LIN" | "LINEAR" -> LinearType
             | "EXP" | "EXPONENTIAL" -> ExponentialType
-            | str -> failwithf "Unexpected depth type: %s" str
+            | str -> raise << UnexpectedReplyException <| sprintf "Unexpected depth type: %s" str
 
         /// Convert the internal representation of the depth type into the machine
         /// representation.
@@ -135,17 +137,17 @@ module Modulation =
         /// functions.
         let defaultFunctionSettings = {
             Shape = Sine
-            Frequency = FrequencyInHz 1.0e3<Hz>
-            PhaseOffset = PhaseInRad 0.0<rad> }
+            Frequency = Frequency_Hz 1.0e3<Hz>
+            PhaseOffset = Phase_rad 0.0<rad> }
         /// Change the shape of the given settings to match the new value.
         let withShape shape (settings : FunctionSettings) = { settings with Shape = shape }
         /// Change the frequency (in Hz) of the given settings to match the new value.
         let withFrequencyInHz frequency (settings : FunctionSettings) =
-            { settings with Frequency = FrequencyInHz frequency }
+            { settings with Frequency = Frequency_Hz frequency }
         /// Change the phase offset (in radians) of the given settings to match the
         /// new value.
         let withPhaseOffsetInRad phase (settings : FunctionSettings) =
-            { settings with PhaseOffset = PhaseInRad phase }
+            { settings with PhaseOffset = Phase_rad phase }
 
         /// Create a new sine-shaped function generator source with the given frequency in Hz.
         let internalSineSourceInHz frequency =
@@ -172,19 +174,21 @@ module Modulation =
             let duplicateSources  = settings |> List.map modulationSource |> List.duplicates
             // TODO: when PM is added, check that PM and FM paths are exclusive
             if not duplicateChannels.IsEmpty then
-                do! fail << sprintf "Repeated modulation channels: %s"
-                         << List.prettyPrint
-                         << List.map (fun channel -> modulationChannelString channel)
-                         <| duplicateChannels
+                do! Choice.fail << System.ArgumentException
+                                << sprintf "Repeated modulation channels: %s"
+                                << List.prettyPrint
+                                << List.map (fun channel -> modulationChannelString channel)
+                                <| duplicateChannels
             if not duplicateSources.IsEmpty then
-                do! fail << sprintf "Modulation sources used more than once: %s"
-                         << List.prettyPrint
-                         << List.map (sourceProvider >> sourceString)
-                         <| duplicateSources
-            return! succeed () }
+                do! Choice.fail << System.ArgumentException
+                                << sprintf "Modulation sources used more than once: %s"
+                                << List.prettyPrint
+                                << List.map (sourceProvider >> sourceString)
+                                <| duplicateSources
+            return! Choice.succeed () }
 
         /// Apply a given modulation to the machine.
-        let private applyModulation rfSource modulation = asyncChoice {
+        let private applyModulation rfSource modulation = async {
             printfn "applyModulation: %A" modulation
             match modulation with
             | AmplitudeModulation (path,settings,source) ->
@@ -202,8 +206,8 @@ module Modulation =
 
         /// Apply a list of modulation settings to the machine in order, after first
         /// verifying them.
-        let modulationSettings rfSource settings = asyncChoice {
-            do! verifyModulationSettings settings
+        let modulationSettings rfSource settings = async {
+            Choice.bindOrRaise <| verifyModulationSettings settings
             for modulation in settings do
                 printfn "About to apply modulation %A" modulation
                 do! applyModulation rfSource modulation }

@@ -1,4 +1,6 @@
-﻿namespace Endorphin.Instrument.PicoScope5000
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.PicoScope5000
 
 open System.Text
 open System.Runtime.InteropServices
@@ -109,7 +111,7 @@ module internal NativeApi =
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesBulk")>]
     /// This function retrieves waveforms captured using rapid block mode. The waveforms must have been collected sequentially and in the same run. 
     extern StatusCode GetValuesBulk(int16 handle, uint32& numberOfSamples, uint32 fromSegmentIndex, uint32 toSegmentIndex, uint32 downsamplingRatio,
-        DownsamplingModeEnum downsampling, int16& overflow)
+        DownsamplingModeEnum downsampling, int16[] overflow)
 
     [<DllImport(dllName, EntryPoint = "ps5000aGetValuesOverlapped")>]
     /// This function allows you to make a deferred data-collection request, which will later be executed, and the arguments validated, when you

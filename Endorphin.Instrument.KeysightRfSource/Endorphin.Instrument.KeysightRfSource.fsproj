@@ -55,31 +55,32 @@
     <Compile Include="Model.fs" />
     <Compile Include="InternalModel.fs" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="Hashing.fs" />
+    <Compile Include="Hash.fs" />
     <Compile Include="IO.fs" />
     <Compile Include="Basic.fs" />
     <Compile Include="Triggering.fs" />
     <Compile Include="Source.fs" />
+    <Compile Include="Power.fs" />
+    <Compile Include="IQ.fs" />
     <Compile Include="Modulation.fs" />
     <Compile Include="Sweep.fs" />
+    <Compile Include="Waveform.fs" />
     <Compile Include="ARB.fs" />
     <Compile Include="Experiment.fs" />
-    <Compile Include="Route.fs" />
+    <Compile Include="Routing.fs" />
     <Compile Include="Control.fs" />
     <Compile Include="RfSource.fs" />
     <None Include="Scripts\load-references.fsx" />
     <None Include="Scripts\load-project.fsx" />
+    <None Include="Scripts\load-references-debug.fsx" />
+    <None Include="Scripts\load-project-debug.fsx" />
     <None Include="WaveformDemo.fsx" />
-    <None Include="ExperimentDemo.fsx" />
+    <None Include="SpinEchoDecayDemo.fsx" />
     <None Include="Demo.fsx" />
     <None Include="app.config" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="ExtCore">
-      <HintPath>..\packages\ExtCore.0.8.45\lib\net45\ExtCore.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
       <Private>True</Private>
@@ -89,8 +90,6 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="NationalInstruments.Common, Version=13.0.40.190, Culture=neutral, PublicKeyToken=dc6ad606294fc298" />
-    <Reference Include="NationalInstruments.VisaNS, Version=13.0.45.167, Culture=neutral, PublicKeyToken=4febd62461bf11a4" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />

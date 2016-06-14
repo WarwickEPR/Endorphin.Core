@@ -1,11 +1,65 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
+
+namespace Endorphin.Instrument.Keysight
 
 open Endorphin.Core
-open ARB
-open Hashing
-open ExtCore.Control
 open Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 open System
+
+module Phase =
+    /// A phase for use when we don't care what the phase actually is.
+    let internal unused = Phase_rad 0.0<rad>
+
+    /// A phase cycle with no phases in it.
+    let empty = PhaseCycle Array.empty
+
+    /// Append a phase to a phase cycle. I and Q are equal at 0 phase, Q is maximum at 45.0<deg>.
+    let add phase (PhaseCycle cycle) =
+        let cycle' = Array.create (cycle.Length + 1) unused
+        cycle'.[0 .. cycle.Length - 1] <- cycle
+        cycle'.[cycle.Length]          <- phase
+        PhaseCycle cycle'
+
+    /// Append a sequence of phases to a phase cycle. I and Q are equal at 0 phase, Q is maximum
+    /// at 45.0<deg>.
+    let addSeq phases (PhaseCycle cycle) =
+        cycle
+        |> Array.append (Array.ofSeq phases)
+        |> PhaseCycle
+
+    /// Create a phase cycle containing the given sequence of phases.
+    let ofSeq phases = Array.ofSeq phases |> PhaseCycle
+
+    /// Creates a phase cycle containing a single phase.
+    let single phase = PhaseCycle [| phase |]
+
+module Pulse =
+    /// Create an RF pulse to an experiment with an increment each repetition.
+    let rfWithIncrement phases duration increment =
+        Rf (phases, SampleCount duration, SampleCount increment)
+
+    /// Create an RF pulse to an experiment with no increment.
+    let rf phases duration = rfWithIncrement phases duration 0u
+
+    /// Create a delay between pulses to the experiment, with an increment each repetition.
+    let delayWithIncrement duration increment =
+        Delay (SampleCount duration, SampleCount increment)
+
+    /// Create a single delay pulse to an experiment, the same length each repetition.
+    let delay duration = delayWithIncrement duration 0u
+
+    /// Create a marker pulse with set markers and an incremement each repetition to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let markerWithIncrement markers duration increment =
+        Marker (markers, SampleCount duration, SampleCount increment)
+
+    /// Create a marker pulse with set markers to an experiment, which is the same length each repetition.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let marker markers duration = markerWithIncrement markers duration 0u
+
+    /// Create a single-sample trigger pulse on the given markers to an experiment.
+    /// At least one marker must be left blank throughout for internal use by Endorphin.
+    let trigger markers = marker markers 1u
 
 module Experiment =
     /// Pre-computed coefficients for the FIR filter.
@@ -15,118 +69,32 @@ module Experiment =
     /// How many samples the FIR filter looks ahead when applying.
     let internal riseCount = Array.length riseCoefficients
 
-#if DEBUG
-    [<AutoOpen>]
-    module internal Print =
-        /// Depth of an indent.
-        let indentDepth = 4
+    /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
+    /// without affecting the timings of pulses.
+    let minimumRfPulseSeparation = riseCount * 2 |> uint32
 
-        /// Get a string of the indent level.
-        let private getIndent indent = String.replicate indent " "
+    /// An experiment with no pulses, ready to be added to.
+    let create pulses = {
+        Pulses = pulses
+        Repetitions = 1
+        ShotRepetitionTime = Duration_sec 0.0<s>
+        ShotsPerPoint = 1us }
 
-        /// Pretty-print out a sample.
-        let printSample (indent : int) sample =
-            printf "%s(%6d; %6d; %d%d%d%d)"
-                (getIndent indent)
-                sample.I
-                sample.Q
-                (Convert.ToInt32 sample.Markers.M1)
-                (Convert.ToInt32 sample.Markers.M2)
-                (Convert.ToInt32 sample.Markers.M3)
-                (Convert.ToInt32 sample.Markers.M4)
+    /// Yield the same experiment, but with the given pulse sequence as its sequence.
+    let withPulseSeq pulses (experiment : Experiment) =
+        { experiment with Pulses = pulses }
 
-        /// Print out a (Sample * SampleCount) tuple.
-        let printSampleCount indent (smp, SampleCount count) =
-            printSample indent smp
-            printfn " * %d" count
+    /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment).
+    let withRepetitions reps (experiment : Experiment) =
+        { experiment with Repetitions = reps }
 
-        /// Pretty-print out a segment.
-        let printSegment indent segment =
-            segment.Samples |> Array.iter (printSampleCount indent)
+    /// Set the shot repetition time of the experiment.
+    let withShotRepetitionTime time (experiment : Experiment) =
+        { experiment with ShotRepetitionTime = Duration_sec time }
 
-        /// Pretty print a pending sequence.
-        let rec printPendingSequence indent segMap seqMap sequence =
-            let printEl = printPendingSequenceElement indent segMap seqMap
-            sequence |> List.iter printEl
-        and printPendingSequenceElement indent segMap seqMap = function
-            | (PendingSegment (SegmentId id), reps) ->
-                printfn "%s%s * %d" (getIndent indent) id reps
-                printSegment (indent + indentDepth) (Map.find id segMap)
-            | (PendingSequence (SequenceId id), reps) ->
-                printfn "%s%s * %d" (getIndent indent) id reps
-                printPendingSequence (indent + indentDepth) segMap seqMap (Map.find id seqMap)
-#endif
-
-    [<AutoOpen>]
-    module Configure =
-        /// The minimum spacing between two RF pulses, so that the low-pass filter has space to do its job
-        /// without affecting the timings of pulses.
-        let minimumRfPulseSeparation =
-            riseCount
-            |> (*) 2
-            |> uint32
-            |> SampleCount
-
-        /// An experiment with no pulses, ready to be added to.
-        let emptyExperiment = {
-            Pulses = Seq.empty
-            Repetitions = 1
-            ShotRepetitionTime = DurationInSec 0.0<s> }
-
-        /// A phase for use when we don't care what the phase actually is.
-        let internal noPhase = PhaseInRad 0.0<rad>
-
-        /// A phase cycle with no phases in it.
-        let emptyPhaseCycle = PhaseCycle Array.empty
-
-        /// Append a phase to a phase cycle.
-        let addPhase phase (PhaseCycle cycle) =
-            let cycle' = Array.create (cycle.Length + 1) noPhase
-            cycle'.[0 .. cycle.Length - 1] <- cycle
-            cycle'.[cycle.Length]          <- phase
-            PhaseCycle cycle'
-
-        /// Append a sequence of phases to a phase cycle.
-        let addPhaseSequence phases (PhaseCycle cycle) =
-            cycle
-            |> Array.append (Array.ofSeq phases)
-            |> PhaseCycle
-
-        /// Append a pulse to an experiment.
-        let private appendPulse pulse (experiment : Experiment) =
-            { experiment with Pulses = Seq.appendSingleton pulse experiment.Pulses }
-
-        /// Add an RF pulse to an experiment with an increment each repetition.
-        let addRfPulseWithIncrement phases duration increment =
-            appendPulse (Rf (phases, SampleCount duration, SampleCount increment))
-
-        /// Add an RF pulse to an experiment with no increment.
-        let addRfPulse phases duration = addRfPulseWithIncrement phases duration 0u
-
-        /// Add a delay between pulses to the experiment, with an increment each repetition.
-        let addDelayWithIncrement duration increment =
-            appendPulse (Delay (SampleCount duration, SampleCount increment))
-
-        /// Add a single delay pulse to an experiment, the same length each repetition.
-        let addDelay duration = addDelayWithIncrement duration 0u
-
-        /// Add a marker pulse with set markers and an incremement each repetition to an experiment.
-        let addMarkerPulseWithIncrement markers duration increment =
-            appendPulse (Marker (markers, SampleCount duration, SampleCount increment))
-
-        /// Add a marker pulse with set markers to an experiment, which is the same length each repetition.
-        let addMarkerPulse markers duration = addMarkerPulseWithIncrement markers duration 0u
-
-        /// Add a single-sample trigger pulse on the given markers to an experiment.
-        let addTrigger markers = addMarkerPulse markers 1u
-
-        /// Set the number of repetitions of the experiment (i.e. how many times to apply each increment.
-        let withRepetitions reps (experiment : Experiment) =
-            { experiment with Repetitions = reps }
-
-        /// Set the shot repetition time of the experiment.
-        let withShotRepetitionTime time (experiment : Experiment) =
-            { experiment with ShotRepetitionTime = DurationInSec time }
+    /// Set the number of shots per point.
+    let withShotsPerPoint shots (experiment : Experiment) =
+        { experiment with ShotsPerPoint = shots }
 
     /// Functions for translating human-readable experiment data into a machine-readable form.
     module internal Translate =
@@ -150,23 +118,43 @@ module Experiment =
 
             /// Check if a phase cycle has a non-zero length.
             let private nonZero length =
-                if length = 0 then
-                    fail "Phase cycle has no phases in it"
-                else
-                    succeed length
+                if length = 0 then invalidArg "Phase cycle" "Phase cycle has no phases in it"
+                else length
 
             /// Check that the length of all the phase cycles in a sequence of pulses are the same.
             /// If they are, then return that number.  If not, then return a failure.
-            let private checkPhaseCycles (pulses : List<Pulse>) = choice {
-                let! length =
+            let private checkPhaseCycles (pulses : List<Pulse>) =
+                let length =
                     pulses.Head
                     |> rfPulseCycleLength
                     |> nonZero
-                return!
-                    if List.exists (incorrectCycleLength length) pulses then
-                        fail "Not all phase cycles are the same length"
-                    else
-                        succeed length }
+                if List.exists (incorrectCycleLength length) pulses then
+                    invalidArg "Phase cycle list" "Not all phase cycles are the same length"
+                else length
+
+            /// Perform a Boolean OR on each field of the markers record, returning a record of the
+            /// result.
+            let private booleanOrMarkers a b = {
+                M1 = a.M1 || b.M1
+                M2 = a.M2 || b.M2
+                M3 = a.M3 || b.M3
+                M4 = a.M4 || b.M4 }
+
+            /// Check that the user has left us a marker channel to use as the RF blanking function.
+            /// Without one, the pulse lengths will do very strange things, or we'd be overwriting
+            /// something that the user specified.
+            let private checkRfBlankMarker (experiment : Experiment) =
+                let folder state = function
+                    | Marker (markers, _, _) -> booleanOrMarkers markers state
+                    | _ -> state
+                let markers = Seq.fold folder Markers.none experiment.Pulses
+                if markers.M1 && markers.M2 && markers.M3 && markers.M4 then
+                    invalidArg "Markers" "At least one marker channel must be blank throughout for internal use"
+                else
+                    if   not markers.M4 then RouteMarker4
+                    elif not markers.M3 then RouteMarker3
+                    elif not markers.M2 then RouteMarker2
+                    else                     RouteMarker1
 
             /// Convert a pulse into a VerifiedPulse type. The calling function is assumed to have
             /// actually done the verification.
@@ -179,26 +167,30 @@ module Experiment =
             /// as an option.
             let private countRfPhases (rfPulses : Pulse list) =
                 if rfPulses.Length = 0 then
-                    succeed None
+                    None
                 else
                     rfPulses
                     |> checkPhaseCycles
-                    |> Choice.liftInsideOption
+                    |> Some
 
             /// Convert a duration in seconds into a SampleCount.
-            let private shotRepetitionSampleCount (DurationInSec time) =
+            let private shotRepetitionSampleCount (Duration_sec time) =
                 if time < 0.0<s> then
-                    fail "Must have a non-negative shot repetition time!"
+                    invalidArg "Shot repetition time" "Must have a non-negative shot repetition time!"
                 else
-                    time / shortestPulseDuration
+                    time / ARB.shortestPulseDuration
                     |> uint32
                     |> SampleCount
-                    |> succeed
 
             /// Check that a valid number of repetitions of the experiment is set.
-            let private checkRepetitions experiment =
-                if experiment.Repetitions < 1 then fail "Must do the experiment at least once!"
-                else succeed ()
+            let private repetitions experiment =
+                if experiment.Repetitions < 1 then invalidArg "Repetitions" "Must do the experiment at least once!"
+                else ()
+
+            /// Check that the number of shots per point is valid.
+            let private shotsPerPoint (experiment : Experiment) =
+                if experiment.ShotsPerPoint = 0us then invalidArg "Shots per point" "Must have at least 1 shot per point!"
+                else ()
 
             /// Get the duration of a pulse.
             let private pulseLength = function
@@ -208,29 +200,27 @@ module Experiment =
 
             /// Check that the total minimum length of the experiment is longer than the shortest
             /// allowable experiment.
-            let private checkMinimumLength (experiment : Experiment) = choice {
+            let private checkMinimumLength (experiment : Experiment) =
                 let length = Seq.sumBy pulseLength experiment.Pulses
-                return!
-                    if length < minimumSegmentLength then
-                        minimumSegmentLength
-                        |> sprintf "Experiment is shorter than the minimum length of %d samples"
-                        |> fail
-                    else
-                        succeed () }
+                if length < Segment.minimumLength then
+                    Segment.minimumLength
+                    |> sprintf "Experiment is shorter than the minimum length of %d samples"
+                    |> invalidArg "Pulse sequence"
+                else ()
 
             /// Check that RF pulses are more than a set distance apart, so the low pass filter will
             /// work.  We only need to check the first iteration of the experiment, since the pulses
             /// can only get longer (SampleCount is unsigned).
-            let private checkRfSpacing (experiment : Experiment) =
-                let minimum = extractSampleCount minimumRfPulseSeparation
+            let private rfSpacing (experiment : Experiment) =
+                let minimum = minimumRfPulseSeparation
                 let rec loop space = function
-                    | [] -> succeed ()
+                    | [] -> ()
                     | hd :: tl when isRfPulse hd ->
-                        let minimum = extractSampleCount minimumRfPulseSeparation
+                        let minimum = minimumRfPulseSeparation
                         if space < minimum then
                             minimum
                             |> sprintf "RF pulses must be at least %u samples apart for the low-pass filter."
-                            |> fail
+                            |> invalidArg "Pulse sequence"
                         else
                             loop 0u tl
                     | hd :: tl ->
@@ -267,39 +257,42 @@ module Experiment =
 
             /// Add the shot repetition time, and any necessary padding for the FIR filter onto the
             /// pulse sequence.
-            let private updateExperimentPulses (experiment : Experiment) = choice {
-                let! shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
+            let private updateExperimentPulses (experiment : Experiment) =
+                let shotRepetitionTime = shotRepetitionSampleCount experiment.ShotRepetitionTime
                 let pulses =
                     if shotRepetitionTime = SampleCount 0u then
                         experiment.Pulses
                     else
                         experiment.Pulses |> Seq.appendSingleton (Delay (shotRepetitionTime, SampleCount 0u))
                 let pulses' = pulses |> addSpaceForFir
-                return { experiment with Pulses = pulses' } }
+                { experiment with Pulses = pulses' }
 
             /// Convert an experiment into a VerifiedExperiment.
-            let private toVerifiedExperiment (experiment : Experiment) = choice {
+            let private toVerifiedExperiment (experiment : Experiment) =
                 let pulses = experiment.Pulses |> List.ofSeq
                 let rfPulses = pulses |> List.filter isRfPulse
-                let! rfPhaseCount = countRfPhases rfPulses
-                let! shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
-                return {
-                    Pulses = [ (pulses |> List.map toVerifiedPulse) ]
-                    Metadata =
-                    { ExperimentRepetitions = experiment.Repetitions
-                      PulseCount = pulses.Length
-                      RfPulseCount = rfPulses.Length
-                      RfPhaseCount = rfPhaseCount
-                      ShotRepetitionTime = shotRepCount } } }
+                let rfPhaseCount = countRfPhases rfPulses
+                let shotRepCount = shotRepetitionSampleCount experiment.ShotRepetitionTime
+                let rfBlankMarker = checkRfBlankMarker experiment
+                { Pulses = [ (pulses |> List.map toVerifiedPulse) ]
+                  Metadata =
+                  { ExperimentRepetitions = experiment.Repetitions
+                    PulseCount = pulses.Length
+                    RfPulseCount = rfPulses.Length
+                    RfPhaseCount = rfPhaseCount
+                    RfBlankMarker = rfBlankMarker
+                    ShotRepetitionTime = shotRepCount
+                    ShotsPerPoint = experiment.ShotsPerPoint }}
 
             /// Verify that the user-input experiment is valid and accumulate metadata.  Some examples
             /// of invalid experiments might be ones where phase cycles have different lengths.
-            let verify experiment = choice {
-                do! checkRepetitions experiment
-                do! checkRfSpacing experiment
-                let! experiment' = updateExperimentPulses experiment
-                do! checkMinimumLength experiment'
-                return! toVerifiedExperiment experiment' }
+            let verify experiment =
+                repetitions experiment
+                rfSpacing experiment
+                shotsPerPoint experiment
+                let experiment' = updateExperimentPulses experiment
+                checkMinimumLength experiment'
+                toVerifiedExperiment experiment'
 
         /// Functions for compiling experiments into a form which can be more easily compressed.
         [<AutoOpen>]
@@ -313,6 +306,14 @@ module Experiment =
                         let copy = List.map (List.map (mapi (i - 1))) list
                         loop (copy @ acc) (i - 1)
                 loop [] n
+
+            /// Choose the marker constructor function which applies the RF blanking marker to record of
+            /// markers.
+            let private addRfBlankMarkerToMarkers = function
+                | RouteMarker1 -> Markers.withMarker1 true
+                | RouteMarker2 -> Markers.withMarker2 true
+                | RouteMarker3 -> Markers.withMarker3 true
+                | RouteMarker4 -> Markers.withMarker4 true
 
             /// For each rf pulse, turn its PhaseCycle into a length 1 list including only the correct
             /// phase for that iteration of the sequence.
@@ -384,20 +385,17 @@ module Experiment =
                 |> pulseSequence
                 |> List.map (List.map toStaticPulse)
 
-            /// A set of markers all turned off.
-            let private noMarkers = { M1 = false; M2 = false; M3 = false; M4 = false }
-
             /// Expand a static pulse into a sample and a count of how many repetitions that sample has.
-            let private expandStaticPulse pulse =
+            let private expandStaticPulse addRfBlank pulse =
                 let (amplitude, phase, markers, duration) =
                     match pulse with
-                    | StaticRf (phase, dur)       -> (1.0, phase,   noMarkers, dur)
-                    | StaticDelay (dur)           -> (0.0, noPhase, noMarkers, dur)
-                    | StaticMarker (markers, dur) -> (0.0, noPhase, markers, dur)
+                    | StaticRf (phase, dur)       -> (1.0, phase,        Markers.none |> addRfBlank, dur)
+                    | StaticDelay (dur)           -> (0.0, Phase.unused, Markers.none,               dur)
+                    | StaticMarker (markers, dur) -> (0.0, Phase.unused, markers,                     dur)
                 let sample =
-                    defaultIqSample
-                    |> withAmplitudeAndPhase amplitude phase
-                    |> withMarkers markers
+                    Sample.empty
+                    |> Sample.withAmplitudeAndPhase amplitude phase
+                    |> Sample.withMarkers markers
                 (sample, duration)
 
             /// Count how many samples must be played until I or Q is next set to a non-zero value.
@@ -437,8 +435,8 @@ module Experiment =
             let private updateSampleFir i q indexer idx (sample, dur) =
                 let sample' =
                     sample
-                    |> withI (int16 (float i * riseCoefficients.[indexer idx]))
-                    |> withQ (int16 (float q * riseCoefficients.[indexer idx]))
+                    |> Sample.withI (int16 (float i * riseCoefficients.[indexer idx]))
+                    |> Sample.withQ (int16 (float q * riseCoefficients.[indexer idx]))
                 (sample', dur)
 
             /// Apply the necessary FIR filter to a list of samples.
@@ -499,7 +497,7 @@ module Experiment =
             let private addDurations (_, SampleCount one) (_, SampleCount two) = SampleCount (one + two)
 
             /// Check whether two samples are equal by comparing their hashes.
-            let private equalSamples a b = (hexHash sampleToBytes a) = (hexHash sampleToBytes b)
+            let private equalSamples a b = Sample.hash a = Sample.hash b
 
             /// Given a list of samples and their durations, group any adjaacent samples which are
             /// equal and update the durations accordingly.
@@ -514,9 +512,9 @@ module Experiment =
                 |> List.rev
 
             /// Convert a list of static pulses into a list of samples.
-            let private toSamples rfCount pulses =
+            let private toSamples rfCount rfBlankMarker pulses =
                 pulses
-                |> List.map expandStaticPulse
+                |> List.map (expandStaticPulse (addRfBlankMarkerToMarkers rfBlankMarker))
                 |> firFilter rfCount
                 |> groupEqualSamples
 
@@ -533,7 +531,7 @@ module Experiment =
             let compile experiment =
                 experiment
                 |> toStaticPulses
-                |> List.map (toSamples experiment.Metadata.RfPulseCount)
+                |> List.map (toSamples experiment.Metadata.RfPulseCount experiment.Metadata.RfBlankMarker)
                 |> List.map toCompiledPoints
                 |> (fun points -> { ExperimentPoints = points; Metadata = experiment.Metadata })
 
@@ -544,7 +542,7 @@ module Experiment =
             let private emptyCompressedExperiment metadata = {
                 Segments = Map.empty
                 Sequences = Map.empty
-                CompressedExperiments = List.empty
+                CompressedPoints = List.empty
                 Metadata = metadata }
 
             /// Get the quotient and remainder of how many times an integer may be divided by the
@@ -554,14 +552,14 @@ module Experiment =
 
             /// Split an `int` SampleCount into parts of uint16, constructing enough sequence elements
             /// along the way to make up a whole integer.
-            let private listToPrepend construct id curCount newCount =
+            let private listToPrepend id curCount newCount =
                 let (quotient, remainder) = intByUint16 newCount
-                let maxReps = [ for _ in 1 .. quotient -> (construct id, UInt16.MaxValue) ]
+                let maxReps = [ for _ in 1 .. quotient -> (id, UInt16.MaxValue) ]
                 let overflow =
                     if int curCount + int remainder < int UInt16.MaxValue then
-                        [ (construct id, curCount + remainder) ]
+                        [ (id, curCount + remainder) ]
                     else
-                        [ (construct id, curCount); (construct id, remainder) ]
+                        [ (id, curCount); (id, remainder) ]
                 overflow @ maxReps
 
             /// Attempt to take "count" number of samples from the next repetition of samples in a
@@ -587,9 +585,11 @@ module Experiment =
             let private splitCompiledExperiment count reps compiled =
                 let rec loop acc input = function
                     | 0u ->
-                        let segment = { Samples = Array.ofList <| List.rev acc; Length = (uint16 count) }
-                        let id = hexHash segmentToBytes segment
-                        ({ Element = (PendingSegment (SegmentId id), uint16 reps)
+                        let segment =
+                            { SegmentSamples = Array.ofList <| List.rev acc
+                              SegmentLength  = (uint16 count) }
+                        let id = Segment.hash segment
+                        ({ Element = (SegmentId id, uint16 reps)
                            Segments = Map.add id segment Map.empty
                            Sequences = Map.empty },
                          { CompiledData = input
@@ -602,19 +602,19 @@ module Experiment =
 
             /// Choose how many points to take to make up the next CompressedElement.
             let private chooseNextLength compiled =
-                if compiled.CompiledLength > minimumSegmentLength
-                   && compiled.CompiledLength < (minimumSegmentLength * 2u)
+                if compiled.CompiledLength > Segment.minimumLength
+                   && compiled.CompiledLength < (Segment.minimumLength * 2u)
                 then
                     (compiled.CompiledLength, 1u)
                 else
                     let nextLength = nextSampleCount compiled.CompiledData
-                    let reps = nextLength / minimumSegmentLength
+                    let reps = nextLength / Segment.minimumLength
                     if reps <= 1u then
-                        (minimumSegmentLength, 1u)
-                    elif compiled.CompiledLength < (minimumSegmentLength * (reps + 1u)) then
-                        (minimumSegmentLength, (reps - 1u))
+                        (Segment.minimumLength, 1u)
+                    elif compiled.CompiledLength < (Segment.minimumLength * (reps + 1u)) then
+                        (Segment.minimumLength, (reps - 1u))
                     else
-                        (minimumSegmentLength, reps)
+                        (Segment.minimumLength, reps)
 
             /// Split a CompiledExperiment into a next CompressedElement, and an accordingly shortened
             /// CompiledExperiment.
@@ -623,51 +623,45 @@ module Experiment =
                 splitCompiledExperiment count reps compiled
 
             /// Get the string of an id from an element.
-            let elementId (el, _) =
-                match el with
-                | PendingSegment (SegmentId id) -> id
-                | PendingSequence (SequenceId id) -> id
+            let elementId = fst >> waveformIdString
+
+            /// Extract a sequence from a sequence type.
+            let extractSequence (SequenceType sequence) = sequence
 
             /// Find the most recent id - during the compression, the most recent one is
             /// first in the list, since the list is built up in reverse order.
-            let private lastId experiment =
-                match List.tryHead experiment with
+            let private lastId list =
+                match List.tryHead list with
                 | None -> None
                 | Some s ->
-                    match List.tryHead s with
+                    match List.tryHead <| extractSequence s with
                     | None -> None
                     | Some el -> Some (elementId el)
 
             /// Increase the number of reps on the last segment in a CompressedExperiment.
             let private increaseLastReps compressed reps =
-                let (curExperiment, tailExperiments) =
-                    match compressed.CompressedExperiments with
+                let (SequenceType curExperiment, tailExperiments) =
+                    match compressed.CompressedPoints with
                     | hd :: tl -> (hd, tl)
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
                 let curExperiment' =
                     match curExperiment with
-                    | (PendingSegment id, count) :: tail ->
-                        (listToPrepend PendingSegment id count (int reps)) @ tail
-                    | (PendingSequence id, count) :: tail ->
-                        (listToPrepend PendingSequence id count (int reps)) @ tail
+                    | (id, count) :: tail ->
+                        (listToPrepend id count (int reps)) @ tail
                     | _ -> failwith "Tried to increase the repetitions of a null sequence element!"
-                { compressed with CompressedExperiments = (curExperiment' :: tailExperiments) }
-
-            /// A joiner function for Map.join which just ignores clashes of keys, and returns the first
-            /// value passed to it.
-            let private ignoreKeyClash (_ : 'Key) (value : 'T) (_ : 'T) = value
+                { compressed with CompressedPoints = (SequenceType curExperiment' :: tailExperiments) }
 
             /// Prepend a different segment onto the passed compressed experiment.
             // Map.add is safe even if the segment already exists because it just doesn't do
             // anything in that case.
             let private consDifferentElement (compressed : CompressedExperiment) (element : CompressedElement) =
-                let experiments =
-                    match compressed.CompressedExperiments with
-                    | [] -> [[element.Element]]
-                    | hd :: tl -> (element.Element :: hd) :: tl
-                { Segments = Map.join ignoreKeyClash compressed.Segments element.Segments
-                  Sequences = Map.join ignoreKeyClash compressed.Sequences element.Sequences
-                  CompressedExperiments = experiments
+                let points =
+                    match compressed.CompressedPoints with
+                    | [] -> [ SequenceType [ element.Element ] ]
+                    | (SequenceType hd) :: tl -> (SequenceType (element.Element :: hd)) :: tl
+                { Segments = Map.union compressed.Segments element.Segments
+                  Sequences = Map.union compressed.Sequences element.Sequences
+                  CompressedPoints = points
                   Metadata = compressed.Metadata }
 
             /// Get the number of repetitions from the given PendingSequenceElement.
@@ -677,20 +671,23 @@ module Experiment =
             let private consToExperiment compressed element =
                 let id = elementId element.Element
                 let reps = elementReps element.Element
-                if Some id = lastId compressed.CompressedExperiments then
+                if Some id = lastId compressed.CompressedPoints then
                     increaseLastReps compressed reps
                 else
                     consDifferentElement compressed element
+
+            /// Reverse the order of a sequence.
+            let private reverseSequence (SequenceType sequence) = SequenceType <| List.rev sequence
 
             /// One step in the compression.
             let rec private compressionLoop output input =
                 match input.CompiledLength with
                 | 0u ->
                     let experiments =
-                        output.CompressedExperiments
-                        |> List.map List.rev
+                        output.CompressedPoints
+                        |> List.map reverseSequence
                         |> List.rev
-                    { output with CompressedExperiments = experiments }
+                    { output with CompressedPoints = experiments }
                 | _ ->
                     let (element, input') = splitCompiledAtNextElement input
                     let output' = consToExperiment output element
@@ -699,9 +696,9 @@ module Experiment =
             /// Join two compressed experiments into one by concatenating the experiment sequences
             /// and joining the maps.
             let private joinCompressedExperiments (acc : CompressedExperiment) (input : CompressedExperiment) =
-                { Segments = Map.join ignoreKeyClash acc.Segments input.Segments
-                  Sequences = Map.join ignoreKeyClash acc.Sequences input.Sequences
-                  CompressedExperiments = input.CompressedExperiments @ acc.CompressedExperiments
+                { Segments = Map.union acc.Segments input.Segments
+                  Sequences = Map.union acc.Sequences input.Sequences
+                  CompressedPoints = input.CompressedPoints @ acc.CompressedPoints
                   Metadata = acc.Metadata }
 
             /// Compress the experiment down using a basic 60-sample dictionary method.
@@ -709,7 +706,7 @@ module Experiment =
                 compiled.ExperimentPoints
                 |> List.map (compressionLoop (emptyCompressedExperiment compiled.Metadata))
                 |> List.reduce joinCompressedExperiments
-                |> (fun a -> { a with CompressedExperiments = List.rev a.CompressedExperiments })
+                |> (fun a -> { a with CompressedPoints = List.rev a.CompressedPoints })
 
         /// Internal functions for encoding experiments from the user-input form to the writeable
         /// machine form of repeatable files.
@@ -729,9 +726,10 @@ module Experiment =
 
             /// Create the name of an experiment to store in the machine and to use as an internal
             /// reference point.  Returns a SequenceId, because an experiment is just a sequence.
-            let internal makeExperimentName (compressed : PendingSequence) =
-                let byteCount = elementByteCount compressed.Head
-                let arrLength = compressed.Length * byteCount
+            let internal makeExperimentName sequence =
+                let waveforms = Sequence.waveforms sequence
+                let byteCount = elementByteCount waveforms.Head
+                let arrLength = waveforms.Length * byteCount
                 let array = Array.create arrLength 0uy
                 let rec loop n = function
                     | [] -> array
@@ -739,68 +737,42 @@ module Experiment =
                         let elementArray = elementToByteArray el
                         for i in 0 .. (byteCount - 1) do array.[n * byteCount + i] <- elementArray.[i]
                         loop (n + 1) tail
-                compressed
-                |> hexHash (loop 0)
-                |> SequenceId
+                Hash.bytes <| loop 0 waveforms
 
             /// Convert a compressed experiment into an encoded one suitable for writing
             /// to the machine.
             let private encode (compressed : CompressedExperiment) =
-                let segments =
-                    compressed.Segments
-                    |> Map.toList
-                    |> List.map (fun (str, seg) -> (SegmentId str, seg))
-                let sequences =
-                    compressed.Sequences
-                    |> Map.toList
-                    |> List.map (fun (str, sqn) -> (SequenceId str, sqn))
-                let experiments =
-                    compressed.CompressedExperiments
+                let segments = compressed.Segments |> Map.toList
+                let sequences = compressed.Sequences |> Map.toList
+                let points =
+                    compressed.CompressedPoints
                     |> List.map makeExperimentName
-                    |> (fun a -> List.zip a compressed.CompressedExperiments)
+                    |> (fun a -> List.zip a compressed.CompressedPoints)
+                let experiment =
+                    points
+                    |> List.map (fst >> SequenceId)
+                    |> List.map (fun a -> (a, compressed.Metadata.ShotsPerPoint))
+                    |> SequenceType
+                    |> (fun a -> (makeExperimentName a, a))
                 { Segments = segments
                   Sequences = sequences
-                  Experiments = experiments
+                  Points = points
+                  Experiment = experiment
                   Metadata = compressed.Metadata }
 
             /// Encode an experiment into a writeable form.
-            let toEncodedExperiment experiment = choice {
-                let! verified = experiment |> verify
-                return
-                    verified
-                    |> compile
-                    |> compress
-                    |> encode }
-
-            /// Convert a pending sequence element to a regular sequence element.  Should not be
-            /// exposed to users because it's quite unsafe - we assume that the caller will be
-            /// storing all of the dependencies at the same time.
-            let private toRegularSequenceElement (el, reps) =
-                match el with
-                | PendingSegment  s -> (StoredSegment  s, reps)
-                | PendingSequence s -> (StoredSequence s, reps)
-
-            /// Convert a pending sequence element to a regular sequence element.  Should not be
-            /// exposed to users because it's quite unsafe - we assume that the caller will be
-            /// storing all of the dependencies at the same time.
-            let toRegularSequence pending : Sequence =
-                pending |> List.map toRegularSequenceElement
+            let toEncodedExperiment = verify >> compile >> compress >> encode
 
 #if DEBUG
         /// Debugging functions for printing out experiments after they've been compiled.
         [<AutoOpen>]
-        module PrintTotal =
+        module Print =
+            open ARB.Print
             /// Get a compiled experiment.
-            let toCompiledExperiment experiment = asyncChoice {
-                let! verified = verify experiment
-                return verified |> compile }
+            let toCompiledExperiment = verify >> compile
 
             /// Get a compressed experiment.
-            let toCompressedExperiment experiment = asyncChoice {
-                let! verified = verify experiment
-                return verified
-                    |> compile
-                    |> compress }
+            let toCompressedExperiment = verify >> compile >> compress
 
             /// Pretty-print out a compiled experiment.
             let printCompiledExperiment (compiled : CompiledExperiment) =
@@ -810,7 +782,7 @@ module Experiment =
             /// Pretty-print out a compressed experiment.
             let printCompressedExperiment (compressed : CompressedExperiment) =
                 let helper item =
-                    printfn "\n%s" ((makeExperimentName item) |> (fun (SequenceId id) -> id))
-                    printPendingSequence indentDepth compressed.Segments compressed.Sequences item
-                List.iter helper compressed.CompressedExperiments
+                    printfn "\n%s" (makeExperimentName item)
+                    printSequence indentDepth compressed.Segments compressed.Sequences item
+                List.iter helper compressed.CompressedPoints
 #endif

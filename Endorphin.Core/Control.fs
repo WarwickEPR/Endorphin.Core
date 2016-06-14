@@ -1,98 +1,129 @@
-﻿namespace ExtCore.Control
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
-[<AutoOpen>]
-module ErrorHandling =
-    /// Wraps a value as a success represented by a Choice<'T, 'Error>.
-    let succeed = Choice1Of2
-    /// Wraps a value as a failure represented by a Choice<'T, 'Error>.
-    let fail = Choice2Of2
+namespace Endorphin.Core
 
-    /// Conventional definition for pattern-matching Choice<'T, 'Error> as Success or Failure.
-    let (|Success|Failure|) =
-        function
-        | Choice1Of2 s -> Success s
-        | Choice2Of2 f -> Failure f
-
-    /// A handle to a capability to reply to a PostAndReply message with either success or failure.
-    type AsyncChoiceReplyChannel<'T, 'Error> = AsyncReplyChannel<Choice<'T, 'Error>>
-
-    // Extensions to AsyncChoice builder which bind and return from Choice<'T, 'Error> and Async<'T> values.
-    type AsyncChoiceBuilder with
-
-        /// Binds an expression of type Choice<'T, 'Error>.
-        member __.Bind (choice : Choice<'T, 'Error>, binder : 'T -> AsyncChoice<'U, 'Error>) =
-            async {
-                match choice with
-                | Success s -> return! binder s
-                | Failure f -> return fail f }
-
-        /// Returns from an expression of type Choice<'T, 'Error>.
-        member __.ReturnFrom (choice : Choice<'T, 'Error>) =
-            choice |> async.Return
-
-module Choice =
-    /// Make a Choice<'a,'b> into a Choice<'a option,'b>.
-    let liftInsideOption = function
-        | Success s -> succeed (Some s)
-        | Failure f -> fail f
-
-    /// Map a list, where each mapping results in a choice, binding the result of each mapping.
-    let mapList map list =
-        let rec loop acc list = choice {
-            match list with
-            | [] -> return List.rev acc
-            | hd :: tl ->
-                let! hd' = map hd
-                return! loop (hd' :: acc) tl }
-        loop [] list
+open System
+open System.Threading
 
 [<AutoOpen>]
 module Utils =
     let defer f = { new System.IDisposable with member __.Dispose() = f () }
 
-module AsyncChoice =
-    let liftAsync comp = comp |> Async.map succeed
-    let liftChoice (choice : Choice<'a, 'b>) = choice |> async.Return
-    let guard cond err = if cond then succeed () else fail err   
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Async =
+    /// Apply a mapping function inside an async workflow.
+    let map mapping workflow = async {
+        let! result = workflow
+        return mapping result }
 
-    /// Ignore any success value from an AsyncChoice workflow, but still propagate the failure
-    let ignore input = async {
-        let! choice = input
-        return
-            match choice with
-            | Success s -> succeed ()
-            | Failure f -> fail f }
+    /// Apply a mapping function which takes two async workflows and returns a new one.
+    let map2 mapping workflow1 workflow2 = async {
+        let! result1 = workflow1
+        let! result2 = workflow2
+        return mapping result1 result2 }
 
-    /// Build a new AsyncChoice workflow whose Choice1Of2 is the result of apply the mapping function
-    /// to the Choice1Of2 values of the two passed workflows, propagating any failures if necessary.
-    let map2 (mapping : 'A -> 'B -> 'C) a b : AsyncChoice<'C, 'Error> = asyncChoice {
-        let! a' = a
-        let! b' = b
-        return mapping a' b' }
+[<AutoOpen>]
+module AsyncExtensions =
+    /// A single-fire result channel which can be used to await a result asynchronously.
+    type ResultChannel<'T>() =               
+        let mutable result = None   // result is None until one is registered
+        let mutable savedConts = [] // list of continuations which will be applied to the result
+        let syncRoot = new obj()    // all writes of result are protected by a lock on syncRoot
 
-    /// Fold an array of Choice<'T, 'Error> into a single Choice<'T [], 'EState>, depending on a
-    /// folding function to fold the errors into the desried form.
-    let private foldChoices (folder : 'EState -> 'Error -> 'EState)
-                            (state  : 'EState)
-                            (arr    : Choice<'T, 'Error> [])
-                            : Choice<'T [], 'EState> =
-        let rec loop (arr : Choice<_,_> []) index typeacc erroracc =
-            if index = arr.Length then
-                if erroracc = state then
-                    succeed typeacc
-                else
-                    fail erroracc
+        /// Record the result, starting any registered continuations.
+        member channel.RegisterResult (res : 'T) =
+            let grabbedConts = // grab saved continuations and register the result
+                lock syncRoot (fun () ->
+                    if channel.ResultAvailable then // if a result is already saved the raise an error
+                        failwith "Multiple results registered for result channel."
+                    else // otherwise save the result and return the saved continuations
+                        result <- Some res
+                        List.rev savedConts)
 
-            else
-                match arr.[index] with
-                | Success s -> loop arr (index+1) (Array.append typeacc [|s|]) erroracc
-                | Failure f -> loop arr (index+1) typeacc (folder erroracc f)
-        loop arr 0 [||] state
+            // run all the grabbed continuations with the provided result
+            grabbedConts |> List.iter (fun cont -> cont res)
 
-    /// Compose a sequence of AsyncChoice workflows into a single workflow which runs all of them in
-    /// parallel, and folds the errors into a single one using a fold function and an initial state.
-    let Parallel state (fold : 'EState -> 'Error -> 'EState) (sequence : AsyncChoice<'T, 'Error> seq)
-                 : AsyncChoice<'T [], 'EState> =
-        async {
-            let! sequence' = sequence |> Async.Parallel
-            return foldChoices fold state sequence' }
+        /// Check if a result has been registered with the channel.
+        member channel.ResultAvailable = result.IsSome
+
+        /// Wait for a result to be registered on the channel asynchronously.
+        member channel.AwaitResult () = async {
+            let! ct = Async.CancellationToken // capture the current cancellation token
+        
+            // create a flag which indicates whether a continuation has been called (either cancellation
+            // or success, and protect access under a lock; the performCont function sets the flag to true
+            // if it wasn't already set and returns a boolen indicating whether a continuation should run
+            let performCont = 
+                let mutable continued = false
+                let localSync = obj()
+                (fun () ->
+                    lock localSync (fun () ->
+                        if not continued 
+                        then continued <- true ; true
+                        else false))
+        
+            // wait for a result to be registered or cancellation to occur asynchronously
+            return! Async.FromContinuations(fun (cont, _, ccont) ->
+                let resOpt = 
+                    lock syncRoot (fun () ->
+                        match result with
+                        | Some _ -> result // if a result is already set, capture it
+                        | None   ->
+                            // otherwise register a cancellation continuation and add the success continuation
+                            // to the saved continuations
+                            let reg = ct.Register(fun () -> 
+                                if performCont () then 
+                                    ccont (new System.OperationCanceledException("The operation was canceled.")))
+                                
+                            let cont' = (fun res ->
+                                // modify the continuation to first check if cancellation has already been
+                                // performed and if not, also dispose the cancellation registration
+                                if performCont () then
+                                    reg.Dispose()
+                                    cont res)
+                            savedConts <- cont' :: savedConts
+                            None)
+
+                // if a result already exists, then call the result continuation outside the lock
+                match resOpt with
+                | Some res -> cont res
+                | None     -> ()) }
+
+    type Async<'T> with
+        static member AwaitObservable (obs:IObservable<'T>) =
+          async {
+              let! token = Async.CancellationToken // capture the current cancellation token
+              
+              return! Async.FromContinuations(fun (cont, econt, ccont) ->
+                  Async.Start <| async { 
+                      // create a result channel to capture the result when one occurs
+                      let resultChannel = new ResultChannel<_>()
+                      let resultRegistered = ref false
+                      
+                      // define a helper function to ensure that only one result is posted to the channel
+                      let registerResult r =
+                          lock resultChannel (fun () -> 
+                              if not !resultRegistered then
+                                  resultChannel.RegisterResult r
+                                  resultRegistered := true)
+
+                      // register a callback with the cancellation token which posts a cancellation message
+                      use __ = token.Register(fun _ ->
+                          registerResult (Choice3Of3 (new OperationCanceledException("The operation was cancelled."))))
+
+                      // subscribe to the observable and post the appropriate result to the result channel
+                      // when the next notification occurs
+                      use __ = 
+                          obs.Subscribe ({ new IObserver<'T> with
+                              member __.OnNext x = registerResult (Choice1Of3 x)
+                              member __.OnError exn = registerResult (Choice2Of3 exn)
+                              member __.OnCompleted () = 
+                                  let msg = "Cancelling workflow, because the observable awaited using AwaitObservable has completed."
+                                  registerResult (Choice3Of3 (new OperationCanceledException(msg))) })
+              
+                      // wait for the first of these messages and call the appropriate continuation function
+                      let! result = resultChannel.AwaitResult()
+                      match result with
+                      | Choice1Of3 x   -> cont x
+                      | Choice2Of3 exn -> econt exn
+                      | Choice3Of3 exn -> ccont exn }) }

@@ -1,6 +1,8 @@
-﻿namespace Endorphin.Instrument.Keysight
+// Copyright (c) University of Warwick. All Rights Reserved. Licensed under the Apache License, Version 2.0. See LICENSE.txt in the project root for license information.
 
-open ExtCore.Control
+namespace Endorphin.Instrument.Keysight
+
+open Endorphin.Core
 
 module Triggering =
     module internal Translate =
@@ -11,7 +13,8 @@ module Triggering =
             | "TRIG1" | "TRIGGER1" -> Trigger1
             | "TRIG2" | "TRIGGER2" -> Trigger2
             | "PULS" | "PULSE"     -> Pulse
-            | _                    -> failwithf "Unexpected external trigger source string: %s" str
+            | _                    -> raise << UnexpectedReplyException
+                                      <| sprintf "Unexpected external trigger source string: %s" str
 
         /// Convert an internal representation of an external trigger source to a machine
         /// representation.
@@ -26,7 +29,8 @@ module Triggering =
             match String.toUpper str with
             | "PVID" | "PVIDEO" -> PulseVideo
             | "PSYN" | "PSYNC"  -> PulseSync
-            | _                 -> failwithf "Unexpected trigger source string: %s" str
+            | _                 -> raise << UnexpectedReplyException
+                                   <| sprintf "Unexpected trigger source string: %s" str
 
         /// Convert an internal representation of an internal trigger source to a machine
         /// representation.
@@ -43,7 +47,8 @@ module Triggering =
             | "EXT" | "EXTERNAL"  -> ExternalType
             | "INT" | "INTERNAL"  -> InternalType
             | "TIM" | "TIMER"     -> TimerType
-            | _                   -> failwithf "Unexpected trigger source type string: %s." str
+            | _                   -> raise << UnexpectedReplyException
+                                     <| sprintf "Unexpected trigger source type string: %s." str
 
         /// Convert an internal representation of a trigger source into a machine representation.
         let triggerSourceTypeString = function
@@ -104,7 +109,7 @@ module Triggering =
 
         /// Set the trigger source of the machine, given a type of trigger and a value to set
         /// the source to.
-        let setTriggerSource trigger rfSource triggerSource = asyncChoice {
+        let setTriggerSource trigger rfSource triggerSource = async {
             match triggerSource with
             | Immediate  -> do! setSourceType trigger rfSource ImmediateType
             | TriggerKey -> do! setSourceType trigger rfSource TriggerKeyType
