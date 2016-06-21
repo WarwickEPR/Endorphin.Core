@@ -59,7 +59,6 @@
     <Compile Include="Collections.fs" />
     <Compile Include="String.fs" />
     <Compile Include="Byte.fs" />
-    <Compile Include="Units.fs" />
     <Compile Include="VisaAgent.fs" />
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="CRC.fs" />
@@ -92,6 +91,13 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Endorphin.Utilities\Endorphin.Utilities.fsproj">
+      <Name>Endorphin.Utilities</Name>
+      <Project>{6479441b-b48a-4433-8e74-2a087d01e558}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
