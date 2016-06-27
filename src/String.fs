@@ -32,10 +32,10 @@ module String =
     /// Convert a string to lower case.
     let toLower (str : string) = str.ToLower ()
 
-    /// Parses each comma-separated substring in a string using the provided parsing function and 
+    /// Parses each comma-separated substring in a string using the provided parsing function and
     /// returns the elements.
     let parseCsvSeq  parseFunc (str : string) = str.Split [|','|] |> Seq.map parseFunc
-    
+
     /// Returns a comma-separated string, consisiting of the elements of the provided sequence
     /// mapped onto the provided string conversion function.
     let csvSeqString stringFunc = Seq.map stringFunc   >> String.concat ","
@@ -45,5 +45,5 @@ module String =
         let hex = new StringBuilder((Array.length bytes) * 2)
         for byte in bytes do
             hex.AppendFormat("{0:x2}", byte) |> ignore
-        
+
         hex.ToString()

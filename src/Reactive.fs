@@ -7,7 +7,7 @@ open System.Reactive.Linq
 
 /// Helper functions for manipulating creating and manipulating a ring buffer.
 module internal RingBuffer =
-    type RingBuffer<'T> =   
+    type RingBuffer<'T> =
         { mutable StartIndex : int
           mutable FillCount  : int
           Data               : 'T array }
@@ -17,7 +17,7 @@ module internal RingBuffer =
         { StartIndex = 0
           FillCount = 0
           Data = Array.zeroCreate length }
-    
+
     /// Returns the first index of the first element in the ring buffer.
     let private startIndex buffer = buffer.StartIndex
 
@@ -36,7 +36,7 @@ module internal RingBuffer =
     /// Pushes the element to the buffer by mutating it and returns the buffer
     let push x buffer =
         buffer.Data.[(startIndex buffer + fillCount buffer) % (length buffer)] <- x
-        buffer.StartIndex <- 
+        buffer.StartIndex <-
             if isFilled buffer
             then startIndex buffer + 1
             else startIndex buffer
@@ -95,7 +95,7 @@ module ObservableHelpers =
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Observable =
-    
+
     /// Builds a new observable whose elements are the result of applying the given mapping to each
     /// element of the input observable and its zero-based integer index.
     let mapi mapping =
