@@ -47,7 +47,7 @@ module internal RingBuffer =
         buffer
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Event =
+module internal Event =
 
     /// Builds a new event whose elements are the result of applying the given mapping to each element
     /// in the source event and its zero-based integer index.
@@ -85,7 +85,7 @@ module Event =
         >> Event.map (fun (i, buffer) -> RingBuffer.enumerate buffer)
 
 [<AutoOpen>]
-module ObservableHelpers =
+module internal ObservableHelpers =
     type Notification<'T> =
         | Completed
         | Next of 'T
@@ -94,8 +94,7 @@ module ObservableHelpers =
     type NotificationEvent<'T> = Event<Notification<'T>>
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Observable =
-
+module internal Observable =
     /// Builds a new observable whose elements are the result of applying the given mapping to each
     /// element of the input observable and its zero-based integer index.
     let mapi mapping =

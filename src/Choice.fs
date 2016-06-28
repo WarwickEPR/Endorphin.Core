@@ -9,7 +9,7 @@ open System
 
 [<AutoOpen>]
 /// Functions for dealing with choices between success and failure states.
-module Choice =
+module internal Choice =
     [<RequireQualifiedAccess>]
     module Choice =
         /// Return a success state of the given value.

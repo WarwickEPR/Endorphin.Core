@@ -6,11 +6,11 @@ open System
 open System.Threading
 
 [<AutoOpen>]
-module Utils =
+module internal Utils =
     let defer f = { new System.IDisposable with member __.Dispose() = f () }
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Async =
+module internal Async =
     /// Apply a mapping function inside an async workflow.
     let map mapping workflow = async {
         let! result = workflow
@@ -23,7 +23,7 @@ module Async =
         return mapping result1 result2 }
 
 [<AutoOpen>]
-module AsyncExtensions =
+module internal AsyncExtensions =
     /// A single-fire result channel which can be used to await a result asynchronously.
     type ResultChannel<'T>() =
         let mutable result = None   // result is None until one is registered

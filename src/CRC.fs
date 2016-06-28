@@ -3,7 +3,7 @@
 namespace Endorphin.Core
 
 /// Functions for calculating the CRC-64 of arrays of bytes.
-module CRC =
+module internal CRC =
     /// Get the table entry for a given index in the 64-bit CRC lookup table of the
     /// given polynomial
     let private getCrc64TableEntry i polynomial =

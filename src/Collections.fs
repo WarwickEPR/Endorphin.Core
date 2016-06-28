@@ -3,7 +3,7 @@
 namespace Endorphin.Core
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module List =
+module internal List =
     let ofSet set = Set.toList set
 
     let duplicates list =
@@ -30,7 +30,7 @@ module List =
     let cons list value = value :: list
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Map =
+module internal Map =
     let findArray keys map = keys |> Array.map (fun key -> Map.find key map)
 
     /// Get a set of the keys in a map.
@@ -43,7 +43,7 @@ module Map =
     let union map1 map2 = Map.fold (fun map key value -> Map.add key value map) map2 map1
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Set =
+module internal Set =
     /// Extract the minimum value from a set.
     let extractMin set =
         let min = Set.minElement set
@@ -61,7 +61,7 @@ module Set =
 
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Seq =
+module internal Seq =
     /// Prepend a single value onto the front of a sequence.
     let prependSingleton (value : 'T) sequence = seq { yield value;     yield! sequence }
 

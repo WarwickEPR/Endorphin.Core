@@ -8,7 +8,7 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Collections
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module String =
+module internal String =
     /// Try and parse a string into the given type, returning an option.
     let inline tryParse< ^T when ^T : (static member TryParse : string * byref< ^T > -> bool) and ^T : (new : unit -> ^T)> valueToParse =
         let mutable output = new ^T ()
