@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>CommandRequestAgent - Endorphin.Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content=""/>
+    <meta name="author" content="University of Warwick EPR and Diamond group"/>
+
+    <script src="https://code.jquery.com/jquery-1.8.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.8.23/jquery-ui.js"></script>
+    <script src="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+    <link href="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet"/>
+
+    <link type="text/css" rel="stylesheet" href="/Endorphin.Core/content/style.css" />
+    <script type="text/javascript" src="/Endorphin.Core/content/tips.js"></script>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="container">
+      <div class="masthead">
+        <ul class="nav nav-pills pull-right">
+          <li><a href="http://fsharp.org">fsharp.org</a></li>
+          <li><a href="http://github.com/anton-pt/Endorphin.Core">github page</a></li>
+        </ul>
+        <h3 class="muted"><a href="/Endorphin.Core/index.html">Endorphin.Core</a></h3>
+      </div>
+      <hr />
+      <div class="row">
+        <div class="span9" id="main">
+          
+
+
+
+<h1>CommandRequestAgent</h1>
+<p>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-commandrequestagent.html">CommandRequestAgent</a></span>
+</p>
+<div class="xmldoc">
+<p>Functions for creating and interacting with a generic command/request agent with error
+handling used to serialise posted commands and requests which are defined by closures.</p>
+
+</div>
+
+<!-- Render nested types and modules, if there are any -->
+
+  <h3>Functions and values</h3>
+  <table class="table table-bordered member-list">
+    <thead>
+      <tr><td>Function or value</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '13', 13)" onmouseover="showTip(event, '13', 13)">
+            close(closeFunc arg2)
+          </code>
+          <div class="tip" id="13">
+            <strong>Signature:</strong> closeFunc:(&#39;?7262 -&gt; Choice&lt;unit,exn&gt;) -&gt; CommandRequestAgent&lt;&#39;?7262&gt; -&gt; Async&lt;unit&gt;<br />
+                          <strong>Type parameters:</strong> '?7262          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L147-147" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Shuts down the message-processing agent after calling the supplied closing function. The
+function may succeed or fail, and if failure occurs, the enclosed exception is raised.
+Furthermore, an exception will be raised if there are any remaining messages in the queue
+at this point.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '14', 14)" onmouseover="showTip(event, '14', 14)">
+            closeAsync(closeBuilder arg2)
+          </code>
+          <div class="tip" id="14">
+            <strong>Signature:</strong> closeBuilder:(&#39;?7264 -&gt; Async&lt;Choice&lt;unit,exn&gt;&gt;) -&gt; CommandRequestAgent&lt;&#39;?7264&gt; -&gt; Async&lt;unit&gt;<br />
+                          <strong>Type parameters:</strong> '?7264          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L152-152" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '15', 15)" onmouseover="showTip(event, '15', 15)">
+            create(nameFunc init)
+          </code>
+          <div class="tip" id="15">
+            <strong>Signature:</strong> nameFunc:(&#39;State -&gt; string) -&gt; init:(unit -&gt; Async&lt;Choice&lt;&#39;State,exn&gt;&gt;) -&gt; Async&lt;CommandRequestAgent&lt;&#39;State&gt;&gt;<br />
+                          <strong>Type parameters:</strong> 'State          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L51-51" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Asynchronously starts a new command/request agent with the given name (function of
+state, used for logging purposes) and initialisation workflow. The initialisation
+may fail, in which case this workflow will return failure. Furthermore, the
+processing of any given message may fail.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '16', 16)" onmouseover="showTip(event, '16', 16)">
+            performCommand(...)
+          </code>
+          <div class="tip" id="16">
+            <strong>Signature:</strong> description:string -&gt; commandFunc:(&#39;?7246 -&gt; Choice&lt;unit,exn&gt;) -&gt; CommandRequestAgent&lt;&#39;?7246&gt; -&gt; Async&lt;unit&gt;<br />
+                          <strong>Type parameters:</strong> '?7246          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L102-102" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Posts a command to the message queue which will be executed by calling the provided
+function. The command may succeed or fail, and if failure occurs, the enclosed
+exception is raised. The provided description is used for logging.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '17', 17)" onmouseover="showTip(event, '17', 17)">
+            performCommandAsync(...)
+          </code>
+          <div class="tip" id="17">
+            <strong>Signature:</strong> description:string -&gt; commandBuilder:(&#39;?7248 -&gt; Async&lt;Choice&lt;unit,exn&gt;&gt;) -&gt; CommandRequestAgent&lt;&#39;?7248&gt; -&gt; Async&lt;unit&gt;<br />
+                          <strong>Type parameters:</strong> '?7248          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L107-107" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '18', 18)" onmouseover="showTip(event, '18', 18)">
+            performObjectRequest(...)
+          </code>
+          <div class="tip" id="18">
+            <strong>Signature:</strong> description:string -&gt; requestFunc:(&#39;State -&gt; Choice&lt;&#39;Result,exn&gt;) -&gt; CommandRequestAgent&lt;&#39;State&gt; -&gt; Async&lt;&#39;Result&gt;<br />
+                          <strong>Type parameters:</strong> 'State, 'Result          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L115-115" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Posts a request to the message queue which will be executed by calling the provided
+function. The request may succeed or fail, and if failure occurs, the enclosed
+exception is raised. . If the request is successful, it returns an object type. The
+provided description is used for logging.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '19', 19)" onmouseover="showTip(event, '19', 19)">
+            performObjectRequestAsync(...)
+          </code>
+          <div class="tip" id="19">
+            <strong>Signature:</strong> description:string -&gt; requestBuilder:(&#39;State -&gt; Async&lt;Choice&lt;&#39;Result,exn&gt;&gt;) -&gt; CommandRequestAgent&lt;&#39;State&gt; -&gt; Async&lt;&#39;Result&gt;<br />
+                          <strong>Type parameters:</strong> 'State, 'Result          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L120-120" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '20', 20)" onmouseover="showTip(event, '20', 20)">
+            performValueRequest(...)
+          </code>
+          <div class="tip" id="20">
+            <strong>Signature:</strong> description:string -&gt; requestFunc:(&#39;State -&gt; Choice&lt;&#39;Result,exn&gt;) -&gt; CommandRequestAgent&lt;&#39;State&gt; -&gt; Async&lt;&#39;Result&gt;<br />
+                          <strong>Type parameters:</strong> 'State, 'Result          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L131-131" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Posts a request to the message queue which will be executed by calling the provided
+function. The request may succeed or fail, and if failure occurs, the enclosed
+exception is raised. If the request is successful, it returns a value type. The
+provided description is used for logging.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '21', 21)" onmouseover="showTip(event, '21', 21)">
+            performValueRequestAsync(...)
+          </code>
+          <div class="tip" id="21">
+            <strong>Signature:</strong> description:string -&gt; requestBuilder:(&#39;State -&gt; Async&lt;Choice&lt;&#39;Result,exn&gt;&gt;) -&gt; CommandRequestAgent&lt;&#39;State&gt; -&gt; Async&lt;&#39;Result&gt;<br />
+                          <strong>Type parameters:</strong> 'State, 'Result          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/anton-pt/Endorphin.Core/tree/master/src/Endorphin.Core/CommandRequestAgent.fs#L136-136" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+        </div>
+        <div class="span3">
+          <img src="/Endorphin.Core/img/logo.png" alt="F# Project" style="width:150px;margin:10px" />  
+          <ul class="nav nav-list" id="menu" style="margin-top: 20px;">
+            <li class="nav-header">Endorphin.Core</li>
+            <li><a href="/Endorphin.Core/index.html">Home page</a></li>
+            <li class="divider"></li>
+            <li><a href="http://nuget.org/packages/Endorphin.Core">Get Library via NuGet</a></li>
+            <li><a href="http://github.com/anton-pt/Endorphin.Core">Source Code on GitHub</a></li>
+            <li><a href="/Endorphin.Core/license.html">License</a></li>
+            <li><a href="/Endorphin.Core/release-notes.html">Release Notes</a></li>
+            
+            <li class="nav-header">Getting started</li>
+            <li><a href="/Endorphin.Core/tutorial.html">Sample tutorial</a></li>
+
+            <li class="nav-header">Documentation</li>
+            <li><a href="/Endorphin.Core/reference/index.html">API Reference</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <a href="http://github.com/anton-pt/Endorphin.Core"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"/></a>
+  </body>
+  </html>
