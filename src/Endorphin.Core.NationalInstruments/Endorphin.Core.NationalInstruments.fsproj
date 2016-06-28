@@ -57,21 +57,21 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Choice.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Choice.fs">
       <Paket>True</Paket>
-      <Link>paket-files/Choice.fs</Link>
+      <Link>paket-files/Endorphin.Core.Choice.fs</Link>
     </Compile>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Control.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Control.fs">
       <Paket>True</Paket>
-      <Link>paket-files/Control.fs</Link>
+      <Link>paket-files/Endorphin.Core.Control.fs</Link>
     </Compile>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\String.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.String.fs">
       <Paket>True</Paket>
-      <Link>paket-files/String.fs</Link>
+      <Link>paket-files/Endorphin.Core.String.fs</Link>
     </Compile>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Units.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Units.fs">
       <Paket>True</Paket>
-      <Link>paket-files/Units.fs</Link>
+      <Link>paket-files/Endorphin.Core.Units.fs</Link>
     </Compile>
     <Compile Include="VisaAgent.fs" />
     <None Include="paket.references" />

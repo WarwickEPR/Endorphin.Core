@@ -57,13 +57,13 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Choice.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Choice.fs">
       <Paket>True</Paket>
-      <Link>paket-files/Choice.fs</Link>
+      <Link>paket-files/Endorphin.Core.Choice.fs</Link>
     </Compile>
-    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Control.fs">
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Control.fs">
       <Paket>True</Paket>
-      <Link>paket-files/Control.fs</Link>
+      <Link>paket-files/Endorphin.Core.Control.fs</Link>
     </Compile>
     <Compile Include="CancellationCapability.fs" />
     <Compile Include="CommandRequestAgent.fs" />
