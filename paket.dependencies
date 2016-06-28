@@ -3,10 +3,10 @@ source https://nuget.org/api/v2
 nuget FSharp.Core redirects: force
 nuget log4net ~> 2.0
 
-github WarwickEPR/Endorphin.Core src/Choice.fs
-github WarwickEPR/Endorphin.Core src/Control.fs
-github WarwickEPR/Endorphin.Core src/String.fs
-github WarwickEPR/Endorphin.Core src/Units.fs
+github WarwickEPR/Endorphin.Core src/Endorphin.Core.Choice.fs
+github WarwickEPR/Endorphin.Core src/Endorphin.Core.Control.fs
+github WarwickEPR/Endorphin.Core src/Endorphin.Core.String.fs
+github WarwickEPR/Endorphin.Core src/Endorphin.Core.Units.fs
 
 group Build
     source https://nuget.org/api/v2
