@@ -4,7 +4,6 @@ namespace Endorphin.Core
 
 open System
 open System.Text
-open System.Text.RegularExpressions
 open Microsoft.FSharp.Collections
 
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
