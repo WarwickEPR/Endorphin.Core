@@ -73,14 +73,15 @@ Target "AssemblyInfo" (fun _ ->
 // Adds a license header to all files
 Target "ApplyLicenseHeader" (fun _ ->
     let applyHeader comment formatComment (filename : string) =
-        let newContent =
+        let toRewrite =
             using (new StreamReader (filename)) (fun file ->
                 let content = file.ReadToEnd()
                 let header = formatComment comment
-                if content.StartsWith header then content else header + "\n\n" + content)
+                if content.StartsWith header then None else Some (header + "\n\n" + content))
 
-        using (new StreamWriter (filename)) (fun file -> file.Write newContent)
-
+        match toRewrite with
+        | Some newContent -> using (new StreamWriter (filename)) (fun file -> file.Write newContent)
+        | None            -> ()
     !! "src/**/*.fs"
     ++ "src/**/*.fsx"
     ++ "src/**/*.cs"
