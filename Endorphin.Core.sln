@@ -14,7 +14,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{F25D
 		src\Endorphin.Core.CRC.fs = src\Endorphin.Core.CRC.fs
 		src\Endorphin.Core.Reactive.fs = src\Endorphin.Core.Reactive.fs
 		src\Endorphin.Core.String.fs = src\Endorphin.Core.String.fs
-		src\Endorphin.Core.Time.fs = src\Endorphin.Core.Time.fs
 		src\Endorphin.Core.Units.fs = src\Endorphin.Core.Units.fs
 	EndProjectSection
 EndProject
