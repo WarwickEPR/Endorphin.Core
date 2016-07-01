@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Instrument - Endorphin.Core</title>
+    <title>Nanoseconds - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,33 +35,34 @@
 
 
 
-<h1>Instrument</h1>
+<h1>Nanoseconds</h1>
 <p>
-  <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-visa.html">Visa</a></span>
+  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
+  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
 </p>
 <div class="xmldoc">
-<p>A VISA instrument, capable of reading, writing and querying strings and byte arrays.</p>
-
 </div>
-  <h3>Record Fields</h3>
+
+<!-- Render nested types and modules, if there are any -->
+
+  <h3>Functions and values</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Record Field</td><td>Description</td></tr>
+      <tr><td>Function or value</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '140', 140)" onmouseover="showTip(event, '140', 140)">
-            Close
+          <code onmouseout="hideTip(event, '101', 101)" onmouseover="showTip(event, '101', 101)">
+            toFemtoseconds t
           </code>
-          <div class="tip" id="140">
-            <strong>Signature:</strong> unit -&gt; Async&lt;Choice&lt;unit,exn&gt;&gt;<br />
+          <div class="tip" id="101">
+            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L42-42" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L129-129" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -71,15 +72,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '141', 141)" onmouseover="showTip(event, '141', 141)">
-            QueryBytes
+          <code onmouseout="hideTip(event, '102', 102)" onmouseover="showTip(event, '102', 102)">
+            toMicroseconds t
           </code>
-          <div class="tip" id="141">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; Async&lt;Choice&lt;byte array,exn&gt;&gt;<br />
+          <div class="tip" id="102">
+            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L41-41" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L127-127" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -89,15 +90,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '142', 142)" onmouseover="showTip(event, '142', 142)">
-            QueryString
+          <code onmouseout="hideTip(event, '103', 103)" onmouseover="showTip(event, '103', 103)">
+            toMilliseconds t
           </code>
-          <div class="tip" id="142">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+          <div class="tip" id="103">
+            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L38-38" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L126-126" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -107,15 +108,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '143', 143)" onmouseover="showTip(event, '143', 143)">
-            ReadBytes
+          <code onmouseout="hideTip(event, '104', 104)" onmouseover="showTip(event, '104', 104)">
+            toPicoseconds t
           </code>
-          <div class="tip" id="143">
-            <strong>Signature:</strong> Synchronisation -&gt; Async&lt;Choice&lt;byte [],exn&gt;&gt;<br />
+          <div class="tip" id="104">
+            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L39-39" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L128-128" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -125,51 +126,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '144', 144)" onmouseover="showTip(event, '144', 144)">
-            ReadString
+          <code onmouseout="hideTip(event, '105', 105)" onmouseover="showTip(event, '105', 105)">
+            toSeconds t
           </code>
-          <div class="tip" id="144">
-            <strong>Signature:</strong> Synchronisation -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+          <div class="tip" id="105">
+            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L36-36" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '145', 145)" onmouseover="showTip(event, '145', 145)">
-            WriteBytes
-          </code>
-          <div class="tip" id="145">
-            <strong>Signature:</strong> Synchronisation -&gt; byte array -&gt; unit<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L40-40" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '146', 146)" onmouseover="showTip(event, '146', 146)">
-            WriteString
-          </code>
-          <div class="tip" id="146">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; unit<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L37-37" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L125-125" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
