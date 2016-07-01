@@ -1,4 +1,7 @@
-#### 0.1.1 - 2016-07-1
+#### 0.1.2 - 2016-07-01
+* Make Endorphin.Core.NationalInstruments use the correct version of Units.fs
+
+#### 0.1.1 - 2016-07-01
 * Make units visible outside the assembly!
 
 #### 0.1.0=beta2 - 2016-07-01
