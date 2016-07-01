@@ -13,7 +13,7 @@ let referenceBinaries = []
 // Web site location for the generated documentation
 let website = "/Endorphin.Core"
 
-let githubLink = "http://github.com/anton-pt/Endorphin.Core"
+let githubLink = "http://github.com/WarwickEPR/Endorphin.Core"
 
 // Specify more information about your project
 let info =
