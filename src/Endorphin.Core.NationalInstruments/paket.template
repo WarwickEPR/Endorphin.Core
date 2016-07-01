@@ -22,4 +22,4 @@ summary
 description
     Library for the development of scientific instrument control software in F# with National Instruments VISA devices. Provides infrastructure for wrapping instrument NI VISA devices as asynchronous message-processing agents.
 dependencies
-	Endorphin.Core.NationalInstruments ~> CURRENTVERSION
+    Endorphin.Core ~> CURRENTVERSION
