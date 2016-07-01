@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>CancellationCapability<'T> - Endorphin.Core</title>
+    <title>String - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,65 +35,40 @@
 
 
 
-<h1>CancellationCapability<'T></h1>
+<h1>String</h1>
 <p>
   <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-cancellationcapability.html">CancellationCapability</a></span>
+  <span>Parent Module: <a href="endorphin-core-visa.html">Visa</a></span>
 </p>
 <div class="xmldoc">
-<p>Cancellation capability with generic options which must be specified at cancellation.</p>
+<p>Functions related to string-based I/O.</p>
 
 </div>
-  <h3>Constructors</h3>
+
+<!-- Render nested types and modules, if there are any -->
+
+  <h3>Functions and values</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Constructor</td><td>Description</td></tr>
+      <tr><td>Function or value</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '30', 30)" onmouseover="showTip(event, '30', 30)">
-            new()
+          <code onmouseout="hideTip(event, '22', 22)" onmouseover="showTip(event, '22', 22)">
+            query instrument message
           </code>
-          <div class="tip" id="30">
-            <strong>Signature:</strong> unit -&gt; CancellationCapability&lt;&#39;T&gt;<br />
+          <div class="tip" id="22">
+            <strong>Signature:</strong> instrument:Instrument -&gt; message:string -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/CancellationCapability.fs#L13-13" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L410-410" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
-              <p>CompiledName: <code>.ctor</code></p>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <h3>Instance members</h3>
-  <table class="table table-bordered member-list">
-    <thead>
-      <tr><td>Instance member</td><td>Description</td></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '31', 31)" onmouseover="showTip(event, '31', 31)">
-            Cancel(options)
-          </code>
-          <div class="tip" id="31">
-            <strong>Signature:</strong> options:&#39;T -&gt; unit<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/CancellationCapability.fs#L19-19" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          <p>Cancels the cancellation capability after setting the specified cancellation options. Can only be
-called once.</p>
+          <p>Query a VISA instrument for a string, using the given string as a query using synchronous I/O.</p>
 
 
         </td>
@@ -101,65 +76,101 @@ called once.</p>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '32', 32)" onmouseover="showTip(event, '32', 32)">
-            IsCancellationRequested
+          <code onmouseout="hideTip(event, '23', 23)" onmouseover="showTip(event, '23', 23)">
+            queryAsync instrument message
           </code>
-          <div class="tip" id="32">
-            <strong>Signature:</strong> bool<br />
+          <div class="tip" id="23">
+            <strong>Signature:</strong> instrument:Instrument -&gt; message:string -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/CancellationCapability.fs#L35-35" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L413-413" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Checks if cancellation has already been requested.</p>
+          <p>Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.</p>
 
 
-              <p>CompiledName: <code>get_IsCancellationRequested</code></p>
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '33', 33)" onmouseover="showTip(event, '33', 33)">
-            Options
+          <code onmouseout="hideTip(event, '24', 24)" onmouseover="showTip(event, '24', 24)">
+            read instrument
           </code>
-          <div class="tip" id="33">
-            <strong>Signature:</strong> &#39;T<br />
+          <div class="tip" id="24">
+            <strong>Signature:</strong> instrument:Instrument -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/CancellationCapability.fs#L29-29" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L398-398" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Returns the options argument specifed at cancellation. Throws an exception if cancellation has not
-taken place.</p>
+          <p>Read a string that the VISA instrument is broadcasting using synchronous I/O.</p>
 
 
-              <p>CompiledName: <code>get_Options</code></p>
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '34', 34)" onmouseover="showTip(event, '34', 34)">
-            Token
+          <code onmouseout="hideTip(event, '25', 25)" onmouseover="showTip(event, '25', 25)">
+            readAsync instrument
           </code>
-          <div class="tip" id="34">
-            <strong>Signature:</strong> CancellationToken<br />
+          <div class="tip" id="25">
+            <strong>Signature:</strong> instrument:Instrument -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/CancellationCapability.fs#L39-39" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L401-401" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Returns the cancellation token.</p>
+          <p>Read a string that the VISA instrument is broadcasting using asynchronous I/O</p>
 
 
-              <p>CompiledName: <code>get_Token</code></p>
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '26', 26)" onmouseover="showTip(event, '26', 26)">
+            write instrument
+          </code>
+          <div class="tip" id="26">
+            <strong>Signature:</strong> instrument:Instrument -&gt; string -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L404-404" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Write a string to a VISA instrument using synchronous I/O.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '27', 27)" onmouseover="showTip(event, '27', 27)">
+            writeAsync instrument
+          </code>
+          <div class="tip" id="27">
+            <strong>Signature:</strong> instrument:Instrument -&gt; string -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L407-407" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Write a string to a VISA instrument using asynchronous I/O.</p>
+
+
         </td>
       </tr>
     </tbody>
