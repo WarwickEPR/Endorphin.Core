@@ -7,8 +7,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{b7713628-55a8-4730-bee6-ea89111e701d}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Endorphin.Core</RootNamespace>
-    <AssemblyName>Endorphin.Core</AssemblyName>
+    <RootNamespace>Endorphin.Core.NationalInstruments</RootNamespace>
+    <AssemblyName>Endorphin.Core.NationalInstruments</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -22,7 +22,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\Endorphin.Core.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\Endorphin.Core.NationalInstruments.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -31,7 +31,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\Endorphin.Core.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\Endorphin.Core.NationalInstruments.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
