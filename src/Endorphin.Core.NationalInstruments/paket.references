@@ -1,5 +1,5 @@
 ﻿log4net
+Endorphin.Core
 File:Endorphin.Core.Choice.fs
 File:Endorphin.Core.Control.fs
 File:Endorphin.Core.String.fs
-File:Endorphin.Core.Units.fs

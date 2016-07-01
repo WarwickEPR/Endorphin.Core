@@ -1,13 +1,15 @@
 NUGET
   remote: https://www.nuget.org/api/v2
+    Endorphin.Core (0.1.1)
+      FSharp.Core
+      log4net (>= 2.0 < 3.0)
     FSharp.Core (4.0.0.1) - redirects: force
     log4net (2.0.5)
 GITHUB
   remote: WarwickEPR/Endorphin.Core
-    src/Endorphin.Core.Choice.fs (cacd13fa6f57bfe83759c9248d22d5a3ad72c30f)
-    src/Endorphin.Core.Control.fs (cacd13fa6f57bfe83759c9248d22d5a3ad72c30f)
-    src/Endorphin.Core.String.fs (cacd13fa6f57bfe83759c9248d22d5a3ad72c30f)
-    src/Endorphin.Core.Units.fs (cacd13fa6f57bfe83759c9248d22d5a3ad72c30f)
+    src/Endorphin.Core.Choice.fs (f019e256c3efb43a916e46c4873465e15edd03a2)
+    src/Endorphin.Core.Control.fs (f019e256c3efb43a916e46c4873465e15edd03a2)
+    src/Endorphin.Core.String.fs (f019e256c3efb43a916e46c4873465e15edd03a2)
 GROUP Build
 NUGET
   remote: https://www.nuget.org/api/v2
@@ -29,5 +31,5 @@ NUGET
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (911c3efbc9127d52b1db0dc0ed6e12aafd23d548)
+    modules/Octokit/Octokit.fsx (c56456abac6b744c3bb95b217687db19fd19b367)
       Octokit (>= 0.20)
