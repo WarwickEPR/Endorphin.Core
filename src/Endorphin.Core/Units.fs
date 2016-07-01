@@ -3,7 +3,7 @@
 namespace Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols
 
 [<AutoOpen>]
-module internal Units =
+module Units =
     [<AutoOpen>]
     module Length =
         /// Millimetre.
