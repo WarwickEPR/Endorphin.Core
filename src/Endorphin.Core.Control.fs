@@ -22,6 +22,9 @@ module internal Async =
         let! result2 = workflow2
         return mapping result1 result2 }
 
+    /// Raise a non-async result into an async workflow.
+    let raise result : Async<'T> = async { return result }
+
 [<AutoOpen>]
 module internal AsyncExtensions =
     /// A single-fire result channel which can be used to await a result asynchronously.
