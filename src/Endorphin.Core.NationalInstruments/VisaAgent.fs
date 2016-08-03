@@ -62,7 +62,6 @@ module Visa =
 
     /// Functions for managing the agent through which communications to the VISA instrument must pass.
     module private Agent =
-
         /// Truncate a string down to a set number of characters length (currently 75), replacing the
         /// end characters with "..." if necessary.
         let private truncate (str : string) =
@@ -90,7 +89,7 @@ module Visa =
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
         let private openSession visaId (timeout : int<ms>) =
             let rm = new ResourceManager()
-            let instrument = rm.Open (visaId, AccessModes.None, int <| timeout) :?> MessageBasedSession
+            let instrument = rm.Open (visaId, AccessModes.None, int <| timeout) :?> IMessageBasedSession
             instrument.TimeoutMilliseconds <- int timeout
             instrument.TerminationCharacterEnabled <- true
             instrument
@@ -115,70 +114,74 @@ module Visa =
                 | Even             -> SerialParity.Even
                 | Odd              -> SerialParity.Odd
 
-            instrument :> MessageBasedSession
+            instrument :> IMessageBasedSession
 
-        let fromVisaAsyncResult (result:IVisaAsyncResult) =
-            result :> IAsyncResult
+        /// A VISA'd version of Async.FromBeginEnd, but without the ability to cancel.  This wraps up
+        /// any exception thrown in a Choice.fail, so the exception can be propagated up out of the
+        /// agent without it having to be restarted.
+        let private visaBeginEnd starter ender = async {
+            let result = new ResultChannel<_> ()
+            /// Try the ender function, wrapping any caught excpetion up in a Choice.fail to prevent
+            /// the agent from throwing an exception itself.
+            let choose ender ivar = try Choice.succeed <| ender ivar with exn -> Choice.fail exn
 
-        let toVisaAsyncResult (result:IAsyncResult) =
-            result :?> IVisaAsyncResult
+            // We have to create a callback for the starter function, so it knows when to call the ender
+            // function.
+            let callback = new VisaAsyncCallback (fun ivar ->
+                // I don't worry about cancellation in this function, since it's impossible to pass it
+                // a cancellation!
 
-        let fromVisaAsyncCallback (callback:VisaAsyncCallback,state) =
-            (new AsyncCallback(toVisaAsyncResult >> callback.Invoke),state)
+                // if the callback is called asynchronously (i.e. like this), but the result was already
+                // registered, then we shouldn't do anything else.
+                if ivar.CompletedSynchronously then ()
+                // otherwise, we should attempt to call the ender, catching any exception we encounter
+                // so we don't throw an exception in the agent - we propagate it up in a Choice.failure,
+                // then throw it elsewhere so the agent doesn't have to be restarted.
+                else choose ender ivar |> result.RegisterResult )
 
-        let toVisaAsyncCallback (callback:AsyncCallback,state) =
-            (new VisaAsyncCallback(fromVisaAsyncResult >> callback.Invoke),state)
+            // Perform the starter, and get a result status so we can tell when it has completed.
+            let (ivar : IVisaAsyncResult) = starter callback (new obj ())
 
-        /// A try/catch wrapper around the standard Async.FromBeginEnd to convert exceptions encountered
-        /// into Choice failures instead.  This way, exceptions can be propagated up from the agent, and
-        /// raised elsewhere.  The agent then doesn't need to be restarted, and it can just continue.
-        let private beginEndWrapper starter ender = async {
-            try
-                let! result = Async.FromBeginEnd (starter, ender)
-                return Choice.succeed result
-            with exn -> return Choice.fail exn }
-
-        /// Adapted beginEndWrapper to bind VisaAsyncCallbacks to a continuation using FromBeginEnd
-        let private visaBeginEndWrapper starter ender =
-            let starter' = toVisaAsyncCallback >> starter >> fromVisaAsyncResult
-            let ender'   = toVisaAsyncResult >> ender
-            beginEndWrapper starter' ender'
+            // If it completed without using the callback, then return the result.
+            if ivar.CompletedSynchronously then return choose ender ivar
+            // If not, use the ResultChannel to await the result async.
+            else return! result.AwaitResult () }
 
         /// The generic read operation on an instrument, with F# allocating the space.  The ender function
         /// is passed the buffer, so it can choose what it wants to do with it.
-        let private readAsyncGeneric ender (instrument : MessageBasedSession) =
-            let starter (callback:VisaAsyncCallback, state) = instrument.RawIO.BeginRead (4096,callback,state)
-            visaBeginEndWrapper starter ender
+        let private readAsyncGeneric ender (instrument : IMessageBasedSession) =
+            let starter callback state = instrument.RawIO.BeginRead (4096, callback, state)
+            visaBeginEnd starter ender
 
         /// The generic write operation on a VISA instrument, regardless of the type of data to be written.
         /// The writer function actually handles the writing, the generic part handles putting the
         /// callback into the correct type, and dealing with the result.
-        let private writeAsyncGeneric writer (instrument : MessageBasedSession) message =
-            visaBeginEndWrapper (fun (callback:VisaAsyncCallback, state) -> writer (message, callback, state))
+        let private writeAsyncGeneric writer (instrument : IMessageBasedSession) message =
+            visaBeginEnd (fun callback state -> writer (message, callback, state))
                                 (instrument.RawIO.EndWrite >> ignore)
 
         /// Read a string from a VISA instrument using an Async.FromBeginEnd layout to do the reading
         /// asynchronously.
-        let private readStringAsync (instrument : MessageBasedSession) =
+        let private readStringAsync (instrument : IMessageBasedSession) =
             readAsyncGeneric instrument.RawIO.EndReadString instrument
 
         /// Read an array of bytes from a VISA instrument using an Async.FromBeginEnd layout to do the
         /// reading asynchronously.
-        let private readBytesAsync (instrument : MessageBasedSession) =
+        let private readBytesAsync (instrument : IMessageBasedSession) =
             let readBytes result =
                 let read = int <| instrument.RawIO.EndRead result
                 Array.sub result.Buffer 0 read
             readAsyncGeneric readBytes instrument
 
         /// Read a sring from a VISA instrument synchronously.
-        let private readStringSync (instrument : MessageBasedSession) = async {
+        let private readStringSync (instrument : IMessageBasedSession) = async {
             try
                 let result = instrument.RawIO.ReadString ()
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
         /// Read a byte array from a VISA instrument synchronously.
-        let private readBytesSync (instrument : MessageBasedSession) = async {
+        let private readBytesSync (instrument : IMessageBasedSession) = async {
             try
                 let result = instrument.RawIO.Read ()
                 return Choice.succeed result
@@ -196,25 +199,25 @@ module Visa =
 
         /// Write a string to a VISA instrument using an Async.FromBeginEnd layout to do the writing
         /// asynchronously.
-        let private writeStringAsync (instrument : MessageBasedSession) (str : string) =
+        let private writeStringAsync (instrument : IMessageBasedSession) (str : string) =
             writeAsyncGeneric (fun (str : string, callback, state) -> instrument.RawIO.BeginWrite (str, callback, state)) instrument str
 
         /// Write an array of bytes to a VISA instrument using an Async.FromBeginEnd layout to do the
         /// writing asynchronously.
-        let private writeBytesAsync (instrument : MessageBasedSession) (bytes : byte []) =
+        let private writeBytesAsync (instrument : IMessageBasedSession) (bytes : byte []) =
             writeAsyncGeneric (fun ((bytes : byte []), callback, state) ->
                              instrument.RawIO.BeginWrite (bytes, 0L, int64 <| bytes.Length, callback, state))
                          instrument bytes
 
         /// Write a string to a VISA instrument synchronously.
-        let private writeStringSync (instrument : MessageBasedSession) (str : string) = async {
+        let private writeStringSync (instrument : IMessageBasedSession) (str : string) = async {
             try
                 instrument.RawIO.Write str
                 return Choice.succeed ()
             with exn -> return Choice.fail exn }
 
         /// Write an array of bytes to a VISA instrument synchronously
-        let private writeBytesSync (instrument : MessageBasedSession) (bytes : byte []) = async {
+        let private writeBytesSync (instrument : IMessageBasedSession) (bytes : byte []) = async {
             try
                 instrument.RawIO.Write bytes
                 return Choice.succeed ()
@@ -232,7 +235,7 @@ module Visa =
 
         /// The generic form of the query operation, with the reader used to interpret the returned
         /// message.  Regardless of the read type, the writing is always done as a string.
-        let queryGeneric writer reader (instrument : MessageBasedSession) (query : string) = async {
+        let queryGeneric writer reader (instrument : IMessageBasedSession) (query : string) = async {
             let! writeResult = writer instrument query
             match writeResult with
                 | Success () -> return! reader instrument
