@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>String - Endorphin.Core</title>
+    <title>Async - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,34 +35,15 @@
 
 
 
-<h1>String</h1>
+<h1>Async</h1>
 <p>
   <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-visa.html">Visa</a></span>
+  <span>Parent Module: <a href="endorphin-core-visa-string.html">String</a></span>
 </p>
 <div class="xmldoc">
-<p>Functions related to string-based I/O.</p>
-
 </div>
 
 <!-- Render nested types and modules, if there are any -->
-  <h2>Nested types and modules</h2>
-  <div>
-      <table class="table table-bordered module-list">
-    <thead>
-      <tr><td>Module</td><td>Description</td></tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td class="module-name">
-            <a href="endorphin-core-visa-string-async.html">Async</a>
-          </td>
-          <td class="xmldoc"></td>
-        </tr>
-    </tbody>
-  </table>
-
-  </div>
 
   <h3>Functions and values</h3>
   <table class="table table-bordered member-list">
@@ -73,19 +54,19 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '22', 22)" onmouseover="showTip(event, '22', 22)">
-            query instrument message
+          <code onmouseout="hideTip(event, '25', 25)" onmouseover="showTip(event, '25', 25)">
+            query(instrument message)
           </code>
-          <div class="tip" id="22">
+          <div class="tip" id="25">
             <strong>Signature:</strong> instrument:Instrument -&gt; message:string -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L406-406" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L417-417" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Query a VISA instrument for a string, using the given string as a query using synchronous I/O.</p>
+          <p>Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.</p>
 
 
         </td>
@@ -93,19 +74,19 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '23', 23)" onmouseover="showTip(event, '23', 23)">
-            read instrument
+          <code onmouseout="hideTip(event, '26', 26)" onmouseover="showTip(event, '26', 26)">
+            read(instrument)
           </code>
-          <div class="tip" id="23">
+          <div class="tip" id="26">
             <strong>Signature:</strong> instrument:Instrument -&gt; Async&lt;string&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L400-400" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L411-411" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Read a string that the VISA instrument is broadcasting using synchronous I/O.</p>
+          <p>Read a string that the VISA instrument is broadcasting using asynchronous I/O</p>
 
 
         </td>
@@ -113,19 +94,19 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '24', 24)" onmouseover="showTip(event, '24', 24)">
-            write instrument
+          <code onmouseout="hideTip(event, '27', 27)" onmouseover="showTip(event, '27', 27)">
+            write(instrument)
           </code>
-          <div class="tip" id="24">
+          <div class="tip" id="27">
             <strong>Signature:</strong> instrument:Instrument -&gt; string -&gt; unit<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L403-403" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L414-414" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Write a string to a VISA instrument using synchronous I/O.</p>
+          <p>Write a string to a VISA instrument using asynchronous I/O.</p>
 
 
         </td>
