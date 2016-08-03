@@ -1,3 +1,7 @@
+#### 0.2.0 - 2016-08-03
+* Obsolete VISA async IO functions due to a memory bug potentially in the
+  NI-VISA implementation.
+
 #### 0.1.2 - 2016-07-01
 * Make Endorphin.Core.NationalInstruments use the correct version of Units.fs
 
