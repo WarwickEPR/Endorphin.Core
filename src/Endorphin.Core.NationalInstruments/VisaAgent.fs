@@ -396,42 +396,44 @@ module Visa =
 
     /// Functions related to string-based I/O.
     module String =
-
         /// Read a string that the VISA instrument is broadcasting using synchronous I/O.
         let read instrument = instrument.ReadString Sync |> Async.map Choice.bindOrRaise
-
-        /// Read a string that the VISA instrument is broadcasting using asynchronous I/O
-        let readAsync instrument = instrument.ReadString Async |> Async.map Choice.bindOrRaise
 
         /// Write a string to a VISA instrument using synchronous I/O.
         let write instrument = instrument.WriteString Sync
 
-        /// Write a string to a VISA instrument using asynchronous I/O.
-        let writeAsync instrument = instrument.WriteString Async
-
         /// Query a VISA instrument for a string, using the given string as a query using synchronous I/O.
         let query instrument message = instrument.QueryString Sync message |> Async.map Choice.bindOrRaise
 
-        /// Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.
-        let queryAsync instrument message = instrument.QueryString Async message |> Async.map Choice.bindOrRaise
+        [< Obsolete "Async calls can cause AccessViolationExceptions in the NI VISA library." ; RequireQualifiedAccess >]
+        module Async =
+            /// Read a string that the VISA instrument is broadcasting using asynchronous I/O
+            let read instrument = instrument.ReadString Async |> Async.map Choice.bindOrRaise
+
+            /// Write a string to a VISA instrument using asynchronous I/O.
+            let write instrument = instrument.WriteString Async
+
+            /// Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.
+            let query instrument message = instrument.QueryString Async message |> Async.map Choice.bindOrRaise
 
     /// Functions related to byte array-based I/O.
     module Bytes =
-
         /// Read a byte array that the VISA instrument is broadcasting using synchronous I/O.
         let read instrument = instrument.ReadBytes Sync |> Async.map Choice.bindOrRaise
-
-        /// Read a byte array that the VISA instrument is broadcasting using asynchronous I/O
-        let readAsync instrument = instrument.ReadBytes Async |> Async.map Choice.bindOrRaise
 
         /// Write a byte array to a VISA instrument using synchronous I/O.
         let write instrument = instrument.WriteBytes Sync
 
-        /// Write a byte array to a VISA instrument using asynchronous I/O.
-        let writeAsync instrument = instrument.WriteBytes Async
-
         /// Query a VISA instrument for a byte array, using the given string as a query using synchronous I/O.
         let query instrument message = instrument.QueryBytes Sync message |> Async.map Choice.bindOrRaise
 
-        /// Query a VISA instrument for a byte array, using the given string as a query using asynchronous I/O.
-        let queryAsync instrument message = instrument.QueryBytes Async message |> Async.map Choice.bindOrRaise
+        [< Obsolete "Async calls can cause AccessViolationExceptions in the NI VISA library." ; RequireQualifiedAccess >]
+        module Async =
+            /// Read a byte array that the VISA instrument is broadcasting using asynchronous I/O
+            let read instrument = instrument.ReadBytes Async |> Async.map Choice.bindOrRaise
+
+            /// Write a byte array to a VISA instrument using asynchronous I/O.
+            let write instrument = instrument.WriteBytes Async
+
+            /// Query a VISA instrument for a byte array, using the given string as a query using asynchronous I/O.
+            let query instrument message = instrument.QueryBytes Async message |> Async.map Choice.bindOrRaise
