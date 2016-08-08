@@ -1,3 +1,6 @@
+#### 0.3.1 - 2016-08-08
+* Add type annotations to SCPI generic functions for better type safety.
+
 #### 0.3.0 - 2016-08-08
 * Add SCPI library to Endorphin.Core
 * Add SCPI interface to VISA instrument agents

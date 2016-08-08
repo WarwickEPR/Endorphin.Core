@@ -147,7 +147,7 @@ module SCPI =
 
         /// Write a key with a value to an instrument, where the value will be converted
         /// by calling its "ToString()" method.  SCPI command e.g., ":POWER 12.0".
-        let value key value instrument = String.Set.value key value |> writer instrument
+        let value<'In> key (value : 'In) instrument = String.Set.value key value |> writer instrument
 
         /// Write a key with no value to an instrument, e.g., "*RST".
         let key   key instrument = String.Set.key key |> writer instrument
@@ -167,11 +167,11 @@ module SCPI =
         module Value =
             /// Query the instrument with a given key and value, then return the raw ASCII
             /// string read from the machine.
-            let raw key data instrument = String.Query.value key data |> querier instrument
+            let raw<'T> key (data : 'T) instrument = String.Query.value key data |> querier instrument
 
             /// Query the isntrument with a given key and value, then parse the result from
             /// a UTF-8 string using the passed parser.
-            let parsed parser key data instrument = raw key data instrument |> Async.map (utf8 >> parser)
+            let parsed<'In, 'Out> (parser : string -> 'Out) key (data : 'In) instrument = raw key data instrument |> Async.map (utf8 >> parser)
 
             // We can't use complete partial application here because data and ScpiInstrument
             // can be generalised, and so the compiler cannot tell if it is safe to totally
@@ -243,7 +243,7 @@ module SCPI =
 
             /// Query the isntrument with a given key, then parse the result from
             /// a UTF-8 string using the passed parser.
-            let parsed parser key instrument = raw key instrument |> Async.map (utf8 >> parser)
+            let parsed<'Out> (parser : string -> 'Out) key instrument = raw key instrument |> Async.map (utf8 >> parser)
 
             // We can't use complete partial application here because ScpiInstrument
             // can be generalised, and so the compiler cannot tell if it is safe to totally
