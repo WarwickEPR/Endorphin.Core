@@ -14,32 +14,32 @@ open log4net
 module Visa =
     /// A VISA command which may be performed by the agent, describing what needs to be done.
     type internal VisaCommand =
-        | ReadString  of                    reply : AsyncReplyChannel<Choice<string, exn>>
-        | ReadBytes   of                    reply : AsyncReplyChannel<Choice<byte [], exn>>
+        | ReadString  of                     reply : AsyncReplyChannel<Choice<string, exn>>
+        | ReadBytes   of                     reply : AsyncReplyChannel<Choice<byte [], exn>>
         | WriteString of message : string
         | WriteBytes  of message : byte []
-        | QueryString of message : string * reply : AsyncReplyChannel<Choice<string, exn>>
-        | QueryBytes  of message : string * reply : AsyncReplyChannel<Choice<byte [], exn>>
-
-    /// Represents the synchrnoisation of the VISA I/O operation. In contrast to asynchronous operations,
-    /// synchronous I/O can speed up communication with instruments where many short messages are sent
-    /// over the API but cause the agent thread to hang while waiting for I/O to complete.
-    type internal Synchronisation = Sync | Async
+        | QueryString of message : string  * reply : AsyncReplyChannel<Choice<string, exn>>
+        | QueryBytes  of message : byte [] * reply : AsyncReplyChannel<Choice<byte [], exn>>
 
     /// A message which may be passed to the VISA agent, describing what needs to be done.
     type internal Message =
-        | Command of command : VisaCommand * synchronisation : Synchronisation
+        | Command of command : VisaCommand
         | Close   of reply : AsyncReplyChannel<Choice<unit, exn>>
 
-    /// A VISA instrument, capable of reading, writing and querying strings and byte arrays.
-    type Instrument = internal {
-        ReadString  : Synchronisation -> Async<Choice<string, exn>>
-        WriteString : Synchronisation -> string -> unit
-        QueryString : Synchronisation -> string -> Async<Choice<string, exn>>
-        ReadBytes   : Synchronisation -> Async<Choice<byte [], exn>>
-        WriteBytes  : Synchronisation -> byte array -> unit
-        QueryBytes  : Synchronisation -> string -> Async<Choice<byte array, exn>>
-        Close       : unit -> Async<Choice<unit, exn>> }
+    /// A VISA instrument, capable of reading, writing and querzRying strings and byte arrays.
+    [< AbstractClass >]
+    type Instrument internal () =
+        abstract member ReadString  : unit -> Async<Choice<string, exn>>
+        abstract member WriteString : string -> unit
+        abstract member QueryString : string -> Async<Choice<string, exn>>
+        abstract member ReadBytes   : unit -> Async<Choice<byte [], exn>>
+        abstract member WriteBytes  : byte [] -> unit
+        abstract member QueryBytes  : byte [] -> Async<Choice<byte [], exn>>
+        abstract member Close       : unit -> Async<Choice<unit, exn>>
+        interface SCPI.IScpiInstrument with
+            member this.Write value = this.WriteBytes value |> (fun x -> async {x})
+            member this.Query query = this.QueryBytes query |> Async.map Choice.bindOrRaise
+            member val Terminator : byte [] = [||] with get, set
 
     /// Serial port stop bit mode.
     type StopBitMode =
@@ -72,18 +72,14 @@ module Visa =
         /// Remove unnecessary terminators from a string.
         let private removeTerminators value = Choice.map (fun str -> String.trimEnd [| '\n'; '\r' |] str) value
 
-        let private synchronisationDescription = function
-            | Sync  -> "synchronously"
-            | Async -> "asynchronously"
-
         /// Get the description of a VISA message passed to the agent.
         let private description = function
-            | Command(ReadString _,         sync) -> sprintf "Read string %s" (synchronisationDescription sync)
-            | Command(ReadBytes  _,         sync) -> sprintf "Read bytes %s" (synchronisationDescription sync)
-            | Command(WriteString msg,      sync) -> sprintf "Write string %s %s" (truncate msg) (synchronisationDescription sync)
-            | Command(WriteBytes  msg,      sync) -> sprintf "Write bytes %s %s" (truncate <| String.hexOfBytes msg) (synchronisationDescription sync)
-            | Command(QueryString (msg, _), sync) -> sprintf "Query string %s %s" (truncate msg) (synchronisationDescription sync)
-            | Command(QueryBytes  (msg, _), sync) -> sprintf "Query bytes %s %s" (truncate msg) (synchronisationDescription sync)
+            | Command(ReadString _        ) -> "Read string"
+            | Command(ReadBytes  _        ) -> "Read bytes"
+            | Command(WriteString msg     ) -> sprintf "Write string %s" (truncate msg)
+            | Command(WriteBytes  msg     ) -> sprintf "Write bytes %s" (truncate <| String.hexOfBytes msg)
+            | Command(QueryString (msg, _)) -> sprintf "Query string %s" (truncate msg)
+            | Command(QueryBytes  (msg, _)) -> sprintf "Query bytes %s" (truncate <| String.hexOfBytes msg)
             | Close _                             -> "Close agent."
 
         /// Open a VISA instrument session as an IMessageBasedSession, so communication can occur.
@@ -116,154 +112,47 @@ module Visa =
 
             instrument :> IMessageBasedSession
 
-        /// A VISA'd version of Async.FromBeginEnd, but without the ability to cancel.  This wraps up
-        /// any exception thrown in a Choice.fail, so the exception can be propagated up out of the
-        /// agent without it having to be restarted.
-        let private visaBeginEnd starter ender = async {
-            let result = new ResultChannel<_> ()
-            /// Try the ender function, wrapping any caught excpetion up in a Choice.fail to prevent
-            /// the agent from throwing an exception itself.
-            let choose ender ivar = try Choice.succeed <| ender ivar with exn -> Choice.fail exn
-
-            // We have to create a callback for the starter function, so it knows when to call the ender
-            // function.
-            let callback = new VisaAsyncCallback (fun ivar ->
-                // I don't worry about cancellation in this function, since it's impossible to pass it
-                // a cancellation!
-
-                // if the callback is called asynchronously (i.e. like this), but the result was already
-                // registered, then we shouldn't do anything else.
-                if ivar.CompletedSynchronously then ()
-                // otherwise, we should attempt to call the ender, catching any exception we encounter
-                // so we don't throw an exception in the agent - we propagate it up in a Choice.failure,
-                // then throw it elsewhere so the agent doesn't have to be restarted.
-                else choose ender ivar |> result.RegisterResult )
-
-            // Perform the starter, and get a result status so we can tell when it has completed.
-            let (ivar : IVisaAsyncResult) = starter callback (new obj ())
-
-            // If it completed without using the callback, then return the result.
-            if ivar.CompletedSynchronously then return choose ender ivar
-            // If not, use the ResultChannel to await the result async.
-            else return! result.AwaitResult () }
-
-        /// The generic read operation on an instrument, with F# allocating the space.  The ender function
-        /// is passed the buffer, so it can choose what it wants to do with it.
-        let private readAsyncGeneric ender (instrument : IMessageBasedSession) =
-            let starter callback state = instrument.RawIO.BeginRead (4096, callback, state)
-            visaBeginEnd starter ender
-
-        /// The generic write operation on a VISA instrument, regardless of the type of data to be written.
-        /// The writer function actually handles the writing, the generic part handles putting the
-        /// callback into the correct type, and dealing with the result.
-        let private writeAsyncGeneric writer (instrument : IMessageBasedSession) message =
-            visaBeginEnd (fun callback state -> writer (message, callback, state))
-                                (instrument.RawIO.EndWrite >> ignore)
-
-        /// Read a string from a VISA instrument using an Async.FromBeginEnd layout to do the reading
-        /// asynchronously.
-        let private readStringAsync (instrument : IMessageBasedSession) =
-            readAsyncGeneric instrument.RawIO.EndReadString instrument
-
-        /// Read an array of bytes from a VISA instrument using an Async.FromBeginEnd layout to do the
-        /// reading asynchronously.
-        let private readBytesAsync (instrument : IMessageBasedSession) =
-            let readBytes result =
-                let read = int <| instrument.RawIO.EndRead result
-                Array.sub result.Buffer 0 read
-            readAsyncGeneric readBytes instrument
-
         /// Read a sring from a VISA instrument synchronously.
-        let private readStringSync (instrument : IMessageBasedSession) = async {
+        let private readString (instrument : IMessageBasedSession) = async {
             try
                 let result = instrument.RawIO.ReadString ()
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
         /// Read a byte array from a VISA instrument synchronously.
-        let private readBytesSync (instrument : IMessageBasedSession) = async {
+        let private readBytes (instrument : IMessageBasedSession) = async {
             try
                 let result = instrument.RawIO.Read ()
                 return Choice.succeed result
             with exn -> return Choice.fail exn }
 
-        /// Read a string from the VISA instrument with the given synchronisation.
-        let private readString = function
-            | Sync  -> readStringSync
-            | Async -> readStringAsync
-
-        /// Read an array of bytes from the VISA instrument with the given synchronisation.
-        let private readBytes = function
-            | Sync  -> readBytesSync
-            | Async -> readBytesAsync
-
-        /// Write a string to a VISA instrument using an Async.FromBeginEnd layout to do the writing
-        /// asynchronously.
-        let private writeStringAsync (instrument : IMessageBasedSession) (str : string) =
-            writeAsyncGeneric (fun (str : string, callback, state) -> instrument.RawIO.BeginWrite (str, callback, state)) instrument str
-
-        /// Write an array of bytes to a VISA instrument using an Async.FromBeginEnd layout to do the
-        /// writing asynchronously.
-        let private writeBytesAsync (instrument : IMessageBasedSession) (bytes : byte []) =
-            writeAsyncGeneric (fun ((bytes : byte []), callback, state) ->
-                             instrument.RawIO.BeginWrite (bytes, 0L, int64 <| bytes.Length, callback, state))
-                         instrument bytes
-
         /// Write a string to a VISA instrument synchronously.
-        let private writeStringSync (instrument : IMessageBasedSession) (str : string) = async {
+        let private writeString (instrument : IMessageBasedSession) (str : string) = async {
             try
                 instrument.RawIO.Write str
                 return Choice.succeed ()
             with exn -> return Choice.fail exn }
 
         /// Write an array of bytes to a VISA instrument synchronously
-        let private writeBytesSync (instrument : IMessageBasedSession) (bytes : byte []) = async {
+        let private writeBytes (instrument : IMessageBasedSession) (bytes : byte []) = async {
             try
                 instrument.RawIO.Write bytes
                 return Choice.succeed ()
             with exn -> return Choice.fail exn }
 
-        /// Write a string to the VISA instrument with the given synchronisation.
-        let private writeString = function
-            | Sync  -> writeStringSync
-            | Async -> writeStringAsync
-
-        /// Write an array of bytes to the VISA instrument with the given synchronisation.
-        let private writeBytes = function
-            | Sync  -> writeBytesSync
-            | Async -> writeBytesAsync
-
         /// The generic form of the query operation, with the reader used to interpret the returned
         /// message.  Regardless of the read type, the writing is always done as a string.
-        let queryGeneric writer reader (instrument : IMessageBasedSession) (query : string) = async {
+        let queryGeneric writer reader (instrument : IMessageBasedSession) query = async {
             let! writeResult = writer instrument query
             match writeResult with
                 | Success () -> return! reader instrument
                 | Failure f  -> return  Choice.fail f }
 
-        /// Query the string response of a VISA instrument to a command string asynchronously.
-        let private queryStringAsync instrument query = queryGeneric writeStringAsync readStringAsync instrument query
-
-        /// Query the byte array response of a VISA instrument to a command string asynchronously.
-        let private queryBytesAsync instrument query = queryGeneric writeStringAsync readBytesAsync  instrument query
-
         /// Query the string response of a VISA instrument to a command string synchronously.
-        let private queryStringSync instrument query = queryGeneric writeStringSync readStringSync instrument query
+        let private queryString instrument query = queryGeneric writeString readString instrument query
 
         /// Query the byte array response of a VISA instrument to a command string synchronously.
-        let private queryBytesSync instrument query = queryGeneric writeStringSync readBytesSync  instrument query
-
-        /// Query the string response of a VISA instrument to the given command string with the
-        /// given synchronisation.
-        let private queryString = function
-            | Sync  -> queryStringSync
-            | Async -> queryStringAsync
-
-        /// Query the byte array response of a VISA instrument to the given command string with the
-        /// given synchronisation.
-        let private queryBytes = function
-            | Sync  -> queryBytesSync
-            | Async -> queryBytesAsync
+        let private queryBytes instrument query = queryGeneric writeBytes readBytes instrument query
 
         /// Create an agent for communication with a VISA instrument. The optional write delay is used to
         /// delay further communication with the hardware after each write command for a specified period.
@@ -312,36 +201,36 @@ module Visa =
                     do sprintf "Received message \"%s\"" desc |> log.Info
 
                     match message with
-                        | Command(ReadString reply, sync)  ->
-                            let! result = readString sync instrument |> Async.map removeTerminators
+                        | Command(ReadString reply)  ->
+                            let! result = readString instrument |> Async.map removeTerminators
                             result |> reply.Reply
                             logResponse desc id result
                             return! loop ()
 
-                        | Command(ReadBytes reply, sync) ->
-                            let! result = readBytes sync instrument
+                        | Command(ReadBytes reply) ->
+                            let! result = readBytes instrument
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
                             return! loop ()
 
-                        | Command(WriteString msg, sync) ->
-                            let! result = writeString sync instrument msg
+                        | Command(WriteString msg) ->
+                            let! result = writeString instrument msg
                             do! writeSleep ()
                             return! loop ()
 
-                        | Command(WriteBytes msg, sync) ->
-                            let! result = writeBytes sync instrument msg
+                        | Command(WriteBytes msg) ->
+                            let! result = writeBytes instrument msg
                             do! writeSleep ()
                             return! loop ()
 
-                        | Command(QueryString (query, reply), sync) ->
-                            let! result = queryString sync instrument query |> Async.map removeTerminators
+                        | Command(QueryString (query, reply)) ->
+                            let! result = queryString instrument query |> Async.map removeTerminators
                             result |> reply.Reply
                             logResponse desc id result
                             return! loop ()
 
-                        | Command(QueryBytes (query, reply), sync) ->
-                            let! result = queryBytes sync instrument query
+                        | Command(QueryBytes (query, reply)) ->
+                            let! result = queryBytes instrument query
                             result |> reply.Reply
                             logResponse desc String.hexOfBytes result
                             return! loop ()
@@ -354,21 +243,14 @@ module Visa =
                     return! loop () } )
 
     let private openInstrument (agent: MailboxProcessor<Message>) =
-        let readString  sync         = (fun replyChannel -> Command(ReadString replyChannel, sync))            |> agent.PostAndAsyncReply
-        let readBytes   sync         = (fun replyChannel -> Command(ReadBytes  replyChannel, sync))            |> agent.PostAndAsyncReply
-        let writeString sync command = (Command(WriteString command, sync))                                    |> agent.Post
-        let writeBytes  sync command = (Command(WriteBytes command, sync))                                     |> agent.Post
-        let queryString sync command = (fun replyChannel -> Command(QueryString(command, replyChannel), sync)) |> agent.PostAndAsyncReply
-        let queryBytes  sync command = (fun replyChannel -> Command(QueryBytes (command, replyChannel), sync)) |> agent.PostAndAsyncReply
-        let close () = Close |> agent.PostAndAsyncReply
-
-        { ReadString  = readString
-          ReadBytes   = readBytes
-          WriteString = writeString
-          WriteBytes  = writeBytes
-          QueryString = queryString
-          QueryBytes  = queryBytes
-          Close       = close }
+        { new Instrument () with
+            member this.ReadString ()    = (fun replyChannel -> Command (ReadString replyChannel))           |> agent.PostAndAsyncReply
+            member this.ReadBytes ()     = (fun replyChannel -> Command (ReadBytes  replyChannel))           |> agent.PostAndAsyncReply
+            member this.WriteString str  = Command (WriteString str)                                         |> agent.Post
+            member this.WriteBytes bytes = Command (WriteBytes bytes)                                        |> agent.Post
+            member this.QueryString str  = (fun replyChannel -> Command (QueryString (str,   replyChannel))) |> agent.PostAndAsyncReply
+            member this.QueryBytes bytes = (fun replyChannel -> Command (QueryBytes  (bytes, replyChannel))) |> agent.PostAndAsyncReply
+            member this.Close ()         = Close |> agent.PostAndAsyncReply }
 
     /// Open a RS-232 VISA instrument with the given VISA identifier address and a timeout in milliseconds
     /// to wait for each raw command. The optional write delay is used to delay further communication with
@@ -392,48 +274,26 @@ module Visa =
         openInstrument agent
 
     /// Close the connection to a VISA instrument.
-    let closeInstrument instrument = instrument.Close () |> Async.map Choice.bindOrRaise
+    let closeInstrument (instrument : Instrument) = instrument.Close () |> Async.map Choice.bindOrRaise
 
     /// Functions related to string-based I/O.
     module String =
         /// Read a string that the VISA instrument is broadcasting using synchronous I/O.
-        let read instrument = instrument.ReadString Sync |> Async.map Choice.bindOrRaise
+        let read (instrument : Instrument) = instrument.ReadString >> Async.map Choice.bindOrRaise
 
         /// Write a string to a VISA instrument using synchronous I/O.
-        let write instrument = instrument.WriteString Sync
+        let write (instrument : Instrument) = instrument.WriteString
 
         /// Query a VISA instrument for a string, using the given string as a query using synchronous I/O.
-        let query instrument message = instrument.QueryString Sync message |> Async.map Choice.bindOrRaise
-
-        [< Obsolete "Async calls can cause AccessViolationExceptions in the NI VISA library." ; RequireQualifiedAccess >]
-        module Async =
-            /// Read a string that the VISA instrument is broadcasting using asynchronous I/O
-            let read instrument = instrument.ReadString Async |> Async.map Choice.bindOrRaise
-
-            /// Write a string to a VISA instrument using asynchronous I/O.
-            let write instrument = instrument.WriteString Async
-
-            /// Query a VISA instrument for a string, using the given string as a query using asynchronous I/O.
-            let query instrument message = instrument.QueryString Async message |> Async.map Choice.bindOrRaise
+        let query (instrument : Instrument) = instrument.QueryString >> Async.map Choice.bindOrRaise
 
     /// Functions related to byte array-based I/O.
     module Bytes =
         /// Read a byte array that the VISA instrument is broadcasting using synchronous I/O.
-        let read instrument = instrument.ReadBytes Sync |> Async.map Choice.bindOrRaise
+        let read (instrument : Instrument) = instrument.ReadBytes () |> Async.map Choice.bindOrRaise
 
         /// Write a byte array to a VISA instrument using synchronous I/O.
-        let write instrument = instrument.WriteBytes Sync
+        let write (instrument : Instrument) = instrument.WriteBytes
 
         /// Query a VISA instrument for a byte array, using the given string as a query using synchronous I/O.
-        let query instrument message = instrument.QueryBytes Sync message |> Async.map Choice.bindOrRaise
-
-        [< Obsolete "Async calls can cause AccessViolationExceptions in the NI VISA library." ; RequireQualifiedAccess >]
-        module Async =
-            /// Read a byte array that the VISA instrument is broadcasting using asynchronous I/O
-            let read instrument = instrument.ReadBytes Async |> Async.map Choice.bindOrRaise
-
-            /// Write a byte array to a VISA instrument using asynchronous I/O.
-            let write instrument = instrument.WriteBytes Async
-
-            /// Query a VISA instrument for a byte array, using the given string as a query using asynchronous I/O.
-            let query instrument message = instrument.QueryBytes Async message |> Async.map Choice.bindOrRaise
+        let query (instrument : Instrument) = instrument.QueryBytes >> Async.map Choice.bindOrRaise
