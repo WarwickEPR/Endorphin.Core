@@ -1,7 +1,7 @@
 source https://nuget.org/api/v2
 
 nuget FSharp.Core redirects: force
-nuget Endorphin.Core
+nuget Endorphin.Core >= 0.3.0
 nuget log4net ~> 2.0
 
 github WarwickEPR/Endorphin.Core src/Endorphin.Core.Choice.fs
