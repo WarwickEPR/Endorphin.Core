@@ -41,59 +41,24 @@
   <span>Parent Module: <a href="endorphin-core-visa.html">Visa</a></span>
 </p>
 <div class="xmldoc">
-<p>A VISA instrument, capable of reading, writing and querying strings and byte arrays.</p>
+<p>A VISA instrument, capable of reading, writing and querzRying strings and byte arrays.</p>
 
 </div>
-  <h3>Record Fields</h3>
+  <h3>Instance members</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Record Field</td><td>Description</td></tr>
+      <tr><td>Instance member</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '140', 140)" onmouseover="showTip(event, '140', 140)">
-            Close
+          <code onmouseout="hideTip(event, '205', 205)" onmouseover="showTip(event, '205', 205)">
+            Close()
           </code>
-          <div class="tip" id="140">
+          <div class="tip" id="205">
             <strong>Signature:</strong> unit -&gt; Async&lt;Choice&lt;unit,exn&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L42-42" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '141', 141)" onmouseover="showTip(event, '141', 141)">
-            QueryBytes
-          </code>
-          <div class="tip" id="141">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; Async&lt;Choice&lt;byte array,exn&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L41-41" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '142', 142)" onmouseover="showTip(event, '142', 142)">
-            QueryString
-          </code>
-          <div class="tip" id="142">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
@@ -107,15 +72,16 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '143', 143)" onmouseover="showTip(event, '143', 143)">
-            ReadBytes
+          <code onmouseout="hideTip(event, '206', 206)" onmouseover="showTip(event, '206', 206)">
+            QueryBytes(arg1)
           </code>
-          <div class="tip" id="143">
-            <strong>Signature:</strong> Synchronisation -&gt; Async&lt;Choice&lt;byte [],exn&gt;&gt;<br />
+          <div class="tip" id="206">
+            <strong>Signature:</strong> (byte []) -&gt; Async&lt;Choice&lt;byte [],exn&gt;&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L39-39" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L37-37" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -125,11 +91,69 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '144', 144)" onmouseover="showTip(event, '144', 144)">
-            ReadString
+          <code onmouseout="hideTip(event, '207', 207)" onmouseover="showTip(event, '207', 207)">
+            QueryString(arg1)
           </code>
-          <div class="tip" id="144">
-            <strong>Signature:</strong> Synchronisation -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+          <div class="tip" id="207">
+            <strong>Signature:</strong> string -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L34-34" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '208', 208)" onmouseover="showTip(event, '208', 208)">
+            ReadBytes()
+          </code>
+          <div class="tip" id="208">
+            <strong>Signature:</strong> unit -&gt; Async&lt;Choice&lt;byte [],exn&gt;&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L35-35" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '209', 209)" onmouseover="showTip(event, '209', 209)">
+            ReadString()
+          </code>
+          <div class="tip" id="209">
+            <strong>Signature:</strong> unit -&gt; Async&lt;Choice&lt;string,exn&gt;&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L32-32" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '210', 210)" onmouseover="showTip(event, '210', 210)">
+            WriteBytes(arg1)
+          </code>
+          <div class="tip" id="210">
+            <strong>Signature:</strong> (byte []) -&gt; unit<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
@@ -143,33 +167,16 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '145', 145)" onmouseover="showTip(event, '145', 145)">
-            WriteBytes
+          <code onmouseout="hideTip(event, '211', 211)" onmouseover="showTip(event, '211', 211)">
+            WriteString(arg1)
           </code>
-          <div class="tip" id="145">
-            <strong>Signature:</strong> Synchronisation -&gt; byte array -&gt; unit<br />
+          <div class="tip" id="211">
+            <strong>Signature:</strong> string -&gt; unit<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L40-40" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '146', 146)" onmouseover="showTip(event, '146', 146)">
-            WriteString
-          </code>
-          <div class="tip" id="146">
-            <strong>Signature:</strong> Synchronisation -&gt; string -&gt; unit<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L37-37" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L33-33" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>

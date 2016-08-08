@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Picoseconds - Endorphin.Core</title>
+    <title>IScpiInstrument - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,110 +35,107 @@
 
 
 
-<h1>Picoseconds</h1>
+<h1>IScpiInstrument</h1>
 <p>
-  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
-  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
+<p>An instrument capable of receiving and acting on SCPI commands.</p>
+
 </div>
-
-<!-- Render nested types and modules, if there are any -->
-
-  <h3>Functions and values</h3>
+  <h3>Instance members</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Function or value</td><td>Description</td></tr>
+      <tr><td>Instance member</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '160', 160)" onmouseover="showTip(event, '160', 160)">
-            toFemtoseconds t
+          <code onmouseout="hideTip(event, '196', 196)" onmouseover="showTip(event, '196', 196)">
+            Query(query)
           </code>
-          <div class="tip" id="160">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="196">
+            <strong>Signature:</strong> (query:byte []) -&gt; Async&lt;byte []&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L136-136" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L14-14" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Write an array of bytes to a SCPI instrument, then asynchronously wait
+for a response as an ASCII string.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '161', 161)" onmouseover="showTip(event, '161', 161)">
-            toMicroseconds t
+          <code onmouseout="hideTip(event, '197', 197)" onmouseover="showTip(event, '197', 197)">
+            Terminator()
           </code>
-          <div class="tip" id="161">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="197">
+            <strong>Signature:</strong> unit -&gt; byte []<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L134-134" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L16-16" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>The line termination characters to use.</p>
+
+
+              <p>CompiledName: <code>set_Terminator</code></p>
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '162', 162)" onmouseover="showTip(event, '162', 162)">
-            toMilliseconds t
+          <code onmouseout="hideTip(event, '198', 198)" onmouseover="showTip(event, '198', 198)">
+            Terminator()
           </code>
-          <div class="tip" id="162">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="198">
+            <strong>Signature:</strong> unit -&gt; unit<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L133-133" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L16-16" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>The line termination characters to use.</p>
+
+
+              <p>CompiledName: <code>get_Terminator</code></p>
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '163', 163)" onmouseover="showTip(event, '163', 163)">
-            toNanoseconds t
+          <code onmouseout="hideTip(event, '199', 199)" onmouseover="showTip(event, '199', 199)">
+            Write(value)
           </code>
-          <div class="tip" id="163">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="199">
+            <strong>Signature:</strong> (value:byte []) -&gt; Async&lt;unit&gt;<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L135-135" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L11-11" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
+          <p>Write an array of bytes to a SCPI instrument asynchronously,
+expecting no response.</p>
 
-          <code onmouseout="hideTip(event, '164', 164)" onmouseover="showTip(event, '164', 164)">
-            toSeconds t
-          </code>
-          <div class="tip" id="164">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L132-132" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
+
         </td>
       </tr>
     </tbody>

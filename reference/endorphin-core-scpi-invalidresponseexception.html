@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>SerialConfiguration - Endorphin.Core</title>
+    <title>InvalidResponseException - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,13 +35,13 @@
 
 
 
-<h1>SerialConfiguration</h1>
+<h1>InvalidResponseException</h1>
 <p>
   <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-visa.html">Visa</a></span>
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
-<p>Serial port configuration.</p>
+<p>The machine returned an invalid response to a query.</p>
 
 </div>
   <h3>Record Fields</h3>
@@ -53,69 +53,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '215', 215)" onmouseover="showTip(event, '215', 215)">
-            BaudRate
+          <code onmouseout="hideTip(event, '204', 204)" onmouseover="showTip(event, '204', 204)">
+            Data0
           </code>
-          <div class="tip" id="215">
-            <strong>Signature:</strong> int<br />
+          <div class="tip" id="204">
+            <strong>Signature:</strong> string<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L58-58" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '216', 216)" onmouseover="showTip(event, '216', 216)">
-            DataBits
-          </code>
-          <div class="tip" id="216">
-            <strong>Signature:</strong> int16<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L59-59" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '217', 217)" onmouseover="showTip(event, '217', 217)">
-            Parity
-          </code>
-          <div class="tip" id="217">
-            <strong>Signature:</strong> ParityMode<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L61-61" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '218', 218)" onmouseover="showTip(event, '218', 218)">
-            StopBits
-          </code>
-          <div class="tip" id="218">
-            <strong>Signature:</strong> StopBitMode<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core.NationalInstruments/VisaAgent.fs#L60-60" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L33-33" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>

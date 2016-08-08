@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Picoseconds - Endorphin.Core</title>
+    <title>Query - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,15 +35,45 @@
 
 
 
-<h1>Picoseconds</h1>
+<h1>Query</h1>
 <p>
-  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
-  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
+<p>Functions for querying SCPI instruments, expecting an asynchronus response.</p>
+
 </div>
 
 <!-- Render nested types and modules, if there are any -->
+  <h2>Nested types and modules</h2>
+  <div>
+      <table class="table table-bordered module-list">
+    <thead>
+      <tr><td>Module</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td class="module-name">
+            <a href="endorphin-core-scpi-query-key.html">Key</a>
+          </td>
+          <td class="xmldoc"><p>Functions for querying SCPI instruments by key only, e.g., ":SYSTEM:ERROR?".</p>
+
+</td>
+        </tr>
+        <tr>
+          <td class="module-name">
+            <a href="endorphin-core-scpi-query-value.html">Value</a>
+          </td>
+          <td class="xmldoc"><p>Functions to query SCPI instruments where the query takes some value as a parameter,
+e.g., ":FILE:EXISTS? 'testfile.out'".</p>
+
+</td>
+        </tr>
+    </tbody>
+  </table>
+
+  </div>
 
   <h3>Functions and values</h3>
   <table class="table table-bordered member-list">
@@ -54,91 +84,64 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '160', 160)" onmouseover="showTip(event, '160', 160)">
-            toFemtoseconds t
+          <code onmouseout="hideTip(event, '19', 19)" onmouseover="showTip(event, '19', 19)">
+            errors instrument
           </code>
-          <div class="tip" id="160">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="19">
+            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;seq&lt;Error&gt; option&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L136-136" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L322-322" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Check the queue for errors, returning None if no errors are found or a Some value
+with the entire sequence of errors if some exist.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '161', 161)" onmouseover="showTip(event, '161', 161)">
-            toMicroseconds t
+          <code onmouseout="hideTip(event, '20', 20)" onmouseover="showTip(event, '20', 20)">
+            identity instrument
           </code>
-          <div class="tip" id="161">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="20">
+            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;Identity&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L134-134" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L335-335" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Get the identity of an instrument.</p>
+<p>Throws SCPI.InvalidResponseException if the response does not match the SCPI spec.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '162', 162)" onmouseover="showTip(event, '162', 162)">
-            toMilliseconds t
+          <code onmouseout="hideTip(event, '21', 21)" onmouseover="showTip(event, '21', 21)">
+            verbatim instrument
           </code>
-          <div class="tip" id="162">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="21">
+            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; byte [] -&gt; Async&lt;byte []&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L133-133" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L159-159" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
+          <p>Send a byte array to the instrument verbatim, and asynchronously await its
+response.  No additional processing happens at either end.</p>
 
-          <code onmouseout="hideTip(event, '163', 163)" onmouseover="showTip(event, '163', 163)">
-            toNanoseconds t
-          </code>
-          <div class="tip" id="163">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L135-135" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
 
-          <code onmouseout="hideTip(event, '164', 164)" onmouseover="showTip(event, '164', 164)">
-            toSeconds t
-          </code>
-          <div class="tip" id="164">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L132-132" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
         </td>
       </tr>
     </tbody>

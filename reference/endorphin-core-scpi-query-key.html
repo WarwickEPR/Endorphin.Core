@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Key - Endorphin.Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content=""/>
+    <meta name="author" content="University of Warwick EPR and Diamond group"/>
+
+    <script src="https://code.jquery.com/jquery-1.8.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.8.23/jquery-ui.js"></script>
+    <script src="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+    <link href="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet"/>
+
+    <link type="text/css" rel="stylesheet" href="/Endorphin.Core/content/style.css" />
+    <script type="text/javascript" src="/Endorphin.Core/content/tips.js"></script>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="container">
+      <div class="masthead">
+        <ul class="nav nav-pills pull-right">
+          <li><a href="http://fsharp.org">fsharp.org</a></li>
+          <li><a href="http://github.com/WarwickEPR/Endorphin.Core">github page</a></li>
+        </ul>
+        <h3 class="muted"><a href="/Endorphin.Core/index.html">Endorphin.Core</a></h3>
+      </div>
+      <hr />
+      <div class="row">
+        <div class="span9" id="main">
+          
+
+
+
+<h1>Key</h1>
+<p>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi-query.html">Query</a></span>
+</p>
+<div class="xmldoc">
+<p>Functions for querying SCPI instruments by key only, e.g., ":SYSTEM:ERROR?".</p>
+
+</div>
+
+<!-- Render nested types and modules, if there are any -->
+
+  <h3>Functions and values</h3>
+  <table class="table table-bordered member-list">
+    <thead>
+      <tr><td>Function or value</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '22', 22)" onmouseover="showTip(event, '22', 22)">
+            bool key
+          </code>
+          <div class="tip" id="22">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;bool&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L308-308" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "bool".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '23', 23)" onmouseover="showTip(event, '23', 23)">
+            byte key
+          </code>
+          <div class="tip" id="23">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;byte&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L287-287" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "byte".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '24', 24)" onmouseover="showTip(event, '24', 24)">
+            char key
+          </code>
+          <div class="tip" id="24">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;char&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L284-284" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "char".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '25', 25)" onmouseover="showTip(event, '25', 25)">
+            decimal key
+          </code>
+          <div class="tip" id="25">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;decimal&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L293-293" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "decimal".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '26', 26)" onmouseover="showTip(event, '26', 26)">
+            double key
+          </code>
+          <div class="tip" id="26">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;double&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L305-305" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "double".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '27', 27)" onmouseover="showTip(event, '27', 27)">
+            float key
+          </code>
+          <div class="tip" id="27">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;float&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L299-299" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "float".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '28', 28)" onmouseover="showTip(event, '28', 28)">
+            float32 key
+          </code>
+          <div class="tip" id="28">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;float32&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L296-296" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "float32".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '29', 29)" onmouseover="showTip(event, '29', 29)">
+            int16 key
+          </code>
+          <div class="tip" id="29">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;int16&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L263-263" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "int16".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '30', 30)" onmouseover="showTip(event, '30', 30)">
+            int32 key
+          </code>
+          <div class="tip" id="30">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;int32&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L266-266" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "int32".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '31', 31)" onmouseover="showTip(event, '31', 31)">
+            int64 key
+          </code>
+          <div class="tip" id="31">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;int64&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L269-269" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "int64".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '32', 32)" onmouseover="showTip(event, '32', 32)">
+            int8 key
+          </code>
+          <div class="tip" id="32">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;int8&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L260-260" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "int8".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '33', 33)" onmouseover="showTip(event, '33', 33)">
+            parsed parser key instrument
+          </code>
+          <div class="tip" id="33">
+            <strong>Signature:</strong> parser:(string -&gt; &#39;?7427) -&gt; key:string -&gt; instrument:IScpiInstrument -&gt; Async&lt;&#39;?7427&gt;<br />
+                          <strong>Type parameters:</strong> '?7427          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L246-246" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the isntrument with a given key, then parse the result from
+a UTF-8 string using the passed parser.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '34', 34)" onmouseover="showTip(event, '34', 34)">
+            raw key instrument
+          </code>
+          <div class="tip" id="34">
+            <strong>Signature:</strong> key:string -&gt; instrument:IScpiInstrument -&gt; Async&lt;byte []&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L242-242" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then return the raw ASCII
+string read from the machine.</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '35', 35)" onmouseover="showTip(event, '35', 35)">
+            sbyte key
+          </code>
+          <div class="tip" id="35">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;sbyte&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L290-290" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "sbyte".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '36', 36)" onmouseover="showTip(event, '36', 36)">
+            single key
+          </code>
+          <div class="tip" id="36">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;single&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L302-302" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "single".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '37', 37)" onmouseover="showTip(event, '37', 37)">
+            string key
+          </code>
+          <div class="tip" id="37">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;string&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L257-257" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "string".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '38', 38)" onmouseover="showTip(event, '38', 38)">
+            uint16 key
+          </code>
+          <div class="tip" id="38">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;uint16&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L275-275" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "uint16".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '39', 39)" onmouseover="showTip(event, '39', 39)">
+            uint32 key
+          </code>
+          <div class="tip" id="39">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;uint32&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L278-278" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "uint32".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '40', 40)" onmouseover="showTip(event, '40', 40)">
+            uint64 key
+          </code>
+          <div class="tip" id="40">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;uint64&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L281-281" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "uint64".</p>
+
+
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '41', 41)" onmouseover="showTip(event, '41', 41)">
+            uint8 key
+          </code>
+          <div class="tip" id="41">
+            <strong>Signature:</strong> key:string -&gt; IScpiInstrument -&gt; Async&lt;uint8&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L272-272" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          <p>Query the instrument with a given key, then parse the result into
+the primitive .NET type "uint8".</p>
+
+
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+        </div>
+        <div class="span3">
+          <img src="/Endorphin.Core/img/logo.png" alt="F# Project" style="width:150px;margin:10px" />  
+          <ul class="nav nav-list" id="menu" style="margin-top: 20px;">
+            <li class="nav-header">Endorphin.Core</li>
+            <li><a href="/Endorphin.Core/index.html">Home page</a></li>
+            <li class="divider"></li>
+            <li><a href="http://nuget.org/packages/Endorphin.Core">Get Library via NuGet</a></li>
+            <li><a href="http://github.com/WarwickEPR/Endorphin.Core">Source Code on GitHub</a></li>
+            <li><a href="/Endorphin.Core/license.html">License</a></li>
+            <li><a href="/Endorphin.Core/release-notes.html">Release Notes</a></li>
+            
+            <li class="nav-header">Getting started</li>
+            <li><a href="/Endorphin.Core/tutorial.html">Sample tutorial</a></li>
+
+            <li class="nav-header">Documentation</li>
+            <li><a href="/Endorphin.Core/reference/index.html">API Reference</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <a href="http://github.com/WarwickEPR/Endorphin.Core"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"/></a>
+  </body>
+  </html>

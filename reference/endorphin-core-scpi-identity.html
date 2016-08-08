@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Picoseconds - Endorphin.Core</title>
+    <title>Identity - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,34 +35,34 @@
 
 
 
-<h1>Picoseconds</h1>
+<h1>Identity</h1>
 <p>
-  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
-  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
+<p>The identity structure returned from a SCPI instrument in response to
+the "*IDN?" query.</p>
+
 </div>
-
-<!-- Render nested types and modules, if there are any -->
-
-  <h3>Functions and values</h3>
+  <h3>Record Fields</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Function or value</td><td>Description</td></tr>
+      <tr><td>Record Field</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '160', 160)" onmouseover="showTip(event, '160', 160)">
-            toFemtoseconds t
+          <code onmouseout="hideTip(event, '200', 200)" onmouseover="showTip(event, '200', 200)">
+            Manufacturer
           </code>
-          <div class="tip" id="160">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="200">
+            <strong>Signature:</strong> string<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L136-136" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L27-27" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -72,15 +72,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '161', 161)" onmouseover="showTip(event, '161', 161)">
-            toMicroseconds t
+          <code onmouseout="hideTip(event, '201', 201)" onmouseover="showTip(event, '201', 201)">
+            Model
           </code>
-          <div class="tip" id="161">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="201">
+            <strong>Signature:</strong> string<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L134-134" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L28-28" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -90,15 +90,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '162', 162)" onmouseover="showTip(event, '162', 162)">
-            toMilliseconds t
+          <code onmouseout="hideTip(event, '202', 202)" onmouseover="showTip(event, '202', 202)">
+            Serial
           </code>
-          <div class="tip" id="162">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="202">
+            <strong>Signature:</strong> string<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L133-133" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L29-29" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -108,33 +108,15 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '163', 163)" onmouseover="showTip(event, '163', 163)">
-            toNanoseconds t
+          <code onmouseout="hideTip(event, '203', 203)" onmouseover="showTip(event, '203', 203)">
+            Version
           </code>
-          <div class="tip" id="163">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="203">
+            <strong>Signature:</strong> string<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L135-135" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '164', 164)" onmouseover="showTip(event, '164', 164)">
-            toSeconds t
-          </code>
-          <div class="tip" id="164">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L132-132" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L30-30" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>

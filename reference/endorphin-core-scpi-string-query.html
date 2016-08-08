@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Picoseconds - Endorphin.Core</title>
+    <title>Query - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,12 +35,14 @@
 
 
 
-<h1>Picoseconds</h1>
+<h1>Query</h1>
 <p>
-  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
-  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi-string.html">String</a></span>
 </p>
 <div class="xmldoc">
+<p>Create ASCII strings to query the instrument with keys and values.</p>
+
 </div>
 
 <!-- Render nested types and modules, if there are any -->
@@ -54,91 +56,42 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '160', 160)" onmouseover="showTip(event, '160', 160)">
-            toFemtoseconds t
+          <code onmouseout="hideTip(event, '68', 68)" onmouseover="showTip(event, '68', 68)">
+            key key
           </code>
-          <div class="tip" id="160">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="68">
+            <strong>Signature:</strong> key:string -&gt; byte []<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L136-136" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L86-86" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Create the string to query a key with no value.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '161', 161)" onmouseover="showTip(event, '161', 161)">
-            toMicroseconds t
+          <code onmouseout="hideTip(event, '69', 69)" onmouseover="showTip(event, '69', 69)">
+            value key value
           </code>
-          <div class="tip" id="161">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
-                      </div>
+          <div class="tip" id="69">
+            <strong>Signature:</strong> key:string -&gt; value:&#39;?7368 -&gt; byte []<br />
+                          <strong>Type parameters:</strong> '?7368          </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L134-134" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L83-83" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
+          <p>Create the string to query a given key with the given value, where the value
+string is found by calling its ToString() method.</p>
 
-          <code onmouseout="hideTip(event, '162', 162)" onmouseover="showTip(event, '162', 162)">
-            toMilliseconds t
-          </code>
-          <div class="tip" id="162">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L133-133" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
 
-          <code onmouseout="hideTip(event, '163', 163)" onmouseover="showTip(event, '163', 163)">
-            toNanoseconds t
-          </code>
-          <div class="tip" id="163">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L135-135" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '164', 164)" onmouseover="showTip(event, '164', 164)">
-            toSeconds t
-          </code>
-          <div class="tip" id="164">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L132-132" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
         </td>
       </tr>
     </tbody>
