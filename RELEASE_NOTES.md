@@ -1,3 +1,8 @@
+#### 0.3.0 - 2016-08-08
+* Add SCPI library to Endorphin.Core
+* Add SCPI interface to VISA instrument agents
+* Remove obsoleted VISA async IO functions.
+
 #### 0.2.0 - 2016-08-03
 * Obsolete VISA async IO functions due to a memory bug potentially in the
   NI-VISA implementation.
