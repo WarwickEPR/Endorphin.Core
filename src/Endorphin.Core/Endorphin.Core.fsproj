@@ -69,6 +69,7 @@
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="QueuedAccessAgent.fs" />
     <Compile Include="Units.fs" />
+    <Compile Include="SCPI.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>
