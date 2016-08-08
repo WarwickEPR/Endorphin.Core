@@ -292,8 +292,8 @@ the primitive .NET type "int8".</p>
             parsed parser key data instrument
           </code>
           <div class="tip" id="53">
-            <strong>Signature:</strong> parser:(string -&gt; &#39;?7386) -&gt; key:string -&gt; data:&#39;?7387 -&gt; instrument:IScpiInstrument -&gt; Async&lt;&#39;?7386&gt;<br />
-                          <strong>Type parameters:</strong> '?7386, '?7387          </div>
+            <strong>Signature:</strong> parser:(string -&gt; &#39;Out) -&gt; key:string -&gt; data:&#39;In -&gt; instrument:IScpiInstrument -&gt; Async&lt;&#39;Out&gt;<br />
+                          <strong>Type parameters:</strong> 'In, 'Out          </div>
         </td>
         <td class="xmldoc">
             <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L174-174" class="github-link">
@@ -313,8 +313,8 @@ a UTF-8 string using the passed parser.</p>
             raw key data instrument
           </code>
           <div class="tip" id="54">
-            <strong>Signature:</strong> key:string -&gt; data:&#39;?7384 -&gt; instrument:IScpiInstrument -&gt; Async&lt;byte []&gt;<br />
-                          <strong>Type parameters:</strong> '?7384          </div>
+            <strong>Signature:</strong> key:string -&gt; data:&#39;T -&gt; instrument:IScpiInstrument -&gt; Async&lt;byte []&gt;<br />
+                          <strong>Type parameters:</strong> 'T          </div>
         </td>
         <td class="xmldoc">
             <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L170-170" class="github-link">
