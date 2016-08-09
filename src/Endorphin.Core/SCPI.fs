@@ -15,6 +15,13 @@ module SCPI =
         /// The line termination characters to use.
         abstract member Terminator : byte [] with get, set
 
+    /// Types which interface IScpiFormatable implement a member ToScpiString ()
+    /// which is analogous to obj.ToString (), but specifically for the SCPI interface,
+    /// since the two strings may well be different.
+    type IScpiFormatable =
+        /// Get the SCPI string representation of this type.
+        abstract member ToScpiString : unit -> string
+
     /// A SCPI error returned from a machine.  Negative error codes are defined
     /// in the SCPI specification, while positive ones are device-dependant.
     type Error = {
@@ -42,7 +49,7 @@ module SCPI =
     /// Keys for use with SCPI commands.
     module Key =
         /// SCPI string to query an instrument for its identity, without the trailing
-        /// question mark (for use with String.query or Access.String.query).
+        /// question mark (for use with String.query or Query.identity).
         [< Literal >]
         let identify = "*IDN"
         /// SCPI string to instruct an instrument to reset.
@@ -58,19 +65,32 @@ module SCPI =
     /// Functions for building SCPI commands into ASCII byte arrays for sending to
     /// machines.
     module String =
+        // TODO: there must be a better way than type dispatching here, but I didn't
+        // want to have two separate functions.
+
         /// Add a value onto a currently existing key or query, where the text
-        /// representation of the value is found by calling its ToString() method.
+        /// representation of the value is found by calling its ToSCPIString()
+        /// method if it has one (i.e., implements IScpiFormatable), or ToString ()
+        /// if it does not.
+        ///
+        /// Byte arrays are writing in as ASCII strings verbatim, with no ToString()
+        /// conversion, unless they implement a IScpiFormatable with a different
+        /// ToScpiString() method.
         let private addValue (value : obj) str =
             match value with
+            | :? IScpiFormatable as scpi ->
+                String.concat " " [ str ; scpi.ToScpiString () ] |> bytes
             | :? (byte []) as arr ->
                 Array.concat [ bytes (str + " ") ; arr ]
             | _ ->
-                String.concat " " [ str ; value.ToString() ] |> bytes
+                String.concat " " [ str ; value.ToString () ] |> bytes
 
         /// Create ASCII strings to set keys to values.
         module Set =
             /// Create the string to set a given key to a given value, where the value to be
-            /// written is found by calling its ToString() method.
+            /// written is found by calling its ToScpiString() method if it implements
+            /// IScpiFormatable, verbatim if a byte array, or its obj.ToString() method
+            /// otherwise.
             let value key value = trim key |> addValue value
 
             /// Create the string for a key and no value.
@@ -79,7 +99,9 @@ module SCPI =
         /// Create ASCII strings to query the instrument with keys and values.
         module Query =
             /// Create the string to query a given key with the given value, where the value
-            /// string is found by calling its ToString() method.
+            /// string is found by calling its ToScpiString() method if it implements
+            /// IScpiFormatable, verbatim if a byte array, or its obj.ToString() method
+            /// otherwise.
             let value key value = trim key + "?" |> addValue value
 
             /// Create the string to query a key with no value.
@@ -146,7 +168,10 @@ module SCPI =
         let private writer instrument = addTerminator instrument >> verbatim instrument
 
         /// Write a key with a value to an instrument, where the value will be converted
-        /// by calling its "ToString()" method.  SCPI command e.g., ":POWER 12.0".
+        /// by calling its ToScpiString() method if it implements IScpiFormatable,
+        /// verbatim if it is a byte array, or its obj.ToString() method otherwise.
+        ///
+        /// SCPI command e.g., ":POWER 12.0".
         let value<'In> key (value : 'In) instrument = String.Set.value key value |> writer instrument
 
         /// Write a key with no value to an instrument, e.g., "*RST".
@@ -166,8 +191,10 @@ module SCPI =
         /// e.g., ":FILE:EXISTS? 'testfile.out'".
         module Value =
             /// Query the instrument with a given key and value, then return the raw ASCII
-            /// string read from the machine.
-            let raw<'T> key (data : 'T) instrument = String.Query.value key data |> querier instrument
+            /// string read from the machine.  The `data` type is converted to a string by
+            /// calling its ToScpiString () method if it implements IScpiFormatable,
+            /// verbatim if it is a byte array, or its obj.ToString () method otherwise.
+            let raw<'In> key (data : 'In) instrument = String.Query.value key data |> querier instrument
 
             /// Query the isntrument with a given key and value, then parse the result from
             /// a UTF-8 string using the passed parser.

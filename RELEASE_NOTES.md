@@ -1,3 +1,8 @@
+#### 0.3.2 - 2016-08-09
+* Add IScpiFormatable interface so as not to clobber obj.ToString () on
+  user-defined types.  Primitive types may still be passed, and their
+  obj.ToString () methods will be called.
+
 #### 0.3.1 - 2016-08-08
 * Add type annotations to SCPI generic functions for better type safety.
 
