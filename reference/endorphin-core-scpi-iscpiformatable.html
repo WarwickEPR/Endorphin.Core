@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Set - Endorphin.Core</title>
+    <title>IScpiFormatable - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,63 +35,40 @@
 
 
 
-<h1>Set</h1>
+<h1>IScpiFormatable</h1>
 <p>
   <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-scpi-string.html">String</a></span>
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
-<p>Create ASCII strings to set keys to values.</p>
+<p>Types which interface IScpiFormatable implement a member ToScpiString ()
+which is analogous to obj.ToString (), but specifically for the SCPI interface,
+since the two strings may well be different.</p>
 
 </div>
-
-<!-- Render nested types and modules, if there are any -->
-
-  <h3>Functions and values</h3>
+  <h3>Instance members</h3>
   <table class="table table-bordered member-list">
     <thead>
-      <tr><td>Function or value</td><td>Description</td></tr>
+      <tr><td>Instance member</td><td>Description</td></tr>
     </thead>
     <tbody>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '70', 70)" onmouseover="showTip(event, '70', 70)">
-            key key
+          <code onmouseout="hideTip(event, '196', 196)" onmouseover="showTip(event, '196', 196)">
+            ToScpiString()
           </code>
-          <div class="tip" id="70">
-            <strong>Signature:</strong> key:string -&gt; byte []<br />
+          <div class="tip" id="196">
+            <strong>Signature:</strong> unit -&gt; string<br />
+              <strong>Modifiers:</strong> abstract<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L97-97" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L23-23" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          <p>Create the string for a key and no value.</p>
-
-
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '71', 71)" onmouseover="showTip(event, '71', 71)">
-            value key value
-          </code>
-          <div class="tip" id="71">
-            <strong>Signature:</strong> key:string -&gt; value:&#39;?7366 -&gt; byte []<br />
-                          <strong>Type parameters:</strong> '?7366          </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L94-94" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          <p>Create the string to set a given key to a given value, where the value to be
-written is found by calling its ToScpiString() method if it implements
-IScpiFormatable, verbatim if a byte array, or its obj.ToString() method
-otherwise.</p>
+          <p>Get the SCPI string representation of this type.</p>
 
 
         </td>

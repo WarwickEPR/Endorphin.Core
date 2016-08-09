@@ -32,6 +32,14 @@
       <div class="row">
         <div class="span9" id="main">
           
+<h4><a name="0-3-2-2016-08-09" class="anchor" href="#0-3-2-2016-08-09">0.3.2 - 2016-08-09</a></h4>
+<ul>
+<li>
+Add IScpiFormatable interface so as not to clobber obj.ToString () on
+user-defined types.  Primitive types may still be passed, and their
+obj.ToString () methods will be called.
+</li>
+</ul>
 <h4><a name="0-3-1-2016-08-08" class="anchor" href="#0-3-1-2016-08-08">0.3.1 - 2016-08-08</a></h4>
 <ul>
 <li>Add type annotations to SCPI generic functions for better type safety.</li>

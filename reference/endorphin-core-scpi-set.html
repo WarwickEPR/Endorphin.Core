@@ -65,7 +65,7 @@ e.g., "*RST".</p>
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L153-153" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L178-178" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
@@ -85,12 +85,14 @@ e.g., "*RST".</p>
                           <strong>Type parameters:</strong> 'In          </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L150-150" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L175-175" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
           <p>Write a key with a value to an instrument, where the value will be converted
-by calling its "ToString()" method.  SCPI command e.g., ":POWER 12.0".</p>
+by calling its ToScpiString() method if it implements IScpiFormatable,
+verbatim if it is a byte array, or its obj.ToString() method otherwise.</p>
+<p>SCPI command e.g., ":POWER 12.0".</p>
 
 
         </td>
@@ -106,7 +108,7 @@ by calling its "ToString()" method.  SCPI command e.g., ":POWER 12.0".</p>
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L142-142" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L164-164" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
