@@ -381,6 +381,7 @@ module SCPI =
     /// IO SCPI functions which check the error queue afterwards and raise an exception if any
     /// were found.
     module Checked =
+        /// Check the error queue and raise an exception if any are found.
         let private errors instrument = async {
             let! errors = Query.errors instrument
             match errors with
