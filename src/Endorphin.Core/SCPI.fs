@@ -25,7 +25,7 @@ module SCPI =
     /// A SCPI error returned from a machine.  Negative error codes are defined
     /// in the SCPI specification, while positive ones are device-dependant.
     type Error = {
-        Code : int
+        Code    : int
         Message : string }
 
     /// The identity structure returned from a SCPI instrument in response to
@@ -38,6 +38,9 @@ module SCPI =
 
     /// The machine returned an invalid response to a query.
     exception InvalidResponseException of string
+
+    /// There were errors in the error queue after calling a SCPI.Checked function.
+    exception InstrumentErrorException of Error list
 
     /// Trim any leading or ending whitespace from a string.
     let private trim (str : string) = str.Trim ()
@@ -161,11 +164,11 @@ module SCPI =
     /// e.g., "*RST".
     module Set =
         /// Send a byte array to the instrument verbatim, with no preprocessing.
-        let verbatim (instrument : IScpiInstrument) = instrument.Write
+        let verbatim str (instrument : IScpiInstrument) = instrument.Write str
 
         /// Generic write function, which adds a terminator to the byte array, then sends
         /// it to the instrument.
-        let private writer instrument = addTerminator instrument >> verbatim instrument
+        let private writer instrument = addTerminator instrument >> (fun x -> verbatim x instrument)
 
         /// Write a key with a value to an instrument, where the value will be converted
         /// by calling its ToScpiString() method if it implements IScpiFormatable,
@@ -177,15 +180,20 @@ module SCPI =
         /// Write a key with no value to an instrument, e.g., "*RST".
         let key   key instrument = String.Set.key key |> writer instrument
 
+        /// Issue the reset command to the instrument.
+        let reset instrument = key Key.reset instrument
+        /// Issue the clear state command to the instrument.
+        let clear instrument = key Key.clear instrument
+
     /// Functions for querying SCPI instruments, expecting an asynchronus response.
     module Query =
         /// Send a byte array to the instrument verbatim, and asynchronously await its
         /// response.  No additional processing happens at either end.
-        let verbatim (instrument : IScpiInstrument) = instrument.Query
+        let verbatim str (instrument : IScpiInstrument) = instrument.Query str
 
         /// Generic query function for internal use - adds the instrument's terminator
         /// then submits the block.
-        let private querier instrument = addTerminator instrument >> verbatim instrument
+        let private querier instrument = addTerminator instrument >> (fun x -> verbatim x instrument)
 
         /// Functions to query SCPI instruments where the query takes some value as a parameter,
         /// e.g., ":FILE:EXISTS? 'testfile.out'".
@@ -353,7 +361,7 @@ module SCPI =
                 else
                     match errors with
                     | []   -> return None
-                    | list -> return List.rev list |> List.toSeq |> Some }
+                    | list -> return List.rev list |> Some }
             loop []
 
         /// Get the identity of an instrument.
@@ -370,7 +378,212 @@ module SCPI =
                 with _ -> raise (InvalidResponseException str)
             Key.parsed parser Key.identify instrument
 
-    /// Issue the reset command to the instrument.
-    let reset instrument = Set.key Key.reset instrument
-    /// Issue the clear state command to the instrument.
-    let clear instrument = Set.key Key.clear instrument
+    /// IO SCPI functions which check the error queue afterwards and raise an exception if any
+    /// were found.
+    module Checked =
+        let private errors instrument = async {
+            let! errors = Query.errors instrument
+            match errors with
+            | None -> ()
+            | Some failures -> InstrumentErrorException failures |> raise }
+
+        /// Functions for writing "set" commands to SCPI instruments with no expected responses,
+        /// e.g., "*RST".
+        module Set =
+            /// Send a byte array to the instrument verbatim, with no preprocessing.
+            let verbatim str (instrument : IScpiInstrument) = async {
+                do! instrument.Write str
+                do! errors instrument }
+
+            /// Generic write function, which adds a terminator to the byte array, then sends
+            /// it to the instrument.
+            let private writer instrument = addTerminator instrument >> (fun x -> verbatim x instrument)
+
+            /// Write a key with a value to an instrument, where the value will be converted
+            /// by calling its ToScpiString() method if it implements IScpiFormatable,
+            /// verbatim if it is a byte array, or its obj.ToString() method otherwise.
+            ///
+            /// SCPI command e.g., ":POWER 12.0".
+            let value<'In> key (value : 'In) instrument = String.Set.value key value |> writer instrument
+
+            /// Write a key with no value to an instrument, e.g., "*RST".
+            let key   key instrument = String.Set.key key |> writer instrument
+
+            /// Issue the reset command to the instrument.
+            let reset instrument = key Key.reset instrument
+            /// Issue the clear state command to the instrument.
+            let clear instrument = key Key.clear instrument
+
+        /// Functions for querying SCPI instruments, expecting an asynchronus response.
+        module Query =
+            /// Send a byte array to the instrument verbatim, and asynchronously await its
+            /// response.  No additional processing happens at either end.
+            let verbatim str (instrument : IScpiInstrument) = async {
+                let! result = instrument.Query str
+                do! errors instrument
+                return result }
+
+            /// Generic query function for internal use - adds the instrument's terminator
+            /// then submits the block.
+            let private querier instrument = addTerminator instrument >> (fun x -> verbatim x instrument)
+
+            /// Functions to query SCPI instruments where the query takes some value as a parameter,
+            /// e.g., ":FILE:EXISTS? 'testfile.out'".
+            module Value =
+                /// Query the instrument with a given key and value, then return the raw ASCII
+                /// string read from the machine.  The `data` type is converted to a string by
+                /// calling its ToScpiString () method if it implements IScpiFormatable,
+                /// verbatim if it is a byte array, or its obj.ToString () method otherwise.
+                let raw<'In> key (data : 'In) instrument = String.Query.value key data |> querier instrument
+
+                /// Query the isntrument with a given key and value, then parse the result from
+                /// a UTF-8 string using the passed parser.
+                let parsed<'In, 'Out> (parser : string -> 'Out) key (data : 'In) instrument = raw key data instrument |> Async.map (utf8 >> parser)
+
+                // We can't use complete partial application here because data and ScpiInstrument
+                // can be generalised, and so the compiler cannot tell if it is safe to totally
+                // generalise the value into closure creation.
+                //
+                // See: https://blogs.msdn.microsoft.com/mulambda/2010/05/01/finer-points-of-f-value-restriction/
+                // for more details.
+
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "string".
+                let string key data = parsed string key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "int8".
+                let int8 key data = parsed int8 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "int16".
+                let int16 key data = parsed int16 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "int32".
+                let int32 key data = parsed int32 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "int64".
+                let int64 key data = parsed int64 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "uint8".
+                let uint8 key data = parsed uint8 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "uint16".
+                let uint16 key data = parsed uint16 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "uint32".
+                let uint32 key data = parsed uint32 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "uint64".
+                let uint64 key data = parsed uint64 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "char".
+                let char key data = parsed char key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "byte".
+                let byte key data = parsed byte key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "sbyte".
+                let sbyte key data = parsed sbyte key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "decimal".
+                let decimal key data = parsed decimal key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "float32".
+                let float32 key data = parsed float32 key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "float".
+                let float key data = parsed float key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "single".
+                let single key data = parsed single key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "double".
+                let double key data = parsed double key data
+                /// Query the instrument with a given key and value, then parse the result into
+                /// the primitive .NET type "bool".
+                let bool key data = parsed bool.Parse key data
+
+            /// Functions for querying SCPI instruments by key only, e.g., ":SYSTEM:ERROR?".
+            module Key =
+                /// Query the instrument with a given key, then return the raw ASCII
+                /// string read from the machine.
+                let raw key instrument = String.Query.key key |> querier instrument
+
+                /// Query the isntrument with a given key, then parse the result from
+                /// a UTF-8 string using the passed parser.
+                let parsed<'Out> (parser : string -> 'Out) key instrument = raw key instrument |> Async.map (utf8 >> parser)
+
+                // We can't use complete partial application here because ScpiInstrument
+                // can be generalised, and so the compiler cannot tell if it is safe to totally
+                // generalise the value into closure creation.
+                //
+                // See: https://blogs.msdn.microsoft.com/mulambda/2010/05/01/finer-points-of-f-value-restriction/
+                // for more details.
+
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "string".
+                let string key = parsed string key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "int8".
+                let int8 key = parsed int8 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "int16".
+                let int16 key = parsed int16 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "int32".
+                let int32 key = parsed int32 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "int64".
+                let int64 key = parsed int64 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "uint8".
+                let uint8 key = parsed uint8 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "uint16".
+                let uint16 key = parsed uint16 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "uint32".
+                let uint32 key = parsed uint32 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "uint64".
+                let uint64 key = parsed uint64 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "char".
+                let char key = parsed char key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "byte".
+                let byte key = parsed byte key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "sbyte".
+                let sbyte key = parsed sbyte key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "decimal".
+                let decimal key = parsed decimal key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "float32".
+                let float32 key = parsed float32 key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "float".
+                let float key = parsed float key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "single".
+                let single key = parsed single key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "double".
+                let double key = parsed double key
+                /// Query the instrument with a given key, then parse the result into
+                /// the primitive .NET type "bool".
+                let bool key = parsed bool.Parse key
+
+            /// Get the identity of an instrument.
+            ///
+            /// Throws SCPI.InvalidResponseException if the response does not match the SCPI spec.
+            let identity instrument =
+                let parser (str : string) =
+                    let  parts = str.Split ([| ',' |], 4) |> Array.map trim
+                    try
+                        { Manufacturer = parts.[0]
+                          Model        = parts.[1]
+                          Serial       = parts.[2]
+                          Version      = parts.[3] }
+                    with _ -> raise (InvalidResponseException str)
+                Key.parsed parser Key.identify instrument
