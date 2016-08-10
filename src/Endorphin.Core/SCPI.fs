@@ -417,6 +417,11 @@ module SCPI =
 
         /// Functions for querying SCPI instruments, expecting an asynchronus response.
         module Query =
+            // Literally just a passthrough to the private function declared earlier, but in the
+            // correct module.
+            /// Raise an exception if any errors are present in the queue.
+            let errors instrument = errors instrument
+
             /// Send a byte array to the instrument verbatim, and asynchronously await its
             /// response.  No additional processing happens at either end.
             let verbatim str (instrument : IScpiInstrument) = async {
