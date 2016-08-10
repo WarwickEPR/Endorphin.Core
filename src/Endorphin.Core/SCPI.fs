@@ -49,6 +49,13 @@ module SCPI =
     /// Convert an array of bytes into a .NET string.
     let private utf8 bytes = System.Text.ASCIIEncoding.ASCII.GetString bytes
 
+    /// Convert an object to a string using its IScpiFormatable interface if it
+    /// implements it, or its System.Object.ToString () method if not.
+    let format (value : obj) =
+        match value with
+        | :? IScpiFormatable as scpi -> scpi.ToScpiString ()
+        | obj -> obj.ToString ()
+
     /// Keys for use with SCPI commands.
     module Key =
         /// SCPI string to query an instrument for its identity, without the trailing
