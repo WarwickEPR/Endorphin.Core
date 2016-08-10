@@ -1,3 +1,9 @@
+#### 0.3.3 - 2016-08-10
+* Make the SCPI.\*.verbatim functions consistent in calling convention with the
+  rest of the library.
+* Add checked SCPI IO functions, where the error queue is checked after each
+  command, and an exception raised if errors are found.
+
 #### 0.3.2 - 2016-08-09
 * Add IScpiFormatable interface so as not to clobber obj.ToString () on
   user-defined types.  Primitive types may still be passed, and their
