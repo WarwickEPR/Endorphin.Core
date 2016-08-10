@@ -1,3 +1,6 @@
+#### 0.3.4 - 2016-08-10
+* Add SCPI.Checked.Query.errors for initialisation checks.
+
 #### 0.3.3 - 2016-08-10
 * Make the SCPI.\*.verbatim functions consistent in calling convention with the
   rest of the library.
