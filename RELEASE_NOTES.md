@@ -1,3 +1,6 @@
+#### 0.3.5 - 2016-08-10
+* Add SCPI.format for conditionally accessing the IScpiFormatable interface.
+
 #### 0.3.4 - 2016-08-10
 * Add SCPI.Checked.Query.errors for initialisation checks.
 
