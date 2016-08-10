@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>Milliseconds - Endorphin.Core</title>
+    <title>Set - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,12 +35,15 @@
 
 
 
-<h1>Milliseconds</h1>
+<h1>Set</h1>
 <p>
-  <span>Namespace: Microsoft.FSharp.Data.UnitSystems.SI.UnitSymbols</span><br />
-  <span>Parent Module: <a href="microsoft-fsharp-data-unitsystems-si-unitsymbols-units-time.html">Time</a></span>
+  <span>Namespace: Endorphin.Core</span><br />
+  <span>Parent Module: <a href="endorphin-core-scpi-checked.html">Checked</a></span>
 </p>
 <div class="xmldoc">
+<p>Functions for writing "set" commands to SCPI instruments with no expected responses,
+e.g., "*RST".</p>
+
 </div>
 
 <!-- Render nested types and modules, if there are any -->
@@ -54,91 +57,104 @@
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '197', 197)" onmouseover="showTip(event, '197', 197)">
-            toFemtoseconds t
+          <code onmouseout="hideTip(event, '55', 55)" onmouseover="showTip(event, '55', 55)">
+            clear instrument
           </code>
-          <div class="tip" id="197">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;fs,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="55">
+            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L115-115" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L415-415" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Issue the clear state command to the instrument.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '198', 198)" onmouseover="showTip(event, '198', 198)">
-            toMicroseconds t
+          <code onmouseout="hideTip(event, '56', 56)" onmouseover="showTip(event, '56', 56)">
+            key key instrument
           </code>
-          <div class="tip" id="198">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;us,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="56">
+            <strong>Signature:</strong> key:string -&gt; instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L112-112" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L410-410" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Write a key with no value to an instrument, e.g., "*RST".</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '199', 199)" onmouseover="showTip(event, '199', 199)">
-            toNanoseconds t
+          <code onmouseout="hideTip(event, '57', 57)" onmouseover="showTip(event, '57', 57)">
+            reset instrument
           </code>
-          <div class="tip" id="199">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ns,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="57">
+            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L113-113" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L413-413" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Issue the reset command to the instrument.</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '200', 200)" onmouseover="showTip(event, '200', 200)">
-            toPicoseconds t
+          <code onmouseout="hideTip(event, '58', 58)" onmouseover="showTip(event, '58', 58)">
+            value key value instrument
           </code>
-          <div class="tip" id="200">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;ps,MeasureOne&gt;&gt;<br />
-                      </div>
+          <div class="tip" id="58">
+            <strong>Signature:</strong> key:string -&gt; value:&#39;In -&gt; instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
+                          <strong>Type parameters:</strong> 'In          </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L114-114" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L407-407" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Write a key with a value to an instrument, where the value will be converted
+by calling its ToScpiString() method if it implements IScpiFormatable,
+verbatim if it is a byte array, or its obj.ToString() method otherwise.</p>
+<p>SCPI command e.g., ":POWER 12.0".</p>
+
+
         </td>
       </tr>
       <tr>
         <td class="member-name">
 
-          <code onmouseout="hideTip(event, '201', 201)" onmouseover="showTip(event, '201', 201)">
-            toSeconds t
+          <code onmouseout="hideTip(event, '59', 59)" onmouseover="showTip(event, '59', 59)">
+            verbatim str instrument
           </code>
-          <div class="tip" id="201">
-            <strong>Signature:</strong> t:float&lt;MeasureProduct&lt;ms,MeasureOne&gt;&gt; -&gt; float&lt;MeasureProduct&lt;s,MeasureOne&gt;&gt;<br />
+          <div class="tip" id="59">
+            <strong>Signature:</strong> str:byte [] -&gt; instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/Units.fs#L111-111" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L394-394" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
-          
+          <p>Send a byte array to the instrument verbatim, with no preprocessing.</p>
+
+
         </td>
       </tr>
     </tbody>

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>DisposableBox<'T> - Endorphin.Core</title>
+    <title>Checked - Endorphin.Core</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content=""/>
     <meta name="author" content="University of Warwick EPR and Diamond group"/>
@@ -35,67 +35,47 @@
 
 
 
-<h1>DisposableBox<'T></h1>
+<h1>Checked</h1>
 <p>
   <span>Namespace: Endorphin.Core</span><br />
-  <span>Parent Module: <a href="endorphin-core-queuedaccessagent.html">QueuedAccessAgent</a></span>
+  <span>Parent Module: <a href="endorphin-core-scpi.html">SCPI</a></span>
 </p>
 <div class="xmldoc">
+<p>IO SCPI functions which check the error queue afterwards and raise an exception if any
+were found.</p>
+
 </div>
-  <h3>Constructors</h3>
-  <table class="table table-bordered member-list">
+
+<!-- Render nested types and modules, if there are any -->
+  <h2>Nested types and modules</h2>
+  <div>
+      <table class="table table-bordered module-list">
     <thead>
-      <tr><td>Constructor</td><td>Description</td></tr>
+      <tr><td>Module</td><td>Description</td></tr>
     </thead>
     <tbody>
-      <tr>
-        <td class="member-name">
+        <tr>
+          <td class="module-name">
+            <a href="endorphin-core-scpi-checked-query.html">Query</a>
+          </td>
+          <td class="xmldoc"><p>Functions for querying SCPI instruments, expecting an asynchronus response.</p>
 
-          <code onmouseout="hideTip(event, '239', 239)" onmouseover="showTip(event, '239', 239)">
-            new(contents, disposeAction)
-          </code>
-          <div class="tip" id="239">
-            <strong>Signature:</strong> (contents:&#39;T * disposeAction:(unit -&gt; unit)) -&gt; DisposableBox&lt;&#39;T&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/QueuedAccessAgent.fs#L11-11" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-              <p>CompiledName: <code>.ctor</code></p>
-        </td>
-      </tr>
+</td>
+        </tr>
+        <tr>
+          <td class="module-name">
+            <a href="endorphin-core-scpi-checked-set.html">Set</a>
+          </td>
+          <td class="xmldoc"><p>Functions for writing "set" commands to SCPI instruments with no expected responses,
+e.g., "*RST".</p>
+
+</td>
+        </tr>
     </tbody>
   </table>
-  <h3>Instance members</h3>
-  <table class="table table-bordered member-list">
-    <thead>
-      <tr><td>Instance member</td><td>Description</td></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="member-name">
 
-          <code onmouseout="hideTip(event, '240', 240)" onmouseover="showTip(event, '240', 240)">
-            Contents
-          </code>
-          <div class="tip" id="240">
-            <strong>Signature:</strong> &#39;T<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/QueuedAccessAgent.fs#L14-14" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          
-              <p>CompiledName: <code>get_Contents</code></p>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  </div>
+
 
         </div>
         <div class="span3">

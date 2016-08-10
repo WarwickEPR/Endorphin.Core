@@ -90,6 +90,14 @@ the "*IDN?" query.</p>
         </tr>
         <tr>
           <td class="type-name">
+            <a href="endorphin-core-scpi-instrumenterrorexception.html">InstrumentErrorException</a>
+          </td>
+          <td class="xmldoc"><p>There were errors in the error queue after calling a SCPI.Checked function.</p>
+
+</td>
+        </tr>
+        <tr>
+          <td class="type-name">
             <a href="endorphin-core-scpi-invalidresponseexception.html">InvalidResponseException</a>
           </td>
           <td class="xmldoc"><p>The machine returned an invalid response to a query.</p>
@@ -103,6 +111,15 @@ the "*IDN?" query.</p>
       <tr><td>Module</td><td>Description</td></tr>
     </thead>
     <tbody>
+        <tr>
+          <td class="module-name">
+            <a href="endorphin-core-scpi-checked.html">Checked</a>
+          </td>
+          <td class="xmldoc"><p>IO SCPI functions which check the error queue afterwards and raise an exception if any
+were found.</p>
+
+</td>
+        </tr>
         <tr>
           <td class="module-name">
             <a href="endorphin-core-scpi-key.html">Key</a>
@@ -152,59 +169,19 @@ machines.</p>
         <td class="member-name">
 
           <code onmouseout="hideTip(event, '12', 12)" onmouseover="showTip(event, '12', 12)">
-            clear instrument
-          </code>
-          <div class="tip" id="12">
-            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L376-376" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          <p>Issue the clear state command to the instrument.</p>
-
-
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '13', 13)" onmouseover="showTip(event, '13', 13)">
             datablock data
           </code>
-          <div class="tip" id="13">
+          <div class="tip" id="12">
             <strong>Signature:</strong> data:byte [] -&gt; byte []<br />
                       </div>
         </td>
         <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L143-143" class="github-link">
+            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L146-146" class="github-link">
               <img src="../content/img/github.png" class="normal" />
               <img src="../content/img/github-blue.png" class="hover" />
             </a>
           <p>Convert a block of data into the SCPI datablock format by prepending the datablock
 character, the number of digits in the length and the length.</p>
-
-
-        </td>
-      </tr>
-      <tr>
-        <td class="member-name">
-
-          <code onmouseout="hideTip(event, '14', 14)" onmouseover="showTip(event, '14', 14)">
-            reset instrument
-          </code>
-          <div class="tip" id="14">
-            <strong>Signature:</strong> instrument:IScpiInstrument -&gt; Async&lt;unit&gt;<br />
-                      </div>
-        </td>
-        <td class="xmldoc">
-            <a href="http://github.com/WarwickEPR/Endorphin.Core/tree/master/src/Endorphin.Core/SCPI.fs#L374-374" class="github-link">
-              <img src="../content/img/github.png" class="normal" />
-              <img src="../content/img/github-blue.png" class="hover" />
-            </a>
-          <p>Issue the reset command to the instrument.</p>
 
 
         </td>
