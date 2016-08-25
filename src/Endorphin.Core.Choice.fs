@@ -89,3 +89,46 @@ module internal Choice =
 
     /// Create the choice computational expression.
     let choice = new Choice.Builder ()
+
+[<AutoOpen>]
+/// Functions for dealing with option types.
+module internal Option =
+    [<RequireQualifiedAccess>]
+    module Option =
+        /// Lift a value into an option type.
+        let lift value = Some value
+
+        [<Sealed>]
+        type Builder () =
+            /// The default case for the empty computation expression is a Some with no value.
+            static let zero = Some ()
+
+            /// Bind a new option onto the global state.
+            member __.Bind (state, binder) =
+                Option.bind binder state
+
+            /// Return a non-option value as an option.
+            member __.Return value =
+                lift value
+
+            /// Return an option value from a computational expression.
+            member __.ReturnFrom state =
+                state
+
+            /// Get the zero value of the option computational expression.
+            member __.Zero () =
+                zero
+
+            /// Delay performing a function inside an option computational expression.
+            member __.Delay generator =
+                generator ()
+
+            /// Combine a value with the global state. The global state must be Option<unit> for this
+            /// to work.
+            member __.Combine (state, value : _ option) =
+                match state with
+                | Some () -> value
+                | None    -> None
+
+    /// Create the choice computational expression.
+    let maybe = new Option.Builder ()
