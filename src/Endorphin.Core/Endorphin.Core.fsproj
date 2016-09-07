@@ -65,6 +65,7 @@
       <Paket>True</Paket>
       <Link>paket-files/Endorphin.Core.Control.fs</Link>
     </Compile>
+    <Compile Include="Log.fs" />
     <Compile Include="CancellationCapability.fs" />
     <Compile Include="CommandRequestAgent.fs" />
     <Compile Include="QueuedAccessAgent.fs" />
