@@ -1,5 +1,7 @@
 #### 0.3.7 - 2016-09-08
-* Add bytes to SCPI.format. Add helpers for instruments to log errors
+* Add bytes to SCPI.format
+* Add helpers for instruments to log errors
+* Add a prefix to VisaAgent logger names
 
 #### 0.3.6 - 2016-09-07
 * Add logging to the SCPI functions.
