@@ -64,6 +64,35 @@ module SCPI =
         | :? (byte[]) as bytes -> displayBytes 30 bytes
         | obj -> obj.ToString ()
 
+    /// Helper for consistent logging of errors thrown by Scpi commands by instruments
+    let logCheckedCommand (logger:log4net.ILog) command = async {
+        try
+            do! command
+        with
+        | InvalidResponseException str ->
+            logger.Error <| sprintf "Invalid response: %s" str
+            raise (InvalidResponseException str)
+        | InstrumentErrorException [error] ->
+            logger.Error <| sprintf "Instrument error: %A" error
+        | InstrumentErrorException errors ->
+            "Instrument errors:" :: List.map (sprintf "%A") errors |> String.concat "\n" |> logger.Error }
+
+    /// Helper for consistent logging of errors thrown by Scpi queries by instruments
+    let logCheckedQuery<'T> (logger:log4net.ILog) query : Async<'T> = async {
+        try
+            return! query
+        with
+        | InvalidResponseException str ->
+            logger.Error <| sprintf "Invalid response: %s" str
+            return raise (InvalidResponseException str)
+        | InstrumentErrorException [error] ->
+            logger.Error <| sprintf "Instrument error: %A" error
+            return raise (InstrumentErrorException [error])
+        | InstrumentErrorException errors ->
+            "Instrument errors:" :: List.map (sprintf "%A") errors |> String.concat "\n" |> logger.Error
+            return raise (InstrumentErrorException errors) }
+
+
     /// Keys for use with SCPI commands.
     module Key =
         /// SCPI string to query an instrument for its identity, without the trailing
