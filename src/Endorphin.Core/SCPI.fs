@@ -56,6 +56,23 @@ module SCPI =
         else
             String.hexOfBytes arr
 
+    /// The logger for the SCPI module.
+    let private logger = Log.named "SCPI"
+
+    /// Log a message on the logger at DEBUG level, if it's enabled for a write event.
+    let private wdebugf func msg =
+        if not logger.IsDebugEnabled then ()
+        else
+            Log.debugf logger func "Writing bytes: %A" msg
+            Log.debugf logger func "...  and UTF8: %s" <| utf8 msg
+
+    /// Log a message on the logger at DEBUG level, if it's enabled for a received event.
+    let private rdebugf func msg =
+        if not logger.IsDebugEnabled then ()
+        else
+            Log.debugf logger func "Received bytes: %A" msg
+            Log.debugf logger func "...   and UTF8: %s" <| utf8 msg
+
     /// Convert an object to a string using its IScpiFormatable interface if it
     /// implements it, or its System.Object.ToString () method if not.
     let format (value : obj) =
@@ -179,7 +196,9 @@ module SCPI =
     /// e.g., "*RST".
     module Set =
         /// Send a byte array to the instrument verbatim, with no preprocessing.
-        let verbatim str (instrument : IScpiInstrument) = instrument.Write str
+        let verbatim str (instrument : IScpiInstrument) =
+            wdebugf "Set.verbatim" str
+            instrument.Write str
 
         /// Generic write function, which adds a terminator to the byte array, then sends
         /// it to the instrument.
@@ -204,7 +223,11 @@ module SCPI =
     module Query =
         /// Send a byte array to the instrument verbatim, and asynchronously await its
         /// response.  No additional processing happens at either end.
-        let verbatim str (instrument : IScpiInstrument) = instrument.Query str
+        let verbatim str (instrument : IScpiInstrument) = async {
+            do wdebugf "Query.verbatim" str
+            let! response = instrument.Query str
+            do rdebugf "Query.verbatim" response
+            return response }
 
         /// Generic query function for internal use - adds the instrument's terminator
         /// then submits the block.
@@ -408,6 +431,7 @@ module SCPI =
         module Set =
             /// Send a byte array to the instrument verbatim, with no preprocessing.
             let verbatim str (instrument : IScpiInstrument) = async {
+                do wdebugf "Checked.Set.verbatim" str
                 do! instrument.Write str
                 do! errors instrument }
 
@@ -440,7 +464,9 @@ module SCPI =
             /// Send a byte array to the instrument verbatim, and asynchronously await its
             /// response.  No additional processing happens at either end.
             let verbatim str (instrument : IScpiInstrument) = async {
+                do wdebugf "Checked.Query.verbatim" str
                 let! result = instrument.Query str
+                do rdebugf "Checked.Query.verbatim" result
                 do! errors instrument
                 return result }
 

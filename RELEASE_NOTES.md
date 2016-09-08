@@ -1,3 +1,6 @@
+#### 0.3.6 - 2016-09-07
+* Add logging to the SCPI functions.
+
 #### 0.3.5 - 2016-08-10
 * Add SCPI.format for conditionally accessing the IScpiFormatable interface.
 
