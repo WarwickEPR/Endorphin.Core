@@ -2,3 +2,4 @@ FSharp.Core
 log4net
 File:Endorphin.Core.Choice.fs
 File:Endorphin.Core.Control.fs
+File:Endorphin.Core.String.fs

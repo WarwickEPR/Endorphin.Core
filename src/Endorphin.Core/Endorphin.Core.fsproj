@@ -57,6 +57,10 @@
   </Target>
   -->
   <ItemGroup>
+    <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.String.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/Endorphin.Core.String.fs</Link>
+    </Compile>
     <Compile Include="..\..\paket-files\WarwickEPR\Endorphin.Core\src\Endorphin.Core.Choice.fs">
       <Paket>True</Paket>
       <Link>paket-files/Endorphin.Core.Choice.fs</Link>

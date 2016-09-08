@@ -48,12 +48,20 @@ module SCPI =
     let private bytes (str : string) = System.Text.ASCIIEncoding.ASCII.GetBytes str
     /// Convert an array of bytes into a .NET string.
     let private utf8 bytes = System.Text.ASCIIEncoding.ASCII.GetString bytes
+    /// Hex encode and truncate an array of bytes for display as a string of length <= n
+    let private displayBytes n arr =
+        let bytes = n/2
+        if Array.length arr > bytes then
+            Array.truncate (bytes-1) arr |> String.hexOfBytes |> sprintf "%s.."
+        else
+            String.hexOfBytes arr
 
     /// Convert an object to a string using its IScpiFormatable interface if it
     /// implements it, or its System.Object.ToString () method if not.
     let format (value : obj) =
         match value with
         | :? IScpiFormatable as scpi -> scpi.ToScpiString ()
+        | :? (byte[]) as bytes -> displayBytes 30 bytes
         | obj -> obj.ToString ()
 
     /// Keys for use with SCPI commands.
