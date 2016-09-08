@@ -164,7 +164,7 @@ module Visa =
 
             MailboxProcessor.Start (fun (mailbox : MailboxProcessor<Message>) ->
                 /// The log to write commands in the agent to.
-                let log = LogManager.GetLogger instrument.ResourceName
+                let log = LogManager.GetLogger ("Visa." + instrument.ResourceName)
 
                 /// Write a response to the log, whether it succeeded or failed.
                 let logResponse description stringify = function
