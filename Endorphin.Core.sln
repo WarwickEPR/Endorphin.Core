@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Endorphin.Core", "src\Endorphin.Core\Endorphin.Core.fsproj", "{08959479-9989-4EA3-8516-E3A367DD1D22}"
 EndProject
@@ -14,7 +14,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{F25D
 		src\Endorphin.Core.CRC.fs = src\Endorphin.Core.CRC.fs
 		src\Endorphin.Core.Reactive.fs = src\Endorphin.Core.Reactive.fs
 		src\Endorphin.Core.String.fs = src\Endorphin.Core.String.fs
-		src\Endorphin.Core.Units.fs = src\Endorphin.Core.Units.fs
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{B8F11497-0E11-47D8-884A-65D39351F410}"

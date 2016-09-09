@@ -145,6 +145,9 @@ module Units =
     /// Binary bits.
     [<Measure>] type bit
 
+    /// Gause.
+    [<Measure>] type G
+
     /// Number of digital steps.
     [<Measure>] type step
 

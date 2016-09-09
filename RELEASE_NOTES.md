@@ -1,3 +1,6 @@
+#### 0.3.8 - 2016-09-09
+* Add Gauss to units available.
+
 #### 0.3.7 - 2016-09-08
 * Add bytes to SCPI.format
 * Add helpers for instruments to log errors
