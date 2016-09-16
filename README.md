@@ -29,4 +29,8 @@ More documentation to follow...
 - Ben Green
 - Colin Stephen
 
+## Project Lead
+
+- [Dr. Gavin Morley](mailto:gavin.morley@warwick.ac.uk)
+
  [1]: http://www.ni.com/download/ni-visa-15.5/5846/en/
